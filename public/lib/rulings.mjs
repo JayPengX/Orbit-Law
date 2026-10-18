@@ -66,3 +66,24 @@ export const rulingUrl = jid => `https://judgment.judicial.gov.tw/FJUD/data.aspx
 
 // JDoc answers only 00:00–06:00 Taiwan time.
 export const inWindow = (now = new Date()) => (now.getUTCHours() + 8) % 24 < 6;
+
+// 司法院's monthly bulk archives (opendata.judicial.gov.tw, category 051):
+// one RAR of every court's judgments a month. From its resource list, the
+// months as [{ month: 'YYYYMM', id: fileSetId }], newest first.
+export function archiveMonths(resources) {
+  const out = [];
+  for (const d of resources || []) {
+    const m = /^(\d{6})裁判書/.exec(d.title || '');
+    const f = (d.filesets || []).find(x => /rar/i.test(x.resourceFormat || ''));
+    if (m && f) out.push({ month: m[1], id: f.fileSetId });
+  }
+  return out.sort((a, b) => (a.month < b.month ? 1 : -1));
+}
+// The months still to read: not done yet, and inside the kept span.
+export function pendingMonths(months, done = [], now = new Date(), days = KEEP_DAYS) {
+  const cutoff = new Date(now.getTime() - days * 864e5).toISOString().slice(0, 7).replace('-', '');
+  const have = new Set(done);
+  return months.filter(m => !have.has(m.month) && m.month >= cutoff);
+}
+// An archive entry worth reading: a top court's judgment file.
+export const topCourtFile = path => /\.json$/i.test(path) && /最高法院|最高行政法院|憲法法庭/.test(path);

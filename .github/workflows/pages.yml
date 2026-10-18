@@ -1,7 +1,9 @@
 # Tests, builds the law data (全國法規資料庫 + 立法院 bills, never committed),
 # then deploys public/ to GitHub Pages: on every push to main, and once a
 # day at 03:30 Taiwan time, after the ministry's midnight refresh. A failed
-# build deploys nothing, so the site keeps yesterday's data.
+# build deploys nothing, so the site keeps yesterday's data. Extra runs each
+# hour from 00:15 to 05:15 Taiwan time backfill court rulings from 司法院's
+# monthly archives (open only then), a few months a run.
 # One-time setup: Settings -> Pages -> Source: GitHub Actions.
 name: Deploy to Pages
 
@@ -10,6 +12,7 @@ on:
     branches: ['main']
   schedule:
     - cron: '30 19 * * *'
+    - cron: '15 16-21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -42,6 +45,8 @@ jobs:
         run: node scripts/build-data.mjs
       # Court rulings by article: JDoc answers 00:00-06:00 Taiwan time, so the
       # 03:30 run reads it; other runs (and no account yet) carry the last copy.
+      - name: An unpacker for the monthly ruling archives (RAR)
+        run: command -v unrar || sudo apt-get install -y unrar || sudo apt-get install -y libarchive-tools || true
       - name: Build the court rulings
         run: node scripts/build-rulings.mjs
         env:

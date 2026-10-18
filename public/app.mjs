@@ -83,6 +83,8 @@ function topicFor(p, name) {
 const itemTopic = it => topicFor(it.p || '', it.n);
 const rowTopic = row => topicFor(row[0], row[1]);
 const shortName = n => String(n || '').replace(/^中華民國/, '');
+// A law's or regulation's name by its code, in English when it has one.
+const nameOf = (p, fallback = '') => { const r = state.byCode.get(p); return (en && r?.[6]) || shortName(r?.[1] || fallback); };
 
 // ---- Tabs ------------------------------------------------------------------------------
 
@@ -431,7 +433,7 @@ function rulingStrip(law) {
   const n = state.rulingLaws[law.p] || new Set(arts.flatMap(([, l]) => l.map(x => x[0]))).size;
   const sorted = arts.sort((a, b) => b[1].length - a[1].length);
   return h('button', { type: 'button', class: 'lw-strip slate', html: `<b>${W('最高法院判決', 'Top-court rulings')}</b><span>${esc(W(`${n} 則判決引用 ${arts.length} 條`, `${n} cite ${arts.length} articles`))}</span><em>${W('看判決', 'See')}</em>`, onclick: () => {
-    const s = sheet({ title: W(`${shortName(law.n)} · 判決`, `${shortName(law.n)} · rulings`), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${topicTile('justice', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('') }) });
+    const s = sheet({ title: W(`${shortName(law.n)} · 判決`, `${nameOf(law.p, law.n)} · rulings`), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${topicTile('justice', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('') }) });
     s.el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
       if (!b) return;
@@ -446,15 +448,15 @@ function regsStrip(law) {
   const rest = state.deleg.rest;
   const n = new Set([...arts.flatMap(([, l]) => l), ...rest].map(r => r[0])).size;
   if (!n) return null;
-  const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
-  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則依這部法律訂定`, `${n} regulations rest on this law`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
+  const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
+  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則`, `${n} regulations`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
     const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, ''))];
-    regSheet(W(`${shortName(law.n)} · 子法`, `${shortName(law.n)} · rules`), rows.join(''));
+    regSheet(W(`${nameOf(law.p, law.n)} · 子法`, `${nameOf(law.p, law.n)} · rules`), rows.join(''));
   } });
 }
 const artOrder = k => { const [a, b = 0] = k.split('-').map(Number); return a + b / 1000; };
 function regSheet(title, rows) {
-  const s = sheet({ title, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: rows }) });
+  const s = sheet({ title, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet wrap', html: rows }) });
   s.el.addEventListener('click', e => {
     const b = e.target.closest('[data-p]');
     if (!b) return;
@@ -465,13 +467,13 @@ function regSheet(title, rows) {
 function openRegs(k) {
   const list = state.deleg.to[k] || [];
   if (list.length === 1) return go(`law=${list[0][0]}`);
-  regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span></span></button>`).join(''));
+  regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`).join(''));
 }
 // A regulation's 授權依據: the law and article it is made under (a tap: there).
 function basisStrip(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
   if (!from.length) return null;
-  const label = ([p, k]) => `${shortName(state.byCode.get(p)[1])}${k ? (en ? ` Art. ${k}` : artLabel(k)) : ''}`;
+  const label = ([p, k]) => `${nameOf(p)}${k ? (en ? ` Art. ${k}` : artLabel(k)) : ''}`;
   return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('授權依據', 'Made under')}</b><span>${esc(from.slice(0, 2).map(label).join('、') + (from.length > 2 ? W(` 等 ${from.length} 條`, ` +${from.length - 2}`) : ''))}</span><em>${W('看條文', 'Open')}</em>`, onclick: () => {
     if (from.length === 1) return go(`law=${from[0][0]}${from[0][1] ? `&a=${from[0][1]}` : ''}`);
     regSheet(W('授權依據', 'Made under'), from.map(([p, k]) => `<button type="button" class="lw-row" data-p="${esc(p)}" data-k="${esc(k)}">${topicTile(rowTopic(state.byCode.get(p)), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(label([p, k]))}</span></span></button>`).join(''));
@@ -943,11 +945,11 @@ function drawBillList() {
   // Grouped by the step reached, furthest first; held and withdrawn last.
   const groups = new Map();
   for (const it of [...items].sort((a, b) => (a.u < b.u ? 1 : -1))) {
-    const g = it.dropped ? 'dropped' : it.held ? 'held' : String(stepOf(it.stage));
+    const g = billStep === 0 && state.billCounts ? 'filed' : it.dropped ? 'dropped' : it.held ? 'held' : String(stepOf(it.stage));
     groups.set(g, [...(groups.get(g) || []), it]);
   }
-  const order = ['5', '4', '3', '2', '1', '0', 'held', 'dropped'];
-  const title = g => (g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查・協商', 'Committee & talks') : g === '3' ? W('二讀', '2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
+  const order = ['filed', '5', '4', '3', '2', '1', '0', 'held', 'dropped'];
+  const title = g => (g === 'filed' ? W('有新提案等一讀', 'New bills waiting for a 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查・協商', 'Committee & talks') : g === '3' ? W('二讀', '2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
   out.innerHTML = order
     .filter(g => groups.has(g))
     .map(g => {

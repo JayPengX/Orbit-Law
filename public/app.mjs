@@ -54,7 +54,7 @@ async function data(path) {
 const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
-const state = { rulingLaws: {}, lawRulings: {}, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
+const state = { rulingLaws: {}, lawRulings: {}, regLaws: {}, deleg: { to: {}, rest: [], from: [] }, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
 // What's followed: this phone's copy, then the Pass's (merged, written back).
 let pass = null;
 const save = () => {
@@ -66,6 +66,7 @@ const save = () => {
 const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes));
 let itemsReady = Promise.resolve();
 let rulingsReady = Promise.resolve();
+let delegReady = Promise.resolve();
 let ordersReady = Promise.resolve();
 
 // Topics, worked out once per law (by its code) or bill without a law (by name).
@@ -171,6 +172,7 @@ function lawSub(row) {
 }
 // A law's row; the judgments citing it as a tag when nothing else is on the right.
 const lawItem = (row, sub, extra = '', href) => lawRow(row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${state.rulingLaws[row[0]]}</span>` : ''), href });
+const ICON_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>';
 const ICON_GAVEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 6 6M11.5 6.5l6 6M13 5l-5.5 5.5 6 6L19 11M10.5 13.5 4 20"/></svg>';
 const countTag = (n, tone = '') => `<span class="lw-tag${tone ? ` ${tone}` : ''}">${esc(n)}</span>`;
 
@@ -330,6 +332,10 @@ async function openLaw(p, at, find = '') {
     state.lawRulings = {};
     await Promise.race([rulingsReady, new Promise(r => setTimeout(r, 1500))]);
     if (state.rulingLaws[p]) state.lawRulings = (await Promise.race([data(`rulings/${p}.json`).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
+    // 授權: the regulations made under its articles, or (a regulation) what it rests on.
+    state.deleg = { to: {}, rest: [], from: [] };
+    await Promise.race([delegReady, new Promise(r => setTimeout(r, 1500))]);
+    if (state.regLaws[p] || state.byCode.get(p)?.[2] === '命令') state.deleg = { ...state.deleg, ...((await Promise.race([data(`deleg/${p}.json`).catch(() => null), new Promise(r => setTimeout(() => r(null), 2000))])) || {}) };
     state.law = law;
     state.showEn = en && Boolean(state.byCode.get(p)?.[6]);
     addRecent(state.mine, p);
@@ -396,6 +402,8 @@ async function drawLaw() {
     change ? h('button', { type: 'button', class: 'lw-strip green', html: `<b>${W('最近修法', 'Just amended')}</b><span>${esc(changeText(change))}</span><em>${W('看修了什麼', 'What changed')}</em>`, onclick: () => diffSheet(law, change) }) : null,
     live ? h('button', { type: 'button', class: 'lw-strip indigo', html: `<b>${W('立法院審議中', 'In 立法院')}</b><span>${esc([stageShort(live, en), partyText].filter(Boolean).join(' · '))}</span><em>${W('看進度', 'Progress')}</em>${progress(live, en)}`, onclick: () => go(`item=${live.k.replace(':', '-')}`) }) : null,
     draftStrip(law),
+    basisStrip(law),
+    regsStrip(law),
     rulingStrip(law)
   ].filter(Boolean));
   const toc = contents(law).filter(c => c.depth <= 1);
@@ -406,6 +414,11 @@ async function drawLaw() {
   const hint = h('p', { class: 'lw-hint', html: `${ICON_SPARK}<span>${W('點條號可以白話解釋或問 AI；點底線字看引用的條文', 'Tap an article number to explain or ask; tap underlined words to see what they cite')}</span>` });
   // ⚖ 判決 N beside each article the top courts cited.
   for (const [k, list] of Object.entries(state.lawRulings)) body.querySelector(`#a-${CSS.escape(k)} .lw-no`)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul" data-art="${esc(k)}">${ICON_GAVEL}${W(`判決 ${list.length}`, `${list.length} ruling${list.length > 1 ? 's' : ''}`)}</button>`);
+  // 📄 子法 N beside each article that calls for regulations (after any 判決 badge).
+  for (const [k, list] of Object.entries(state.deleg.to)) {
+    const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
+    (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-sub" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
+  }
   panel.replaceChildren(head, find, over, ...[chapters, hint, fw, body].filter(Boolean));
   box.hidden = true;
 }
@@ -426,6 +439,44 @@ function rulingStrip(law) {
     });
   } });
 }
+// 子法: every regulation made under this law, by the article that calls for it.
+function regsStrip(law) {
+  const arts = Object.entries(state.deleg.to).sort((a, b) => artOrder(a[0]) - artOrder(b[0]));
+  const rest = state.deleg.rest;
+  const n = new Set([...arts.flatMap(([, l]) => l), ...rest].map(r => r[0])).size;
+  if (!n) return null;
+  const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
+  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則依這部法律訂定`, `${n} regulations rest on this law`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
+    const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, ''))];
+    regSheet(W(`${shortName(law.n)} · 子法`, `${shortName(law.n)} · rules`), rows.join(''));
+  } });
+}
+const artOrder = k => { const [a, b = 0] = k.split('-').map(Number); return a + b / 1000; };
+function regSheet(title, rows) {
+  const s = sheet({ title, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: rows }) });
+  s.el.addEventListener('click', e => {
+    const b = e.target.closest('[data-p]');
+    if (!b) return;
+    s.close();
+    go(`law=${b.dataset.p}${b.dataset.k ? `&a=${b.dataset.k}` : ''}`);
+  });
+}
+function openRegs(k) {
+  const list = state.deleg.to[k] || [];
+  if (list.length === 1) return go(`law=${list[0][0]}`);
+  regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span></span></button>`).join(''));
+}
+// A regulation's 授權依據: the law and article it is made under (a tap: there).
+function basisStrip(law) {
+  const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
+  if (!from.length) return null;
+  const label = ([p, k]) => `${shortName(state.byCode.get(p)[1])}${k ? (en ? ` Art. ${k}` : artLabel(k)) : ''}`;
+  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('授權依據', 'Made under')}</b><span>${esc(from.slice(0, 2).map(label).join('、') + (from.length > 2 ? W(` 等 ${from.length} 條`, ` +${from.length - 2}`) : ''))}</span><em>${W('看條文', 'Open')}</em>`, onclick: () => {
+    if (from.length === 1) return go(`law=${from[0][0]}${from[0][1] ? `&a=${from[0][1]}` : ''}`);
+    regSheet(W('授權依據', 'Made under'), from.map(([p, k]) => `<button type="button" class="lw-row" data-p="${esc(p)}" data-k="${esc(k)}">${topicTile(rowTopic(state.byCode.get(p)), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(label([p, k]))}</span></span></button>`).join(''));
+  } });
+}
+
 function openRulings(k) {
   const law = state.law;
   const kw = `${law.n.replace(/^中華民國/, '')}第${k.replace('-', '條之')}條`.replace(/條之(\d+)條$/, '條之$1');
@@ -627,6 +678,8 @@ async function copyArticle(k) {
 document.addEventListener('click', e => {
   const pend = e.target.closest('.lw-pending');
   if (pend) return go(`item=${pend.dataset.item}`);
+  const sub = e.target.closest('.lw-sub');
+  if (sub) return openRegs(sub.dataset.art);
   const rul = e.target.closest('.lw-rul');
   if (rul) return openRulings(rul.dataset.art);
   const no = e.target.closest('.lw-no');
@@ -1042,6 +1095,7 @@ async function start() {
       if (state.tab === 'bills') drawBillList();
     })
     .catch(() => {});
+  delegReady = data('deleg.json').then(r => (state.regLaws = r || {})).catch(() => {});
   rulingsReady = data('rulings/laws.json')
     .then(r => {
       state.rulingLaws = r;

@@ -457,3 +457,19 @@ test('rulings: monthly archives, newest first, only months still to read', async
   assert.ok(!topCourtFile('臺灣高等法院民事/x.json'));
   assert.ok(!topCourtFile('最高法院民事/readme.txt'));
 });
+
+test('授權: a regulation rests on the articles its enabling sentence names, and laws list them back', async () => {
+  const { basisOf, delegations, regCount } = await import('../public/lib/deleg.mjs');
+  const names = new Map([['監獄行刑法', 'I0040001'], ['民法', 'B0000001'], ['勞動基準法', 'N0030001']]);
+  assert.deepEqual(basisOf('本細則依監獄行刑法（以下簡稱本法）第一百五十五條規定訂定之。\n家屬：指依民法第一千一百二十二條規定之人。', names), ['I0040001:155']);
+  assert.deepEqual(basisOf('本辦法依勞動基準法第四十五條第四項及第四十九條之一規定訂定之。', names), ['N0030001:45', 'N0030001:49-1']);
+  const rows = [['N0030001', '勞動基準法', '法律'], ['I0040001', '監獄行刑法', '法律']];
+  const d = delegations([
+    { p: 'N0030003', n: '勞工請假規則', a: [['A', '1', '本規則依勞動基準法第四十三條規定訂定之。']] },
+    { p: 'N0030002', n: '勞動基準法施行細則', a: [['A', '1', '本細則所稱…']] }
+  ], names, rows);
+  assert.deepEqual(d.N0030001.to['43'], [['N0030003', '勞工請假規則']]);
+  assert.deepEqual(d.N0030001.rest, [['N0030002', '勞動基準法施行細則']]);
+  assert.deepEqual(d.N0030003.from, [['N0030001', '43']]);
+  assert.equal(regCount(d.N0030001), 2);
+});

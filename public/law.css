@@ -297,6 +297,11 @@
 /* ---- Bills ---- */
 .lw-filters {
   margin: 0 0 10px;
+  gap: 6px;
+}
+/* Five stages' chips fit a 375pt phone, in either language. */
+.lw-filters .q-chip {
+  padding: 0 11px;
 }
 .lw-stages {
   display: inline-flex;
@@ -500,4 +505,9 @@
     width: 32px;
     height: 32px;
   }
+}
+.lw-timeline b a {
+  color: inherit;
+  text-decoration: underline dashed color-mix(in srgb, var(--q-indigo) 70%, transparent);
+  text-underline-offset: 3px;
 }

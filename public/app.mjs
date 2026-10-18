@@ -422,9 +422,9 @@ async function peek(p, from, to, para, { back = false } = {}) {
 // ---- 立法: every law with bills this term ----------------------------------------------
 
 const BILL_FILTERS = [
-  ['notice', W('預告', 'Drafts')],
-  ['moving', W('進行中', 'Moving')],
-  ['talks', W('協商・二讀', 'Floor')],
+  ['notice', W('預告', 'Draft')],
+  ['moving', W('進行中', 'Active')],
+  ['talks', W('協商', 'Floor')],
   ['passed', W('已三讀', 'Passed')],
   ['all', W('全部', 'All')]
 ];
@@ -486,9 +486,9 @@ async function openItem(k) {
   }
   markSeen(state.mine, 'items', k);
   save();
-  const steps = timeline(it, bills, en);
+  const steps = timeline(it, bills, en, state.noticesByLaw.get(it.p));
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
-  const line = h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') });
+  const line = h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') });
   const versions = [...bills].sort((a, b) => (a.u < b.u ? 1 : -1));
   const list = h(
     'div',

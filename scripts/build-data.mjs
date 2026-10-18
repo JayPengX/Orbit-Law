@@ -14,7 +14,7 @@ import { compactLaw, compactEn, indexRow, diffLaws, mergeChanges, CHANGES_DAYS }
 import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
-import { NOTICES_URL, compactNotice, mergeNotices } from '../public/lib/notices.mjs';
+import { noticesUrl, compactNotice, mergeNotices, twDay } from '../public/lib/notices.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON' };
@@ -135,19 +135,37 @@ let noticeNote = 'notices off';
 if (args.notices !== 'off') {
   const prevN = await prevJson('bills/notices.json');
   let fresh = [];
-  try {
-    const r = await fetch(NOTICES_URL, { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)' }, signal: AbortSignal.timeout(60_000) });
+  // Whether the closed ones back to the term's start are all in (once done, daily runs read only the newest).
+  let history = Boolean(prevN?.history);
+  const join = async (type, page) => {
+    const r = await fetch(noticesUrl(type, page), { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)' }, signal: AbortSignal.timeout(90_000) });
     if (!r.ok) throw new Error(`join.gov.tw ${r.status}`);
+    return r.json();
+  };
+  try {
     const names = nameMap(index.laws);
-    fresh = ((await r.json()).result || []).map(x => compactNotice(x, names)).filter(Boolean);
-    noticeNote = `${fresh.length} open 預告 naming a law`;
+    const keep = list => list.map(x => compactNotice(x, names)).filter(Boolean);
+    fresh = keep((await join('nonfinish', 1)).result || []);
+    // Closed ones, newest first, back to a week before the last build (the
+    // first time: back to the start of the current 立法院 term, 2024-02).
+    const since = history && prevN.built ? twDay(new Date(prevN.built).getTime() - 7 * 864e5) : '2024-02-01';
+    let pages = 0;
+    for (let page = 1; page <= 20; page++, pages++) {
+      const list = (await join('history', page)).result || [];
+      fresh.push(...keep(list));
+      if (list.length < 200 || twDay(list[list.length - 1].publishDate) < since) {
+        history = true;
+        break;
+      }
+    }
+    noticeNote = `${fresh.length} 預告 naming a law (open, and closed since ${since}: ${pages + 1} pages)`;
   } catch (e) {
     // join.gov.tw down: last build's list stays.
     noticeNote = `join.gov.tw failed (${e.message}): carried over`;
   }
   const notices = mergeNotices(prevN?.notices, fresh);
   await mkdir(out + 'bills', { recursive: true });
-  await writeFile(out + 'bills/notices.json', JSON.stringify({ built: new Date().toISOString(), notices }));
+  await writeFile(out + 'bills/notices.json', JSON.stringify({ built: new Date().toISOString(), history, notices }));
   noticeNote += `; ${notices.length} kept`;
 }
 console.log(noticeNote);

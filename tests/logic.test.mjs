@@ -262,7 +262,7 @@ test('English: index rows carry MOJ’s English name; search finds it by words',
 });
 
 import { compactNotice, mergeNotices, lawsOfNotice, twDay, isOpen } from '../public/lib/notices.mjs';
-test('預告: drafts naming one of our laws, agency from the title, a year kept', () => {
+test('預告: drafts naming one of our laws, agency from the title, kept for a term', () => {
   const names = new Map([['產業創新條例', 'J1'], ['民法', 'B1']]);
   const law = { policyUid: 'u1', policyTitle: '經濟部公告：預告修正「產業創新條例」第四十三條。', pubGovName: null, publishDate: 1789442998000, offlineDate: 1794671999000 };
   const n = compactNotice(law, names);
@@ -271,7 +271,7 @@ test('預告: drafts naming one of our laws, agency from the title, a year kept'
   assert.equal(compactNotice({ policyUid: 'u3', policyTitle: '法務部公告：預告廢止「民法」' }, names).kind, 'repeal');
   assert.deepEqual(lawsOfNotice('「民法」及「民法」', names), ['B1']);
   assert.equal(twDay(Date.UTC(2026, 9, 18, 17)), '2026-10-19');
-  const old = { ...n, id: 'u0', from: '2025-01-01', to: '2025-02-01' };
+  const old = { ...n, id: 'u0', from: '2022-01-01', to: '2022-02-01' };
   assert.deepEqual(mergeNotices([old, n], [{ ...n, t: 'new' }], new Date('2026-10-18')).map(x => x.t), ['new']);
   assert.ok(isOpen(n, '2026-11-14') && !isOpen(n, '2026-11-15'));
 });
@@ -298,4 +298,18 @@ test('peek trail: a replaced sheet closing late keeps the trail; back walks it; 
   assert.equal(t.length, 1);
   t.closed(a2);
   assert.equal(t.length, 0);
+});
+
+import { noticeBefore } from '../public/lib/notices.mjs';
+test('預告 on the timeline: the latest draft before the round, within two years', () => {
+  const ns = [{ id: 'a', from: '2025-01-10', t: 'x', gov: '經濟部' }, { id: 'b', from: '2025-06-01', t: 'y', gov: '經濟部' }, { id: 'c', from: '2026-01-01', t: 'z', gov: '經濟部' }];
+  assert.equal(noticeBefore(ns, '2025-09-01').id, 'b');
+  assert.equal(noticeBefore(ns, '2024-12-01'), null);
+  assert.equal(noticeBefore(ns, '2028-01-02'), null);
+  assert.equal(noticeBefore(ns, ''), null);
+  const it = { stage: 1, open: true };
+  const bills = [{ d: '2025-09-01', flow: [['2025-09-05', 1, '一讀']] }];
+  const steps = timeline(it, bills, false, ns);
+  assert.deepEqual([steps[0].name, steps[0].date, steps[0].stage, steps[1].name], ['預告', '2025-06-01', -1, '提案']);
+  assert.equal(timeline(it, bills, false, []).length, 8);
 });

@@ -4,6 +4,7 @@
 import { linkText, paragraphs, interpLinks } from './refs.mjs';
 import { STAGES, STAGES_EN, PASSED, PROMULGATED, stageOf, openRound } from './bills.mjs';
 import { headingDepth, ymd } from './search.mjs';
+import { noticeBefore, noticeUrl } from './notices.mjs';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -91,7 +92,9 @@ export function stageLabel(item, en = false) {
 
 // A bill item's timeline: the first day each stage was reached, across
 // the versions in the open round (else all of them, 總統公布 from the MOJ copy).
-export function timeline(item, all, en = false) {
+// `notices`: the law's 預告 (join.gov.tw); the one before the round's first
+// proposal goes first, as the step before 提案 (stage -1, with its link).
+export function timeline(item, all, en = false, notices = []) {
   const round = openRound(all);
   const bills = round.length ? round : all;
   const first = new Map();
@@ -100,7 +103,9 @@ export function timeline(item, all, en = false) {
   const proposed = bills.map(b => b.d).filter(Boolean).sort()[0];
   if (proposed && !first.has(0)) first.set(0, { d: proposed, raw: '' });
   const names = en ? STAGES_EN : STAGES;
-  return names.map((n, i) => ({ stage: i, name: n, date: first.get(i)?.d || '', raw: first.get(i)?.raw || '', done: i <= item.stage }));
+  const steps = names.map((n, i) => ({ stage: i, name: n, date: first.get(i)?.d || '', raw: first.get(i)?.raw || '', done: i <= item.stage }));
+  const draft = noticeBefore(notices, first.get(0)?.d);
+  return draft ? [{ stage: -1, name: en ? 'Draft posted' : '預告', date: draft.from, raw: draft.t, done: true, url: noticeUrl(draft.id), by: draft.gov }, ...steps] : steps;
 }
 
 export const PASSED_STAGE = PASSED;

@@ -3,8 +3,10 @@
 // 行政院 sends it to 立法院. Fetched at build time (the site sends no CORS
 // header) and kept only when the draft names a law this app has.
 
-export const NOTICES_URL = 'https://join.gov.tw/policies/search?page=1&size=200&type=nonfinish&sort=publishDate,desc';
-export const KEEP_DAYS = 365;
+// type: nonfinish (open now) or history (closed), newest first, 200 a page.
+export const noticesUrl = (type = 'nonfinish', page = 1) => `https://join.gov.tw/policies/search?page=${page}&size=200&type=${type}&sort=publishDate,desc`;
+// About one 立法院 term: a draft's 預告 step stays on its bill's timeline.
+export const KEEP_DAYS = 4 * 365;
 export const noticeUrl = id => `https://join.gov.tw/policies/detail/${id}`;
 
 // Epoch ms → the Taiwan day, YYYY-MM-DD.
@@ -28,7 +30,7 @@ export function compactNotice(r, names) {
   if (!r.policyUid || !laws.length) return null;
   const cut = title.match(/^(.+?)公告[：:]\s*(.+)$/);
   const t = cut ? cut[2] : title;
-  return { id: r.policyUid, t, gov: r.pubGovName || (cut ? cut[1] : ''), from: twDay(r.publishDate), to: twDay(r.offlineDate), laws, kind: /預告廢止/.test(t) ? 'repeal' : /預告(?:訂定|制定)/.test(t) ? 'new' : 'amend' };
+  return { id: r.policyUid, t, gov: r.pubGovName || (cut ? cut[1] : '') || r.undertakeGov || '', from: twDay(r.publishDate), to: twDay(r.offlineDate), laws, kind: /預告廢止/.test(t) ? 'repeal' : /預告(?:訂定|制定)/.test(t) ? 'new' : 'amend' };
 }
 
 // The kept list: fresh ones over last build's, a year back by the comment
@@ -38,6 +40,14 @@ export function mergeNotices(prev, fresh, now = new Date(), days = KEEP_DAYS) {
   const by = new Map();
   for (const n of [...fresh, ...(prev || [])]) if (n?.id && !by.has(n.id) && n.to >= cutoff) by.set(n.id, n);
   return [...by.values()].sort((a, b) => (a.from < b.from ? 1 : a.from > b.from ? -1 : 0));
+}
+
+// The 預告 that led to a round of bills: the latest draft of the law posted
+// on or before the round's first proposal, within two years of it.
+export function noticeBefore(notices, proposed) {
+  if (!proposed) return null;
+  const earliest = `${Number(proposed.slice(0, 4)) - 2}${proposed.slice(4)}`;
+  return (notices || []).filter(n => n.from && n.from <= proposed && n.from >= earliest).sort((a, b) => (a.from < b.from ? 1 : -1))[0] || null;
 }
 
 // Still open for comment on `day` (YYYY-MM-DD, Taiwan).

@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import { artKey, pcodeOf, compactLaw, diffLaws, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
 import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
+import { timeline, articleHtml, articlesBetween, contents } from '../public/lib/view.mjs';
+import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
+import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
 
 const law = (p, n, arts, m = '20260101') => ({ p, n, m, a: arts.map(([k, t]) => ['A', k, t]) });
 
@@ -97,12 +100,16 @@ test('bills: every version on one law in a term is one item; 三讀 then the MOJ
   assert.equal(billStage(c).dropped, true);
   const [item, ...rest] = foldBills([a, b, c, d], { pcodes: new Map([['甲法', 'P1']]) });
   assert.equal(rest.length, 0, 'the title names the same law');
-  assert.deepEqual([item.n, item.p, item.stage, item.passed, item.open, item.count, item.gov], ['甲法', 'P1', PASSED, '2026-03-01', 2, 4, true]);
+  assert.deepEqual([item.n, item.p, item.stage, item.passed, item.open, item.count, item.gov], ['甲法', 'P1', PASSED, '2026-03-01', 0, 4, true]);
   const [pub] = foldBills([a, b], { pcodes: new Map([['甲法', 'P1']]), modified: new Map([['P1', '20260320']]) });
   assert.deepEqual([pub.stage, pub.pub], [PROMULGATED, '20260320']);
   const [old] = foldBills([a, b], { pcodes: new Map([['甲法', 'P1']]), modified: new Map([['P1', '20250101']]) });
   assert.equal(old.stage, PASSED, 'an MOJ copy older than the vote is not the new law');
   assert.equal(foldBills([c])[0].dropped, true);
+  // After the 三讀, a new version moving again is this term's open round.
+  const e = compactBill(raw('5', { 最新進度日期: '2026-05-01', 議案流程: [{ 狀態: '黨團協商', 日期: ['2026-04-01'] }] }));
+  const [again] = foldBills([a, b, e], { pcodes: new Map([['甲法', 'P1']]), modified: new Map([['P1', '20260320']]) });
+  assert.deepEqual([again.stage, again.open, again.pub], [4, 1, '20260320'], 'a quiet version from before the vote is not open');
 });
 
 test('bills: titles name their law; merge keeps the newest; changed since last look', () => {
@@ -111,4 +118,48 @@ test('bills: titles name their law; merge keeps the newest; changed since last l
   assert.equal(lawOfTitle('寵物食品安全管理法草案'), '寵物食品安全管理法');
   assert.deepEqual(mergeBills([{ id: '1', u: 'a' }, { id: '2', u: 'a' }], [{ id: '1', u: 'b' }]).map(b => b.u), ['b', 'a']);
   assert.deepEqual(changedSince([{ k: 'x', u: '2026-02-01' }, { k: 'y', u: '2026-01-01' }], { x: '2026-01-15', y: '2026-01-01' }).map(i => i.k), ['x']);
+});
+
+test('search: names, short names, characters in order, jumps to an article', () => {
+  const rows = [['B1', '民法', '法律', '', '', 0], ['B2', '民事訴訟法', '法律', '', '', 0], ['B3', '個人資料保護法', '法律', '', '', 0], ['C1', '中華民國刑法', '法律', '', '', 0], ['X', '民事舊法', '法律', '', '', 1]];
+  assert.equal(searchLaws(rows, '民法')[0][1], '民法');
+  assert.equal(searchLaws(rows, '民訴')[0][1], '民事訴訟法');
+  assert.equal(searchLaws(rows, '個資')[0][1], '個人資料保護法');
+  assert.equal(searchLaws(rows, '刑法')[0][1], '中華民國刑法');
+  assert.equal(searchLaws(rows, '民事').pop()[1], '民事舊法', 'repealed laws last');
+  assert.deepEqual([parseJump(rows, '民法184').row[0], parseJump(rows, '民法184').key], ['B1', '184']);
+  assert.equal(parseJump(rows, '刑法第十條之一').key, '10-1');
+  assert.equal(parseJump(rows, '民訴 24-1').key, '24-1');
+  assert.equal(parseJump(rows, '民法'), null);
+  assert.equal(headingDepth('第 一 編 總則'), 0);
+  assert.equal(headingDepth('   第 三 節 意思表示'), 2);
+});
+
+test('view: article links carry their target; ranges; contents; the open round timeline', () => {
+  const l = { p: 'B1', a: [['C', '', '第 一 章 法例'], ['A', '1', '甲。'], ['A', '2', '依第一條及民法第三條規定。\n前項情形。'], ['A', '3', '丙。']] };
+  const html = articleHtml(l.a[2], { names: new Map([['民法', 'B1']]), keys: ['1', '2', '3'], p: 'B1' });
+  assert.match(html, /data-law="B1" data-from="1"/);
+  assert.match(html, /class="lw-ref para"[^>]*data-para="1"/);
+  assert.deepEqual(articlesBetween(l, '1', '3').map(a => a[1]), ['1', '2', '3']);
+  assert.deepEqual(articlesBetween(l, '9'), []);
+  assert.deepEqual(contents(l), [{ id: 'h-0', title: '第 一 章 法例', depth: 1, first: '1' }]);
+  assert.doesNotMatch(articleHtml(['A', '1', '<b>'], {}), /<b>/, 'text is escaped');
+  const a = compactBill(raw('1'));
+  const t = timeline({ stage: 1, pub: '' }, [a]);
+  assert.deepEqual(t.slice(0, 3).map(s => [s.name, s.date, s.done]), [['提案', '2026-01-01', true], ['一讀', '2026-01-02', true], ['委員會審查', '', false]]);
+});
+
+test('store: follow, bookmarks, recent; followed laws amended since last look', () => {
+  const mem = new Map();
+  const store = { getItem: k => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v) };
+  const mine = loadMine(store);
+  assert.equal(toggleFollow(mine, 'laws', 'B1', new Date('2026-10-01T00:00:00Z')), true);
+  assert.deepEqual(lawsChanged(mine, { items: [{ p: 'B1', seen: '2026-10-05' }, { p: 'B2', seen: '2026-10-05' }, { p: 'B1', seen: '2026-09-01' }] }).length, 1);
+  assert.equal(toggleMark(mine, 'B1', '184'), true);
+  assert.equal(isMarked(mine, 'B1', '184'), true);
+  addRecent(mine, 'B2');
+  addRecent(mine, 'B1');
+  addRecent(mine, 'B2');
+  assert.deepEqual(mine.recent, ['B2', 'B1']);
+  assert.deepEqual(loadMine({ getItem: () => '{bad' }).marks, [], 'a broken copy reads empty');
 });

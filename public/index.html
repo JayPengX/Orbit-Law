@@ -1,13 +1,57 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="dark">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
 <meta name="build-version" content="dev" />
+<!-- brand: Shared-Proxy/brand/generate.mjs writes this block -->
 <title>Orbit Law</title>
+<meta name="description" content="台灣的法規，每個條號都能點；立法院的法案，走到哪一步一眼就懂。" />
+<meta name="application-name" content="Orbit Law" />
+<meta name="apple-mobile-web-app-title" content="Law" />
+<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Orbit" />
+<meta property="og:title" content="Orbit Law" />
+<meta property="og:description" content="台灣的法規，每個條號都能點；立法院的法案，走到哪一步一眼就懂。" />
+<meta property="og:url" content="https://jaypengx.github.io/Orbit-Law/" />
+<meta property="og:locale" content="zh_TW" />
+<!-- /brand -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<!-- kit:head: where the app's stylesheets end, before any module. The kit
+     comes from one place for every app (Shared-Proxy's GitHub Pages, same
+     site as the apps), at the version this device last saw (quadra.kit, noted
+     by the kit itself, quadra.mjs kitLatest), so a change to the kit is one push to
+     Shared-Proxy and every app has it the next time it's opened. -->
+<script>!function(b,v,q,m,f,i){try{v=localStorage.getItem('quadra.kit')||''}catch(e){v=''}q=v?'?v='+encodeURIComponent(v):'';m={'#kit/':b};f=['brand.mjs','catalog.mjs','devconfig.mjs','f1live.mjs','help.mjs','holidays.mjs','logos.mjs','mirror.mjs','names.mjs','pass-sync.mjs','pass.mjs','photo-urls.mjs','photos.mjs','play-bets.mjs','play-board.mjs','play-cashout.mjs','play-house.mjs','play-kambi.mjs','play-lines.mjs','play-live.mjs','play-lottery.mjs','play-markets.mjs','play-odds.mjs','play-offers.mjs','play-players.mjs','play-propmodel.mjs','play-props.mjs','play-rules.mjs','play-schedules.mjs','play-scratch.mjs','play-sources.mjs','play-teams.mjs','plus.mjs','postseason.mjs','quadra.mjs','settle.mjs','sports-broadcast.mjs','sports-highlights.mjs','sports-winprob.mjs','stock-account.mjs','stock-bonds.mjs','stock-codec.mjs','stock-credit.mjs','stock-holidays.mjs','stock-ipo.mjs','stock-markets.mjs','stock-quotes.mjs','stock-savings.mjs','truth.mjs','ui.mjs'];for(i=0;i<f.length;i++)m['#kit/'+f[i]]=b+f[i]+q;window.QUADRA_KIT={base:b,version:v,url:function(x){return b+x+q}};document.write('<script type="import'+'map">'+JSON.stringify({imports:m})+'<\/script><link rel="stylesheet" href="'+b+'quadra.css'+q+'"><link rel="modulepreload" href="'+b+'quadra.mjs'+q+'"><link rel="modulepreload" href="'+b+'brand.mjs'+q+'">')}('../Shared-Proxy/kit/')</script>
+<!-- /kit:head -->
+<link rel="stylesheet" href="./law.css" />
 </head>
-<body style="background:#000;color:#fff;font:17px -apple-system,system-ui,sans-serif;padding:40px 16px">
-<h1>Orbit Law</h1>
-<p>法規與立法進度，即將上線。</p>
+<body>
+<div id="loading" data-title="Orbit Law" data-cache="orbit-law-"></div>
+<!-- kit:boot: right after <div id="loading">. -->
+<script>document.write('<script src="'+QUADRA_KIT.url('boot.js')+'"><\/script>')</script>
+<!-- /kit:boot -->
+<header class="q-appbar">
+  <div class="q-appbar-inner">
+    <div class="q-brand">
+      <img class="q-brand-logo" src="./favicon.svg" alt="" width="34" height="34" />
+      <div class="q-brand-text">
+        <h1 id="title">Orbit Law</h1>
+      </div>
+    </div>
+    <nav id="tabs" class="q-tabbar" role="tablist"></nav>
+  </div>
+</header>
+<main>
+  <section id="panel-laws" class="lw-panel"></section>
+  <section id="panel-bills" class="lw-panel" hidden></section>
+  <section id="panel-mine" class="lw-panel" hidden></section>
+</main>
+<script type="module" src="./app.mjs" onerror="window.__fxFail&&window.__fxFail()"></script>
 </body>
 </html>

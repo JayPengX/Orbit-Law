@@ -91,11 +91,12 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
   return [...items.values()].map(it => {
     const live = it.bills.filter(b => !billStage(b).dropped);
     const passed = it.bills.map(passedOn).sort().pop() || '';
-    let stage = Math.max(-1, ...live.map(b => billStage(b).stage));
+    // This term's open round: live versions not passed and still moving after
+    // the last 三讀 (the ones that went quiet before it were folded into it or left behind).
+    const open = openRound(it.bills, passed);
     const ymd = passed.replaceAll('-', '');
     const promulgated = Boolean(passed && it.p && (modified.get(it.p) || '') >= ymd);
-    if (promulgated) stage = Math.max(stage, PROMULGATED);
-    const open = live.filter(b => !passedOn(b)).length;
+    let stage = open.length ? Math.max(...open.map(b => billStage(b).stage)) : passed ? (promulgated ? PROMULGATED : PASSED) : Math.max(-1, ...live.map(b => billStage(b).stage));
     const u = it.bills.map(b => b.u).sort().pop() || '';
     return {
       k: it.k,
@@ -104,17 +105,22 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
       p: it.p,
       term: it.term,
       stage,
-      held: live.length > 0 && live.every(b => billStage(b).held),
+      held: open.length > 0 && open.every(b => billStage(b).held),
       dropped: live.length === 0,
       passed,
       pub: promulgated ? modified.get(it.p) : '',
-      open,
+      open: open.length,
       count: it.bills.length,
       gov: it.bills.some(b => b.src === '政府'),
       u,
       ids: it.bills.map(b => b.id)
     };
   });
+}
+
+// The versions still in play: live, not passed, and moving after the last 三讀.
+export function openRound(bills, passed = bills.map(passedOn).sort().pop() || '') {
+  return bills.filter(b => !billStage(b).dropped && !passedOn(b) && (!passed || b.u > passed));
 }
 
 // "What changed since you last looked": the items whose 最新進度日期 is

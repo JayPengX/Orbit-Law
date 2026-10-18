@@ -1,0 +1,14 @@
+{
+  "id": "orbit-law",
+  "name": "Orbit Law",
+  "short_name": "Law",
+  "description": "台灣的法規，每個條號都能點；立法院的法案，走到哪一步一眼就懂。",
+  "lang": "zh-Hant-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

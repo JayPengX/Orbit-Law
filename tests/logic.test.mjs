@@ -331,3 +331,10 @@ test('links in a regulation: 本法 is its law, 本細則 is itself', () => {
   assert.deepEqual(s.map(x => [x.law, x.from]), [['N1', '70'], ['', '2'], ['', '3']]);
   assert.deepEqual(linkText('本法第七十條', { names }).filter(x => typeof x === 'object').map(x => x.law), ['']);
 });
+
+import { diffTexts } from '../public/lib/data.mjs';
+test('修正 texts: old and new per changed article', () => {
+  const a = { p: 'B1', m: '1', a: [['A', '1', 'old one'], ['A', '2', 'same'], ['A', '3', 'gone']] };
+  const b = { p: 'B1', m: '2', a: [['A', '1', 'new one'], ['A', '2', 'same'], ['A', '4', 'added']] };
+  assert.deepEqual(diffTexts(a, b), { p: 'B1', m: '2', was: '1', arts: { 4: [null, 'added'], 1: ['old one', 'new one'], 3: ['gone', null] } });
+});

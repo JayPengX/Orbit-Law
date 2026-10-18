@@ -68,6 +68,15 @@ export function diffLaws(oldLaw, law) {
   return { p: law.p, n: law.n, m: law.m, was: oldLaw?.m || '', added: oldLaw ? added : [], amended, removed, seen: '' };
 }
 
+// The texts behind a diff, for 修正 explained (AI) and side by side:
+// { p, m, was, arts: { key: [old or null, new or null] } }.
+export function diffTexts(oldLaw, law, d = diffLaws(oldLaw, law)) {
+  const text = (l, k) => l?.a.find(a => a[0] === 'A' && a[1] === k)?.[2] ?? null;
+  const arts = {};
+  for (const k of [...d.added, ...d.amended, ...d.removed]) arts[k] = [text(oldLaw, k), text(law, k)];
+  return { p: law.p, m: law.m, was: d.was, arts };
+}
+
 // The running 修法追蹤 list: new findings first (stamped with the build
 // day), one entry per law and 異動日期, older than `days` dropped.
 export function mergeChanges(prev, found, now = new Date(), days = CHANGES_DAYS) {

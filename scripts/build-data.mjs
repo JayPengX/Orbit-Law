@@ -11,7 +11,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { compactLaw, compactEn, indexRow, diffLaws, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
+import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
 import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
@@ -113,6 +113,8 @@ const prevIndex = await prevJson('index.json');
 const prevChanges = (await prevJson('changes.json')) || { items: [] };
 const prevOrders = orders.length ? await prevJson('orders.json') : null;
 let found = [];
+// data/diff/<p>.json: the latest amendment's old and new texts, per law in 修法追蹤.
+const diffs = new Map();
 if (prevIndex?.laws) {
   const before = new Map(prevIndex.laws.map(r => [r[0], r]));
   // Regulations count once a previous copy of theirs is out there (not on their first day).
@@ -121,11 +123,22 @@ if (prevIndex?.laws) {
     const old = before.get(law.p);
     if (old && old[4] === law.m) continue;
     const oldLaw = old ? await prevJson(`law/${law.p}.json`) : null;
-    found.push(diffLaws(oldLaw, law));
+    const d = diffLaws(oldLaw, law);
+    found.push(d);
+    if (oldLaw) diffs.set(law.p, diffTexts(oldLaw, law, d));
   }
 }
 const changes = mergeChanges(prevChanges, found, new Date(), CHANGES_DAYS);
 await writeFile(out + 'changes.json', JSON.stringify(changes));
+await mkdir(out + 'diff', { recursive: true });
+for (const it of changes.items) {
+  if (!diffs.has(it.p) && it.was) {
+    // Found on an earlier day: last deploy's copy, if it is this version's.
+    const d = await prevJson(`diff/${it.p}.json`);
+    if (d?.m === it.m) diffs.set(it.p, d);
+  }
+}
+for (const [p, d] of diffs) await writeFile(`${out}diff/${p}.json`, JSON.stringify(d));
 
 // ---- Bills ----
 const LY = 'https://v2.ly.govapi.tw/bills';

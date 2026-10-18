@@ -40,6 +40,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <link rel="manifest" href="./manifest.webmanifest" />
+<!-- The laws' index, fetched while the kit and app modules load. -->
+<link rel="preload" href="./data/index.json" as="fetch" crossorigin />
 <!-- kit:head: where the app's stylesheets end, before any module. The kit
      comes from one place for every app (Shared-Proxy's GitHub Pages, same
      site as the apps), at the version this device last saw (quadra.kit, noted

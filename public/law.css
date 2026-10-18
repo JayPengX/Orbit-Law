@@ -72,8 +72,12 @@
   overflow: hidden;
 }
 .lw-title small {
+  display: block;
+  overflow: hidden;
   color: var(--q-label-2);
   font: var(--q-t-caption);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .lw-banner {

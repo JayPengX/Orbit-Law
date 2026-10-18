@@ -27,7 +27,7 @@ test('a MOJ record is made small: headings, keys, clean lines', () => {
   const l = compactLaw({ LawURL: 'x?pcode=C0000001', LawName: '中華民國刑法 ', LawLevel: '法律', LawModifiedDate: '20250101', LawArticles: [{ ArticleType: 'C', ArticleNo: '', ArticleContent: '   第 一 章 法例' }, { ArticleType: 'A', ArticleNo: '第 2 條', ArticleContent: '一。  \r\n二。\r\n' }] });
   assert.equal(l.n, '中華民國刑法');
   assert.deepEqual(l.a, [['C', '', '第 一 章 法例'], ['A', '2', '一。\n二。']]);
-  assert.deepEqual(indexRow(l, true), ['C0000001', '中華民國刑法', '法律', '', '20250101', 0, 1, 1]);
+  assert.deepEqual(indexRow(l, 'Criminal Code'), ['C0000001', '中華民國刑法', '法律', '', '20250101', 0, 'Criminal Code', 1]);
   assert.equal(compactLaw({ LawName: 'x' }), null, 'no pcode, no law');
 });
 
@@ -249,4 +249,14 @@ test('cross-links: 大法官解釋 out to 憲法法庭, a law with its 施行法
   const mine = { laws: { B1: '2026-10-01' }, items: { 'x:1': '2026-10-01', 'x:2': '2026-10-10' } };
   const items = [{ k: 'x:1', u: '2026-10-05' }, { k: 'x:2', u: '2026-10-05' }, { k: 'x:3', u: '2026-10-09' }];
   assert.equal(newCount(mine, items, { items: [{ p: 'B1', seen: '2026-10-02' }, { p: 'B9', seen: '2026-10-02' }] }), 2);
+});
+
+test('English: index rows carry MOJ’s English name; search finds it by words', () => {
+  const law = { p: 'B1', n: '民法', l: '法律', c: '法務部', m: '20260817', a: [['A', '1', 'x']] };
+  assert.equal(indexRow(law, 'Civil Code')[6], 'Civil Code');
+  assert.equal(indexRow(law)[6], 0);
+  const rows = [['B1', '民法', 0, 0, 0, 0, 'Civil Code'], ['B2', '民事訴訟法', 0, 0, 0, 0, 'Code of Civil Procedure'], ['C1', '勞動基準法', 0, 0, 0, 0, 0]];
+  assert.deepEqual(searchLaws(rows, 'civil').map(r => r[0]), ['B1', 'B2']);
+  assert.deepEqual(searchLaws(rows, 'Civil Code').map(r => r[0]), ['B1']);
+  assert.deepEqual(searchLaws(rows, 'ci'), []);
 });

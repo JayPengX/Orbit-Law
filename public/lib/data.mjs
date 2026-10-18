@@ -49,7 +49,8 @@ export function compactEn(l) {
   };
 }
 
-export const indexRow = (law, hasEn) => [law.p, law.n, law.l, law.c, law.m, law.ab ? 1 : 0, hasEn ? 1 : 0, law.a.filter(a => a[0] === 'A').length];
+// [6]: the English name when MOJ has a translation, else 0.
+export const indexRow = (law, enName) => [law.p, law.n, law.l, law.c, law.m, law.ab ? 1 : 0, enName || 0, law.a.filter(a => a[0] === 'A').length];
 
 // What an amendment did, article by article: { p, n, m, was (the old
 // 異動日期, '' when the law is new), added, amended, removed } (article keys).

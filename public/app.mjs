@@ -103,8 +103,10 @@ const COMMON = ['中華民國憲法', '民法', '中華民國刑法', '民事訴
 const box = search({ placeholder: W('法規名稱，或「民法184」', 'Law name, or 民法184'), onInput: v => ((state.query = v), drawResults()), onSubmit: v => jump(v) });
 
 function lawCell(row, sub = '') {
-  const [p, n, , cat, m, gone] = row;
-  return `<a class="q-cell chevron lw-law" href="#law=${esc(p)}"><span class="q-cell-text"><span>${esc(n)}</span><small>${esc(sub || [cat.split('＞').pop(), m && `${W('修正', 'Amended')} ${ymd(m)}`].filter(Boolean).join('・'))}${gone ? ` ・${W('已廢止', 'Repealed')}` : ''}</small></span></a>`;
+  const [p, n, , cat, m, gone, enName] = row;
+  // In English: the law's English name (MOJ's translation) in place of its 主管機關 category.
+  const what = en ? (typeof enName === 'string' ? enName : '') : cat.split('＞').pop();
+  return `<a class="q-cell chevron lw-law" href="#law=${esc(p)}"><span class="q-cell-text"><span>${esc(n)}</span><small>${esc(sub || [what, m && `${W('修正', 'Rev.')} ${ymd(m)}`].filter(Boolean).join('・'))}${gone ? ` ・${W('已廢止', 'Repealed')}` : ''}</small></span></a>`;
 }
 const group = (head, cells) => (cells.length ? `<section class="q-list-group">${head ? `<h3 class="q-list-head">${esc(head)}</h3>` : ''}<div class="q-list">${cells.join('')}</div></section>` : '');
 
@@ -219,7 +221,7 @@ async function drawLaw() {
   const followed = Boolean(state.mine.laws[law.p]);
   const head = h('div', { class: 'lw-bar' }, [
     h('button', { class: 'lw-back', type: 'button', 'aria-label': W('返回', 'Back'), html: '<svg viewBox="0 0 12 20"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>', onclick: () => (history.length > 1 && location.hash ? history.back() : go('')) }),
-    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [law.l === '憲法' && W('憲法', 'Constitution'), law.m && `${W('修正', 'Amended')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
+    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [law.l === '憲法' && W('憲法', 'Constitution'), law.m && `${W('修正', 'Rev.')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
     h('div', { class: 'lw-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('找條文', 'Find'), html: ICON.find, onclick: () => toggleFind() }),
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('目錄', 'Contents'), html: ICON.list, onclick: () => showContents(law) }),

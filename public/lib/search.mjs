@@ -8,6 +8,10 @@ const subseq = (q, s) => {
   for (const ch of s) if (ch === q[i] && ++i === q.length) return true;
   return false;
 };
+const enMatch = (name, query) => {
+  const n = name.toLowerCase(), q = String(query).trim().toLowerCase().replace(/\s+/g, ' ');
+  return q.length < 3 ? -1 : n === q ? 0 : n.startsWith(q) ? 2 : n.includes(q) ? 3 : -1;
+};
 const tidy = q => String(q || '').replace(/[\s　「」『』]/g, '');
 
 // rows: the index's [p, n, l, c, m, abandoned, …]. Best first: exact, short
@@ -20,6 +24,8 @@ export function searchLaws(rows, query, limit = 50) {
   for (const r of rows) {
     const n = r[1];
     let s = n === q ? 0 : n === full ? 1 : n.startsWith(q) ? 2 : n.includes(q) ? 3 : q.length >= 2 && subseq(q, n) ? 4 : -1;
+    // An English name (index [6]), words in any case: 'civil code', 'labor'.
+    if (s < 0 && typeof r[6] === 'string' && /[a-z]/i.test(q)) s = enMatch(r[6], query);
     if (s < 0) continue;
     scored.push([s + (r[5] ? 10 : 0), n.length, r]);
   }

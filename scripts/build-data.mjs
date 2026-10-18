@@ -64,7 +64,7 @@ for (const law of laws) {
 }
 // 全文檢索: the bigram buckets, in the index's order.
 for (const [b, pairs] of buildIndex(laws)) await writeFile(`${out}text/${b}.json`, JSON.stringify(pairs));
-const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.has(l.p))) };
+const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.get(l.p)?.n)) };
 await writeFile(out + 'index.json', JSON.stringify(index));
 
 // 修法追蹤: the laws whose 異動日期 moved since the last deploy, article by

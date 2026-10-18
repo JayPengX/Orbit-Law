@@ -53,6 +53,15 @@ export function byLaw(rulings, cap = KEEP_PER_ARTICLE) {
   return out;
 }
 
+// How many judgments cite each law (laws.json: a count on its rows).
+export function lawCounts(rulings) {
+  const out = {};
+  for (const [, , , cites] of rulings) for (const p of new Set(cites.map(c => c.slice(0, c.indexOf(':'))))) out[p] = (out[p] || 0) + 1;
+  return out;
+}
+// The newest few, with the first articles each cites (首頁's 最新判決).
+export const latestRulings = (rulings, n = 10) => rulings.slice(0, n).map(([jid, d, t, cites]) => [jid, d, t, cites.slice(0, 4)]);
+
 export const rulingUrl = jid => `https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id=${encodeURIComponent(jid)}`;
 
 // JDoc answers only 00:00–06:00 Taiwan time.

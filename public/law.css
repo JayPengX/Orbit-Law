@@ -1635,3 +1635,61 @@
   font: 700 22px/28px var(--q-font);
   overflow-wrap: anywhere;
 }
+
+/* ---- Court rulings: the tag, the article's badge, home's cards ---- */
+.lw-tag.court {
+  gap: 3px;
+  background: color-mix(in srgb, #64748b 16%, transparent);
+  color: var(--q-label-2);
+  font-variant-numeric: tabular-nums;
+}
+.lw-tag.court svg,
+.lw-rul svg {
+  width: 12px;
+  height: 12px;
+}
+.lw-rul {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, #64748b 18%, transparent);
+  color: var(--q-label);
+  font: 600 12px/1 var(--q-font);
+  vertical-align: 2px;
+  cursor: pointer;
+}
+.lw-strip.slate {
+  --c: #64748b;
+}
+.lw-bill-stage.court {
+  color: var(--q-label);
+}
+.lw-ruling .lw-bill-name {
+  color: var(--q-label);
+  text-decoration: none;
+}
+.lw-cites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.lw-cites .lw-cite {
+  margin: 0;
+}
+.lw-list.in-sheet {
+  margin-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: var(--q-sheet-cell, var(--q-surface));
+}
+button.lw-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

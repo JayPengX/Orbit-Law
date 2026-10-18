@@ -8,7 +8,7 @@
 //   node scripts/build-rulings.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
-import { courtOf, compactRuling, mergeRulings, byLaw, inWindow } from '../public/lib/rulings.mjs';
+import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings } from '../public/lib/rulings.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
@@ -81,5 +81,7 @@ await mkdir(out, { recursive: true });
 await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), rulings }));
 const laws = byLaw(rulings);
 for (const [p, arts] of Object.entries(laws)) await writeFile(`${out}${p}.json`, JSON.stringify(arts));
-await writeFile(out + 'laws.json', JSON.stringify(Object.fromEntries(Object.entries(laws).map(([p, a]) => [p, Object.keys(a).length]))));
+// Per law, how many judgments cite it; and the newest few for 首頁.
+await writeFile(out + 'laws.json', JSON.stringify(lawCounts(rulings)));
+await writeFile(out + 'latest.json', JSON.stringify({ rulings: latestRulings(rulings) }));
 console.log(`rulings: ${note}; ${rulings.length} kept, under ${Object.keys(laws).length} laws`);

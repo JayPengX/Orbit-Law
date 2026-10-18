@@ -434,3 +434,10 @@ test('bill and diff explanations: shapes kept, cites only among the asked', asyn
   const e = await askBill({ bill: '20' }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'bill' }) }));
   assert.equal(e.error, 'bill');
 });
+
+import { lawCounts, latestRulings } from '../public/lib/rulings.mjs';
+test('rulings: a count per law (each judgment once), the newest few for home', () => {
+  const r = [['TPSV,1', '2026-10-01', 'a', ['B0000001:1', 'B0000001:2', 'C0010001:5']], ['TPSM,2', '2026-09-01', 'b', ['C0010001:7']]];
+  assert.deepEqual(lawCounts(r), { B0000001: 1, C0010001: 2 });
+  assert.deepEqual(latestRulings(r, 1), [['TPSV,1', '2026-10-01', 'a', ['B0000001:1', 'B0000001:2', 'C0010001:5']]]);
+});

@@ -507,3 +507,10 @@ test('政府公告: feeds parsed and merged, the best match for a figure found',
   assert.equal(matchNews(kept, '明年基本工資多少')[0][3], 'https://www.mol.gov.tw/a/1/');
   assert.deepEqual(matchNews(kept, '颱風假'), []);
 });
+
+test('chat: notices and bills the answer drew on are kept only in a safe shape', async () => {
+  const { cleanChat } = await import('../public/lib/chat.mjs');
+  const r = cleanChat({ covered: true, answer: 'a', points: [], sources: [], notices: [{ t: '最低工資', url: 'https://www.mol.gov.tw/a/', d: '2026-09-30', agency: '勞動部' }, { t: 'x', url: 'javascript:alert(1)' }], bills: [{ k: '11:07148', n: '學校午餐及營養促進條例', stage: 4 }, { k: 'bad key', n: 'y' }] });
+  assert.deepEqual(r.notices, [{ t: '最低工資', url: 'https://www.mol.gov.tw/a/', d: '2026-09-30', agency: '勞動部' }]);
+  assert.deepEqual(r.bills, [{ k: '11:07148', n: '學校午餐及營養促進條例', stage: 4 }]);
+});

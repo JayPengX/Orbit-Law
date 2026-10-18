@@ -56,7 +56,10 @@ else
     // The judgments changed in the last 7 days: [{ DATE, LIST: [jid] }].
     const days = await post('JList', { token });
     const have = new Set(rulings.map(r => r[0]));
-    const ids = [...new Set((Array.isArray(days) ? days : []).flatMap(d => d.LIST || d.list || []))].filter(j => courtOf(j) && !have.has(j)).slice(0, MAX_DOCS);
+    const all = [...new Set((Array.isArray(days) ? days : []).flatMap(d => d.LIST || d.list || []))];
+    // What JList gave, in brief: its shape and a few ids (the courts' prefixes it uses).
+    console.log(`JList: ${Array.isArray(days) ? `${days.length} days, keys ${Object.keys(days[0] || {}).join('/')}` : `not a list: ${JSON.stringify(days).slice(0, 200)}`}; ${all.length} ids, e.g. ${all.slice(0, 3).join(' | ')}; prefixes ${[...new Set(all.map(j => String(j).split(',')[0].slice(0, 3)))].slice(0, 30).join(' ')}`);
+    const ids = all.filter(j => courtOf(j) && !have.has(j)).slice(0, MAX_DOCS);
     const fresh = [];
     for (const j of ids) {
       try {

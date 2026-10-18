@@ -10,6 +10,7 @@
 //   node scripts/build-data.mjs [--zh ChLaw.zip] [--en EnLaw.zip] [--prev https://jaypengx.github.io/Orbit-Law/data/] [--bills off]
 import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { compactLaw, compactEn, indexRow, diffLaws, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
 import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
@@ -25,8 +26,17 @@ async function zipJson(kind) {
   let file = args[kind];
   if (!file) {
     file = `/tmp/orbit-law-${kind}.zip`;
-    // The ministry's server is slow (a minute for 6 MB some days): patient, and tried 3 times.
-    execFileSync('curl', ['-sSfL', '--retry', '3', '--retry-all-errors', '-m', '600', '-o', file, SRC[kind]], { stdio: 'inherit' });
+    // The ministry's server is slow (a minute for 6 MB some days) and, asked
+    // for one file right after another, sometimes answers with a page, not
+    // the zip: patient, checked, and tried again after a pause.
+    for (let tries = 1; ; tries++) {
+      execFileSync('curl', ['-sSfL', '--retry', '3', '--retry-all-errors', '-m', '600', '-o', file, SRC[kind]], { stdio: 'inherit' });
+      const head = readFileSync(file).subarray(0, 120);
+      if (head[0] === 0x50 && head[1] === 0x4b) break;
+      if (tries >= 4) throw new Error(`${kind}: not a zip (${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 100)})`);
+      console.warn(`${kind}: not a zip yet, try ${tries}: ${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 80)}`);
+      await new Promise(r => setTimeout(r, 30_000 * tries));
+    }
   }
   const text = execFileSync('unzip', ['-p', file, '*.json'], { maxBuffer: 1 << 30 }).toString('utf8');
   return JSON.parse(text.replace(/^﻿/, ''));

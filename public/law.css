@@ -1708,3 +1708,24 @@ button.lw-row {
   text-align: left;
   cursor: pointer;
 }
+
+.lw-funnel.bills {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.lw-funnel.bills .lw-funnel-col i {
+  background: color-mix(in srgb, var(--q-indigo) 55%, transparent);
+}
+.lw-funnel.bills .lw-funnel-col:last-child i {
+  background: color-mix(in srgb, var(--q-green) 60%, transparent);
+}
+.lw-funnel.bills .lw-funnel-col.on i {
+  background: var(--q-indigo);
+}
+.lw-funnel.bills .lw-funnel-col:last-child.on i {
+  background: var(--q-green);
+}
+.lw-funnel-cap {
+  margin: 0 0 8px;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}

@@ -24,6 +24,8 @@ export function stageOf(status) {
   if (/審查完畢|逕付二讀/.test(s)) return { stage: 3 };
   if (/委員會/.test(s) && !/程序委員會/.test(s) && !/^排入院會/.test(s)) return { stage: 2 };
   if (/退回程序委員會|程序緩列/.test(s)) return { stage: 1, held: true };
+  // Filed and waiting for the floor's first reading (排入院會 / 排入程序): 提案.
+  if (/^排入院會$|^排入程序/.test(s)) return { stage: 0 };
   if (/排入院會|交付審查|改交|重付審查|交付查照/.test(s)) return { stage: 1, committee };
   return { stage: 0 };
 }
@@ -179,4 +181,19 @@ export function mergeBills(prev, fresh) {
   const byId = new Map((prev || []).map(b => [b.id, b]));
   for (const b of fresh) byId.set(b.id, b);
   return [...byId.values()];
+}
+
+// Every bill of the term (each version on its own), by the step its own
+// status reached: { total, steps: [提案, 一讀, 委員會, 二讀, 三讀, 公布], dropped }.
+// (立法 tab's funnel: the items fold versions together; these don't.)
+const STEP_OF = [0, 1, 2, 2, 2, 3, 4, 5];
+export function billCounts(bills) {
+  const steps = [0, 0, 0, 0, 0, 0];
+  let dropped = 0;
+  for (const b of bills) {
+    const { stage, dropped: gone } = stageOf(b.st);
+    if (gone) dropped++;
+    else steps[STEP_OF[Math.max(0, Math.min(7, stage))]]++;
+  }
+  return { total: bills.length, steps, dropped };
 }

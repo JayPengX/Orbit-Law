@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
-import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
+import { compactBill, foldBills, mergeBills, billCounts, stageOf } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 import { delegations, regCount } from '../public/lib/deleg.mjs';
@@ -195,8 +195,10 @@ if (args.bills !== 'off') {
   }
   const items = foldBills(all, { pcodes, modified, parties }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
   const byId = new Map(all.map(b => [b.id, b]));
+  // w: how many of an item's versions are filed but not yet read (提案 in the funnel).
+  for (const it of items) it.w = it.ids.filter(id => byId.get(id) && stageOf(byId.get(id).st).stage === 0).length || undefined;
   for (const it of items) await writeFile(`${out}bills/item/${encodeURIComponent(it.k.replace(':', '-'))}.json`, JSON.stringify(it.ids.map(id => byId.get(id))));
-  await writeFile(out + 'bills/items.json', JSON.stringify({ term, built: new Date().toISOString(), items: items.map(({ ids, ...it }) => it) }));
+  await writeFile(out + 'bills/items.json', JSON.stringify({ term, built: new Date().toISOString(), bills: billCounts(all), items: items.map(({ ids, ...it }) => it) }));
   billNote = `${all.length} bills in term ${term} (${fresh.length} fetched${since ? ` since ${since}` : ', full'}), ${items.length} tracked items`;
 }
 console.log(billNote);

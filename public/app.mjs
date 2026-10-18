@@ -22,7 +22,7 @@ import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf } from './lib/topics.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, diffHtml, stepOf, STEPS } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS } from './lib/cards.mjs';
 import { chatLaw, chatError, STARTERS, MAX_CHAT_Q } from './lib/chat.mjs';
 
 const $ = id => document.getElementById(id);
@@ -862,14 +862,17 @@ function drawBillList() {
   document.querySelectorAll('.lw-chips [data-f]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.f === billFilter && billStep < 0)));
   const fn = $('bill-funnel');
   if (fn) {
-    fn.innerHTML = state.items.length ? funnel(state.items, en) : '';
+    const c = state.billCounts;
+    fn.innerHTML = !state.items.length ? '' : c ? `<p class="lw-funnel-cap">${esc(W(`本屆 ${c.total.toLocaleString()} 份提案，涉及 ${state.items.length} 部法律`, `${c.total.toLocaleString()} bills this term, on ${state.items.length} laws`))}</p>${billFunnel(c, en)}` : funnel(state.items, en);
     fn.querySelectorAll('.lw-funnel-col').forEach(c => c.classList.toggle('on', Number(c.dataset.step) === billStep));
   }
   if (!state.items.length) return void (out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(4)}</div>`);
   if (billFilter === 'notice' && billStep < 0) return void (out.innerHTML = noticeList());
   let items = state.items;
   if (billQuery) items = items.filter(it => it.n.includes(billQuery));
-  if (billStep >= 0) items = items.filter(it => !it.dropped && stepOf(it.stage) === billStep && (it.open || it.stage >= PASSED));
+  // (By bill: 提案 = items with a version not yet read; 審查 takes in 二讀, 三讀 公布.)
+  if (billStep >= 0 && state.billCounts) items = items.filter(it => !it.dropped && (billStep === 0 ? it.w > 0 : billStep === 3 ? it.stage >= PASSED : it.open && (billStep === 1 ? stepOf(it.stage) === 1 : [2, 3].includes(stepOf(it.stage)))));
+  else if (billStep >= 0) items = items.filter(it => !it.dropped && stepOf(it.stage) === billStep && (it.open || it.stage >= PASSED));
   else if (billFilter === 'moving') items = items.filter(LIVE);
   else if (billFilter === 'talks') items = items.filter(it => LIVE(it) && it.stage >= 4);
   else if (billFilter === 'passed') items = items.filter(it => it.stage >= PASSED);
@@ -1081,6 +1084,7 @@ async function start() {
   itemsReady = data('bills/items.json')
     .then(b => {
       state.items = b.items;
+      state.billCounts = b.bills || null;
       state.itemsByLaw = new Map();
       for (const it of b.items) if (it.p) state.itemsByLaw.set(it.p, [...(state.itemsByLaw.get(it.p) || []), it]);
       if (state.tab === 'bills') drawBillList();

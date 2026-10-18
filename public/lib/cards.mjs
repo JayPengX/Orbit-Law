@@ -93,6 +93,15 @@ export function funnel(items, en = false) {
   return `<div class="lw-funnel">${STEPS.map((s, i) => `<button type="button" class="lw-funnel-col" data-step="${i}"><b>${counts[i]}</b><i style="--h:${Math.max(6, Math.round((counts[i] / max) * 100))}%"></i><span>${esc(s[en ? 1 : 0])}</span></button>`).join('')}</div>`;
 }
 
+// The funnel by bill (every version on its own, from items.json's bills):
+// 提案, 一讀, 審查・協商 (with 二讀), 三讀 (with 公布: a bill's own status stops there).
+export const BILL_COLS = [['提案', 'Filed'], ['一讀', '1st'], ['審查・協商', 'Review'], ['三讀', 'Passed']];
+export function billFunnel(c, en = false) {
+  const counts = [c.steps[0], c.steps[1], c.steps[2] + c.steps[3], c.steps[4] + c.steps[5]];
+  const max = Math.max(1, ...counts);
+  return `<div class="lw-funnel bills">${BILL_COLS.map((s, i) => `<button type="button" class="lw-funnel-col" data-step="${i}"><b>${counts[i].toLocaleString()}</b><i style="--h:${Math.max(6, Math.round((counts[i] / max) * 100))}%"></i><span>${esc(s[en ? 1 : 0])}</span></button>`).join('')}</div>`;
+}
+
 // Before and after, the changed words marked: [{ t, op: '=' | '-' | '+' }].
 // Character diff (LCS), long texts cut to their changed middle first.
 export function diffWords(a = '', b = '') {

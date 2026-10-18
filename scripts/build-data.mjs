@@ -17,7 +17,7 @@ import { nameMap } from '../public/lib/refs.mjs';
 import { noticesUrl, compactNotice, mergeNotices, twDay } from '../public/lib/notices.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON', order: 'https://law.moj.gov.tw/api/Ch/Order/JSON' };
+const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON', order: 'https://law.moj.gov.tw/api/Ch/Order/JSON', enOrder: 'https://law.moj.gov.tw/api/En/Order/JSON' };
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const out = new URL('../public/data/', import.meta.url).pathname;
 
@@ -48,10 +48,20 @@ if (!(zh.Laws?.length > 1000)) throw new Error(`ChLaw: only ${zh.Laws?.length} l
 // 命令 (regulations: 施行細則, 辦法, 規則…), in force only: their own index,
 // which the app loads after the laws'. A failed download leaves them out today.
 let order = null;
+const enOrders = new Map();
 if (args.orders !== 'off')
   try {
     order = await zipJson('order');
     if (!(order.Laws?.length > 5000)) throw new Error(`ChOrder: only ${order.Laws?.length}`);
+    // Their English (MOJ's translations of about 2,000): nice to have, never fatal.
+    try {
+      for (const l of (await zipJson('enOrder')).Laws || []) {
+        const c = compactEn(l);
+        if (c) enOrders.set(c.p, c);
+      }
+    } catch (e) {
+      console.warn(`regulations in English skipped: ${e.message}`);
+    }
   } catch (e) {
     console.warn(`regulations skipped: ${e.message}`);
     order = null;
@@ -80,8 +90,12 @@ for (const [b, pairs] of buildIndex(laws)) await writeFile(`${out}text/${b}.json
 const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.get(l.p)?.n)) };
 await writeFile(out + 'index.json', JSON.stringify(index));
 const orders = (order?.Laws || []).map(compactLaw).filter(l => l && !l.ab);
-for (const o of orders) await writeFile(`${out}law/${o.p}.json`, JSON.stringify(o));
-if (orders.length) await writeFile(out + 'orders.json', JSON.stringify({ d: order.UpdateDate || '', built: index.built, laws: orders.map(o => indexRow(o, o.e)) }));
+for (const o of orders) {
+  await writeFile(`${out}law/${o.p}.json`, JSON.stringify(o));
+  const e = enOrders.get(o.p);
+  if (e) await writeFile(`${out}en/${o.p}.json`, JSON.stringify(e));
+}
+if (orders.length) await writeFile(out + 'orders.json', JSON.stringify({ d: order.UpdateDate || '', built: index.built, laws: orders.map(o => indexRow(o, enOrders.get(o.p)?.n)) }));
 
 // 修法追蹤: the laws whose 異動日期 moved since the last deploy, article by
 // article (the old copy read back from the live site, only for those laws).

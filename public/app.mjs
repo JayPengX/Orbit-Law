@@ -739,7 +739,7 @@ function drawBills() {
   if (f && BILL_FILTERS.some(([id]) => id === f)) ((billFilter = f), (billStep = -1));
   if (!panel.firstChild) {
     const chips = h('div', { class: 'q-chips lw-chips', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
-    panel.append(headNode(W('立法', 'Bills'), W('立法院第 11 屆', '立法院, term 11')), billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
+    panel.append(headNode(W('立法', 'Bills'), W('立法院第 11 屆', 'Legislative Yuan, term 11')), billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
       if (col) {
@@ -852,7 +852,7 @@ async function openItem(k) {
     )
   ]);
   const openLawBtn = it.p ? h('button', { class: 'q-btn block', type: 'button', text: W('打開現行法規', 'Open the law in force'), onclick: () => (s.close(), go(`law=${it.p}`)) }) : null;
-  const s = sheet({ title: it.n, lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [top, prog, who, changes, line, vlist, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
+  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: 'lw-item-name', text: it.n }), top, prog, who, changes, line, vlist, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
   // What it changes: the newest version with a table (a just-filed one may not have it yet).
   const order = [...new Set([bills.find(b => b.id === it.top), ...versions].filter(Boolean))];
   if (!order.length) return void changes.remove();

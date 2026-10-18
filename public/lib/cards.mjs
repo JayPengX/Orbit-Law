@@ -20,7 +20,7 @@ export const topicName = (id, en = false) => (TOPICS[id] || TOPICS.gov)[en ? 'en
 export const STEPS = [
   ['提案', 'Filed'],
   ['一讀', '1st'],
-  ['委員會', 'Committee'],
+  ['委員會', 'Review'],
   ['二讀', '2nd'],
   ['三讀', '3rd'],
   ['公布', 'Law']

@@ -220,8 +220,10 @@ function drawHome() {
 }
 
 // A judgment as a card: its court, its matter, the day, the articles it cites (each opens).
+// A card header has room for a short name only.
+const COURT_SHORT = { TPS: 'Supreme Court', TPA: 'Admin. Court', JCC: 'Const. Court' };
 function rulingCard([jid, d, t, cites]) {
-  const court = COURTS[courtOf(jid)]?.[en ? 1 : 0] || '';
+  const court = (en ? COURT_SHORT[courtOf(jid)] : COURTS[courtOf(jid)]?.[0]) || '';
   const chips = cites.map(c => { const [p, k] = c.split(':'); const row = state.byCode.get(p); return row ? citeChip(p, k, row[1]) : ''; }).join('');
   return `<div class="lw-bill lw-ruling" style="--t:${TOPICS.justice.color}"><span class="lw-bill-top">${topicTile('justice', 'sm')}<span class="lw-bill-stage court">${esc(court)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener">${esc(t || jid)}</a><span class="lw-cites">${chips}</span></div>`;
 }
@@ -403,8 +405,7 @@ async function drawLaw() {
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
   const hint = h('p', { class: 'lw-hint', html: `${ICON_SPARK}<span>${W('點條號可以白話解釋或問 AI；點底線字看引用的條文', 'Tap an article number to explain or ask; tap underlined words to see what they cite')}</span>` });
   // ⚖ 判決 N beside each article the top courts cited.
-  if (!state.showEn)
-    for (const [k, list] of Object.entries(state.lawRulings)) body.querySelector(`#a-${CSS.escape(k)} .lw-no`)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul" data-art="${esc(k)}">${ICON_GAVEL}${W(`判決 ${list.length}`, `${list.length} ruling${list.length > 1 ? 's' : ''}`)}</button>`);
+  for (const [k, list] of Object.entries(state.lawRulings)) body.querySelector(`#a-${CSS.escape(k)} .lw-no`)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul" data-art="${esc(k)}">${ICON_GAVEL}${W(`判決 ${list.length}`, `${list.length} ruling${list.length > 1 ? 's' : ''}`)}</button>`);
   panel.replaceChildren(head, find, over, ...[chapters, hint, fw, body].filter(Boolean));
   box.hidden = true;
 }
@@ -606,7 +607,7 @@ const citeChip = (p, k, n) => `<a class="lw-ref lw-cite" href="#law=${esc(p)}&am
 
 // The top courts' rulings citing an article (newest first), each opening at 司法院.
 function rulingsSheet(label, rulings, kw) {
-  const rows = rulings.map(([jid, d, t]) => `<a class="q-cell" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(t || jid)}</span><small>${esc([COURTS[courtOf(jid)]?.[en ? 1 : 0], jid.split(',').slice(1, 4).join(' '), ymd(d)].filter(Boolean).join(' · '))}</small></span></a>`).join('');
+  const rows = rulings.map(([jid, d, t]) => `<a class="q-cell" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(t || jid)}</span><small>${[COURTS[courtOf(jid)]?.[en ? 1 : 0], jid.split(',').slice(1, 4).join(' '), ymd(d)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join(' · ')}</small></span></a>`).join('');
   const more = `<a class="lw-out" href="https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}" target="_blank" rel="noopener">${W('在司法院搜尋更多', 'More at 司法院')}</a>`;
   sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings', html: `<div class="q-list">${rows}</div>${more}` }) });
 }

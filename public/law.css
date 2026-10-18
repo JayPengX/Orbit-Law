@@ -1573,6 +1573,10 @@
 .lw-rulings {
   padding: 0 0 calc(16px + env(safe-area-inset-bottom));
 }
+/* Court, number and date wrap whole, never a date left alone. */
+.lw-rulings small span {
+  white-space: nowrap;
+}
 
 /* Narrow phones (iPhone SE, 320pt): slimmer tools so the law's name fits. */
 @media (max-width: 359px) {

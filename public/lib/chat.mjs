@@ -17,10 +17,12 @@ const str = x => (typeof x === 'string' ? x.trim() : '');
 export function cleanChat(j) {
   const sources = list(j?.sources, 20).filter(s => s && CITE.test(`${s.p}:${s.key}`)).map(s => ({ p: s.p, n: str(s.n), key: String(s.key) }));
   const known = new Set(sources.map(s => `${s.p}:${s.key}`));
-  const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => CITE.test(c) && known.has(c)) })).filter(pt => pt.text && pt.cites.length);
+  // Grounded in 政府公告 or bills (no article to cite): points without cites stand too.
+  const grounded = (Array.isArray(j?.notices) && j.notices.length > 0) || (Array.isArray(j?.bills) && j.bills.length > 0);
+  const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => CITE.test(c) && known.has(c)) })).filter(pt => pt.text && (pt.cites.length || grounded));
   const points = cited(j?.points);
   return {
-    covered: j?.covered === true && points.length > 0,
+    covered: j?.covered === true && (points.length > 0 || (grounded && Boolean(str(j?.answer)))),
     answer: str(j?.answer),
     points,
     consequences: cited(j?.consequences),
@@ -30,7 +32,7 @@ export function cleanChat(j) {
     sources,
     // 政府公告 and 立法院 bills the answer drew on (links out, or a bill sheet).
     notices: list(j?.notices, 6).filter(x => x && /^https:\/\//.test(x.url) && str(x.t)).map(x => ({ t: str(x.t), url: x.url, d: str(x.d || ''), agency: str(x.agency || '') })),
-    bills: list(j?.bills, 6).filter(x => x && /^\d+:\w+$/.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
+    bills: list(j?.bills, 6).filter(x => x && /^(\d+|budget):\w+$/.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
     left: Number.isFinite(j?.left) ? j.left : null
   };
 }

@@ -1857,6 +1857,7 @@ button.lw-row {
 
 /* An answer's 政府公告 and bills: cards that open the source. */
 .lw-notice {
+  box-sizing: border-box;
   display: grid;
   gap: 2px;
   width: 100%;
@@ -1872,4 +1873,273 @@ button.lw-row {
 .lw-notice small {
   color: var(--q-label-2);
   font: var(--q-t-footnote);
+}
+
+/* 表決: a vote as a row with its tally bar; the vote sheet's party split and names. */
+.lw-votes {
+  display: grid;
+  gap: 8px;
+}
+.lw-vote {
+  box-sizing: border-box;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--q-surface);
+  color: var(--q-label);
+  text-align: left;
+  font: inherit;
+}
+.lw-vote-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.lw-vote-t {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font: 500 15px/21px var(--q-font);
+}
+.lw-vote-me {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font: 700 12px/16px var(--q-font);
+}
+.lw-vote-me.y {
+  background: var(--q-green);
+}
+.lw-vote-me.n {
+  background: var(--q-red);
+}
+.lw-vote-me.a,
+.lw-vote-me.- {
+  background: var(--q-gray);
+}
+.lw-vote-bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--q-fill-3);
+}
+.lw-vote-bar i.y {
+  background: var(--q-green);
+}
+.lw-vote-bar i.n {
+  background: var(--q-red);
+}
+.lw-vote-bar i.a {
+  background: var(--q-gray);
+}
+.lw-vote small {
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.lw-vote.static {
+  margin: 8px 0;
+}
+.lw-vote.static .lw-vote-top {
+  display: none;
+}
+.lw-vote-subject {
+  margin: 0;
+  font: 600 17px/1.5 var(--q-font);
+}
+.lw-vote-sheet,
+.lw-item-votes {
+  padding-bottom: 8px;
+}
+.lw-vote-sheet h4,
+.lw-item-votes h4,
+.lw-person-sec h4 {
+  margin: 16px 0 8px;
+  font: 700 15px/20px var(--q-font);
+}
+.lw-splits {
+  display: grid;
+  gap: 6px;
+}
+.lw-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lw-split-n {
+  display: flex;
+  gap: 6px;
+}
+.lw-split-n b {
+  min-width: 36px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  text-align: center;
+  font: 700 13px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.lw-split-n .y {
+  background: color-mix(in srgb, var(--q-green) 16%, transparent);
+  color: var(--q-green);
+}
+.lw-split-n .n {
+  background: color-mix(in srgb, var(--q-red) 16%, transparent);
+  color: var(--q-red);
+}
+.lw-split-n .a {
+  background: var(--q-fill-3);
+  color: var(--q-label-2);
+}
+.lw-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lw-name {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p) 14%, transparent);
+  color: var(--q-label);
+  font: 500 14px/20px var(--q-font);
+}
+
+/* 立委: cards with a photo ringed in the party colour; the legislator sheet. */
+.lw-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.lw-person {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--q-surface);
+  color: var(--q-label);
+  text-decoration: none;
+}
+.lw-person .lw-photo {
+  grid-row: 1 / span 2;
+}
+.lw-person-text {
+  display: grid;
+  min-width: 0;
+}
+.lw-person-text b {
+  font: 600 16px/21px var(--q-font);
+}
+.lw-person-text small,
+.lw-person-n {
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lw-photo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--p);
+  background: color-mix(in srgb, var(--p) 20%, var(--q-surface));
+  color: var(--p);
+  font: 700 18px/1 var(--q-font);
+}
+.lw-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.lw-photo.lg {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+  box-shadow: 0 0 0 3px var(--p);
+}
+.lw-person-head {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 16px;
+}
+.lw-person-head h2 {
+  margin: 0 0 6px;
+  font: 700 24px/1.2 var(--q-font);
+}
+.lw-stats.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.lw-stats.four .lw-stat b {
+  font-size: 20px;
+}
+.lw-clips {
+  display: grid;
+  gap: 6px;
+}
+.lw-clip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  border-radius: 14px;
+  background: var(--q-surface);
+}
+.lw-clip-main {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--q-label);
+  text-decoration: none;
+}
+.lw-clip-play {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--q-orange);
+  color: #fff;
+}
+.lw-clip-play svg {
+  width: 16px;
+  height: 16px;
+}
+.lw-clip-yt {
+  display: grid;
+  place-items: center;
+  height: 44px;
+}
+.lw-clip-yt svg {
+  width: 28px;
+  height: 28px;
+}
+.lw-hint-sm {
+  margin: 8px 0 0;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.lw-timeline.mini {
+  margin: 8px 0 0;
+}
+.lw-budget .lw-bill-name {
+  color: var(--q-label);
 }

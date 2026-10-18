@@ -514,3 +514,11 @@ test('chat: notices and bills the answer drew on are kept only in a safe shape',
   assert.deepEqual(r.notices, [{ t: '最低工資', url: 'https://www.mol.gov.tw/a/', d: '2026-09-30', agency: '勞動部' }]);
   assert.deepEqual(r.bills, [{ k: '11:07148', n: '學校午餐及營養促進條例', stage: 4 }]);
 });
+
+test('chat: an answer grounded in a notice is covered without article cites', async () => {
+  const { cleanChat } = await import('../public/lib/chat.mjs');
+  const r = cleanChat({ covered: true, answer: '明年每月30,900元', points: [{ text: '每小時205元', cites: [] }], sources: [], notices: [{ t: '最低工資', url: 'https://www.mol.gov.tw/a/' }] });
+  assert.equal(r.covered, true);
+  assert.equal(r.points.length, 1);
+  assert.equal(cleanChat({ covered: true, answer: 'x', points: [{ text: 'y', cites: [] }], sources: [] }).covered, false);
+});

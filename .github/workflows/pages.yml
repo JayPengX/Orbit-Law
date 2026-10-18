@@ -43,6 +43,10 @@ jobs:
         run: npm test
       - name: Build the law data
         run: node scripts/build-data.mjs
+      # 立法院: votes by name, each legislator's record and clips, budget bills.
+      - name: Build the 立法院 votes, legislators and budgets
+        run: node scripts/build-ly.mjs
+        continue-on-error: true
       # Court rulings by article: JDoc answers 00:00-06:00 Taiwan time, so the
       # 03:30 run reads it; other runs (and no account yet) carry the last copy.
       - name: An unpacker for the monthly ruling archives (RAR)

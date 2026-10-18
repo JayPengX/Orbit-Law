@@ -3,7 +3,7 @@
 // a read that fails is empty, a write that fails is dropped (private mode).
 
 const KEY = 'orbit-law.mine.v1';
-const empty = () => ({ laws: {}, items: {}, marks: [], recent: [], seenChanges: '' });
+const empty = () => ({ laws: {}, items: {}, people: {}, marks: [], recent: [], seenChanges: '' });
 
 export function loadMine(store = globalThis.localStorage) {
   try {
@@ -62,12 +62,12 @@ export function newCount(mine, items, changes) {
 // bookmarks and the recent laws, so another phone signed in has them too.
 // The newer copy (by `t`, the last save) decides what's in or out; the
 // days last looked at are the later of the two for what both follow.
-export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, marks: m.marks, recent: m.recent });
+export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, people: m.people || {}, marks: m.marks, recent: m.recent });
 export function decodeMine(payload) {
   try {
     const v = JSON.parse(payload);
     if (v?.v !== 1 || typeof v.laws !== 'object' || typeof v.items !== 'object' || !Array.isArray(v.marks) || !Array.isArray(v.recent)) return null;
-    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
+    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, people: v.people && typeof v.people === 'object' ? v.people : {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
   } catch {
     return null;
   }
@@ -80,6 +80,7 @@ export function mergeMine(ours, theirs) {
     t: Math.max(ours.t || 0, theirs.t || 0),
     laws: later(base.laws, other.laws),
     items: later(base.items, other.items),
+    people: later(base.people || {}, other.people || {}),
     marks: base.marks,
     recent: [...new Set([...base.recent, ...other.recent])].slice(0, 12)
   };

@@ -333,18 +333,21 @@ function articleMenu(k) {
 }
 // 白話解釋: the answer, each point with the article it cites (tap: the
 // article in a sheet), and a box for a question about the same article.
-function explain(law, k) {
+// `ks`: one article key, or a few (a linked range, up to 8: answered together).
+function explain(law, ks) {
+  ks = [].concat(ks).slice(0, 8);
+  const one = ks.length === 1;
   const out = h('div', { class: 'lw-ask' });
-  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: W('問這一條，例如「適用在誰身上？」', 'Ask about this article') });
+  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: one ? W('問這一條，例如「適用在誰身上？」', 'Ask about this article') : W('問這幾條，例如「差別在哪？」', 'Ask about these articles') });
   const form = h('form', { class: 'lw-ask-form', onsubmit: e => (e.preventDefault(), run(input.value)) }, [input, h('button', { class: 'q-btn primary', type: 'submit', text: W('問', 'Ask') })]);
-  const note = h('p', { class: 'lw-ask-note', text: W('AI 只依這一條的條文回答，不是法律意見。', 'AI, from this article’s text only. Not legal advice.') });
-  sheet({ title: `${law.n}${artLabel(k)}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [out, form, note] });
+  const note = h('p', { class: 'lw-ask-note', text: one ? W('AI 只依這一條的條文回答，不是法律意見。', 'AI, from this article’s text only. Not legal advice.') : W('AI 只依這幾條的條文回答，不是法律意見。', 'AI, from these articles’ text only. Not legal advice.') });
+  sheet({ title: `${law.n}${one ? artLabel(ks[0]) : `${artLabel(ks[0])}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [out, form, note] });
   async function run(q = '') {
     out.innerHTML = `<p class="lw-none">${W('解釋中…', 'Explaining…')}</p>`;
-    const r = await askLaw({ p: law.p, arts: [k], q, lang: en ? 'en' : 'zh' });
+    const r = await askLaw({ p: law.p, arts: ks, q, lang: en ? 'en' : 'zh' });
     if (r.error) return void (out.innerHTML = `<p class="lw-none">${esc(askError(r.error, en))}</p>`);
     const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(c => `<a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(c)}" data-law="${esc(law.p)}" data-from="${esc(c)}" data-to="${esc(c)}" data-para="0">${esc(artLabel(c, en))}</a>`).join(' ')}</li>`).join('');
-    out.innerHTML = (q ? `<p class="lw-ask-asked">${esc(q)}</p>` : '') + (r.covered ? `${r.answer ? `<p>${esc(r.answer)}</p>` : ''}<ul>${points}</ul>` : `<p>${esc(r.answer || W('這一條沒有規定這件事。', 'This article doesn’t cover that.'))}</p>`);
+    out.innerHTML = (q ? `<p class="lw-ask-asked">${esc(q)}</p>` : '') + (r.covered ? `${r.answer ? `<p>${esc(r.answer)}</p>` : ''}<ul>${points}</ul>` : `<p>${esc(r.answer || one ? W('這一條沒有規定這件事。', 'This article doesn’t cover that.') : W('這幾條沒有規定這件事。', 'These articles don’t cover that.'))}</p>`);
   }
   run();
 }
@@ -405,7 +408,10 @@ async function peek(p, from, to, para, { back = false } = {}) {
   const lead = peekStack.length > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => (peekStack.pop(), peek(...peekStack[peekStack.length - 1], { back: true })) }) : null;
   const title = `${law.n === state.law?.n ? '' : law.n}${from === to ? artLabel(from, en) : `${artLabel(from, en)}–${to}`}`;
   if (peekSheet) peekSheet.close();
-  peekSheet = sheet({ title, lead, closeLabel: W('關閉', 'Close'), cls: 'lw-peek-sheet', body: [content, h('div', { class: 'lw-peek-foot' }, [openFull])], onClose: () => (peekSheet = null) });
+  // 白話解釋 of what's shown: the article, or a range of up to 8 together.
+  const live = arts.filter(a => !/^[（(]刪除[）)]$/.test(a[2].trim())).map(a => a[1]);
+  const ask = live.length && live.length <= 8 ? h('button', { class: 'q-btn block', type: 'button', text: live.length > 1 ? W(`白話解釋這 ${live.length} 條（AI）`, `Explain these ${live.length} (AI)`) : W('白話解釋（AI）', 'Explain in plain words (AI)'), onclick: () => (peekSheet?.close(), explain(law, live)) }) : null;
+  peekSheet = sheet({ title, lead, closeLabel: W('關閉', 'Close'), cls: 'lw-peek-sheet', body: [content, h('div', { class: 'lw-peek-foot' }, [ask, openFull].filter(Boolean))], onClose: () => (peekSheet = null) });
   // (A sheet replaced by the next link keeps the stack; closing for good clears it.)
   peekSheet.el.addEventListener('close', () => setTimeout(() => !peekSheet && (peekStack.length = 0), 0));
   if (para) flash(content.querySelector(`[data-para="${para}"]`) || content);

@@ -280,6 +280,8 @@
   border-bottom: 0;
 }
 .lw-peek-foot {
+  display: grid;
+  gap: 8px;
   padding: 8px 0 calc(12px + env(safe-area-inset-bottom));
 }
 

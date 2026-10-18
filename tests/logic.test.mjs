@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { artKey, pcodeOf, compactLaw, diffLaws, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
-import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
+import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
 import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
 import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
 import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
@@ -173,6 +173,7 @@ test('修法追蹤 marks: the latest amendment of the law on screen only', () =>
   assert.deepEqual(freshMarks(changes, law), { 1: '修正 2026/08/17', 2: '新增 2026/08/17' });
   assert.deepEqual(freshMarks(changes, { ...law, m: '20270101' }), {});
   assert.match(lawHtml(law, { fresh: freshMarks(changes, law) }), /lw-fresh">修正 2026\/08\/17/);
+  assert.match(lawHtml(law, { pending: { 2: '3 個修正提案' }, pendingItem: '11-001' }), /id="a-2".*lw-pending" data-item="11-001">3 個修正提案/);
 });
 
 import { askLaw, askError } from '../public/lib/ask.mjs';
@@ -190,4 +191,13 @@ test('白話解釋: only points citing the articles asked about; failures in pla
   assert.equal((await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({}) }))).error, 'bad', 'an empty answer is a failure, not 沒有規定');
   assert.match(askError('cap'), /明天/);
   assert.match(askError('weird', true), /right now/);
+});
+
+test('bills: the articles a title names, counted over the open round', () => {
+  assert.deepEqual(articlesOfTitle('老人福利法第二條、第九條及第二十二條條文修正草案'), ['2', '9', '22']);
+  assert.deepEqual(articlesOfTitle('老人福利法增訂第二十五條之一條文草案'), ['25-1']);
+  assert.deepEqual(articlesOfTitle('民法部分條文修正草案'), []);
+  const a = compactBill(raw('1', { 議案名稱: '「甲法第二條條文修正草案」，請審議案。' }));
+  const b = compactBill(raw('2', { 議案名稱: '「甲法第二條及第三條條文修正草案」，請審議案。' }));
+  assert.deepEqual(foldBills([a, b])[0].arts, { 2: 2, 3: 1 });
 });

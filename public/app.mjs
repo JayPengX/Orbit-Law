@@ -152,6 +152,8 @@ async function openLaw(p, at) {
       panel.replaceChildren(h('p', { class: 'lw-none', text: W('這個法規打不開，請稍後再試', 'This law can’t be opened right now') }));
       return;
     }
+    // The bills on this law mark its articles: waited for briefly (kept by the phone after the first time).
+    await Promise.race([itemsReady, new Promise(r => setTimeout(r, 1500))]);
     state.law = law;
     state.showEn = en && Boolean(state.byCode.get(p)?.[6]);
     addRecent(state.mine, p);
@@ -181,8 +183,9 @@ async function drawLaw() {
   const followed = Boolean(state.mine.laws[law.p]);
   const head = h('div', { class: 'lw-bar' }, [
     h('button', { class: 'lw-back', type: 'button', 'aria-label': W('返回', 'Back'), html: '<svg viewBox="0 0 12 20"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>', onclick: () => (history.length > 1 && location.hash ? history.back() : go('')) }),
-    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [en ? { 法律: 'Act', 憲法: 'Constitution' }[law.l] || law.l : law.l, law.m && `${W('修正', 'Amended')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
+    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [law.l === '憲法' && W('憲法', 'Constitution'), law.m && `${W('修正', 'Amended')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
     h('div', { class: 'lw-tools' }, [
+      h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('找條文', 'Find'), html: ICON.find, onclick: () => toggleFind() }),
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('目錄', 'Contents'), html: ICON.list, onclick: () => showContents(law) }),
       h('button', { type: 'button', class: `lw-tool${followed ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'laws', law.p) ? toast(W('已追蹤：修法時會標出來', 'Following: amendments will show')) : null, save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.laws[law.p])), haptic()) }),
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('更多', 'More'), html: ICON.more, onclick: () => lawMenu(law, row) })
@@ -192,16 +195,53 @@ async function drawLaw() {
     ? h('button', { type: 'button', class: 'lw-banner', onclick: () => go(`item=${live.k.replace(':', '-')}`) }, [h('span', { text: W('立法院審議中', 'Bills in 立法院') }), h('span', { class: 'lw-banner-stage', html: `${stageBar(live, en)} ${esc(stageLabel(live, en))}` })])
     : null;
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
-  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, fresh: freshMarks(state.changes, law, en), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
-  panel.replaceChildren(head, ...[banner, fw, body].filter(Boolean));
+  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
+  const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
+  panel.replaceChildren(head, find, ...[banner, fw, body].filter(Boolean));
   box.hidden = true;
+}
+
+// 找條文: only the articles with the words in them (and no headings) while
+// there's something typed; all back when it's cleared.
+function toggleFind() {
+  const f = document.querySelector('.lw-find');
+  if (!f) return;
+  f.hidden = !f.hidden;
+  if (f.hidden) filterLaw('');
+  else f.querySelector('input')?.focus();
+}
+let findTimer = 0;
+function filterLaw(v) {
+  clearTimeout(findTimer);
+  findTimer = setTimeout(() => {
+    const q = v.trim();
+    const law = document.querySelector('.lw-law');
+    if (!law) return;
+    let n = 0;
+    for (const el of law.children) {
+      if (el.classList.contains('lw-h')) el.hidden = Boolean(q);
+      else {
+        const hit = !q || el.textContent.includes(q);
+        el.hidden = !hit;
+        if (hit && q) n++;
+      }
+    }
+    const count = document.querySelector('.lw-find-n');
+    if (count) count.textContent = q ? W(`${n} 條`, `${n} articles`) : '';
+  }, 120);
 }
 
 function focusArticle(k, para = 0) {
   const el = document.getElementById(`a-${k}`);
   if (!el) return toast(W(`這部法規沒有${artLabel(k)}`, `No Article ${k} in this law`));
-  el.scrollIntoView({ block: 'start' });
-  scrollBy(0, -(document.querySelector('.lw-bar')?.offsetHeight || 0) - 70);
+  // Twice: articles off screen are drawn lazily (content-visibility), so the
+  // first jump lands on estimated heights; the second on real ones.
+  const place = () => {
+    el.scrollIntoView({ block: 'start' });
+  };
+  place();
+  requestAnimationFrame(() => requestAnimationFrame(place));
+  setTimeout(place, 250);
   flash(para ? el.querySelector(`[data-para="${para}"]`) || el : el);
 }
 function flash(el) {
@@ -282,6 +322,8 @@ async function copyArticle(k) {
 // ---- Links: a tap opens the article in a sheet, the reader stays put ----------------
 
 document.addEventListener('click', e => {
+  const pend = e.target.closest('.lw-pending');
+  if (pend) return go(`item=${pend.dataset.item}`);
   const no = e.target.closest('.lw-no');
   if (no && !no.closest('dialog')) return articleMenu(no.dataset.art);
   const a = e.target.closest('a.lw-ref');
@@ -440,6 +482,7 @@ function drawMine() {
 
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICON = {
+  find: svg('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>'),
   list: svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'),
   star: svg('<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/>'),
   more: svg('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'),

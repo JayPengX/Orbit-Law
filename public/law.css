@@ -168,6 +168,31 @@
   font: 600 12px/1.6 var(--q-font);
   vertical-align: 2px;
 }
+.lw-pending {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--q-orange) 22%, transparent);
+  color: var(--q-orange);
+  font: 600 12px/1.6 var(--q-font);
+  vertical-align: 2px;
+  cursor: pointer;
+}
+.lw-find {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.lw-find[hidden] {
+  display: none;
+}
+.lw-find-n {
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
 .lw-para {
   margin: 0 0 6px;
 }

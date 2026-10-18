@@ -485,3 +485,19 @@
 .lw-ref.out {
   text-decoration-style: dashed;
 }
+/* Narrow phones (iPhone SE, 320pt): slimmer tools so the law's name and date fit. */
+@media (max-width: 359px) {
+  .lw-bar {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 4px;
+    padding-inline: 10px;
+  }
+  .lw-tools {
+    gap: 4px;
+  }
+  .lw-back,
+  .lw-tool {
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -494,3 +494,16 @@ test('saved chats: kept newest first, failed questions dropped, renames stay, ca
   assert.equal(saveChats(many, mem).length, MAX_CHATS);
   assert.equal(titleOf([{ role: 'user', text: 'a'.repeat(50) }]).length, 40);
 });
+
+test('政府公告: feeds parsed and merged, the best match for a figure found', async () => {
+  const { parseFeed, mergeNews, matchNews } = await import('../public/lib/news.mjs');
+  const xml = `<rss><channel><title>公布欄</title><item><title><![CDATA[最低工資連11漲!每月30,900元]]></title><link>
+    https://www.mol.gov.tw/a/1/
+  </link><description><![CDATA[<p>自116年1月1日起，每小時205元。</p>]]></description><pubDate>Wed, 30 Sep 2026 02:00:00 GMT</pubDate></item><item><title>金管會每日新聞（115年10月16日）</title><link>https://x/2</link></item></channel></rss>`;
+  const items = parseFeed(xml, '勞動部');
+  assert.deepEqual(items, [['2026-09-30', '勞動部', '最低工資連11漲!每月30,900元', 'https://www.mol.gov.tw/a/1/', '自116年1月1日起，每小時205元。']]);
+  const kept = mergeNews([['2020-01-01', 'x', 'old', 'u0', ''], ['2026-01-01', 'x', '健保費率調整', 'u1', '']], items, new Date('2026-10-18'));
+  assert.deepEqual(kept.map(r => r[3]), ['https://www.mol.gov.tw/a/1/', 'u1']);
+  assert.equal(matchNews(kept, '明年基本工資多少')[0][3], 'https://www.mol.gov.tw/a/1/');
+  assert.deepEqual(matchNews(kept, '颱風假'), []);
+});

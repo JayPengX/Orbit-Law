@@ -1,0 +1,15 @@
+{
+  "note": "Key figures the AI quotes exactly, each with its source. Hand-kept: add a figure only with an official source; the nightly build flags 勞動部 notices whose titles look like a change (scripts/build-news.mjs).",
+  "facts": [
+    {
+      "id": "min-wage",
+      "k": ["最低工資", "基本工資", "時薪", "月薪", "最低薪資", "minimum wage"],
+      "t": "最低工資",
+      "now": { "from": "2026-01-01", "month": 29500, "hour": 196 },
+      "next": { "from": "2027-01-01", "month": 30900, "hour": 205, "status": "行政院 2026-10 核定" },
+      "text": "最低工資：115年（2026）每月新臺幣29,500元、每小時196元。116年1月1日起調為每月30,900元、每小時205元（勞動部最低工資審議會審議，行政院已核定）。依據最低工資法。",
+      "law": "N0030028",
+      "src": ["https://www.mol.gov.tw/1607/1632/1633/99195/", "https://www.mol.gov.tw/1607/1632/2665/99661/"]
+    }
+  ]
+}

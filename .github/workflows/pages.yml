@@ -52,6 +52,9 @@ jobs:
         env:
           JDOC_USER: ${{ secrets.JDOC_USER }}
           JDOC_PASS: ${{ secrets.JDOC_PASS }}
+      # 政府公告 (ministries' RSS) and the hand-kept key figures, for the AI.
+      - name: Build the government notices
+        run: node scripts/build-news.mjs || echo "notices skipped"
       - name: Cache-bust every script, module and stylesheet
         run: node scripts/stamp-version.mjs ${{ github.sha }}
       - uses: actions/configure-pages@v5

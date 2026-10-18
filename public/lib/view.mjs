@@ -1,7 +1,7 @@
 // The app's pieces as HTML: an article with its links, a law's contents, a
 // bill item's stage bar and timeline. Strings, so the tests read them and
 // a long law (民法: 1,225 articles) draws in one go.
-import { linkText, paragraphs } from './refs.mjs';
+import { linkText, paragraphs, interpLinks } from './refs.mjs';
 import { STAGES, STAGES_EN, PASSED, PROMULGATED, stageOf, openRound } from './bills.mjs';
 import { headingDepth, ymd } from './search.mjs';
 
@@ -19,7 +19,7 @@ export function articleHtml([, k, text], ctx = {}) {
       const para = i + 1;
       const inner = lines
         .map((line, j) => {
-          const html = ctx.en ? esc(line) : linkText(line, { names: ctx.names, keys: ctx.keys, at: k, para }).map(s => (typeof s === 'string' ? esc(s) : refHtml(s, ctx.p, k))).join('');
+          const html = ctx.en ? esc(line) : linkText(line, { names: ctx.names, keys: ctx.keys, at: k, para }).map(s => (typeof s === 'string' ? plainHtml(s) : refHtml(s, ctx.p, k))).join('');
           return j ? `<span class="lw-item">${html}</span>` : html;
         })
         .join('');
@@ -29,6 +29,9 @@ export function articleHtml([, k, text], ctx = {}) {
   const fresh = (ctx.fresh ? `<span class="lw-fresh">${esc(ctx.fresh)}</span>` : '') + (ctx.pending ? `<button type="button" class="lw-pending" data-item="${esc(ctx.pendingItem || '')}">${esc(ctx.pending)}</button>` : '');
   return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(k, ctx.en))}</button>${fresh}${body}</article>`;
 }
+
+// A plain run: text, with any 大法官解釋 a link out.
+const plainHtml = s => (s.includes('釋字') ? interpLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-ref out" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.t)}</a>`)).join('') : esc(s));
 
 // A reference: to an article (its law or this one), or to a 項 of the
 // article it sits in.

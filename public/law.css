@@ -467,3 +467,6 @@
 .lw-rulings {
   padding: 0 0 calc(16px + env(safe-area-inset-bottom));
 }
+.lw-ref.out {
+  text-decoration-style: dashed;
+}

@@ -232,3 +232,21 @@ test('rulings: top courts only, the articles cited by law name, newest kept per 
   assert.equal(inWindow(new Date('2026-10-18T19:30:00Z')), true, '03:30 Taiwan');
   assert.equal(inWindow(new Date('2026-10-18T04:00:00Z')), false, '12:00 Taiwan');
 });
+
+import { interpLinks } from '../public/lib/refs.mjs';
+import { relatedLaws } from '../public/lib/search.mjs';
+import { newCount } from '../public/lib/store.mjs';
+test('cross-links: 大法官解釋 out to 憲法法庭, a law with its 施行法, the 追蹤 badge count', () => {
+  const s = interpLinks('依司法院釋字第七四八號解釋之意旨，及大法官釋字第 499  號。');
+  assert.equal(s[1].t, '司法院釋字第七四八號解釋');
+  assert.match(s[1].url, /expno=748$/);
+  assert.match(s[3].url, /expno=499$/);
+  assert.equal(s.filter(x => typeof x === 'string').join(''), '依之意旨，及。');
+  assert.deepEqual(interpLinks('第十條'), ['第十條']);
+  const rows = [['B1', '民法'], ['B2', '民法總則施行法'], ['B3', '民法親屬編施行法'], ['B4', '民事訴訟法'], ['B5', '民法舊施行法', 0, 0, 0, 1]];
+  assert.deepEqual(relatedLaws(rows, rows[0]).map(r => r[0]), ['B2', 'B3']);
+  assert.deepEqual(relatedLaws(rows, rows[2]).map(r => r[0]), ['B1', 'B2']);
+  const mine = { laws: { B1: '2026-10-01' }, items: { 'x:1': '2026-10-01', 'x:2': '2026-10-10' } };
+  const items = [{ k: 'x:1', u: '2026-10-05' }, { k: 'x:2', u: '2026-10-05' }, { k: 'x:3', u: '2026-10-09' }];
+  assert.equal(newCount(mine, items, { items: [{ p: 'B1', seen: '2026-10-02' }, { p: 'B9', seen: '2026-10-02' }] }), 2);
+});

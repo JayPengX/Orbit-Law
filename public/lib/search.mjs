@@ -52,3 +52,16 @@ export function headingDepth(title) {
   const m = String(title).match(/第\s*[0-9零一二三四五六七八九十百]+\s*(?:之\s*[0-9一二三四五六七八九十]+\s*)?([編章節款目])/);
   return m ? '編章節款目'.indexOf(m[1]) : 1;
 }
+
+// A law's own family by name: its 施行法 and 施行細則 (names that start
+// with it), and from those, the law they carry out. Repealed ones left out.
+export function relatedLaws(rows, row, limit = 12) {
+  const name = row[1];
+  let base = name.replace(/(施行細則|施行法|施行條例)$/, '');
+  // 民法親屬編施行法 carries out 民法 (its 編 is no law of its own).
+  if (base !== name && !rows.some(r => r[1] === base)) base = base.replace(/(總則|[^法律]{1,3}編)$/, '');
+  return rows
+    .filter(r => r[0] !== row[0] && !r[5] && (r[1] === base || (r[1].startsWith(base) && r[1].length > base.length)))
+    .sort((a, b) => (a[1] === base ? -1 : b[1] === base ? 1 : a[1].length - b[1].length || (a[1] < b[1] ? -1 : 1)))
+    .slice(0, limit);
+}

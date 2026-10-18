@@ -9,10 +9,10 @@
 import { tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast } from '#kit/ui.mjs';
 import { nameMap } from './lib/refs.mjs';
-import { searchLaws, parseJump, ymd } from './lib/search.mjs';
+import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED } from './lib/bills.mjs';
-import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged } from './lib/store.mjs';
+import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askError, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
@@ -39,7 +39,9 @@ const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
 const state = { rulingLaws: {}, lawRulings: {}, tab: 'laws', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '' };
-const save = () => saveMine(state.mine);
+const save = () => (saveMine(state.mine), badge());
+// The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
+const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes));
 let itemsReady = Promise.resolve();
 
 // ---- Tabs ------------------------------------------------------------------------------
@@ -304,8 +306,9 @@ function lawMenu(law, row) {
   if (law.h) rows.push([W('沿革', 'History'), () => textSheet(W('沿革', 'History'), law.h)]);
   if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W('立法院', '立法院')} ${W(`第 ${it.term} 屆`, `term ${it.term}`)}・${stageLabel(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
+  for (const r of relatedLaws(state.rows, row)) rows.push([r[1], () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
   rows.push([W('全國法規資料庫原文', 'Official text (MOJ)'), () => open(`https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=${law.p}`, '_blank', 'noopener')]);
-  const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label })])]))) });
+  const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
 }
 function textSheet(title, text) {
   sheet({ title, closeLabel: W('關閉', 'Close'), body: h('pre', { class: 'lw-pre', text }) });
@@ -368,7 +371,7 @@ document.addEventListener('click', e => {
   if (pend) return go(`item=${pend.dataset.item}`);
   const no = e.target.closest('.lw-no');
   if (no && !no.closest('dialog')) return articleMenu(no.dataset.art);
-  const a = e.target.closest('a.lw-ref');
+  const a = e.target.closest('a.lw-ref:not(.out)');
   if (!a) return;
   e.preventDefault();
   const { law, from, to, para } = a.dataset;
@@ -550,6 +553,7 @@ async function start() {
       for (const it of b.items) if (it.p) state.itemsByLaw.set(it.p, [...(state.itemsByLaw.get(it.p) || []), it]);
       if (state.tab === 'bills') drawBillList();
       if (state.tab === 'mine') drawMine();
+      badge();
     })
     .catch(() => {});
   data('rulings/laws.json')
@@ -560,6 +564,7 @@ async function start() {
       state.changes = c;
       if (state.tab === 'laws' && !state.law) drawResults();
       if (state.tab === 'mine') drawMine();
+      badge();
     })
     .catch(() => {});
   await route();

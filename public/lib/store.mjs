@@ -50,3 +50,9 @@ export function lawsChanged(mine, changes) {
   return (changes?.items || []).filter(c => mine.laws[c.p] && c.seen > mine.laws[c.p]);
 }
 export { today };
+
+// What the 追蹤 tab's badge counts: followed laws amended and followed bills
+// moved since this device last looked at each.
+export function newCount(mine, items, changes) {
+  return lawsChanged(mine, changes).length + (items || []).filter(it => mine.items[it.k] && it.u > mine.items[it.k]).length;
+}

@@ -9,9 +9,11 @@
 const DIGIT = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 const UNIT = { 十: 10, 百: 100, 千: 1000 };
 
-// 一百八十四 → 184, 十一 → 11, 一千零五 → 1005; Arabic digits as they are.
+// 一百八十四 → 184, 十一 → 11, 一千零五 → 1005, 七四八 → 748; Arabic digits as they are.
 export function cnNumber(s) {
   if (/^\d+$/.test(s)) return Number(s);
+  // 七四八 (digit by digit, as 釋字 numbers are often written) → 748.
+  if (/^[零〇一二三四五六七八九]{2,}$/.test(s)) return Number([...s].map(ch => DIGIT[ch]).join(''));
   let total = 0, digit = 0, seen = false;
   for (const ch of s) {
     if (ch in DIGIT) {
@@ -143,4 +145,23 @@ export function nameMap(rows) {
   for (const r of rows) if (!r[5] || !names.has(r[1])) names.set(r[1], r[0]);
   for (const [short, full] of Object.entries(SHORT_NAMES)) if (names.has(full) && !names.has(short)) names.set(short, names.get(full));
   return names;
+}
+
+// 大法官解釋 (司法院釋字第七四八號解釋) inside a plain run: each one a link
+// to its page on 憲法法庭's site. → [string | { t, url }].
+const INTERP = new RegExp(`(?:司法院)?(?:大法官)?(?:會議)?釋字第\\s*(${N})\\s*號(?:解釋)?`, 'g');
+export const interpUrl = n => `https://cons.judicial.gov.tw/jcc/zh-tw/jep03/show?expno=${n}`;
+export function interpLinks(text) {
+  const out = [];
+  let last = 0;
+  INTERP.lastIndex = 0;
+  for (let m; (m = INTERP.exec(text)); ) {
+    const n = cnNumber(m[1]);
+    if (!(n > 0)) continue;
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push({ t: m[0], url: interpUrl(n) });
+    last = INTERP.lastIndex;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
 }

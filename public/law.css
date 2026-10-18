@@ -28,6 +28,13 @@
   -webkit-backdrop-filter: var(--q-glass-blur);
   backdrop-filter: var(--q-glass-blur);
 }
+/* Without the blur (older WebKit, some web views) the glass would show the
+   text under it: a solid bar instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lw-bar {
+    background: var(--q-bg);
+  }
+}
 .lw-back,
 .lw-tool {
   display: grid;
@@ -81,6 +88,8 @@
 }
 
 .lw-banner {
+  box-sizing: border-box;
+  text-decoration: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;

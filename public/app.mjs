@@ -12,11 +12,13 @@ import { nameMap } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED } from './lib/bills.mjs';
-import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount } from './lib/store.mjs';
+import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askError, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
+import { noticeUrl, isOpen } from './lib/notices.mjs';
+import { linkTrail } from './lib/stack.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -38,7 +40,7 @@ async function data(path) {
 const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
-const state = { rulingLaws: {}, lawRulings: {}, tab: 'laws', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '' };
+const state = { rulingLaws: {}, lawRulings: {}, tab: 'laws', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '' };
 const save = () => (saveMine(state.mine), badge());
 // The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
 const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes));
@@ -232,10 +234,13 @@ async function drawLaw() {
   const banner = live
     ? h('button', { type: 'button', class: 'lw-banner', onclick: () => go(`item=${live.k.replace(':', '-')}`) }, [h('span', { text: W('立法院審議中', 'Bills in 立法院') }), h('span', { class: 'lw-banner-stage', html: `${stageBar(live, en)} ${esc(stageLabel(live, en))}` })])
     : null;
+  // A ministry's draft of this law still open for comment (預告).
+  const draft = (state.noticesByLaw.get(law.p) || []).find(n => isOpen(n, today()));
+  const notice = draft ? h('a', { class: 'lw-banner', href: noticeUrl(draft.id), target: '_blank', rel: 'noopener' }, [h('span', { text: W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`) }), h('span', { class: 'lw-banner-stage', text: W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`) })]) : null;
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
   const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
-  panel.replaceChildren(head, find, ...[banner, fw, body].filter(Boolean));
+  panel.replaceChildren(head, find, ...[notice, banner, fw, body].filter(Boolean));
   box.hidden = true;
 }
 
@@ -390,8 +395,7 @@ document.addEventListener('click', e => {
   peek(law, from, to || from, Number(para) || 0);
 });
 
-let peekSheet = null;
-const peekStack = [];
+const trail = linkTrail();
 async function peek(p, from, to, para, { back = false } = {}) {
   let law;
   try {
@@ -399,27 +403,26 @@ async function peek(p, from, to, para, { back = false } = {}) {
   } catch {
     return toast(W('這部法規打不開', 'Can’t open that law'));
   }
-  if (!back) peekStack.push([p, from, to, para]);
   const arts = articlesBetween(law, from, to);
   const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
   const body = arts.length ? arts.map(a => articleHtml(a, { names: state.names, keys, p: law.p })).join('') : `<p class="lw-none">${W(`${law.n}沒有收錄${artLabel(from)}（可能已刪除或改號）`, `Article ${from} isn’t in this law (repealed or renumbered)`)}</p>`;
   const content = h('div', { class: 'lw-peek', html: body });
-  const openFull = h('button', { class: 'q-btn primary block', type: 'button', text: W('打開整部法規', 'Open the whole law'), onclick: () => (peekSheet?.close(), go(`law=${p}&a=${from}`)) });
-  const lead = peekStack.length > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => (peekStack.pop(), peek(...peekStack[peekStack.length - 1], { back: true })) }) : null;
+  const openFull = h('button', { class: 'q-btn primary block', type: 'button', text: W('打開整部法規', 'Open the whole law'), onclick: () => (trail.current?.close(), go(`law=${p}&a=${from}`)) });
+  const lead = trail.length + (back ? 0 : 1) > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => { const prev = trail.back(); if (prev) peek(...prev, { back: true }); } }) : null;
   const title = `${law.n === state.law?.n ? '' : law.n}${from === to ? artLabel(from, en) : `${artLabel(from, en)}–${to}`}`;
-  if (peekSheet) peekSheet.close();
   // 白話解釋 of what's shown: the article, or a range of up to 8 together.
   const live = arts.filter(a => !/^[（(]刪除[）)]$/.test(a[2].trim())).map(a => a[1]);
-  const ask = live.length && live.length <= 8 ? h('button', { class: 'q-btn block', type: 'button', text: live.length > 1 ? W(`白話解釋這 ${live.length} 條（AI）`, `Explain these ${live.length} (AI)`) : W('白話解釋（AI）', 'Explain in plain words (AI)'), onclick: () => (peekSheet?.close(), explain(law, live)) }) : null;
-  peekSheet = sheet({ title, lead, closeLabel: W('關閉', 'Close'), cls: 'lw-peek-sheet', body: [content, h('div', { class: 'lw-peek-foot' }, [ask, openFull].filter(Boolean))], onClose: () => (peekSheet = null) });
-  // (A sheet replaced by the next link keeps the stack; closing for good clears it.)
-  peekSheet.el.addEventListener('close', () => setTimeout(() => !peekSheet && (peekStack.length = 0), 0));
+  const ask = live.length && live.length <= 8 ? h('button', { class: 'q-btn block', type: 'button', text: live.length > 1 ? W(`白話解釋這 ${live.length} 條（AI）`, `Explain these ${live.length} (AI)`) : W('白話解釋（AI）', 'Explain in plain words (AI)'), onclick: () => (trail.current?.close(), explain(law, live)) }) : null;
+  const s = sheet({ title, lead, closeLabel: W('關閉', 'Close'), cls: 'lw-peek-sheet', body: [content, h('div', { class: 'lw-peek-foot' }, [ask, openFull].filter(Boolean))], onClose: () => trail.closed(s) });
+  // The new sheet is on the trail before the old one closes (its close lands late).
+  trail.show(s, [p, from, to, para], { back })?.close();
   if (para) flash(content.querySelector(`[data-para="${para}"]`) || content);
 }
 
 // ---- 立法: every law with bills this term ----------------------------------------------
 
 const BILL_FILTERS = [
+  ['notice', W('預告', 'Drafts')],
   ['moving', W('進行中', 'Moving')],
   ['talks', W('協商・二讀', 'Floor')],
   ['passed', W('已三讀', 'Passed')],
@@ -447,6 +450,7 @@ const shortDay = d => (d.slice(0, 4) === String(new Date().getFullYear()) ? ymd(
 function drawBillList() {
   const out = $('bill-list');
   if (!out) return;
+  if (billFilter === 'notice') return void (out.innerHTML = noticeList());
   let items = state.items;
   if (billQuery) items = items.filter(it => it.n.includes(billQuery));
   if (billFilter === 'moving') items = items.filter(it => !it.dropped && !it.held && it.open && it.stage >= 1 && it.stage < PASSED);
@@ -454,6 +458,21 @@ function drawBillList() {
   if (billFilter === 'passed') items = items.filter(it => it.stage >= PASSED);
   const shown = items.slice(0, 200);
   out.innerHTML = shown.length ? group('', shown.map(it => itemCell(it))) + (items.length > shown.length ? `<p class="lw-none">${W(`還有 ${items.length - shown.length} 項，請用搜尋`, `${items.length - shown.length} more: search to find them`)}</p>` : '') : `<p class="lw-none">${W('沒有符合的法案', 'No bills match')}</p>`;
+}
+
+// 預告: ministries' drafts open for comment on join.gov.tw (open ones first),
+// the step before 行政院 sends a bill to 立法院.
+function noticeList() {
+  const day = today();
+  let list = state.notices;
+  if (billQuery) list = list.filter(n => n.t.includes(billQuery) || n.gov.includes(billQuery));
+  const open = list.filter(n => isOpen(n, day)), closed = list.filter(n => !isOpen(n, day));
+  const html = group(W('開放意見中', 'Open for comment'), open.map(n => noticeCell(n, day))) + group(W('已截止', 'Closed'), closed.slice(0, 100).map(n => noticeCell(n, day)));
+  return html || `<p class="lw-none">${W('目前沒有預告中的法律修正草案', 'No draft amendments open for comment')}</p>`;
+}
+function noticeCell(n, day) {
+  const when = isOpen(n, day) ? W(`意見至 ${shortDay(n.to)}`, `comments till ${shortDay(n.to)}`) : W(`${shortDay(n.to)} 截止`, `closed ${shortDay(n.to)}`);
+  return `<a class="q-cell chevron" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(n.t)}</span><small>${esc([n.gov, when].filter(Boolean).join('・'))}</small></span></a>`;
 }
 
 async function openItem(k) {
@@ -562,6 +581,13 @@ async function start() {
       if (state.tab === 'bills') drawBillList();
       if (state.tab === 'mine') drawMine();
       badge();
+    })
+    .catch(() => {});
+  data('bills/notices.json')
+    .then(n => {
+      state.notices = n.notices || [];
+      for (const x of state.notices) for (const p of x.laws) state.noticesByLaw.set(p, [...(state.noticesByLaw.get(p) || []), x]);
+      if (state.tab === 'bills') drawBillList();
     })
     .catch(() => {});
   data('rulings/laws.json')

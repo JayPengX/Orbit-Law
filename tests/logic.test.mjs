@@ -260,3 +260,42 @@ test('English: index rows carry MOJ’s English name; search finds it by words',
   assert.deepEqual(searchLaws(rows, 'Civil Code').map(r => r[0]), ['B1']);
   assert.deepEqual(searchLaws(rows, 'ci'), []);
 });
+
+import { compactNotice, mergeNotices, lawsOfNotice, twDay, isOpen } from '../public/lib/notices.mjs';
+test('預告: drafts naming one of our laws, agency from the title, a year kept', () => {
+  const names = new Map([['產業創新條例', 'J1'], ['民法', 'B1']]);
+  const law = { policyUid: 'u1', policyTitle: '經濟部公告：預告修正「產業創新條例」第四十三條。', pubGovName: null, publishDate: 1789442998000, offlineDate: 1794671999000 };
+  const n = compactNotice(law, names);
+  assert.deepEqual(n, { id: 'u1', t: '預告修正「產業創新條例」第四十三條。', gov: '經濟部', from: '2026-09-15', to: '2026-11-14', laws: ['J1'], kind: 'amend' });
+  assert.equal(compactNotice({ policyUid: 'u2', policyTitle: '教育部公告：預告「教保服務人員條例施行細則」部分條文修正草案' }, names), null);
+  assert.equal(compactNotice({ policyUid: 'u3', policyTitle: '法務部公告：預告廢止「民法」' }, names).kind, 'repeal');
+  assert.deepEqual(lawsOfNotice('「民法」及「民法」', names), ['B1']);
+  assert.equal(twDay(Date.UTC(2026, 9, 18, 17)), '2026-10-19');
+  const old = { ...n, id: 'u0', from: '2025-01-01', to: '2025-02-01' };
+  assert.deepEqual(mergeNotices([old, n], [{ ...n, t: 'new' }], new Date('2026-10-18')).map(x => x.t), ['new']);
+  assert.ok(isOpen(n, '2026-11-14') && !isOpen(n, '2026-11-15'));
+});
+
+import { linkTrail } from '../public/lib/stack.mjs';
+test('peek trail: a replaced sheet closing late keeps the trail; back walks it; the last close ends it', () => {
+  const t = linkTrail();
+  const a = {}, b = {}, c = {};
+  assert.equal(t.show(a, ['B1', '14']), null);
+  assert.equal(t.show(b, ['B1', '15-1']), a);
+  t.closed(a); // the first sheet's close event, after the second opened
+  assert.equal(t.show(c, ['B1', '14']), b);
+  t.closed(b);
+  assert.equal(t.length, 3);
+  assert.deepEqual(t.back(), ['B1', '15-1']);
+  const b2 = {};
+  t.show(b2, ['B1', '15-1'], { back: true });
+  t.closed(c);
+  assert.deepEqual(t.back(), ['B1', '14']);
+  const a2 = {};
+  t.show(a2, ['B1', '14'], { back: true });
+  assert.equal(t.back(), null);
+  t.closed(b2); // not on screen: ignored
+  assert.equal(t.length, 1);
+  t.closed(a2);
+  assert.equal(t.length, 0);
+});

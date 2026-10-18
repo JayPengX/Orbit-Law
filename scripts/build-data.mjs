@@ -13,6 +13,8 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { compactLaw, compactEn, indexRow, diffLaws, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
 import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
+import { nameMap } from '../public/lib/refs.mjs';
+import { NOTICES_URL, compactNotice, mergeNotices } from '../public/lib/notices.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON' };
@@ -127,4 +129,26 @@ if (args.bills !== 'off') {
   billNote = `${all.length} bills in term ${term} (${fresh.length} fetched${since ? ` since ${since}` : ', full'}), ${items.length} tracked items`;
 }
 console.log(billNote);
+
+// ---- 預告: ministries' draft amendments open for comment (join.gov.tw) ----
+let noticeNote = 'notices off';
+if (args.notices !== 'off') {
+  const prevN = await prevJson('bills/notices.json');
+  let fresh = [];
+  try {
+    const r = await fetch(NOTICES_URL, { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)' }, signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) throw new Error(`join.gov.tw ${r.status}`);
+    const names = nameMap(index.laws);
+    fresh = ((await r.json()).result || []).map(x => compactNotice(x, names)).filter(Boolean);
+    noticeNote = `${fresh.length} open 預告 naming a law`;
+  } catch (e) {
+    // join.gov.tw down: last build's list stays.
+    noticeNote = `join.gov.tw failed (${e.message}): carried over`;
+  }
+  const notices = mergeNotices(prevN?.notices, fresh);
+  await mkdir(out + 'bills', { recursive: true });
+  await writeFile(out + 'bills/notices.json', JSON.stringify({ built: new Date().toISOString(), notices }));
+  noticeNote += `; ${notices.length} kept`;
+}
+console.log(noticeNote);
 console.log(`${laws.length} laws (${enByCode.size} in English), ${found.length} changed since the last build, ${changes.items.length} in 修法追蹤`);

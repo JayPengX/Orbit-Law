@@ -60,6 +60,13 @@ export function billStage(bill) {
 
 const passedOn = bill => bill.flow.filter(f => f[1] === PASSED).map(f => f[0]).sort().pop() || '';
 
+// A short, file-safe id for a law 立法院 hasn't numbered (FNV-1a, hex).
+export function hash(s) {
+  let x = 0x811c9dc5;
+  for (const ch of String(s)) x = Math.imul(x ^ ch.codePointAt(0), 0x01000193) >>> 0;
+  return x.toString(16).padStart(8, '0');
+}
+
 // The law a bill's title names (「民法部分條文修正草案」 → 民法): the longest
 // known name it starts with, else the shortest 法/條例/通則 it starts with.
 export function lawOfTitle(title, known = new Map()) {
@@ -80,7 +87,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
     const named = b.laws.length ? b.laws.map((id, i) => [id, b.names[i] || '']) : [];
     if (!named.length) {
       const name = lawOfTitle(b.t, pcodes);
-      named.push([ids.get(name) || `n${name || b.id}`, name || b.t]);
+      named.push([ids.get(name) || (name ? `n${hash(name)}` : `b${b.id}`), name || b.t]);
     }
     for (const [law, name] of named) {
       const k = `${b.term}:${law}`;
@@ -91,11 +98,12 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
   return [...items.values()].map(it => {
     const live = it.bills.filter(b => !billStage(b).dropped);
     const passed = it.bills.map(passedOn).sort().pop() || '';
-    let stage = Math.max(-1, ...live.map(b => billStage(b).stage));
+    // This term's open round: live versions not passed and still moving after
+    // the last 三讀 (the ones that went quiet before it were folded into it or left behind).
+    const open = openRound(it.bills, passed);
     const ymd = passed.replaceAll('-', '');
     const promulgated = Boolean(passed && it.p && (modified.get(it.p) || '') >= ymd);
-    if (promulgated) stage = Math.max(stage, PROMULGATED);
-    const open = live.filter(b => !passedOn(b)).length;
+    let stage = open.length ? Math.max(...open.map(b => billStage(b).stage)) : passed ? (promulgated ? PROMULGATED : PASSED) : Math.max(-1, ...live.map(b => billStage(b).stage));
     const u = it.bills.map(b => b.u).sort().pop() || '';
     return {
       k: it.k,
@@ -104,17 +112,22 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
       p: it.p,
       term: it.term,
       stage,
-      held: live.length > 0 && live.every(b => billStage(b).held),
+      held: open.length > 0 && open.every(b => billStage(b).held),
       dropped: live.length === 0,
       passed,
       pub: promulgated ? modified.get(it.p) : '',
-      open,
+      open: open.length,
       count: it.bills.length,
       gov: it.bills.some(b => b.src === '政府'),
       u,
       ids: it.bills.map(b => b.id)
     };
   });
+}
+
+// The versions still in play: live, not passed, and moving after the last 三讀.
+export function openRound(bills, passed = bills.map(passedOn).sort().pop() || '') {
+  return bills.filter(b => !billStage(b).dropped && !passedOn(b) && (!passed || b.u > passed));
 }
 
 // "What changed since you last looked": the items whose 最新進度日期 is

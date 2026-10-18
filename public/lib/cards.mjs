@@ -30,9 +30,10 @@ export const stepOf = stage => [0, 1, 2, 2, 2, 3, 4, 5][Math.max(0, Math.min(7, 
 
 // The bar: six segments, filled to the step reached; its state's colour
 // (moving indigo, held orange, passed green, withdrawn grey).
+export const toneOf = item => (item.dropped ? 'dropped' : item.held ? 'held' : item.stage >= PASSED ? 'passed' : 'moving');
 export function progress(item, en = false, { labels = false } = {}) {
   const step = stepOf(item.stage);
-  const tone = item.dropped ? 'dropped' : item.held ? 'held' : item.stage >= PASSED ? 'passed' : 'moving';
+  const tone = toneOf(item);
   const segs = STEPS.map((s, i) => `<i class="${i <= step ? 'on' : ''}${i === step ? ' now' : ''}"></i>`).join('');
   const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(s[en ? 1 : 0])}</span>`).join('')}</span>` : '';
   return `<span class="lw-prog ${tone}" role="img" aria-label="${esc(STEPS[step][en ? 1 : 0])}"><span class="lw-prog-bar">${segs}</span>${names}</span>`;
@@ -72,7 +73,7 @@ export function billCard(it, { topic = 'gov', en = false, now, wide = false } = 
   const arts = Object.keys(it.arts || {}).length;
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版`) : '', arts ? (en ? `${arts} articles` : `${arts} 條`) : ''].filter(Boolean);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
-<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(shortDay(it.u, now))}</span></span>
+<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(shortDay(it.u, now))}</span></span>
 <span class="lw-bill-name">${esc(it.n)}</span>
 ${progress(it, en)}
 <span class="lw-bill-foot">${partyChips(it.by, en, wide ? 3 : 2)}${meta.length ? `<span class="lw-bill-meta">${esc(meta.join(' · '))}</span>` : ''}</span>

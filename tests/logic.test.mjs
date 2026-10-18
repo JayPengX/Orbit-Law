@@ -389,3 +389,48 @@ test('問法律: only cites among its sources; soon when the route isn’t there
   const r = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 404, json: async () => ({}) }) });
   assert.equal(r.error, 'soon');
 });
+
+import { encodeMine, decodeMine, mergeMine } from '../public/lib/store.mjs';
+test('mine on the Pass: round trip, newer copy decides, later seen days kept', () => {
+  const a = { laws: { A: '2026-10-01', B: '2026-10-02' }, items: { '11:1': '2026-10-01' }, marks: [{ p: 'A', k: '1' }], recent: ['A', 'B'], t: 100, seenChanges: '' };
+  const back = decodeMine(encodeMine(a));
+  assert.deepEqual(back.laws, a.laws);
+  assert.equal(decodeMine('nope'), null);
+  assert.equal(decodeMine('{"v":2}'), null);
+  // Theirs newer: B unfollowed there stays unfollowed; A's later day kept from ours.
+  const theirs = { laws: { A: '2026-09-01', C: '2026-10-05' }, items: {}, marks: [], recent: ['C'], t: 200 };
+  const m = mergeMine({ ...a, laws: { ...a.laws, A: '2026-10-09' } }, theirs);
+  assert.deepEqual(m.laws, { A: '2026-10-09', C: '2026-10-05' });
+  assert.deepEqual(m.items, {});
+  assert.deepEqual(m.recent, ['C', 'A', 'B']);
+  assert.equal(m.t, 200);
+  // Ours newer: ours decides.
+  assert.deepEqual(mergeMine(a, { ...theirs, t: 50 }).laws, a.laws);
+});
+
+test('問法律: the proxy 404 before the route ships reads as soon', async () => {
+  const r = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 404, json: async () => ({ error: { code: 'NOT_FOUND' } }) }) });
+  assert.equal(r.error, 'soon');
+  const c = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 429, json: async () => ({ error: 'cap', left: 0 }) }) });
+  assert.equal(c.error, 'cap');
+});
+
+import { passFetch, askBill, askDiff } from '../public/lib/ask.mjs';
+test('AI calls carry the Law Pass session, a 401 asked once more with a new token', async () => {
+  const urls = [];
+  let n = 0;
+  const s = { ensureToken: async ({ renew }) => (renew ? 'new' : 'old') };
+  const f = passFetch(s, async (url, init) => (urls.push([url, init.headers['Content-Type']]), { status: n++ ? 200 : 401 }));
+  const r = await f('https://w/law-chat', { method: 'POST', body: '{}' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(urls, [['https://w/law-chat?v=1&qt=old', 'text/plain'], ['https://w/law-chat?v=1&qt=new', 'text/plain']]);
+});
+test('bill and diff explanations: shapes kept, cites only among the asked', async () => {
+  const b = await askBill({ bill: '20' }, async () => ({ ok: true, json: async () => ({ answer: 'a', changes: [{ text: 'x', article: '5' }, { text: '' }], who: ['勞工'], covered: true }) }));
+  assert.deepEqual(b.changes, [{ text: 'x', article: '5' }]);
+  assert.deepEqual(b.who, ['勞工']);
+  const d = await askDiff({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({ answer: 'a', points: [{ text: 'y', cites: ['1', '9'] }], covered: true }) }));
+  assert.deepEqual(d.points, [{ text: 'y', cites: ['1'] }]);
+  const e = await askBill({ bill: '20' }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'bill' }) }));
+  assert.equal(e.error, 'bill');
+});

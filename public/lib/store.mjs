@@ -12,7 +12,8 @@ export function loadMine(store = globalThis.localStorage) {
   } catch {}
   return empty();
 }
-export function saveMine(mine, store = globalThis.localStorage) {
+export function saveMine(mine, store = globalThis.localStorage, now = Date.now()) {
+  mine.t = now;
   try {
     store?.setItem(KEY, JSON.stringify(mine));
   } catch {}
@@ -55,4 +56,31 @@ export { today };
 // moved since this device last looked at each.
 export function newCount(mine, items, changes) {
   return lawsChanged(mine, changes).length + (items || []).filter(it => mine.items[it.k] && it.u > mine.items[it.k]).length;
+}
+
+// On the Quadra Pass (its orbit-law payload): what's followed, the
+// bookmarks and the recent laws, so another phone signed in has them too.
+// The newer copy (by `t`, the last save) decides what's in or out; the
+// days last looked at are the later of the two for what both follow.
+export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, marks: m.marks, recent: m.recent });
+export function decodeMine(payload) {
+  try {
+    const v = JSON.parse(payload);
+    if (v?.v !== 1 || typeof v.laws !== 'object' || typeof v.items !== 'object' || !Array.isArray(v.marks) || !Array.isArray(v.recent)) return null;
+    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
+  } catch {
+    return null;
+  }
+}
+export function mergeMine(ours, theirs) {
+  const [base, other] = (theirs.t || 0) > (ours.t || 0) ? [theirs, ours] : [ours, theirs];
+  const later = (a, b) => Object.fromEntries(Object.entries(a).map(([k, d]) => [k, b[k] && b[k] > d ? b[k] : d]));
+  return {
+    ...ours,
+    t: Math.max(ours.t || 0, theirs.t || 0),
+    laws: later(base.laws, other.laws),
+    items: later(base.items, other.items),
+    marks: base.marks,
+    recent: [...new Set([...base.recent, ...other.recent])].slice(0, 12)
+  };
 }

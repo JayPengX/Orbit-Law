@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="zh-Hant" data-theme="dark">
+<html lang="zh-Hant">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#000000" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
 <meta name="build-version" content="dev" />
 <!-- brand: Shared-Proxy/brand/generate.mjs writes this block -->
 <title>Orbit Law</title>
@@ -38,7 +39,7 @@
 <!-- /brand -->
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="manifest" href="./manifest.webmanifest" />
 <!-- The laws' index, fetched while the kit and app modules load. -->
 <link rel="preload" href="./data/index.json" as="fetch" crossorigin />
@@ -65,10 +66,13 @@
       </div>
     </div>
     <nav id="tabs" class="q-tabbar" role="tablist"></nav>
+    <div id="top-actions" class="q-actions"></div>
   </div>
 </header>
 <main>
-  <section id="panel-laws" class="lw-panel"></section>
+  <section id="panel-home" class="lw-panel"></section>
+  <section id="panel-laws" class="lw-panel" hidden></section>
+  <section id="panel-ask" class="lw-panel" hidden></section>
   <section id="panel-bills" class="lw-panel" hidden></section>
   <section id="panel-mine" class="lw-panel" hidden></section>
 </main>

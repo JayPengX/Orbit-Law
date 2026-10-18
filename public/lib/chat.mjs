@@ -24,7 +24,7 @@ export function cleanChat(j) {
     answer: str(j?.answer),
     points,
     consequences: cited(j?.consequences),
-    agency: str(j?.agency),
+    agency: str(j?.agency || ''),
     next: list(j?.next, 4).map(str).filter(Boolean),
     followups: list(j?.followups, 3).map(str).filter(Boolean),
     sources,
@@ -38,13 +38,14 @@ export const historyOf = turns => turns.slice(-MAX_TURNS).map(t => ({ role: t.ro
 export async function chatLaw({ q, history = [], pin = [], lang = 'zh' }, { fetcher = globalThis.fetch, headers = {} } = {}) {
   let r;
   try {
-    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), lang }) });
+    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), lang }) });
   } catch {
     return { error: 'offline' };
   }
   const j = await r.json().catch(() => ({}));
-  if (r.status === 404 && !j.error) return { error: 'soon' };
-  if (!r.ok) return { error: j.error || `http${r.status}`, left: j.left };
+  // A route not there yet: the proxy's own 404 ({ error: { code } }, or none).
+  if (r.status === 404 && typeof j.error !== 'string') return { error: 'soon' };
+  if (!r.ok) return { error: typeof j.error === 'string' ? j.error : `http${r.status}`, left: j.left };
   if (typeof j.covered !== 'boolean') return { error: 'bad' };
   return cleanChat(j);
 }

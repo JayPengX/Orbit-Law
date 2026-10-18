@@ -100,6 +100,9 @@ test('bills: every version on one law in a term is one item; 三讀 then the MOJ
   assert.equal(billStage(c).dropped, true);
   const [item, ...rest] = foldBills([a, b, c, d], { pcodes: new Map([['甲法', 'P1']]) });
   assert.equal(rest.length, 0, 'the title names the same law');
+  const [newLaw] = foldBills([compactBill(raw('9', { 法律編號: [], '法律編號:str': [], 議案名稱: '「某某新設很長名稱的條例草案」，請審議案。' }))]);
+  assert.match(newLaw.k, /^11:n[0-9a-f]{8}$/, 'a new law gets a short id');
+  assert.equal(newLaw.n, '某某新設很長名稱的條例');
   assert.deepEqual([item.n, item.p, item.stage, item.passed, item.open, item.count, item.gov], ['甲法', 'P1', PASSED, '2026-03-01', 0, 4, true]);
   const [pub] = foldBills([a, b], { pcodes: new Map([['甲法', 'P1']]), modified: new Map([['P1', '20260320']]) });
   assert.deepEqual([pub.stage, pub.pub], [PROMULGATED, '20260320']);

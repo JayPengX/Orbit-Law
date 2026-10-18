@@ -60,6 +60,13 @@ export function billStage(bill) {
 
 const passedOn = bill => bill.flow.filter(f => f[1] === PASSED).map(f => f[0]).sort().pop() || '';
 
+// A short, file-safe id for a law 立法院 hasn't numbered (FNV-1a, hex).
+export function hash(s) {
+  let x = 0x811c9dc5;
+  for (const ch of String(s)) x = Math.imul(x ^ ch.codePointAt(0), 0x01000193) >>> 0;
+  return x.toString(16).padStart(8, '0');
+}
+
 // The law a bill's title names (「民法部分條文修正草案」 → 民法): the longest
 // known name it starts with, else the shortest 法/條例/通則 it starts with.
 export function lawOfTitle(title, known = new Map()) {
@@ -80,7 +87,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
     const named = b.laws.length ? b.laws.map((id, i) => [id, b.names[i] || '']) : [];
     if (!named.length) {
       const name = lawOfTitle(b.t, pcodes);
-      named.push([ids.get(name) || `n${name || b.id}`, name || b.t]);
+      named.push([ids.get(name) || (name ? `n${hash(name)}` : `b${b.id}`), name || b.t]);
     }
     for (const [law, name] of named) {
       const k = `${b.term}:${law}`;

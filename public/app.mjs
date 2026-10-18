@@ -748,10 +748,10 @@ function openChat(id) {
 
 // 對話紀錄: the saved chats; a tap continues one, … renames or deletes it.
 function chatHistory() {
-  const when = u => { const d = new Date(u); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString(en ? 'en' : 'zh-TW', { hour: '2-digit', minute: '2-digit' }) : `${d.getMonth() + 1}/${d.getDate()}`; };
+  const when = u => { const d = new Date(u); return d.toDateString() === new Date().toDateString() ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : `${d.getMonth() + 1}/${d.getDate()}`; };
   const rows = () =>
     chats.length
-      ? chats.map(c => `<div class="lw-chat-row${c.id === chat.id ? ' on' : ''}"><button type="button" class="lw-chat-open" data-id="${esc(c.id)}"><span class="lw-row-name">${esc(c.t)}</span><small>${esc(when(c.u))} · ${esc(W(`${c.turns.filter(t => t.role === 'user').length} 個問題`, `${c.turns.filter(t => t.role === 'user').length} questions`))}</small></button><button type="button" class="lw-chat-more" data-more="${esc(c.id)}" aria-label="${W('更多', 'More')}">${ICON.more}</button></div>`).join('') + `<button type="button" class="lw-chat-clear">${W('刪除全部對話', 'Delete all chats')}</button>`
+      ? chats.map(c => `<div class="lw-chat-row${c.id === chat.id ? ' on' : ''}"><button type="button" class="lw-chat-open" data-id="${esc(c.id)}"><span class="lw-row-name">${esc(c.t)}</span><small>${esc(when(c.u))} · ${esc(((n) => W(`${n} 個問題`, `${n} question${n > 1 ? 's' : ''}`))(c.turns.filter(t => t.role === 'user').length))}</small></button><button type="button" class="lw-chat-more" data-more="${esc(c.id)}" aria-label="${W('更多', 'More')}">${ICON.more}</button></div>`).join('') + `<button type="button" class="lw-chat-clear">${W('刪除全部對話', 'Delete all chats')}</button>`
       : `<p class="lw-none">${W('還沒有對話。問的問題會存在這支手機上。', 'No chats yet. Your questions are kept on this phone.')}</p>`;
   const body = h('div', { class: 'lw-chat-list', html: rows() });
   const s = sheet({ title: W('對話紀錄', 'Chats'), closeLabel: W('關閉', 'Close'), body });
@@ -763,11 +763,12 @@ function chatHistory() {
       const c = chats.find(x => x.id === m.dataset.more);
       const menu = sheet({ title: c.t, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-menu' }, [
         h('button', { class: 'lw-menu-row ask', type: 'button', html: `<i>${MENU_ICON.ask}</i><span>${W('繼續這個對話', 'Continue')}</span>`, onclick: () => (menu.close(), s.close(), openChat(c.id)) }),
-        h('button', { class: 'lw-menu-row copy', type: 'button', html: `<i>${MENU_ICON.edit}</i><span>${W('重新命名', 'Rename')}</span>`, onclick: () => {
-          const t = prompt(W('對話名稱', 'Chat name'), c.t);
-          if (t != null) ((chats = saveChats(renameChat(chats, c.id, t))), (body.innerHTML = rows()));
+        h('form', { class: 'lw-rename', onsubmit: e => {
+          e.preventDefault();
+          chats = saveChats(renameChat(chats, c.id, e.currentTarget.elements.t.value));
+          body.innerHTML = rows();
           menu.close();
-        } }),
+        } }, [h('i', { html: MENU_ICON.edit }), h('input', { name: 't', value: c.t, maxlength: '60', enterkeyhint: 'done', 'aria-label': W('對話名稱', 'Chat name') }), h('button', { type: 'submit', text: W('改名', 'Rename') })]),
         h('button', { class: 'lw-menu-row warn', type: 'button', html: `<i>${MENU_ICON.trash}</i><span>${W('刪除', 'Delete')}</span>`, onclick: () => {
           chats = saveChats(dropChat(chats, c.id));
           if (c.id === chat.id) newChat();

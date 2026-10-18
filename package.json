@@ -1,0 +1,14 @@
+{
+  "name": "orbit-law",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "data": "node scripts/build-data.mjs",
+    "start": "npx --yes http-server public -p 8080 -c-1",
+    "pretest": "test -e .kit || ln -s ../Shared-Proxy/kit .kit"
+  },
+  "imports": {
+    "#kit/*": "./.kit/*"
+  }
+}

@@ -16,6 +16,7 @@ import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMa
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askError, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
+import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -37,7 +38,7 @@ async function data(path) {
 const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
-const state = { tab: 'laws', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '' };
+const state = { rulingLaws: {}, lawRulings: {}, tab: 'laws', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '' };
 const save = () => saveMine(state.mine);
 let itemsReady = Promise.resolve();
 
@@ -177,6 +178,8 @@ async function openLaw(p, at, find = '') {
     }
     // The bills on this law mark its articles: waited for briefly (kept by the phone after the first time).
     await Promise.race([itemsReady, new Promise(r => setTimeout(r, 1500))]);
+    state.lawRulings = {};
+    if (state.rulingLaws[p]) data(`rulings/${p}.json`).then(r => state.law?.p === p && (state.lawRulings = r)).catch(() => {});
     state.law = law;
     state.showEn = en && Boolean(state.byCode.get(p)?.[6]);
     addRecent(state.mine, p);
@@ -318,7 +321,8 @@ function articleMenu(k) {
     [W('白話解釋（AI）', 'Explain in plain words (AI)'), () => explain(law, k)],
     [marked ? W('取消書籤', 'Remove bookmark') : W('加入書籤', 'Bookmark'), () => (toggleMark(state.mine, law.p, k), save(), document.getElementById(`a-${k}`)?.classList.toggle('marked', !marked))],
     [W('複製條文', 'Copy text'), () => copyArticle(k)],
-    [W('相關裁判（司法院）', 'Court rulings citing it'), () => open(`https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}`, '_blank', 'noopener')]
+    ...(state.lawRulings[k]?.length ? [[W(`最高法院等裁判（${state.lawRulings[k].length}）`, `Top-court rulings (${state.lawRulings[k].length})`), () => rulingsSheet(label, state.lawRulings[k], kw)]] : []),
+    [W('在司法院搜尋裁判', 'Search 司法院 rulings'), () => open(`https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}`, '_blank', 'noopener')]
   ];
   const s = sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([t, fn]) => h('button', { class: 'q-cell', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: t })])]))) });
 }
@@ -338,6 +342,13 @@ function explain(law, k) {
     out.innerHTML = (q ? `<p class="lw-ask-asked">${esc(q)}</p>` : '') + (r.covered ? `${r.answer ? `<p>${esc(r.answer)}</p>` : ''}<ul>${points}</ul>` : `<p>${esc(r.answer || W('這一條沒有規定這件事。', 'This article doesn’t cover that.'))}</p>`);
   }
   run();
+}
+
+// The top courts' rulings citing an article (newest first), each opening at 司法院.
+function rulingsSheet(label, list, kw) {
+  const rows = list.map(([jid, d, t]) => `<a class="q-cell" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(t || jid)}</span><small>${esc([COURTS[courtOf(jid)]?.[en ? 1 : 0], jid.split(',').slice(1, 4).join(' '), ymd(d)].filter(Boolean).join('・'))}</small></span></a>`).join('');
+  const more = `<a class="lw-out" href="https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}" target="_blank" rel="noopener">${W('在司法院搜尋更多', 'More at 司法院')}</a>`;
+  sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings', html: `<div class="q-list">${rows}</div>${more}` }) });
 }
 
 async function copyArticle(k) {
@@ -540,6 +551,9 @@ async function start() {
       if (state.tab === 'bills') drawBillList();
       if (state.tab === 'mine') drawMine();
     })
+    .catch(() => {});
+  data('rulings/laws.json')
+    .then(r => (state.rulingLaws = r))
     .catch(() => {});
   data('changes.json')
     .then(c => {

@@ -40,6 +40,13 @@ jobs:
         run: npm test
       - name: Build the law data
         run: node scripts/build-data.mjs
+      # Court rulings by article: JDoc answers 00:00-06:00 Taiwan time, so the
+      # 03:30 run reads it; other runs (and no account yet) carry the last copy.
+      - name: Build the court rulings
+        run: node scripts/build-rulings.mjs
+        env:
+          JDOC_USER: ${{ secrets.JDOC_USER }}
+          JDOC_PASS: ${{ secrets.JDOC_PASS }}
       - name: Cache-bust every script, module and stylesheet
         run: node scripts/stamp-version.mjs ${{ github.sha }}
       - uses: actions/configure-pages@v5

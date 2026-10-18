@@ -214,3 +214,21 @@ test('全文檢索: bigram buckets find articles holding every pair of the words
   assert.deepEqual(groupHits([0, 1, PER_LAW]), [{ law: 0, arts: [0, 1] }, { law: 1, arts: [0] }]);
   assert.ok(bucketOf('損害') >= 0 && bucketOf('損害') < 2048);
 });
+
+import { courtOf, citesOf, compactRuling, mergeRulings, byLaw, inWindow } from '../public/lib/rulings.mjs';
+test('rulings: top courts only, the articles cited by law name, newest kept per article', () => {
+  assert.equal(courtOf('TPSV,112,台上,1234,20240101,1'), 'TPS');
+  assert.equal(courtOf('JCCC,113,憲判,8,20240920,1'), 'JCC');
+  assert.equal(courtOf('TPDV,112,訴,1,20240101,1'), '', 'a district court is not kept');
+  const names = new Map([['民法', 'B1'], ['刑法', 'C1']]);
+  assert.deepEqual(citesOf('依民法第１８４條第1項前段、第185條及第7條規定。另刑法第10條。', names).sort(), ['B1:184', 'B1:185', 'B1:7', 'C1:10'], 'a list after a law name is that law');
+  const r = compactRuling({ JID: 'TPSV,1', JDATE: '20240102', JTITLE: '損害賠償', JFULL: '民法第184條' }, names);
+  assert.deepEqual(r, ['TPSV,1', '2024-01-02', '損害賠償', ['B1:184']]);
+  assert.deepEqual(compactRuling({ JID: 'TPSV,2', JDATE: '20240102', JFULLX: { JFULLCONTENT: '刑法第10條' } }, names)[3], ['C1:10']);
+  const now = new Date('2026-10-18T00:00:00Z');
+  const merged = mergeRulings([['A', '2026-01-01', '', ['B1:1']], ['OLD', '2020-01-01', '', ['B1:1']]], [['B', '2026-10-01', '', ['B1:1']], ['A', '2026-01-01', 'dup', []]], now);
+  assert.deepEqual(merged.map(x => x[0]), ['B', 'A'], 'newest first, once each, the old one dropped');
+  assert.deepEqual(byLaw(merged, 1), { B1: { 1: [['B', '2026-10-01', '']] } }, 'capped per article');
+  assert.equal(inWindow(new Date('2026-10-18T19:30:00Z')), true, '03:30 Taiwan');
+  assert.equal(inWindow(new Date('2026-10-18T04:00:00Z')), false, '12:00 Taiwan');
+});

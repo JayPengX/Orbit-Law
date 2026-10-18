@@ -463,3 +463,7 @@
   color: var(--q-label-3);
   font: var(--q-t-footnote);
 }
+
+.lw-rulings {
+  padding: 0 0 calc(16px + env(safe-area-inset-bottom));
+}

@@ -15,6 +15,7 @@ import { PASSED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askError, MAX_Q } from './lib/ask.mjs';
+import { searchText, groupHits } from './lib/fulltext.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -76,7 +77,7 @@ async function route() {
   document.querySelector('dialog[open]')?.close();
   if (q.get('law')) {
     showTab('laws');
-    await openLaw(q.get('law'), q.get('a'));
+    await openLaw(q.get('law'), q.get('a'), q.get('find'));
   } else if (q.get('tab') === 'bills' || q.get('item')) {
     showTab('bills');
     drawBills();
@@ -120,12 +121,34 @@ function drawResults() {
     const found = searchLaws(state.rows, q);
     out.innerHTML =
       (jumpTo ? group('', [`<a class="q-cell chevron lw-law" href="#law=${esc(jumpTo.row[0])}&amp;a=${esc(jumpTo.key)}"><span class="q-cell-text"><span>${esc(jumpTo.row[1])} ${esc(artLabel(jumpTo.key, en))}</span><small>${W('直接打開這一條', 'Open this article')}</small></span></a>`]) : '') +
-      (found.length ? group(W('法規', 'Laws'), found.map(r => lawCell(r))) : jumpTo ? '' : `<p class="lw-none">${W('找不到這個法規', 'No law by that name')}</p>`);
+      (found.length ? group(W('法規', 'Laws'), found.map(r => lawCell(r))) : '') +
+      `<div id="text-hits"></div>`;
+    if (!jumpTo) textHits(q, !found.length);
     return;
   }
   const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean);
   const amended = state.changes.items.slice(0, 8).map(c => state.byCode.get(c.p) && lawCell(state.byCode.get(c.p), changeText(c))).filter(Boolean);
   out.innerHTML = group(W('最近看過', 'Recent'), recent.map(r => lawCell(r))) + group(W('最近修法', 'Just amended'), amended) + group(W('常用', 'Common'), COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawCell(r)));
+}
+
+// 全文檢索: the laws whose articles hold the words, most articles first
+// (a tap opens the law showing only those articles).
+let textTimer = 0;
+function textHits(q, alone) {
+  clearTimeout(textTimer);
+  const out = $('text-hits');
+  if ([...q].length < 2) return void (alone && (out.innerHTML = `<p class="lw-none">${W('找不到這個法規', 'No law by that name')}</p>`));
+  textTimer = setTimeout(async () => {
+    let ids;
+    try {
+      ids = await searchText(q, n => data(`text/${n}.json`));
+    } catch {
+      return;
+    }
+    if (state.query.trim() !== q || !document.body.contains(out)) return;
+    const rows = groupHits(ids).map(g => state.rows[g.law] && `<a class="q-cell chevron lw-law" href="#law=${esc(state.rows[g.law][0])}&amp;find=${encodeURIComponent(q)}"><span class="q-cell-text"><span>${esc(state.rows[g.law][1])}</span><small>${esc(W(`${g.arts.length} 條提到「${q}」`, `${g.arts.length} articles mention “${q}”`))}</small></span></a>`).filter(Boolean);
+    out.innerHTML = rows.length ? group(W('條文內容', 'In the text'), rows) : alone ? `<p class="lw-none">${W('沒有法規或條文提到這個', 'Nothing found')}</p>` : '';
+  }, 250);
 }
 
 function changeText(c) {
@@ -142,7 +165,7 @@ function jump(q) {
 
 // ---- The reader --------------------------------------------------------------------------
 
-async function openLaw(p, at) {
+async function openLaw(p, at, find = '') {
   const panel = $('panel-laws');
   if (state.law?.p !== p) {
     let law;
@@ -160,6 +183,14 @@ async function openLaw(p, at) {
     markSeen(state.mine, 'laws', p);
     save();
     await drawLaw();
+  }
+  if (find) {
+    const f = document.querySelector('.lw-find');
+    if (f) {
+      f.hidden = false;
+      f.querySelector('input').value = find;
+      filterLaw(find);
+    }
   }
   if (at) requestAnimationFrame(() => focusArticle(at));
   else scrollTo({ top: 0 });

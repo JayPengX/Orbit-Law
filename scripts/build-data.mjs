@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { compactLaw, compactEn, indexRow, diffLaws, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
 import { compactBill, foldBills, mergeBills } from '../public/lib/bills.mjs';
+import { buildIndex } from '../public/lib/fulltext.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON' };
@@ -47,6 +48,7 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out + 'law', { recursive: true });
 await mkdir(out + 'en', { recursive: true });
 await mkdir(out + 'bills/item', { recursive: true });
+await mkdir(out + 'text', { recursive: true });
 
 const enByCode = new Map();
 for (const l of en.Laws || []) {
@@ -60,6 +62,8 @@ for (const law of laws) {
   const e = enByCode.get(law.p);
   if (e) await writeFile(`${out}en/${law.p}.json`, JSON.stringify(e));
 }
+// 全文檢索: the bigram buckets, in the index's order.
+for (const [b, pairs] of buildIndex(laws)) await writeFile(`${out}text/${b}.json`, JSON.stringify(pairs));
 const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.has(l.p))) };
 await writeFile(out + 'index.json', JSON.stringify(index));
 

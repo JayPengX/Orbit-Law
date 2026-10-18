@@ -201,3 +201,16 @@ test('bills: the articles a title names, counted over the open round', () => {
   const b = compactBill(raw('2', { 議案名稱: '「甲法第二條及第三條條文修正草案」，請審議案。' }));
   assert.deepEqual(foldBills([a, b])[0].arts, { 2: 2, 3: 1 });
 });
+
+import { bigrams, bucketOf, buildIndex, searchText, groupHits, PER_LAW } from '../public/lib/fulltext.mjs';
+test('全文檢索: bigram buckets find articles holding every pair of the words', async () => {
+  assert.deepEqual([...bigrams('損害，賠償')], ['損害', '賠償']);
+  const laws = [{ a: [['C', '', '章'], ['A', '1', '負損害賠償責任'], ['A', '2', '損害']] }, { a: [['A', '1', '賠償損害之方法']] }];
+  const idx = buildIndex(laws);
+  const bucket = async n => idx.get(n);
+  assert.deepEqual(await searchText('損害賠償', bucket), [0], 'only the article with all three pairs');
+  assert.deepEqual(await searchText('損害', bucket), [0, 1, PER_LAW]);
+  assert.deepEqual(await searchText('！', bucket), []);
+  assert.deepEqual(groupHits([0, 1, PER_LAW]), [{ law: 0, arts: [0, 1] }, { law: 1, arts: [0] }]);
+  assert.ok(bucketOf('損害') >= 0 && bucketOf('損害') < 2048);
+});

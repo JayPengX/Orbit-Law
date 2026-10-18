@@ -26,7 +26,8 @@ export function articleHtml([, k, text], ctx = {}) {
       return `<p class="lw-para" data-para="${para}">${inner}</p>`;
     })
     .join('');
-  return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(k, ctx.en))}</button>${body}</article>`;
+  const fresh = (ctx.fresh ? `<span class="lw-fresh">${esc(ctx.fresh)}</span>` : '') + (ctx.pending ? `<button type="button" class="lw-pending" data-item="${esc(ctx.pendingItem || '')}">${esc(ctx.pending)}</button>` : '');
+  return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(k, ctx.en))}</button>${fresh}${body}</article>`;
 }
 
 // A reference: to an article (its law or this one), or to a 項 of the
@@ -40,9 +41,13 @@ export function refHtml(r, p, at) {
 export function lawHtml(law, ctx = {}) {
   const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
   const marks = new Set(ctx.marks || []);
+  // The articles the latest amendment added or changed: { key: label }.
+  const fresh = ctx.fresh || {};
+  // The articles open bills would change: { key: label }, and the item they open.
+  const pending = ctx.pending || {};
   let h = 0;
   return law.a
-    .map(a => (a[0] === 'C' ? `<h2 class="lw-h d${headingDepth(a[2])}" id="h-${h++}">${esc(a[2])}</h2>` : articleHtml(a, { ...ctx, keys, p: law.p, marked: marks.has(a[1]) })))
+    .map(a => (a[0] === 'C' ? `<h2 class="lw-h d${headingDepth(a[2])}" id="h-${h++}">${esc(a[2])}</h2>` : articleHtml(a, { ...ctx, keys, p: law.p, marked: marks.has(a[1]), fresh: fresh[a[1]] || '', pending: pending[a[1]] || '' })))
     .join('');
 }
 
@@ -97,3 +102,15 @@ export function timeline(item, all, en = false) {
 
 export const PASSED_STAGE = PASSED;
 export { stageOf, ymd };
+
+// The latest amendment's marks for a law (修法追蹤): its added and amended
+// articles, labelled 新增 / 修正 with the day.
+export function freshMarks(changes, law, en = false) {
+  const c = (changes?.items || []).find(x => x.p === law.p && x.m === law.m);
+  if (!c) return {};
+  const day = ymd(c.m);
+  const out = {};
+  for (const k of c.amended) out[k] = `${en ? 'Amended' : '修正'} ${day}`;
+  for (const k of c.added) out[k] = `${en ? 'New' : '新增'} ${day}`;
+  return out;
+}

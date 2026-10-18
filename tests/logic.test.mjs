@@ -3,8 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { artKey, pcodeOf, compactLaw, diffLaws, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
-import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
-import { timeline, articleHtml, articlesBetween, contents } from '../public/lib/view.mjs';
+import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
+import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
 import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
 import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
 
@@ -165,4 +165,70 @@ test('store: follow, bookmarks, recent; followed laws amended since last look', 
   addRecent(mine, 'B2');
   assert.deepEqual(mine.recent, ['B2', 'B1']);
   assert.deepEqual(loadMine({ getItem: () => '{bad' }).marks, [], 'a broken copy reads empty');
+});
+
+test('修法追蹤 marks: the latest amendment of the law on screen only', () => {
+  const law = { p: 'B1', m: '20260817', a: [['A', '1', 'a'], ['A', '2', 'b']] };
+  const changes = { items: [{ p: 'B1', m: '20260817', added: ['2'], amended: ['1'], removed: [] }, { p: 'B1', m: '20250101', added: [], amended: ['2'], removed: [] }] };
+  assert.deepEqual(freshMarks(changes, law), { 1: '修正 2026/08/17', 2: '新增 2026/08/17' });
+  assert.deepEqual(freshMarks(changes, { ...law, m: '20270101' }), {});
+  assert.match(lawHtml(law, { fresh: freshMarks(changes, law) }), /lw-fresh">修正 2026\/08\/17/);
+  assert.match(lawHtml(law, { pending: { 2: '3 個修正提案' }, pendingItem: '11-001' }), /id="a-2".*lw-pending" data-item="11-001">3 個修正提案/);
+});
+
+import { askLaw, askError } from '../public/lib/ask.mjs';
+test('白話解釋: only points citing the articles asked about; failures in plain words', async () => {
+  let sent;
+  const ok = async (url, init) => ((sent = JSON.parse(init.body)), { ok: true, json: async () => ({ answer: '甲', points: [{ text: 'a', cites: ['184'] }, { text: 'b', cites: ['999'] }], covered: true, cached: false, left: 19 }) });
+  const r = await askLaw({ p: 'B0000001', arts: ['184'], q: '  x  ' }, ok);
+  assert.deepEqual(sent, { p: 'B0000001', arts: ['184'], q: 'x', lang: 'zh' });
+  assert.deepEqual(r.points, [{ text: 'a', cites: ['184'] }]);
+  assert.equal(r.covered, true);
+  const none = await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({ answer: '', points: [{ text: 'x', cites: ['2'] }], covered: true }) }));
+  assert.equal(none.covered, false, 'nothing cited right is not covered');
+  assert.deepEqual(await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: false, status: 429, json: async () => ({ error: 'cap', left: 0 }) })), { error: 'cap', left: 0 });
+  assert.equal((await askLaw({ p: 'B', arts: ['1'] }, async () => { throw new Error(); })).error, 'offline');
+  assert.equal((await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({}) }))).error, 'bad', 'an empty answer is a failure, not 沒有規定');
+  assert.match(askError('cap'), /明天/);
+  assert.match(askError('weird', true), /right now/);
+});
+
+test('bills: the articles a title names, counted over the open round', () => {
+  assert.deepEqual(articlesOfTitle('老人福利法第二條、第九條及第二十二條條文修正草案'), ['2', '9', '22']);
+  assert.deepEqual(articlesOfTitle('老人福利法增訂第二十五條之一條文草案'), ['25-1']);
+  assert.deepEqual(articlesOfTitle('民法部分條文修正草案'), []);
+  const a = compactBill(raw('1', { 議案名稱: '「甲法第二條條文修正草案」，請審議案。' }));
+  const b = compactBill(raw('2', { 議案名稱: '「甲法第二條及第三條條文修正草案」，請審議案。' }));
+  assert.deepEqual(foldBills([a, b])[0].arts, { 2: 2, 3: 1 });
+});
+
+import { bigrams, bucketOf, buildIndex, searchText, groupHits, PER_LAW } from '../public/lib/fulltext.mjs';
+test('全文檢索: bigram buckets find articles holding every pair of the words', async () => {
+  assert.deepEqual([...bigrams('損害，賠償')], ['損害', '賠償']);
+  const laws = [{ a: [['C', '', '章'], ['A', '1', '負損害賠償責任'], ['A', '2', '損害']] }, { a: [['A', '1', '賠償損害之方法']] }];
+  const idx = buildIndex(laws);
+  const bucket = async n => idx.get(n);
+  assert.deepEqual(await searchText('損害賠償', bucket), [0], 'only the article with all three pairs');
+  assert.deepEqual(await searchText('損害', bucket), [0, 1, PER_LAW]);
+  assert.deepEqual(await searchText('！', bucket), []);
+  assert.deepEqual(groupHits([0, 1, PER_LAW]), [{ law: 0, arts: [0, 1] }, { law: 1, arts: [0] }]);
+  assert.ok(bucketOf('損害') >= 0 && bucketOf('損害') < 2048);
+});
+
+import { courtOf, citesOf, compactRuling, mergeRulings, byLaw, inWindow } from '../public/lib/rulings.mjs';
+test('rulings: top courts only, the articles cited by law name, newest kept per article', () => {
+  assert.equal(courtOf('TPSV,112,台上,1234,20240101,1'), 'TPS');
+  assert.equal(courtOf('JCCC,113,憲判,8,20240920,1'), 'JCC');
+  assert.equal(courtOf('TPDV,112,訴,1,20240101,1'), '', 'a district court is not kept');
+  const names = new Map([['民法', 'B1'], ['刑法', 'C1']]);
+  assert.deepEqual(citesOf('依民法第１８４條第1項前段、第185條及第7條規定。另刑法第10條。', names).sort(), ['B1:184', 'B1:185', 'B1:7', 'C1:10'], 'a list after a law name is that law');
+  const r = compactRuling({ JID: 'TPSV,1', JDATE: '20240102', JTITLE: '損害賠償', JFULL: '民法第184條' }, names);
+  assert.deepEqual(r, ['TPSV,1', '2024-01-02', '損害賠償', ['B1:184']]);
+  assert.deepEqual(compactRuling({ JID: 'TPSV,2', JDATE: '20240102', JFULLX: { JFULLCONTENT: '刑法第10條' } }, names)[3], ['C1:10']);
+  const now = new Date('2026-10-18T00:00:00Z');
+  const merged = mergeRulings([['A', '2026-01-01', '', ['B1:1']], ['OLD', '2020-01-01', '', ['B1:1']]], [['B', '2026-10-01', '', ['B1:1']], ['A', '2026-01-01', 'dup', []]], now);
+  assert.deepEqual(merged.map(x => x[0]), ['B', 'A'], 'newest first, once each, the old one dropped');
+  assert.deepEqual(byLaw(merged, 1), { B1: { 1: [['B', '2026-10-01', '']] } }, 'capped per article');
+  assert.equal(inWindow(new Date('2026-10-18T19:30:00Z')), true, '03:30 Taiwan');
+  assert.equal(inWindow(new Date('2026-10-18T04:00:00Z')), false, '12:00 Taiwan');
 });

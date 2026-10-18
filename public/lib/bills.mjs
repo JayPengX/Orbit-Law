@@ -1,3 +1,5 @@
+import { cnNumber } from './refs.mjs';
+
 // 立法院's bills made one timeline: the dozens of raw statuses (排入院會
 // (交司法及法制委員會), 逕付二讀(交付協商), 審查完畢(三讀)…) folded into one
 // stage scale, and every version of a bill on one law in one term (行政院版,
@@ -117,12 +119,31 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
       passed,
       pub: promulgated ? modified.get(it.p) : '',
       open: open.length,
+      arts: articlesTouched(open),
       count: it.bills.length,
       gov: it.bills.some(b => b.src === '政府'),
       u,
       ids: it.bills.map(b => b.id)
     };
   });
+}
+
+// The articles a bill's title names (「甲法第二條、第九條及第二十五條之一條文修正草案」
+// → 2, 9, 25-1); a 部分條文 title names none.
+export function articlesOfTitle(title) {
+  const out = [];
+  for (const m of String(title).matchAll(/第([零〇一二三四五六七八九十百千]+)條(?:之([一二三四五六七八九十]+))?/g)) {
+    const n = cnNumber(m[1]);
+    const k = m[2] ? `${n}-${cnNumber(m[2])}` : String(n);
+    if (n > 0 && !out.includes(k)) out.push(k);
+  }
+  return out;
+}
+// How many open versions name each article: { '22': 3, '25-1': 1 }.
+export function articlesTouched(bills) {
+  const out = {};
+  for (const b of bills) for (const k of articlesOfTitle(b.t)) out[k] = (out[k] || 0) + 1;
+  return out;
 }
 
 // The versions still in play: live, not passed, and moving after the last 三讀.

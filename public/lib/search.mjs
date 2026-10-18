@@ -27,7 +27,8 @@ export function searchLaws(rows, query, limit = 50) {
     // An English name (index [6]), words in any case: 'civil code', 'labor'.
     if (s < 0 && typeof r[6] === 'string' && /[a-z]/i.test(q)) s = enMatch(r[6], query);
     if (s < 0) continue;
-    scored.push([s + (r[5] ? 10 : 0), n.length, r]);
+    // Laws before regulations (命令) of the same match.
+    scored.push([s + (r[5] ? 10 : 0) + (r[2] === '命令' ? 0.5 : 0), n.length, r]);
   }
   scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   return scored.slice(0, limit).map(x => x[2]);

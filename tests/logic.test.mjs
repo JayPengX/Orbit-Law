@@ -313,3 +313,21 @@ test('預告 on the timeline: the latest draft before the round, within two year
   assert.deepEqual([steps[0].name, steps[0].date, steps[0].stage, steps[1].name], ['預告', '2025-06-01', -1, '提案']);
   assert.equal(timeline(it, bills, false, []).length, 8);
 });
+
+test('命令: a regulation comes after a law of the same match, and joins its law’s family', () => {
+  const rows = [['C1', '勞動基準法施行細則', '命令', '', '', 0, 0], ['B1', '勞動基準法', '法律', '', '', 0, 0]];
+  assert.deepEqual(searchLaws(rows, '勞動基準').map(r => r[0]), ['B1', 'C1']);
+  assert.deepEqual(relatedLaws(rows, rows[1]).map(r => r[0]), ['C1']);
+  assert.deepEqual(relatedLaws(rows, rows[0]).map(r => r[0]), ['B1']);
+});
+
+import { parentLaw } from '../public/lib/refs.mjs';
+test('links in a regulation: 本法 is its law, 本細則 is itself', () => {
+  const rows = [['N1', '勞動基準法', '法律'], ['N2', '勞動基準法施行細則', '命令'], ['N3', '勞動', '法律', '', '', 1]];
+  assert.equal(parentLaw(rows, '勞動基準法施行細則'), 'N1');
+  assert.equal(parentLaw(rows, '道路交通安全規則'), '');
+  const names = nameMap(rows);
+  const s = linkText('依本法第七十條規定，本細則第二條及第三條。', { names, self: 'N1' }).filter(x => typeof x === 'object');
+  assert.deepEqual(s.map(x => [x.law, x.from]), [['N1', '70'], ['', '2'], ['', '3']]);
+  assert.deepEqual(linkText('本法第七十條', { names }).filter(x => typeof x === 'object').map(x => x.law), ['']);
+});

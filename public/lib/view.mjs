@@ -11,7 +11,8 @@ export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;'
 export const artLabel = (k, en = false) => (en ? `Article ${k}` : `第 ${k} 條`);
 
 // One article: its 項 as paragraphs (款 lines inside), every reference a
-// link carrying where it goes. `ctx`: { names, keys, p (this law), en, marked }.
+// link carrying where it goes. `ctx`: { names, keys, p (this law), en, marked,
+// self (a regulation's law, for 本法) }.
 export function articleHtml([, k, text], ctx = {}) {
   const deleted = /^（刪除）$|^\(刪除\)$/.test(text.trim());
   const paras = ctx.en ? String(text).split('\n').filter(Boolean).map(l => [l]) : paragraphs(text);
@@ -20,7 +21,7 @@ export function articleHtml([, k, text], ctx = {}) {
       const para = i + 1;
       const inner = lines
         .map((line, j) => {
-          const html = ctx.en ? esc(line) : linkText(line, { names: ctx.names, keys: ctx.keys, at: k, para }).map(s => (typeof s === 'string' ? plainHtml(s) : refHtml(s, ctx.p, k))).join('');
+          const html = ctx.en ? esc(line) : linkText(line, { names: ctx.names, keys: ctx.keys, at: k, para, self: ctx.self }).map(s => (typeof s === 'string' ? plainHtml(s) : refHtml(s, ctx.p, k))).join('');
           return j ? `<span class="lw-item">${html}</span>` : html;
         })
         .join('');

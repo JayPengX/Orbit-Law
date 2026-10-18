@@ -8,7 +8,7 @@
 
 import { tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast } from '#kit/ui.mjs';
-import { nameMap } from './lib/refs.mjs';
+import { nameMap, parentLaw } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED } from './lib/bills.mjs';
@@ -45,6 +45,7 @@ const save = () => (saveMine(state.mine), badge());
 // The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
 const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes));
 let itemsReady = Promise.resolve();
+let ordersReady = Promise.resolve();
 
 // ---- Tabs ------------------------------------------------------------------------------
 
@@ -107,7 +108,7 @@ const box = search({ placeholder: W('法規名稱，或「民法184」', 'Law na
 function lawCell(row, sub = '') {
   const [p, n, , cat, m, gone, enName] = row;
   // In English: the law's English name (MOJ's translation) in place of its 主管機關 category.
-  const what = en ? (typeof enName === 'string' ? enName : '') : cat.split('＞').pop();
+  const what = [row[2] === '命令' && W('命令', 'Regulation'), en ? (typeof enName === 'string' ? enName : '') : cat.split('＞').pop()].filter(Boolean).join('・');
   return `<a class="q-cell chevron lw-law" href="#law=${esc(p)}"><span class="q-cell-text"><span>${esc(n)}</span><small>${esc(sub || [what, m && `${W('修正', 'Rev.')} ${ymd(m)}`].filter(Boolean).join('・'))}${gone ? ` ・${W('已廢止', 'Repealed')}` : ''}</small></span></a>`;
 }
 const group = (head, cells) => (cells.length ? `<section class="q-list-group">${head ? `<h3 class="q-list-head">${esc(head)}</h3>` : ''}<div class="q-list">${cells.join('')}</div></section>` : '');
@@ -134,7 +135,8 @@ function drawResults() {
     return;
   }
   const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean);
-  const amended = state.changes.items.slice(0, 8).map(c => state.byCode.get(c.p) && lawCell(state.byCode.get(c.p), changeText(c))).filter(Boolean);
+  // (Laws only: regulations change daily and would crowd them out; followed ones show under 追蹤.)
+  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 8).map(c => lawCell(state.byCode.get(c.p), changeText(c)));
   out.innerHTML = group(W('最近看過', 'Recent'), recent.map(r => lawCell(r))) + group(W('最近修法', 'Just amended'), amended) + group(W('常用', 'Common'), COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawCell(r)));
 }
 
@@ -184,6 +186,8 @@ async function openLaw(p, at, find = '') {
     }
     // The bills on this law mark its articles: waited for briefly (kept by the phone after the first time).
     await Promise.race([itemsReady, new Promise(r => setTimeout(r, 1500))]);
+    // A regulation's row (its name's links, its family) comes with the regulations' index.
+    if (!state.byCode.has(p)) await Promise.race([ordersReady, new Promise(r => setTimeout(r, 3000))]);
     state.lawRulings = {};
     if (state.rulingLaws[p]) data(`rulings/${p}.json`).then(r => state.law?.p === p && (state.lawRulings = r)).catch(() => {});
     state.law = law;
@@ -204,6 +208,9 @@ async function openLaw(p, at, find = '') {
   if (at) requestAnimationFrame(() => focusArticle(at));
   else scrollTo({ top: 0 });
 }
+
+// A regulation's 本法: the law it carries out.
+const selfOf = law => (state.byCode.get(law.p)?.[2] === '命令' ? parentLaw(state.rows, law.n) : '');
 
 async function drawLaw() {
   const law = state.law;
@@ -238,7 +245,7 @@ async function drawLaw() {
   const draft = (state.noticesByLaw.get(law.p) || []).find(n => isOpen(n, today()));
   const notice = draft ? h('a', { class: 'lw-banner', href: noticeUrl(draft.id), target: '_blank', rel: 'noopener' }, [h('span', { text: W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`) }), h('span', { class: 'lw-banner-stage', text: W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`) })]) : null;
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
-  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
+  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, self: selfOf(law), en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
   panel.replaceChildren(head, find, ...[notice, banner, fw, body].filter(Boolean));
   box.hidden = true;
@@ -405,7 +412,7 @@ async function peek(p, from, to, para, { back = false } = {}) {
   }
   const arts = articlesBetween(law, from, to);
   const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
-  const body = arts.length ? arts.map(a => articleHtml(a, { names: state.names, keys, p: law.p })).join('') : `<p class="lw-none">${W(`${law.n}沒有收錄${artLabel(from)}（可能已刪除或改號）`, `Article ${from} isn’t in this law (repealed or renumbered)`)}</p>`;
+  const body = arts.length ? arts.map(a => articleHtml(a, { names: state.names, self: selfOf(law), keys, p: law.p })).join('') : `<p class="lw-none">${W(`${law.n}沒有收錄${artLabel(from)}（可能已刪除或改號）`, `Article ${from} isn’t in this law (repealed or renumbered)`)}</p>`;
   const content = h('div', { class: 'lw-peek', html: body });
   const openFull = h('button', { class: 'q-btn primary block', type: 'button', text: W('打開整部法規', 'Open the whole law'), onclick: () => (trail.current?.close(), go(`law=${p}&a=${from}`)) });
   const lead = trail.length + (back ? 0 : 1) > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => { const prev = trail.back(); if (prev) peek(...prev, { back: true }); } }) : null;
@@ -572,6 +579,17 @@ async function start() {
   } catch {
     $('panel-laws').replaceChildren(h('div', { class: 'q-empty' }, [h('strong', { text: W('法規資料讀不到', 'The laws couldn’t be loaded') }), h('p', { text: W('請連上網路再打開一次。', 'Connect and open again.') })]));
   }
+  // 命令 (regulations): their own index, after the laws' (appended, so the
+  // laws keep their places for 全文檢索); names, search and links take them in.
+  ordersReady = data('orders.json')
+    .then(o => {
+      state.rows = [...state.rows, ...o.laws];
+      for (const r of o.laws) state.byCode.set(r[0], r);
+      state.names = nameMap(state.rows);
+      if (state.tab === 'laws' && !state.law) drawResults();
+      if (state.tab === 'mine') drawMine();
+    })
+    .catch(() => {});
   // Bills and changes: the screens that need them draw again once in.
   itemsReady = data('bills/items.json')
     .then(b => {

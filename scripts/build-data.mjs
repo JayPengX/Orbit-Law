@@ -17,7 +17,7 @@ import { nameMap } from '../public/lib/refs.mjs';
 import { noticesUrl, compactNotice, mergeNotices, twDay } from '../public/lib/notices.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON' };
+const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON', order: 'https://law.moj.gov.tw/api/Ch/Order/JSON' };
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const out = new URL('../public/data/', import.meta.url).pathname;
 
@@ -45,6 +45,17 @@ async function prevJson(path) {
 const zh = await zipJson('zh');
 const en = await zipJson('en');
 if (!(zh.Laws?.length > 1000)) throw new Error(`ChLaw: only ${zh.Laws?.length} laws`);
+// 命令 (regulations: 施行細則, 辦法, 規則…), in force only: their own index,
+// which the app loads after the laws'. A failed download leaves them out today.
+let order = null;
+if (args.orders !== 'off')
+  try {
+    order = await zipJson('order');
+    if (!(order.Laws?.length > 5000)) throw new Error(`ChOrder: only ${order.Laws?.length}`);
+  } catch (e) {
+    console.warn(`regulations skipped: ${e.message}`);
+    order = null;
+  }
 
 await rm(out, { recursive: true, force: true });
 await mkdir(out + 'law', { recursive: true });
@@ -68,15 +79,21 @@ for (const law of laws) {
 for (const [b, pairs] of buildIndex(laws)) await writeFile(`${out}text/${b}.json`, JSON.stringify(pairs));
 const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.get(l.p)?.n)) };
 await writeFile(out + 'index.json', JSON.stringify(index));
+const orders = (order?.Laws || []).map(compactLaw).filter(l => l && !l.ab);
+for (const o of orders) await writeFile(`${out}law/${o.p}.json`, JSON.stringify(o));
+if (orders.length) await writeFile(out + 'orders.json', JSON.stringify({ d: order.UpdateDate || '', built: index.built, laws: orders.map(o => indexRow(o, o.e)) }));
 
 // 修法追蹤: the laws whose 異動日期 moved since the last deploy, article by
 // article (the old copy read back from the live site, only for those laws).
 const prevIndex = await prevJson('index.json');
 const prevChanges = (await prevJson('changes.json')) || { items: [] };
+const prevOrders = orders.length ? await prevJson('orders.json') : null;
 let found = [];
 if (prevIndex?.laws) {
   const before = new Map(prevIndex.laws.map(r => [r[0], r]));
-  for (const law of laws) {
+  // Regulations count once a previous copy of theirs is out there (not on their first day).
+  if (prevOrders?.laws) for (const r of prevOrders.laws) before.set(r[0], r);
+  for (const law of prevOrders?.laws ? [...laws, ...orders] : laws) {
     const old = before.get(law.p);
     if (old && old[4] === law.m) continue;
     const oldLaw = old ? await prevJson(`law/${law.p}.json`) : null;
@@ -169,4 +186,4 @@ if (args.notices !== 'off') {
   noticeNote += `; ${notices.length} kept`;
 }
 console.log(noticeNote);
-console.log(`${laws.length} laws (${enByCode.size} in English), ${found.length} changed since the last build, ${changes.items.length} in 修法追蹤`);
+console.log(`${laws.length} laws (${enByCode.size} in English), ${orders.length} regulations, ${found.length} changed since the last build, ${changes.items.length} in 修法追蹤`);

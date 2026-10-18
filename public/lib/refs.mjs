@@ -30,7 +30,7 @@ export function cnNumber(s) {
 
 const N = '[零〇一二三四五六七八九十百千兩0-9]+';
 // 第X條(之Y)?(至第X條(之Y)?)?(第N項)?  |  前條 | 前N條 | 前項 | 第N項
-const RE = new RegExp(`(本法|本條例|本通則|同法|同條例)?第(${N})條(?:之(${N}))?(?:至第(${N})條(?:之(${N}))?)?(?:第(${N})項)?|前(${N})?條|前項|(?:本條)?第(${N})項`, 'g');
+const RE = new RegExp(`(本法|本條例|本通則|本細則|本辦法|本規則|本準則|本標準|同法|同條例)?第(${N})條(?:之(${N}))?(?:至第(${N})條(?:之(${N}))?)?(?:第(${N})項)?|前(${N})?條|前項|(?:本條)?第(${N})項`, 'g');
 const key = (a, b) => {
   const n = cnNumber(a);
   if (!(n > 0)) return '';
@@ -42,11 +42,15 @@ const key = (a, b) => {
 // 第X條 (a repealed 組織條例) means another law, never this one.
 const LAW_END = /(法|律|條例|通則|規程|規則|細則|辦法|綱要|標準|準則|憲章|條文)$/;
 const SENTENCE_END = /[。；\n]/;
+// 本法 is the law being read; in a regulation (施行細則, 辦法…) it is the
+// law the regulation carries out (`self`), and 本細則/本辦法 is the regulation.
 const SELF = new Set(['本法', '本條例', '本通則']);
+const SELF_DOC = new Set(['本細則', '本辦法', '本規則', '本準則', '本標準']);
 
 // names: Map name → pcode (nameMap); keys: this law's article keys in order
-// (for 前條); at: the article being read; para: its 項 being read (前項).
-export function linkText(text, { names = new Map(), maxName = 40, keys = [], at = '', para = 0 } = {}) {
+// (for 前條); at: the article being read; para: its 項 being read (前項);
+// self: in a regulation, its law's pcode (本法).
+export function linkText(text, { names = new Map(), maxName = 40, keys = [], at = '', para = 0, self = '' } = {}) {
   const out = [];
   let last = 0;
   // The law a bare 第X條 belongs to: this one (''), until the sentence names
@@ -60,7 +64,8 @@ export function linkText(text, { names = new Map(), maxName = 40, keys = [], at 
     let ref = null;
     if (m[2]) {
       let law;
-      if (SELF.has(m[1])) law = '';
+      if (SELF.has(m[1])) law = self;
+      else if (SELF_DOC.has(m[1])) law = '';
       else if (m[1]) law = ctx;
       else {
         law = undefined;
@@ -140,6 +145,14 @@ export const SHORT_NAMES = {
 
 // name → pcode for linkText, from the index (and the short names that land
 // on a law in it).
+// The law a regulation carries out: the longest law (法律) name its own name
+// starts with (勞動基準法施行細則 → 勞動基準法). '' for none.
+export function parentLaw(rows, name) {
+  let best = null;
+  for (const r of rows) if (r[2] !== '命令' && !r[5] && r[1].length < name.length && name.startsWith(r[1]) && (!best || r[1].length > best[1].length)) best = r;
+  return best ? best[0] : '';
+}
+
 export function nameMap(rows) {
   const names = new Map();
   for (const r of rows) if (!r[5] || !names.has(r[1])) names.set(r[1], r[0]);

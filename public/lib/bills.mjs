@@ -82,7 +82,19 @@ export function lawOfTitle(title, known = new Map()) {
 // any live version reached; `pcodes` (law name → MOJ pcode) links it to
 // the reader, and `modified` (pcode → 異動日期 YYYYMMDD) turns a 三讀 into
 // 總統公布 once the MOJ copy is newer than the vote.
-export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = {}) {
+// Who proposed a bill, as a chip: 行政院 (and other 院), a 黨團 by its party,
+// or a legislator's party (`parties`: name → 黨籍, from the 立法院 API).
+export function sponsorOf(by, parties = new Map()) {
+  const s = String(by || '');
+  const yuan = s.match(/^(行政院|司法院|考試院|監察院)/);
+  if (yuan) return yuan[1];
+  const caucus = s.match(/本院(.+?)黨團/);
+  if (caucus) return caucus[1];
+  const who = s.match(/本院委員(.+?)(?:等\d+人|$)/);
+  return (who && parties.get(who[1].trim())) || '';
+}
+
+export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map() } = {}) {
   const items = new Map();
   const ids = new Map(bills.flatMap(b => b.laws.map((id, i) => [b.names[i], id])));
   for (const b of bills) {
@@ -123,6 +135,10 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map() } = 
       count: it.bills.length,
       gov: it.bills.some(b => b.src === '政府'),
       u,
+      // The proposers of the round (or every version), most versions first: [[who, n]] ≤ 3.
+      by: [...(open.length ? open : it.bills).reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(sponsorOf(b.by, parties)), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3),
+      // The newest version (its 對照表 summarised on the card).
+      top: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1))[0]?.id || '',
       ids: it.bills.map(b => b.id)
     };
   });

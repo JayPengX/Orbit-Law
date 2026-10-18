@@ -176,7 +176,15 @@ if (args.bills !== 'off') {
   await writeFile(out + 'bills/all.json', JSON.stringify({ term, built: new Date().toISOString(), bills: all }));
   const pcodes = new Map(laws.map(l => [l.n, l.p]));
   const modified = new Map(laws.map(l => [l.p, l.m]));
-  const items = foldBills(all, { pcodes, modified }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
+  // Legislators' parties (for the sponsor chips): one page of the term's.
+  const parties = new Map();
+  try {
+    const r = await fetch(`https://v2.ly.govapi.tw/legislators?${new URLSearchParams({ 屆: term, limit: '300' })}`, { signal: AbortSignal.timeout(60_000) });
+    for (const l of (await r.json()).legislators || []) parties.set(String(l['委員姓名']).trim(), l['黨籍'] || '');
+  } catch (e) {
+    console.warn(`legislators: ${e.message}`);
+  }
+  const items = foldBills(all, { pcodes, modified, parties }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
   const byId = new Map(all.map(b => [b.id, b]));
   for (const it of items) await writeFile(`${out}bills/item/${encodeURIComponent(it.k.replace(':', '-'))}.json`, JSON.stringify(it.ids.map(id => byId.get(id))));
   await writeFile(out + 'bills/items.json', JSON.stringify({ term, built: new Date().toISOString(), items: items.map(({ ids, ...it }) => it) }));

@@ -338,3 +338,54 @@ test('修正 texts: old and new per changed article', () => {
   const b = { p: 'B1', m: '2', a: [['A', '1', 'new one'], ['A', '2', 'same'], ['A', '4', 'added']] };
   assert.deepEqual(diffTexts(a, b), { p: 'B1', m: '2', was: '1', arts: { 4: [null, 'added'], 1: ['old one', 'new one'], 3: ['gone', null] } });
 });
+
+import { sponsorOf } from '../public/lib/bills.mjs';
+test('sponsors: 行政院, a caucus, a legislator by party', () => {
+  const parties = new Map([['李坤城', '民主進步黨']]);
+  assert.equal(sponsorOf('行政院', parties), '行政院');
+  assert.equal(sponsorOf('本院台灣民眾黨黨團', parties), '台灣民眾黨');
+  assert.equal(sponsorOf('本院委員李坤城等21人', parties), '民主進步黨');
+  assert.equal(sponsorOf('本院委員王某等3人', parties), '');
+});
+
+import { stepOf, stageShort, progress, partyChips, billCard, funnel, diffWords, diffHtml, shortDay as cardDay } from '../public/lib/cards.mjs';
+import { topicOf } from '../public/lib/topics.mjs';
+test('cards: six steps, short stages, party chips, a bill card, the funnel', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(stepOf), [0, 1, 2, 2, 2, 3, 4, 5]);
+  assert.equal(stageShort({ stage: 4 }), '協商中');
+  assert.equal(stageShort({ stage: 6 }, true), 'Passed');
+  assert.equal(stageShort({ stage: 2, held: true }), '暫緩');
+  assert.match(progress({ stage: 4 }), /lw-prog moving/);
+  assert.equal((progress({ stage: 4 }).match(/class="on/g) || []).length, 3);
+  assert.match(partyChips([['民主進步黨', 3], ['行政院', 1]]), /民進黨<b>3<\/b>.*行政院<\/span>/);
+  const card = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20]] }, { topic: 'welfare', now: new Date('2026-10-18') });
+  assert.match(card, /href="#item=11-01126"/);
+  assert.match(card, /10\/20/);
+  assert.match(card, /59 版 · 2 條/);
+  assert.match(card, /國民黨<b>20<\/b>/);
+  assert.match(funnel([{ stage: 4, open: 1 }, { stage: 6, open: 0 }, { stage: 1, open: 1, dropped: true }]), /data-step="2"><b>1<\/b>.*data-step="4"><b>1<\/b>/s);
+  assert.equal(cardDay('20250801', new Date('2026-01-01')), '2025/08/01');
+  assert.equal(topicOf('老人福利法'), 'welfare');
+});
+test('before/after: the changed characters marked, long sameness shortened', () => {
+  const d = diffWords('雇主應給付工資二萬元。', '雇主應給付工資三萬元。');
+  assert.deepEqual(d, [{ t: '雇主應給付工資', op: '=' }, { t: '二', op: '-' }, { t: '三', op: '+' }, { t: '萬元。', op: '=' }]);
+  assert.equal(diffWords('', '新增條文').map(x => x.op).join(), '+');
+  const html = diffHtml('甲'.repeat(200) + '乙', '甲'.repeat(200) + '丙', { keep: 10 });
+  assert.match(html, /…<\/span>甲{10}<del>乙<\/del><ins>丙<\/ins>/);
+});
+
+import { cleanChat, historyOf, chatLaw } from '../public/lib/chat.mjs';
+test('問法律: only cites among its sources; soon when the route isn’t there', async () => {
+  const c = cleanChat({ covered: true, answer: ' a ', sources: [{ p: 'B0000001', n: '民法', key: '421' }, { p: 'bad', key: '1' }], points: [{ text: 'x', cites: ['B0000001:421', 'B0000001:999'] }, { text: 'y', cites: ['C0000001:1'] }], consequences: [{ text: 'fine', cites: [] }], next: ['存證信函', 3], followups: ['f'] });
+  assert.deepEqual(c.points, [{ text: 'x', cites: ['B0000001:421'] }]);
+  assert.equal(c.covered, true);
+  assert.equal(c.answer, 'a');
+  assert.deepEqual(c.consequences, []);
+  assert.deepEqual(c.next, ['存證信函']);
+  assert.equal(c.sources.length, 1);
+  assert.equal(cleanChat({ covered: true, points: [] }).covered, false);
+  assert.equal(historyOf(Array.from({ length: 9 }, (_, i) => ({ role: 'user', text: String(i) }))).length, 6);
+  const r = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 404, json: async () => ({}) }) });
+  assert.equal(r.error, 'soon');
+});

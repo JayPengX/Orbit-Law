@@ -36,7 +36,16 @@ let rulings = prev.rulings || [];
 let note = 'carried over';
 const { JDOC_USER: user, JDOC_PASS: password } = process.env;
 if (!user || !password) note = 'no JDoc account yet (secrets JDOC_USER, JDOC_PASS): carried over';
-else if (!inWindow()) note = 'outside JDoc hours (00:00–06:00 Taiwan): carried over';
+else if (!inWindow()) {
+  // Outside its hours: only a sign-in check, logged (the account works, or why not).
+  let auth;
+  try {
+    auth = await post('Auth', { user, password });
+  } catch (e) {
+    auth = { error: e.message };
+  }
+  note = `outside JDoc hours (00:00–06:00 Taiwan): carried over; sign-in check: ${auth.Token || auth.token ? 'token received' : JSON.stringify(auth).slice(0, 160)}`;
+}
 else
   try {
     const index = JSON.parse(await readFile(new URL('../public/data/index.json', import.meta.url), 'utf8'));

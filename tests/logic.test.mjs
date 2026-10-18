@@ -174,3 +174,20 @@ test('修法追蹤 marks: the latest amendment of the law on screen only', () =>
   assert.deepEqual(freshMarks(changes, { ...law, m: '20270101' }), {});
   assert.match(lawHtml(law, { fresh: freshMarks(changes, law) }), /lw-fresh">修正 2026\/08\/17/);
 });
+
+import { askLaw, askError } from '../public/lib/ask.mjs';
+test('白話解釋: only points citing the articles asked about; failures in plain words', async () => {
+  let sent;
+  const ok = async (url, init) => ((sent = JSON.parse(init.body)), { ok: true, json: async () => ({ answer: '甲', points: [{ text: 'a', cites: ['184'] }, { text: 'b', cites: ['999'] }], covered: true, cached: false, left: 19 }) });
+  const r = await askLaw({ p: 'B0000001', arts: ['184'], q: '  x  ' }, ok);
+  assert.deepEqual(sent, { p: 'B0000001', arts: ['184'], q: 'x', lang: 'zh' });
+  assert.deepEqual(r.points, [{ text: 'a', cites: ['184'] }]);
+  assert.equal(r.covered, true);
+  const none = await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({ answer: '', points: [{ text: 'x', cites: ['2'] }], covered: true }) }));
+  assert.equal(none.covered, false, 'nothing cited right is not covered');
+  assert.deepEqual(await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: false, status: 429, json: async () => ({ error: 'cap', left: 0 }) })), { error: 'cap', left: 0 });
+  assert.equal((await askLaw({ p: 'B', arts: ['1'] }, async () => { throw new Error(); })).error, 'offline');
+  assert.equal((await askLaw({ p: 'B', arts: ['1'] }, async () => ({ ok: true, json: async () => ({}) }))).error, 'bad', 'an empty answer is a failure, not 沒有規定');
+  assert.match(askError('cap'), /明天/);
+  assert.match(askError('weird', true), /right now/);
+});

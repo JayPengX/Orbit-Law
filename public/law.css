@@ -399,3 +399,42 @@
   margin-top: 8px;
   color: var(--q-indigo);
 }
+
+/* ---- 白話解釋 ---- */
+.lw-ask {
+  font: 16px/1.7 var(--q-font);
+  color: var(--q-label);
+}
+.lw-ask ul {
+  margin: 8px 0;
+  padding-left: 1.2em;
+}
+.lw-ask li {
+  margin: 0 0 8px;
+}
+.lw-ask-asked {
+  color: var(--q-label-2);
+  font-weight: 600;
+}
+.lw-ask-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+.lw-ask-q {
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--q-fill-3);
+  color: var(--q-label);
+  font: 16px var(--q-font);
+}
+.lw-ask-note {
+  margin: 0;
+  padding: 0 0 calc(12px + env(safe-area-inset-bottom));
+  color: var(--q-label-3);
+  font: var(--q-t-footnote);
+}

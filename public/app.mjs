@@ -14,6 +14,7 @@ import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, 
 import { PASSED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
+import { askLaw, askError, MAX_Q } from './lib/ask.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -243,12 +244,31 @@ function articleMenu(k) {
   const label = `${law.n}${artLabel(k)}`;
   const kw = `${law.n.replace(/^中華民國/, '')}第${k.replace('-', '條之')}條`.replace(/條之(\d+)條$/, '條之$1');
   const rows = [
+    [W('白話解釋（AI）', 'Explain in plain words (AI)'), () => explain(law, k)],
     [marked ? W('取消書籤', 'Remove bookmark') : W('加入書籤', 'Bookmark'), () => (toggleMark(state.mine, law.p, k), save(), document.getElementById(`a-${k}`)?.classList.toggle('marked', !marked))],
     [W('複製條文', 'Copy text'), () => copyArticle(k)],
     [W('相關裁判（司法院）', 'Court rulings citing it'), () => open(`https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}`, '_blank', 'noopener')]
   ];
   const s = sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([t, fn]) => h('button', { class: 'q-cell', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: t })])]))) });
 }
+// 白話解釋: the answer, each point with the article it cites (tap: the
+// article in a sheet), and a box for a question about the same article.
+function explain(law, k) {
+  const out = h('div', { class: 'lw-ask' });
+  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: W('問這一條，例如「適用在誰身上？」', 'Ask about this article') });
+  const form = h('form', { class: 'lw-ask-form', onsubmit: e => (e.preventDefault(), run(input.value)) }, [input, h('button', { class: 'q-btn primary', type: 'submit', text: W('問', 'Ask') })]);
+  const note = h('p', { class: 'lw-ask-note', text: W('AI 只依這一條的條文回答，不是法律意見。', 'AI, from this article’s text only. Not legal advice.') });
+  sheet({ title: `${law.n}${artLabel(k)}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [out, form, note] });
+  async function run(q = '') {
+    out.innerHTML = `<p class="lw-none">${W('解釋中…', 'Explaining…')}</p>`;
+    const r = await askLaw({ p: law.p, arts: [k], q, lang: en ? 'en' : 'zh' });
+    if (r.error) return void (out.innerHTML = `<p class="lw-none">${esc(askError(r.error, en))}</p>`);
+    const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(c => `<a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(c)}" data-law="${esc(law.p)}" data-from="${esc(c)}" data-to="${esc(c)}" data-para="0">${esc(artLabel(c, en))}</a>`).join(' ')}</li>`).join('');
+    out.innerHTML = (q ? `<p class="lw-ask-asked">${esc(q)}</p>` : '') + (r.covered ? `${r.answer ? `<p>${esc(r.answer)}</p>` : ''}<ul>${points}</ul>` : `<p>${esc(r.answer || W('這一條沒有規定這件事。', 'This article doesn’t cover that.'))}</p>`);
+  }
+  run();
+}
+
 async function copyArticle(k) {
   const a = state.law.a.find(x => x[0] === 'A' && x[1] === k);
   try {

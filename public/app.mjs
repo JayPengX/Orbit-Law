@@ -10,7 +10,7 @@ import { tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast } from '#kit/ui.mjs';
 import { nameMap } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd } from './lib/search.mjs';
-import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, timeline, esc, artLabel } from './lib/view.mjs';
+import { lawHtml, articleHtml, articlesBetween, contents, stageBar, stageLabel, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
@@ -191,7 +191,7 @@ async function drawLaw() {
     ? h('button', { type: 'button', class: 'lw-banner', onclick: () => go(`item=${live.k.replace(':', '-')}`) }, [h('span', { text: W('立法院審議中', 'Bills in 立法院') }), h('span', { class: 'lw-banner-stage', html: `${stageBar(live, en)} ${esc(stageLabel(live, en))}` })])
     : null;
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
-  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
+  const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, en: state.showEn, fresh: freshMarks(state.changes, law, en), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
   panel.replaceChildren(head, ...[banner, fw, body].filter(Boolean));
   box.hidden = true;
 }

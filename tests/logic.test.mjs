@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { artKey, pcodeOf, compactLaw, diffLaws, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
 import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
-import { timeline, articleHtml, articlesBetween, contents } from '../public/lib/view.mjs';
+import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
 import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
 import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
 
@@ -165,4 +165,12 @@ test('store: follow, bookmarks, recent; followed laws amended since last look', 
   addRecent(mine, 'B2');
   assert.deepEqual(mine.recent, ['B2', 'B1']);
   assert.deepEqual(loadMine({ getItem: () => '{bad' }).marks, [], 'a broken copy reads empty');
+});
+
+test('修法追蹤 marks: the latest amendment of the law on screen only', () => {
+  const law = { p: 'B1', m: '20260817', a: [['A', '1', 'a'], ['A', '2', 'b']] };
+  const changes = { items: [{ p: 'B1', m: '20260817', added: ['2'], amended: ['1'], removed: [] }, { p: 'B1', m: '20250101', added: [], amended: ['2'], removed: [] }] };
+  assert.deepEqual(freshMarks(changes, law), { 1: '修正 2026/08/17', 2: '新增 2026/08/17' });
+  assert.deepEqual(freshMarks(changes, { ...law, m: '20270101' }), {});
+  assert.match(lawHtml(law, { fresh: freshMarks(changes, law) }), /lw-fresh">修正 2026\/08\/17/);
 });

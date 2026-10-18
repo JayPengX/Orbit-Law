@@ -159,6 +159,15 @@
   font: 700 15px/1.4 var(--q-font);
   cursor: pointer;
 }
+.lw-fresh {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--q-green) 22%, transparent);
+  color: var(--q-green);
+  font: 600 12px/1.6 var(--q-font);
+  vertical-align: 2px;
+}
 .lw-para {
   margin: 0 0 6px;
 }

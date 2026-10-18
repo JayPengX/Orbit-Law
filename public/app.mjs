@@ -180,7 +180,7 @@ async function drawLaw() {
   const followed = Boolean(state.mine.laws[law.p]);
   const head = h('div', { class: 'lw-bar' }, [
     h('button', { class: 'lw-back', type: 'button', 'aria-label': W('返回', 'Back'), html: '<svg viewBox="0 0 12 20"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>', onclick: () => (history.length > 1 && location.hash ? history.back() : go('')) }),
-    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [law.l, law.m && `${W('修正', 'Amended')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
+    h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? row[6] && (law.e || law.n) : law.n }), h('small', { text: [en ? { 法律: 'Act', 憲法: 'Constitution' }[law.l] || law.l : law.l, law.m && `${W('修正', 'Amended')} ${ymd(law.m)}`, law.ab && W('已廢止', 'Repealed')].filter(Boolean).join('・') })]),
     h('div', { class: 'lw-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('目錄', 'Contents'), html: ICON.list, onclick: () => showContents(law) }),
       h('button', { type: 'button', class: `lw-tool${followed ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'laws', law.p) ? toast(W('已追蹤：修法時會標出來', 'Following: amendments will show')) : null, save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.laws[law.p])), haptic()) }),

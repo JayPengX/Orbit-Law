@@ -24,6 +24,7 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf } from './lib/topics.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS } from './lib/cards.mjs';
 import { chatLaw, chatError, STARTERS, MAX_CHAT_Q } from './lib/chat.mjs';
+import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -417,7 +418,7 @@ async function drawLaw() {
   // 📄 子法 N beside each article that calls for regulations (after any 判決 badge).
   for (const [k, list] of Object.entries(state.deleg.to)) {
     const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
-    (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-sub" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
+    (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-regs" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
   }
   panel.replaceChildren(head, find, over, ...[chapters, hint, fw, body].filter(Boolean));
   box.hidden = true;
@@ -678,7 +679,7 @@ async function copyArticle(k) {
 document.addEventListener('click', e => {
   const pend = e.target.closest('.lw-pending');
   if (pend) return go(`item=${pend.dataset.item}`);
-  const sub = e.target.closest('.lw-sub');
+  const sub = e.target.closest('.lw-regs');
   if (sub) return openRegs(sub.dataset.art);
   const rul = e.target.closest('.lw-rul');
   if (rul) return openRulings(rul.dataset.art);
@@ -724,7 +725,64 @@ async function peek(p, from, to, para, { back = false } = {}) {
 
 // ---- 問法律: questions answered from the articles, each point citing one ----------------
 
-const chat = { turns: [], pin: null, busy: false };
+const chat = { id: newChatId(), turns: [], pin: null, busy: false };
+// Saved chats (on this phone): every answered chat, newest first.
+let chats = loadChats();
+const keepChat = () => (chats = saveChats(putChat(chats, chat)));
+function newChat() {
+  if (chat.busy) return;
+  Object.assign(chat, { id: newChatId(), turns: [], pin: null });
+  drawPin();
+  drawChat();
+}
+function openChat(id) {
+  const c = chats.find(x => x.id === id);
+  if (!c || chat.busy) return;
+  Object.assign(chat, { id: c.id, turns: c.turns.map(t => ({ ...t })), pin: c.pin });
+  drawPin();
+  drawChat();
+  requestAnimationFrame(() => [...document.querySelectorAll('#chat .lw-msg.me')].pop()?.scrollIntoView({ block: 'start' }));
+}
+
+// 對話紀錄: the saved chats; a tap continues one, … renames or deletes it.
+function chatHistory() {
+  const when = u => { const d = new Date(u); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString(en ? 'en' : 'zh-TW', { hour: '2-digit', minute: '2-digit' }) : `${d.getMonth() + 1}/${d.getDate()}`; };
+  const rows = () =>
+    chats.length
+      ? chats.map(c => `<div class="lw-chat-row${c.id === chat.id ? ' on' : ''}"><button type="button" class="lw-chat-open" data-id="${esc(c.id)}"><span class="lw-row-name">${esc(c.t)}</span><small>${esc(when(c.u))} · ${esc(W(`${c.turns.filter(t => t.role === 'user').length} 個問題`, `${c.turns.filter(t => t.role === 'user').length} questions`))}</small></button><button type="button" class="lw-chat-more" data-more="${esc(c.id)}" aria-label="${W('更多', 'More')}">${ICON.more}</button></div>`).join('') + `<button type="button" class="lw-chat-clear">${W('刪除全部對話', 'Delete all chats')}</button>`
+      : `<p class="lw-none">${W('還沒有對話。問的問題會存在這支手機上。', 'No chats yet. Your questions are kept on this phone.')}</p>`;
+  const body = h('div', { class: 'lw-chat-list', html: rows() });
+  const s = sheet({ title: W('對話紀錄', 'Chats'), closeLabel: W('關閉', 'Close'), body });
+  body.addEventListener('click', e => {
+    const o = e.target.closest('.lw-chat-open');
+    if (o) return void (s.close(), openChat(o.dataset.id));
+    const m = e.target.closest('.lw-chat-more');
+    if (m) {
+      const c = chats.find(x => x.id === m.dataset.more);
+      const menu = sheet({ title: c.t, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-menu' }, [
+        h('button', { class: 'lw-menu-row ask', type: 'button', html: `<i>${MENU_ICON.ask}</i><span>${W('繼續這個對話', 'Continue')}</span>`, onclick: () => (menu.close(), s.close(), openChat(c.id)) }),
+        h('button', { class: 'lw-menu-row copy', type: 'button', html: `<i>${MENU_ICON.edit}</i><span>${W('重新命名', 'Rename')}</span>`, onclick: () => {
+          const t = prompt(W('對話名稱', 'Chat name'), c.t);
+          if (t != null) ((chats = saveChats(renameChat(chats, c.id, t))), (body.innerHTML = rows()));
+          menu.close();
+        } }),
+        h('button', { class: 'lw-menu-row warn', type: 'button', html: `<i>${MENU_ICON.trash}</i><span>${W('刪除', 'Delete')}</span>`, onclick: () => {
+          chats = saveChats(dropChat(chats, c.id));
+          if (c.id === chat.id) newChat();
+          body.innerHTML = rows();
+          menu.close();
+          toast(W('已刪除', 'Deleted'));
+        } })
+      ]) });
+      return;
+    }
+    if (e.target.closest('.lw-chat-clear') && confirm(W('刪除這支手機上的全部對話？', 'Delete every chat on this phone?'))) {
+      chats = saveChats([]);
+      newChat();
+      body.innerHTML = rows();
+    }
+  });
+}
 
 function askWith(law, ks) {
   chat.pin = { p: law.p, n: law.n, arts: ks.slice(0, 8) };
@@ -746,12 +804,16 @@ function drawAsk() {
       ask(v);
     });
     input.addEventListener('keydown', e => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), form.requestSubmit()));
-    panel.append(headNode(W('問法律', 'Ask the law')), h('div', { class: 'lw-chat', id: 'chat' }), form);
+    const tools = h('div', { class: 'lw-ask-tools' }, [
+      h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('對話紀錄', 'Chats'), html: MENU_ICON.history, onclick: () => chatHistory() }),
+      h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('新對話', 'New chat'), html: MENU_ICON.edit, onclick: () => newChat() })
+    ]);
+    panel.append(h('div', { class: 'lw-ask-head' }, [headNode(W('問法律', 'Ask the law')), tools]), h('div', { class: 'lw-chat', id: 'chat' }), form);
     panel.addEventListener('click', e => {
       const b = e.target.closest('[data-ask]');
       if (b) ask(b.dataset.ask);
       if (e.target.closest('.lw-pin-x')) ((chat.pin = null), drawPin());
-      if (e.target.closest('.lw-new')) ((chat.turns = []), drawChat());
+      if (e.target.closest('.lw-new')) newChat();
     });
   }
   drawPin();
@@ -772,7 +834,7 @@ function drawChat() {
     out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('用白話問，回答附上條文', 'Ask in plain words, answered with the articles')}</strong><p>${W('從全部法律和命令裡找出相關條文，說明你可以怎麼做、會有什麼後果、該找哪個機關。', 'It finds the articles across every law and regulation, then says what you can do, what follows and who to contact.')}</p><div class="lw-starters col">${STARTERS.map(([zh, e]) => `<button type="button" class="lw-starter" data-ask="${esc(W(zh, e))}">${esc(W(zh, e))}</button>`).join('')}</div><p class="lw-ask-note">${W('AI 只依找到的條文回答，不是法律意見。', 'AI, from the articles it found only. Not legal advice.')}</p></div>`;
     return;
   }
-  out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('重新開始', 'New question')}</button>`);
+  out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);
 }
 
 function turnHtml(t) {
@@ -810,6 +872,7 @@ async function ask(text) {
   const r = await chatLaw({ q: text, history, pin, lang: en ? 'en' : 'zh' }, { fetcher: ai });
   chat.turns[chat.turns.length - 1] = r.error ? { role: 'model', error: r.error } : { role: 'model', r };
   chat.busy = false;
+  keepChat();
   drawChat();
 }
 
@@ -1050,6 +1113,9 @@ const MENU_ICON = {
   out: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>'),
   warn: svg('<path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/>'),
   gov: svg('<path d="M4 20h16M5 17h14M6 17V10M10 17V10M14 17V10M18 17V10M3.5 10h17L12 4z"/>'),
+  history: svg('<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4M12 8v4.5l3 2"/>'),
+  edit: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
+  trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/>'),
   steps: svg('<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>')
 };
 

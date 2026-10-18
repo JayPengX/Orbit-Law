@@ -473,3 +473,24 @@ test('授權: a regulation rests on the articles its enabling sentence names, an
   assert.deepEqual(d.N0030003.from, [['N0030001', '43']]);
   assert.equal(regCount(d.N0030001), 2);
 });
+
+test('saved chats: kept newest first, failed questions dropped, renames stay, capped', async () => {
+  const { putChat, renameChat, dropChat, saveChats, loadChats, titleOf, MAX_CHATS } = await import('../public/lib/chats.mjs');
+  const mem = { v: {}, getItem(k) { return this.v[k] ?? null; }, setItem(k, x) { this.v[k] = x; } };
+  const r = { answer: 'a', points: [] };
+  let list = putChat([], { id: 'c1', turns: [{ role: 'user', text: '房東不還押金怎麼辦？' }, { role: 'model', r }, { role: 'user', text: 'x' }, { role: 'model', error: 'cap' }] }, 1);
+  assert.equal(list[0].turns.length, 2);
+  assert.equal(list[0].t, '房東不還押金怎麼辦？');
+  assert.deepEqual(putChat([], { id: 'c2', turns: [{ role: 'user', text: 'q' }, { role: 'model', wait: true }] }), []);
+  list = renameChat(list, 'c1', '押金');
+  list = putChat(list, { id: 'c1', turns: [...list[0].turns, { role: 'user', text: 'q2' }, { role: 'model', r }] }, 2);
+  assert.equal(list[0].t, '押金');
+  list = putChat(list, { id: 'c3', turns: [{ role: 'user', text: 'b' }, { role: 'model', r }] }, 3);
+  assert.deepEqual(list.map(c => c.id), ['c3', 'c1']);
+  assert.deepEqual(dropChat(list, 'c3').map(c => c.id), ['c1']);
+  saveChats(list, mem);
+  assert.deepEqual(loadChats(mem).map(c => c.id), ['c3', 'c1']);
+  const many = Array.from({ length: MAX_CHATS + 5 }, (_, i) => ({ id: `x${i}`, t: 't', u: i, turns: [] }));
+  assert.equal(saveChats(many, mem).length, MAX_CHATS);
+  assert.equal(titleOf([{ role: 'user', text: 'a'.repeat(50) }]).length, 40);
+});

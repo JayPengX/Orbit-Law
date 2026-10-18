@@ -1678,8 +1678,8 @@
     --c: #2dd4bf;
   }
 }
-.lw-sub {
-  background: color-mix(in srgb, var(--q-teal, #0d9488) 16%, transparent);
+.lw-regs {
+  background: color-mix(in srgb, #0d9488 16%, transparent);
 }
 .lw-bill-stage.court {
   color: var(--q-label);
@@ -1728,4 +1728,73 @@ button.lw-row {
   margin: 0 0 8px;
   color: var(--q-label-2);
   font: var(--q-t-footnote);
+}
+
+/* 問法律: the title with 對話紀錄 and 新對話 beside it; the saved chats sheet. */
+.lw-ask-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.lw-ask-tools {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 16px;
+}
+.lw-chat-list {
+  padding: 0 0 calc(16px + env(safe-area-inset-bottom));
+}
+.lw-chat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  border-radius: 14px;
+}
+.lw-chat-row + .lw-chat-row {
+  margin-top: 2px;
+}
+.lw-chat-row.on {
+  background: color-mix(in srgb, var(--q-indigo) 10%, transparent);
+}
+.lw-chat-open {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px;
+  border: 0;
+  background: none;
+  color: var(--q-label);
+  text-align: left;
+  font: inherit;
+}
+.lw-chat-open .lw-row-name {
+  overflow: hidden;
+  font: 600 16px/22px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lw-chat-open small {
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.lw-chat-more {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--q-label-2);
+}
+.lw-chat-more svg {
+  width: 20px;
+  height: 20px;
+}
+.lw-chat-clear {
+  display: block;
+  margin: 16px auto 0;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: var(--q-red);
+  font: 600 15px/20px var(--q-font);
 }

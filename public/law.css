@@ -297,16 +297,11 @@
 }
 .lw-bill-foot {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   align-items: center;
   gap: 4px;
   min-width: 0;
-}
-.lw-bill-meta {
-  margin-left: auto;
-  color: var(--q-label-2);
-  font: 500 12px/1 var(--q-font);
-  white-space: nowrap;
 }
 .lw-party {
   display: inline-flex;

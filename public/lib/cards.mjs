@@ -73,10 +73,10 @@ export function billCard(it, { topic = 'gov', en = false, now, wide = false } = 
   const arts = Object.keys(it.arts || {}).length;
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版`) : '', arts ? (en ? `${arts} articles` : `${arts} 條`) : ''].filter(Boolean);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
-<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(shortDay(it.u, now))}</span></span>
+<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc([shortDay(it.u, now), ...meta].join(' · '))}</span></span>
 <span class="lw-bill-name">${esc(it.n)}</span>
 ${progress(it, en)}
-<span class="lw-bill-foot">${partyChips(it.by, en, 3)}${meta.length ? `<span class="lw-bill-meta">${esc(meta.join(' · '))}</span>` : ''}</span>
+<span class="lw-bill-foot">${partyChips(it.by, en, 3)}</span>
 </a>`;
 }
 

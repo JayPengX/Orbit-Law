@@ -1,4 +1,5 @@
 import { cnNumber } from './refs.mjs';
+import { partyOf } from './topics.mjs';
 
 // 立法院's bills made one timeline: the dozens of raw statuses (排入院會
 // (交司法及法制委員會), 逕付二讀(交付協商), 審查完畢(三讀)…) folded into one
@@ -137,8 +138,9 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       count: it.bills.length,
       gov: it.bills.some(b => b.src === '政府'),
       u,
-      // The proposers of the round (or every version), most versions first: [[who, n]] ≤ 3.
-      by: [...(open.length ? open : it.bills).reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(sponsorOf(b.by, parties)), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3),
+      // The proposers of the round (or every version), most versions first: [[who, n]] ≤ 3,
+      // each party once whatever its spelling (中國國民黨 and 國民黨 are one).
+      by: [...(open.length ? open : it.bills).reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(partyOf(sponsorOf(b.by, parties)).zh), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3),
       // The newest version (its 對照表 summarised on the card).
       top: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1))[0]?.id || '',
       ids: it.bills.map(b => b.id)

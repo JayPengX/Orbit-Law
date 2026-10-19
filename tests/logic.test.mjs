@@ -528,3 +528,11 @@ test('chat: budget sources (budget:<k>, Chinese keys too) are kept', async () =>
   const r = cleanChat({ covered: true, answer: 'a', points: [], sources: [], bills: [{ k: 'budget:116', n: '116年度中央政府總預算案', stage: -1 }, { k: 'budget:114追加', n: 'x', stage: -1 }, { k: 'budget:<b>', n: 'y' }] });
   assert.deepEqual(r.bills.map(b => b.k), ['budget:116', 'budget:114追加']);
 });
+
+test('bills: a party counts once whatever its spelling', () => {
+  const k1 = compactBill(raw('11', { '提案單位/提案委員': '本院中國國民黨黨團' }));
+  const k2 = compactBill(raw('12', { '提案單位/提案委員': '本院國民黨黨團' }));
+  const d1 = compactBill(raw('13', { '提案單位/提案委員': '本院民主進步黨黨團' }));
+  const [it] = foldBills([k1, k2, d1]);
+  assert.deepEqual(it.by, [['國民黨', 2], ['民進黨', 1]]);
+});

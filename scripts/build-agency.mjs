@@ -70,6 +70,7 @@ const VENDORS = [
 ];
 const checked = { ...(prev?.checked || {}) }; // vendor id → date, read in full at some deploy
 const vstats = {};
+const queues = [];
 const vraw = [];
 const vcarried = [];
 const prevRows = new Map((prev?.rules || []).map(r => [r[0], r]));
@@ -83,7 +84,7 @@ async function vendor(agency, base) {
     if (!leaves.length) throw new Error('no categories');
     for (const leaf of leaves) {
       for (let page = 1, got = 0; ; page++) {
-        if (tooLate()) throw new Error('time budget');
+        if (Date.now() > START + (DEADLINE - START) * 0.6) throw new Error('listing budget');
         const { total, rows } = vendorList(await get(`${base}/LawCategoryContentList.aspx?CategoryID=${leaf}&size=30&page=${page}`, { tries: 2, timeout: 30_000 }));
         for (const r of rows) items.set(r.id, r);
         got += rows.length;
@@ -114,23 +115,32 @@ async function vendor(agency, base) {
   // Names that already speak of a law need no page to be kept: read the others first.
   const linked = r => nameLaws(index.laws, r.name).length > 0;
   todo.sort((a, b) => linked(a) - linked(b));
-  for (const r of todo) {
+  queues.push({ agency, base, st, todo });
+}
+console.log(`vendor sites (budget ${Math.round((DEADLINE - START) / 60000)} min)`);
+for (const [agency, base] of VENDORS) {
+  try { await vendor(agency, base); } catch (e) { console.warn(`${agency}: ${e.message}`); }
+}
+// Pages are read round-robin across hosts until the budget is spent; the rest stay name-only.
+for (let more = true; more;) {
+  more = false;
+  for (const { agency, base, st, todo } of queues) {
+    const r = todo.shift();
+    if (!r) continue;
+    more = true;
     let text = '';
-    if (!tooLate()) {
+    if (tooLate()) st.deferred++;
+    else {
       try {
         text = vendorText(await get(`${base}/LawContent.aspx?id=${r.id}`, { tries: 2, timeout: 30_000 }));
         checked[`${agency}:${r.id}`] = r.date;
         st.fetched++;
       } catch { st.deferred++; }
-    } else st.deferred++;
+    }
     vraw.push(vendorRule(agency, base, r.id, r.name, r.date, text));
   }
 }
-console.log(`vendor sites (budget ${Math.round((DEADLINE - START) / 60000)} min)`);
-for (const [agency, base] of VENDORS) {
-  try { await vendor(agency, base); } catch (e) { console.warn(`${agency}: ${e.message}`); }
-  console.log(agency, JSON.stringify(vstats[agency]));
-}
+for (const a of Object.keys(vstats)) console.log(a, JSON.stringify(vstats[a]));
 
 const sources = {};
 const raw = [];

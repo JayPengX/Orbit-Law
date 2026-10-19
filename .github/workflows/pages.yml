@@ -47,9 +47,10 @@ jobs:
       - name: Build the 立法院 votes, legislators and budgets
         run: node scripts/build-ly.mjs
         continue-on-error: true
-      # Ministries' own 行政規則 from their open data, linked to the laws they rest on.
+      # Ministries' own 行政規則 (open data and their rule sites), linked to the
+      # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
       - name: Build the ministries' rules
-        run: node scripts/build-agency.mjs
+        run: node scripts/build-agency.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
         continue-on-error: true
       # Court rulings by article: JDoc answers 00:00-06:00 Taiwan time, so the
       # 03:30 run reads it; other runs (and no account yet) carry the last copy.

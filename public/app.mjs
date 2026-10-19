@@ -732,6 +732,8 @@ function blocksHtml(blocks) {
 async function openPage(u, label = '') {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
   sheet({ title: label.slice(0, 40) || W('閱讀', 'Read'), closeLabel: W('關閉', 'Close'), body });
+  // A picture its site won't share (CORP): its caption stays, the picture goes.
+  body.addEventListener('error', e => e.target.tagName === 'IMG' && e.target.closest('figure')?.classList.add('broken'), true);
   const fallback = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到原網站看', 'Open the original site')}</a>`;
   try {
     const j = await fetchPage(u);

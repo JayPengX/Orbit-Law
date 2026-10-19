@@ -2334,3 +2334,13 @@ button.lw-row {
 .lw-transcript li.now {
   background: color-mix(in srgb, var(--q-orange, #ff9500) 16%, transparent);
 }
+.lw-page figure.broken img {
+  display: none;
+}
+.lw-page figure.broken figcaption {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--q-surface);
+  color: var(--q-label);
+  font-size: 15px;
+}

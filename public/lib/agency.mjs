@@ -63,7 +63,7 @@ export function parseMnd(xml) {
     const name = tag(b, 'LawName');
     const url = tag(b, 'Url');
     if (tag(b, 'Level') !== '行政規則' || !isRuleName(name) || !/^https?:\/\//.test(url)) continue;
-    const no = (url.match(/no=(\d+)/) || [])[1] || url;
+    const no = (url.match(/no=(\w+)/) || [])[1] || url;
     out.push(rule(`MND:${no}`, name, '國防部', isoDate(tag(b, 'ModifiedDate')), url, tag(b, 'Articles')));
   }
   return out;

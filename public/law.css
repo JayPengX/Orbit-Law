@@ -2169,3 +2169,168 @@ button.lw-row {
   color: var(--q-label-2);
   font: 600 13px/18px var(--q-font);
 }
+
+/* 在 App 裡讀: a government page, rule, bill or 質詢 video in a sheet. */
+.lw-page {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.lw-page-head {
+  display: grid;
+  gap: 4px;
+}
+.lw-page-head h3 {
+  margin: 0;
+  font: 700 19px/1.35 var(--q-font);
+}
+.lw-page-head small,
+.lw-page-src {
+  color: var(--q-label-2);
+  font: 500 13px/18px var(--q-font);
+}
+.lw-page p,
+.lw-page li {
+  margin: 0;
+  font: 400 16px/1.7 var(--q-font);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.lw-page ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+.lw-page h4 {
+  margin: 8px 0 0;
+  font: 700 16px/22px var(--q-font);
+}
+.lw-page .lw-page-pre {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--q-surface);
+  font: 400 15px/1.75 var(--q-font);
+  white-space: pre-wrap;
+}
+.lw-page-wait {
+  height: 18px;
+  border-radius: 8px;
+}
+.lw-page-wait.short {
+  width: 60%;
+}
+.lw-page-table {
+  overflow-x: auto;
+  border-radius: 12px;
+  background: var(--q-surface);
+}
+.lw-page-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 14px/1.5 var(--q-font);
+}
+.lw-page-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--q-separator, rgba(128, 128, 128, 0.2));
+  vertical-align: top;
+  white-space: pre-line;
+  min-width: 4em;
+}
+.lw-page figure {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.lw-page figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  background: var(--q-surface);
+}
+.lw-page figcaption {
+  color: var(--q-label-2);
+  font: 400 13px/1.5 var(--q-font);
+}
+.lw-page-link {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--q-surface);
+  color: var(--q-blue, #007aff);
+  font: 600 15px/1.4 var(--q-font);
+  text-decoration: none;
+}
+.lw-file {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--q-red, #ff3b30);
+  color: #fff;
+  font: 700 11px/1 var(--q-font);
+}
+.lw-clip-sheet {
+  display: grid;
+  gap: 10px;
+}
+.lw-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  background: #000;
+}
+.lw-clip-meta {
+  margin: 0;
+  color: var(--q-label-2);
+  font: 500 14px/1.5 var(--q-font);
+}
+.lw-clip-meta b {
+  color: var(--q-label);
+}
+.lw-yt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--q-surface);
+  color: var(--q-label);
+  font: 600 14px/20px var(--q-font);
+  text-decoration: none;
+}
+.lw-yt svg {
+  width: 22px;
+  height: 22px;
+}
+.lw-clip-sheet h4 {
+  margin: 6px 0 0;
+  font: 700 16px/22px var(--q-font);
+}
+.lw-transcript {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lw-transcript li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font: 400 15px/1.55 var(--q-font);
+  cursor: pointer;
+}
+.lw-transcript time {
+  color: var(--q-label-2);
+  font: 500 13px/1.8 var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.lw-transcript li.now {
+  background: color-mix(in srgb, var(--q-orange, #ff9500) 16%, transparent);
+}

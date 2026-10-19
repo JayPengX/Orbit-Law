@@ -30,7 +30,10 @@ const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
 const head = s => String(s || '').replace(/[\r\n]+\s*/g, '').slice(0, 400);
 
 // Raw rule: { id, name, agency, date, url, text } (text: its start, for the basis).
-const rule = (id, name, agency, date, url, text = '') => ({ id, name: flat(name), agency, date, url, text: head(text) });
+// (full: the whole text when the source gives it, for reading in the app.)
+const rule = (id, name, agency, date, url, text = '') => ({ id, name: flat(name), agency, date, url, text: head(text), full: String(text || '').slice(0, 60000) });
+// A rule's own text file name (data/agency/text/<this>.json).
+export const textFile = id => String(id).replace(/[^A-Za-z0-9_-]/g, '_');
 
 // 金管會 <Law> blocks: 行政規則 / 其他 still in force whose attachments carry the LawContent id.
 export function parseFsc(xml, agency = '金管會') {
@@ -190,10 +193,11 @@ export function linkRules(raw, laws, names, known = new Set()) {
 }
 
 // Per-law files and counts: to: { key: [[id, name, agency, url]] }, rest: by name only.
-export function byLaw(rules) {
+// withText: ids whose text the app has (data/agency/text/), marked 1 at the row's end.
+export function byLaw(rules, withText = new Set()) {
   const files = {};
   for (const [id, name, agency, , url, basis, laws] of rules) {
-    const item = [id, name, agency, url];
+    const item = withText.has(id) ? [id, name, agency, url, 1] : [id, name, agency, url];
     const hit = new Set();
     for (const b of basis) {
       const i = b.indexOf(':');

@@ -24,6 +24,8 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl } from './lib/ly.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS } from './lib/cards.mjs';
+import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
+import { textFile } from './lib/agency.mjs';
 import { chatLaw, chatError, STARTERS, MAX_CHAT_Q } from './lib/chat.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
 
@@ -482,7 +484,7 @@ function openRegs(k) {
   regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`).join('') + ag.map(r => agencyRow(r, '')).join(''));
 }
 // A ministry's 行政規則 (not in 全國法規資料庫): opens on its site.
-const agencyRow = ([, name, agency, url], label) => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
+const agencyRow = ([id, name, agency, url, mine], label) => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener"${mine ? ` data-text="${esc(textFile(id))}"` : ''}>${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
 // A regulation's 授權依據: the law and article it is made under (a tap: there).
 function basisStrip(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
@@ -582,7 +584,6 @@ function lawMenu(law, row) {
   if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W(`立法院第 ${it.term} 屆`, `立法院 term ${it.term}`)} · ${stageShort(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
   for (const r of relatedLaws(state.rows, row)) rows.push([r[1], () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
-  rows.push([W('全國法規資料庫原文', 'Official text (MOJ)'), () => open(`https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=${law.p}`, '_blank', 'noopener')]);
   const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
 }
 function textSheet(title, text) {
@@ -630,7 +631,6 @@ function articleMenu(k) {
     [marked ? W('取消書籤', 'Remove bookmark') : W('加入書籤', 'Bookmark'), () => (toggleMark(state.mine, law.p, k), save(), document.getElementById(`a-${k}`)?.classList.toggle('marked', !marked)), 'mark'],
     [W('複製條文', 'Copy text'), () => copyArticle(k), 'copy'],
     ...(state.lawRulings[k]?.length ? [[W(`最高法院等裁判（${state.lawRulings[k].length}）`, `Top-court rulings (${state.lawRulings[k].length})`), () => rulingsSheet(label, state.lawRulings[k], kw), 'court']] : []),
-    [W('在司法院搜尋裁判', 'Search 司法院 rulings'), () => open(`https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}`, '_blank', 'noopener'), 'out']
   ];
   const s = sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-menu' }, rows.map(([t, fn, ic]) => h('button', { class: `lw-menu-row ${ic}`, type: 'button', onclick: () => (s.close(), fn()), html: `<i>${MENU_ICON[ic]}</i><span>${esc(t)}</span>` }))) });
 }
@@ -673,11 +673,10 @@ function aiBox(label, run) {
 // A cited article as a chip: a tap opens it over the page (peek).
 const citeChip = (p, k, n) => `<a class="lw-ref lw-cite" href="#law=${esc(p)}&amp;a=${esc(k)}" data-law="${esc(p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(n ? `${shortName(n)} ` : '')}${esc(en ? `Art. ${k}` : `第${k}條`)}</a>`;
 
-// The top courts' rulings citing an article (newest first), each opening at 司法院.
+// The top courts' rulings citing an article (newest first), each read in the app.
 function rulingsSheet(label, rulings, kw) {
   const rows = rulings.map(([jid, d, t]) => `<a class="q-cell" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(t || jid)}</span><small>${[COURTS[courtOf(jid)]?.[en ? 1 : 0], jid.split(',').slice(1, 4).join(' '), ymd(d)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join(' · ')}</small></span></a>`).join('');
-  const more = `<a class="lw-out" href="https://judgment.judicial.gov.tw/LAW_Mobile_FJUD/FJUD/qryresult.aspx?kw=${encodeURIComponent(kw)}" target="_blank" rel="noopener">${W('在司法院搜尋更多', 'More at 司法院')}</a>`;
-  sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings', html: `<div class="q-list">${rows}</div>${more}` }) });
+  sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings', html: `<div class="q-list">${rows}</div>` }) });
 }
 
 async function copyArticle(k) {
@@ -689,6 +688,150 @@ async function copyArticle(k) {
     toast(W('無法複製', 'Couldn’t copy'));
   }
 }
+
+// ---- 在 App 裡讀: government pages, 質詢 videos and bills open in a sheet -------------
+// (Pages through the proxy's /law-page, cached at the edge; videos and bills
+// straight from the 立法院 API. YouTube stays a link: Jay's pick for video.)
+
+const pageCache = new Map();
+function fetchPage(u) {
+  if (!pageCache.has(u))
+    pageCache.set(
+      u,
+      ai(pageUrl(u))
+        .then(async r => {
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || j.error) throw Object.assign(new Error(j.error || `http${r.status}`), { code: j.error || r.status });
+          return j;
+        })
+        .catch(e => (pageCache.delete(u), Promise.reject(e)))
+    );
+  return pageCache.get(u);
+}
+
+const fileKind = u => (u.match(/\.(pdf|docx?|odt|xlsx?|ods|pptx?|zip)(?:$|[?#])/i)?.[1] || 'file').toUpperCase();
+function blocksHtml(blocks) {
+  let out = '';
+  let list = '';
+  const flush = () => list && ((out += `<ul>${list}</ul>`), (list = ''));
+  for (const b of blocks) {
+    if (b.k === 'li') { list += `<li>${esc(b.t)}</li>`; continue; }
+    flush();
+    if (b.k === 'h') out += `<h4>${esc(b.t)}</h4>`;
+    else if (b.k === 'p') out += `<p>${esc(b.t)}</p>`;
+    else if (b.k === 'pre') out += `<p class="lw-page-pre">${esc(b.t)}</p>`;
+    else if (b.k === 'table') out += `<div class="lw-page-table"><table>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+    else if (b.k === 'img') out += `<figure>${b.href && readable(b.href) ? `<a href="${esc(b.href)}" target="_blank" rel="noopener">` : ''}<img src="${esc(b.src)}" alt="${esc(b.alt)}" loading="lazy" referrerpolicy="no-referrer">${b.href && readable(b.href) ? '</a>' : ''}${b.alt ? `<figcaption>${esc(b.alt)}</figcaption>` : ''}</figure>`;
+    else if (b.k === 'link') out += `<a class="lw-page-link" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.t)}</a>`;
+  }
+  flush();
+  return out;
+}
+
+// A page read in the app: its title, date, text, pictures and attachments.
+async function openPage(u, label = '') {
+  const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
+  sheet({ title: label.slice(0, 40) || W('閱讀', 'Read'), closeLabel: W('關閉', 'Close'), body });
+  const fallback = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到原網站看', 'Open the original site')}</a>`;
+  try {
+    const j = await fetchPage(u);
+    if (j.type !== 'html' && !/^(pdf|file)$/.test(j.type)) throw Object.assign(new Error('bad'), { code: 'bad' });
+    if (j.type !== 'html') {
+      body.innerHTML = `<p class="lw-none">${W(`這是 ${fileKind(j.url || u)} 檔，App 裡還不能直接開。`, `This is a ${fileKind(j.url || u)} file the app can't open yet.`)}</p>${fallback}`;
+      return;
+    }
+    const r = readPage(j.html, j.url || u);
+    if (!hasText(r)) throw Object.assign(new Error('empty'), { code: 'empty' });
+    const host = new URL(j.url || u).hostname.replace(/^www\./, '');
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.title || label)}</h3><small>${esc([r.date && shortDay(r.date), host].filter(Boolean).join(' · '))}</small></header>${blocksHtml(r.blocks)}${r.files.length ? `<h4>${W('附件', 'Attachments')}</h4><div class="lw-list in-sheet">${r.files.map(f => `<a class="lw-row" href="${esc(f.url)}" target="_blank" rel="noopener"><span class="lw-file">${esc(fileKind(f.url))}</span><span class="lw-row-text"><span class="lw-row-name">${esc(f.name)}</span></span></a>`).join('')}</div>` : ''}<p class="lw-page-src">${W('內容取自', 'From')} ${esc(host)}</p>`;
+  } catch (e) {
+    const why = e.code === 'cap' ? W('今天讀太多頁了，明天再試', 'Daily reading limit reached; try tomorrow') : e.code === 'pass' || e.code === 401 ? W('請先登入 Quadra Pass', 'Sign in with Quadra Pass first') : e.code === 'empty' ? W('這一頁讀不出內容', 'This page has nothing the app can read') : W('現在讀不到這一頁，請稍後再試', 'Couldn’t load this page; try again later');
+    body.innerHTML = `<p class="lw-none">${why}</p>${fallback}`;
+  }
+}
+
+// A 授權 rule whose whole text came with the ministry's open data: read from this site.
+async function openRuleText(file, label) {
+  const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p>` });
+  sheet({ title: label.slice(0, 40), closeLabel: W('關閉', 'Close'), body });
+  try {
+    const r = await fetch(`./data/agency/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><p class="lw-page-pre">${esc(r.t.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n'))}</p>`;
+  } catch {
+    body.innerHTML = `<p class="lw-none">${W('讀不到這個規定', 'Couldn’t load this rule')}</p>`;
+  }
+}
+
+// A 質詢 clip played in the app (the 立法院's own stream), with what was said.
+const fmtSec = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+async function openClip(id, label = '') {
+  const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video q-skel"></div>` });
+  sheet({ title: label.slice(0, 40) || W('質詢影片', 'Speech video'), closeLabel: W('關閉', 'Close'), body });
+  try {
+    const j = await fetch(`https://v2.ly.govapi.tw/ivod/${encodeURIComponent(id)}`).then(r => r.json());
+    const d = j?.data;
+    if (!d?.video_url) throw new Error('none');
+    const lines = d.transcript?.whisperx || [];
+    const yt = `https://www.youtube.com/@LegislativeYuan/search?query=${encodeURIComponent([d['委員名稱'], d['日期']].filter(Boolean).join(' '))}`;
+    body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc(d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '')} · ${esc(shortDay(d['日期'] || ''))} · ${esc(d['影片長度'] || '')}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4><ol class="lw-transcript">${lines.map((l, i) => `<li data-i="${i}" data-t="${l.start}"><time>${fmtSec(l.start)}</time><span>${esc(l.text)}</span></li>`).join('')}</ol>` : ''}`;
+    const v = body.querySelector('video');
+    if (v.canPlayType('application/vnd.apple.mpegurl')) v.src = d.video_url;
+    else {
+      // Browsers without HLS: hls.js, loaded only then.
+      await new Promise((ok, no) => { if (window.Hls) return ok(); const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
+      const hls = new window.Hls();
+      hls.loadSource(d.video_url);
+      hls.attachMedia(v);
+    }
+    const items = [...body.querySelectorAll('.lw-transcript li')];
+    body.querySelector('.lw-transcript')?.addEventListener('click', e => {
+      const li = e.target.closest('li');
+      if (li) (v.currentTime = +li.dataset.t), v.play().catch(() => {});
+    });
+    let at = -1;
+    v.addEventListener('timeupdate', () => {
+      let i = at;
+      while (i + 1 < lines.length && lines[i + 1].start <= v.currentTime) i++;
+      while (i > 0 && lines[i].start > v.currentTime) i--;
+      if (i !== at) (items[at]?.classList.remove('now'), items[i]?.classList.add('now'), (at = i));
+    });
+  } catch {
+    body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out>${W('到立法院 IVOD 看', 'Watch on 立法院 IVOD')}</a>`;
+  }
+}
+
+// A bill by its 立法院 number, read in the app: who, why, its steps and 對照表.
+async function openBillById(id) {
+  const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p>` });
+  sheet({ title: W('法案', 'Bill'), closeLabel: W('關閉', 'Close'), body });
+  try {
+    const b = (await fetch(`https://v2.ly.govapi.tw/bill/${encodeURIComponent(id)}`).then(r => r.json()))?.data;
+    if (!b) throw new Error('none');
+    const flow = (b['議案流程'] || []).map(f => `<li class="done"><b>${esc(String(f['狀態'] || '').replace(/\s*[（(].*$/, ''))}</b><span>${esc(ymd([].concat(f['日期'] || [])[0] || ''))}</span></li>`).join('');
+    const who = [...(b['提案人'] || [])];
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4><p>${esc(b['案由'])}</p>` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary><p>${esc(b['說明'])}</p></details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
+    compareBill({ id }, body.querySelector('.lw-diffs'), { first: 3 });
+  } catch {
+    body.innerHTML = `<p class="lw-none">${W('現在讀不到這個法案', 'Couldn’t load this bill')}</p>`;
+  }
+}
+
+// Every link out of the app lands here first: what the app can read, it reads.
+document.addEventListener(
+  'click',
+  e => {
+    const a = e.target.closest('a[href]');
+    if (!a || a.hasAttribute('data-out') || e.defaultPrevented) return;
+    const href = a.href;
+    const label = a.querySelector('b, .lw-row-name, .lw-bill-name')?.textContent || a.textContent.trim();
+    let m;
+    if (a.dataset.text) return e.preventDefault(), openRuleText(a.dataset.text, label);
+    if ((m = href.match(/^https:\/\/ivod\.ly\.gov\.tw\/Play\/Clip\/\w+\/(\d+)/))) return e.preventDefault(), openClip(m[1], label);
+    if ((m = href.match(/^https:\/\/ppg\.ly\.gov\.tw\/ppg\/bills\/(\d+)\/details/))) return e.preventDefault(), openBillById(m[1]);
+    if (/^https?:/.test(href) && !href.startsWith(location.origin) && readable(href)) return e.preventDefault(), openPage(href, label);
+  },
+  true
+);
 
 // ---- Links: a tap opens the article in a sheet, the reader stays put ----------------
 
@@ -1090,7 +1233,7 @@ async function compareBill(b, out, { first = 60 } = {}) {
       return `<article class="lw-diff"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${text}</p>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary><p>${esc(row['說明'])}</p></details>` : ''}</article>`;
     };
     const rest = rows.length > first ? `<button type="button" class="lw-more">${W(`看全部 ${Math.min(60, rows.length)} 條`, `All ${Math.min(60, rows.length)} articles`)}</button>` : '';
-    out.innerHTML = (rows.length ? rows.slice(0, first).map(card).join('') + rest : `<p class="lw-none">${W('這個版本沒有對照表', 'No comparison table for this version')}</p>`) + `<a class="lw-out" href="https://ppg.ly.gov.tw/ppg/bills/${esc(b.id)}/details" target="_blank" rel="noopener">${W('立法院議事暨公報資訊網', 'On the 立法院 site')}</a>`;
+    out.innerHTML = (rows.length ? rows.slice(0, first).map(card).join('') + rest : `<p class="lw-none">${W('這個版本沒有對照表', 'No comparison table for this version')}</p>`);
     const btn = out.querySelector('.lw-more');
     btn?.addEventListener('click', () => (btn.outerHTML = rows.slice(first, 60).map(card).join('')));
   } catch {

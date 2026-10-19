@@ -9,7 +9,7 @@
 //   node scripts/build-agency.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/] [--minutes 20]
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
-import { parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, isRuleName, vendorLeaves, vendorList, vendorText, vendorRule } from '../public/lib/agency.mjs';
+import { textFile, parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, isRuleName, vendorLeaves, vendorList, vendorText, vendorRule } from '../public/lib/agency.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
@@ -176,10 +176,15 @@ const keepName = new Set(fresh.map(r => `${r[2]}|${r[1]}`));
 // Carried rules: not rebuilt this time (same id, or same agency and name).
 const rules = [...fresh, ...[...carried, ...vcarried].filter(r => !keep.has(r[0]) && !keepName.has(`${r[2]}|${r[1]}`))];
 for (const r of rules) { keep.add(r[0]); keepName.add(`${r[2]}|${r[1]}`); }
-const { files, counts } = byLaw(rules);
+// Rules whose source gives their whole text: kept, so the app reads them itself.
+// (國防部's and 金管會's open data carry it; the rule sites are read only in part, 國發會's is its history.)
+const full = new Map(raw.filter(r => /^(MND|FSC):/.test(r.id) && keep.has(r.id) && r.full && r.full.replace(/\s/g, '').length >= 80).map(r => [r.id, r]));
+const { files, counts } = byLaw(rules, new Set(full.keys()));
 
 await rm(out, { recursive: true, force: true });
-await mkdir(out, { recursive: true });
+await mkdir(out + 'text', { recursive: true });
+for (const [id, r] of full) await writeFile(`${out}text/${textFile(id)}.json`, JSON.stringify({ n: r.name, a: r.agency, d: r.date, url: r.url, t: r.full }));
+console.log(`texts kept: ${full.size}`);
 await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources, vendor: vstats, checked, rules }));
 for (const [p, f] of Object.entries(files)) await writeFile(`${out}${p}.json`, JSON.stringify(f));
 await writeFile(out + 'counts.json', JSON.stringify(counts));

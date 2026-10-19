@@ -2732,3 +2732,17 @@ div.lw-jd-point {
 .lw-why-row b { font: 600 13px/1.3 var(--q-font); color: var(--q-label-2); }
 .lw-why-row span { width: 100%; font-size: 16px; line-height: 1.6; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .lw-why-row.open span { -webkit-line-clamp: unset; display: block; }
+
+/* 表決: one card a day per agenda item, with each party's side */
+.lw-vgroups { display: grid; gap: 10px; }
+.lw-vgroup { display: grid; gap: 8px; width: 100%; padding: 14px 16px; border: 0; border-radius: 18px; background: var(--q-surface); color: var(--q-label); font: inherit; text-align: start; }
+.lw-vg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.lw-vg-top b { font: 600 17px/1.35 var(--q-font); min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.lw-vg-sides { display: flex; flex-wrap: wrap; gap: 6px; }
+.lw-vg-side { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 13px; font: 600 13px/1 var(--q-font); background: color-mix(in srgb, var(--p) 12%, transparent); }
+.lw-vg-side b { color: var(--p); font-weight: 700; }
+.lw-vg-side.y { color: var(--q-green); }
+.lw-vg-side.n { color: var(--q-red); }
+.lw-vg-side.a, .lw-vg-side.m { color: var(--q-label-2); }
+.lw-vgroup small { color: var(--q-label-2); font: var(--q-t-footnote); }
+.lw-vg-h { margin: 0 0 8px; color: var(--q-label-2); font: 600 13px/18px var(--q-font); }

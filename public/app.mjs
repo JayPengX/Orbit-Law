@@ -1262,14 +1262,14 @@ function drawBillList() {
     fn.innerHTML = !state.items.length ? '' : c ? billFunnel(c, en) : funnel(state.items, en);
     fn.querySelectorAll('.lw-funnel-col').forEach(c => c.classList.toggle('on', Number(c.dataset.step) === billStep));
   }
+  // 這週: what a follower needs first, before the whole list.
+  const dg = $('bill-digest');
+  if (dg) dg.innerHTML = billFilter === 'moving' && billStep < 0 && !billQuery && state.items.length ? weekDigest() : '';
   if (!state.items.length) return void (out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(4)}</div>`);
   if (billFilter === 'notice' && billStep < 0) return void (out.innerHTML = noticeList());
   if (billFilter === 'people' && billStep < 0) return void peopleList(out);
   if (billFilter === 'budget' && billStep < 0) return void budgetList(out);
   if (billFilter === 'votes' && billStep < 0) return void votesList(out);
-  // 這週: what a follower needs first, before the whole list.
-  const dg = $('bill-digest');
-  if (dg) dg.innerHTML = billFilter === 'moving' && billStep < 0 && !billQuery && state.items.length ? weekDigest() : '';
   let items = state.items;
   if (billQuery) {
     const words = expand(billQuery);
@@ -1570,8 +1570,59 @@ async function votesList(out) {
   }
   if (billFilter !== 'votes') return;
   const words = billQuery ? expand(billQuery) : [];
-  const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => !words.length || words.some(w => v[2].includes(w) || (v[7] || []).some(p => nameOf(p).includes(w))));
-  out.replaceChildren(list.length ? voteList(list, null, 30, true) : h('div', { class: 'q-empty lw-empty-sm', html: `<strong>${W('沒有符合的表決', 'No votes match')}</strong>` }));
+  const agendas = new Map(Object.entries(d.agendas || {}));
+  const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => !words.length || words.some(w => v[2].includes(w) || (v[7] || []).some(p => nameOf(p).includes(w)) || String(agendas.get(v[3]) || '').includes(w)));
+  if (!list.length) return void out.replaceChildren(h('div', { class: 'q-empty lw-empty-sm', html: `<strong>${W('沒有符合的表決', 'No votes match')}</strong>` }));
+  const ppl = await peopleData().catch(() => ({ people: [] }));
+  if (billFilter !== 'votes') return;
+  const partyOfName = new Map(ppl.people.map(x => [x.n, x.party]));
+  const groups = voteGroups(list);
+  let shown = 20;
+  const draw = () => {
+    out.innerHTML = `<div class="lw-vgroups">${groups.slice(0, shown).map((g, gi) => voteGroupCard(g, gi, d, agendas, partyOfName)).join('')}</div>${groups.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再顯示 ${Math.min(20, groups.length - shown)} 案（共 ${groups.length}）`, `Show more (${groups.length})`)}</button>` : ''}`;
+  };
+  draw();
+  out.onclick = e => {
+    if (e.target.closest('[data-vmore]')) return (shown += 20), draw();
+    const g = groups[Number(e.target.closest('[data-g]')?.dataset.g)];
+    if (!g) return;
+    if (g.list.length === 1) return voteSheet(g.list[0][0]);
+    sheet({ title: voteGroupTitle(g, agendas), closeLabel: W('關閉', 'Close'), detent: 'large', body: [h('h4', { class: 'lw-vg-h', text: W(`${shortDay(g.day)} · ${g.list.length} 次表決`, `${shortDay(g.day)} · ${g.list.length} votes`) }), voteList([g.key, ...g.list.filter(x => x !== g.key)], null, 60)] });
+  };
+}
+// Votes on one agenda item the same day, together: the 全案 vote leads.
+function voteGroups(list) {
+  const by = new Map();
+  for (const x of list) {
+    const key = `${x[1][3]}|${x[1][1]}`;
+    if (!by.has(key)) by.set(key, { day: x[1][1], list: [] });
+    by.get(key).list.push(x);
+  }
+  return [...by.values()].map(g => ({ ...g, key: g.list.find(([, v]) => /全案/.test(v[2])) || g.list[0] }));
+}
+const voteGroupTitle = (g, agendas) => {
+  const v = g.key[1];
+  if (v[7]?.length && state.byCode.has(v[7][0])) return nameOf(v[7][0]);
+  const a = String(agendas.get(v[3]) || '').replace(/─[^─]*─/g, '').replace(/（[^）]*）|\([^)]*\)/g, '').replace(/^本院[^，]*，/, '').replace(/是否有當.*$/, '');
+  return (a || v[2]).slice(0, 60);
+};
+// Each big party's side on the leading vote: 贊成, 反對, or 分歧 when split.
+function partySides(v, names, partyOfName) {
+  const c = new Map();
+  for (const [k, ids] of [['y', v[4]], ['n', v[5]], ['a', v[6]]]) for (const j of ids) { const p = partyOfName.get(names[j]) || ''; const x = c.get(p) || { y: 0, n: 0, a: 0 }; x[k]++; c.set(p, x); }
+  return [...c].filter(([p, x]) => p && x.y + x.n + x.a >= 3).sort((a, b) => b[1].y + b[1].n - (a[1].y + a[1].n)).map(([p, x]) => {
+    const all = x.y + x.n + x.a;
+    const side = x.y / all >= 0.8 ? 'y' : x.n / all >= 0.8 ? 'n' : x.a / all >= 0.8 ? 'a' : 'm';
+    return [p, side];
+  });
+}
+function voteGroupCard(g, gi, d, agendas, partyOfName) {
+  const v = g.key[1];
+  const [y, n] = [v[4].length, v[5].length];
+  const label = { y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain'), m: W('分歧', 'Split') };
+  const sides = partySides(v, d.names, partyOfName).map(([p, s]) => `<span class="lw-vg-side ${s}" style="--p:${partyColor(p)}"><b>${esc(partyShort(p))}</b>${label[s]}</span>`).join('');
+  const what = /全案/.test(v[2]) ? W('全案 ', 'Whole bill ') : '';
+  return `<button type="button" class="lw-vgroup" data-g="${gi}"><span class="lw-vg-top"><b>${esc(voteGroupTitle(g, agendas))}</b><span class="lw-tag ${y > n ? 'green' : 'red'}">${y > n ? W('通過', 'Passed') : W('未通過', 'Failed')}</span></span>${sides ? `<span class="lw-vg-sides">${sides}</span>` : ''}<small>${esc([shortDay(g.day), `${what}${W(`贊成 ${y}・反對 ${n}`, `${y} yes · ${n} no`)}`, g.list.length > 1 ? W(`${g.list.length} 次`, `${g.list.length} votes`) : ''].filter(Boolean).join(' · '))}</small></button>`;
 }
 
 // 立委: everyone in office this term, by party; search by name or 選區.

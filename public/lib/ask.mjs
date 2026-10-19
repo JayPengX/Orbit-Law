@@ -74,17 +74,3 @@ export function askError(code, en = false) {
   return en ? t[1] : t[0];
 }
 
-// One-line summaries for bill cards (/law-gist, shared and kept by the proxy):
-// items [{ k, bill: 議案編號 }] ≤ 10 → [{ k, line, who, covered }] or { error }.
-export const GIST_URL = ASK_URL.replace('/law-ask', '/law-gist');
-export async function gistBills(items, lang = 'zh', fetcher = globalThis.fetch) {
-  let r;
-  try {
-    r = await fetcher(GIST_URL, { method: 'POST', body: JSON.stringify({ kind: 'bill', items: items.slice(0, 10), lang }) });
-  } catch {
-    return { error: 'offline' };
-  }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) return { error: typeof j.error === 'string' ? j.error : `http${r.status}` };
-  return (Array.isArray(j.gists) ? j.gists : []).map(g => ({ k: String(g?.k || ''), line: String(g?.line || ''), who: (Array.isArray(g?.who) ? g.who : []).map(String).slice(0, 3), covered: g?.covered === true && Boolean(g?.line) })).filter(g => g.k);
-}

@@ -17,7 +17,7 @@ import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabe
 import { PASSED, PROMULGATED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
-import { askLaw, askBill, askDiff, askError, passFetch, gistBills, MAX_Q } from './lib/ask.mjs';
+import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
@@ -233,7 +233,6 @@ function drawHome() {
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
     `<div id="home-news"></div>` +
     section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
-  fillGists(panel);
   // 政府公告: the ministries' latest notices (they open in the reader).
   newsData()
     .then(d => {
@@ -843,27 +842,6 @@ async function openPage(u, label = '') {
   }
 }
 
-// 一句話: each bill card's plain line of what it changes (the proxy's /law-gist,
-// kept there for everyone and here on the phone), asked 10 cards at a time.
-const GIST_KEY = `law.gists.${en ? 'en' : 'zh'}`;
-const gists = (() => { try { return JSON.parse(localStorage.getItem(GIST_KEY) || '{}'); } catch { return {}; } })();
-let gistOff = false;
-async function fillGists(root) {
-  if (!root) return;
-  const show = () => root.querySelectorAll('.lw-bill[data-gb]').forEach(c => { const g = gists[c.dataset.gb]; const el = c.querySelector('.lw-bill-gist'); if (el && g?.line && !el.textContent) el.textContent = g.line; });
-  show();
-  if (gistOff) return;
-  const want = [...new Map([...root.querySelectorAll('.lw-bill[data-gb]')].filter(c => !(c.dataset.gb in gists)).map(c => [c.dataset.gb, { k: c.dataset.gk.slice(0, 40), bill: c.dataset.gb }])).values()].slice(0, 20);
-  for (let i = 0; i < want.length; i += 10) {
-    const r = await gistBills(want.slice(i, i + 10), en ? 'en' : 'zh', ai);
-    if (r.error) return void (gistOff = ['pass', 'cap', 'setup', 'http401', 'http429'].includes(r.error));
-    const byK = new Map(r.map(g => [g.k, g]));
-    for (const x of want.slice(i, i + 10)) if (byK.has(x.k)) gists[x.bill] = byK.get(x.k).covered ? { line: byK.get(x.k).line } : {};
-    try { localStorage.setItem(GIST_KEY, JSON.stringify(Object.fromEntries(Object.entries(gists).slice(-600)))); } catch {}
-    show();
-  }
-}
-
 // A judgment: the outcome first in plain words, then who, then the reasons a point at a time.
 async function openJudgment(u, label = '') {
   const body = h('div', { class: 'lw-page lw-jd', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
@@ -1282,7 +1260,7 @@ function drawBillList() {
   if (billFilter === 'votes' && billStep < 0) return void votesList(out);
   // 這週: what a follower needs first, before the whole list.
   const dg = $('bill-digest');
-  if (dg) (dg.innerHTML = billFilter === 'moving' && billStep < 0 && !billQuery && state.items.length ? weekDigest() : ''), fillGists(dg);
+  if (dg) dg.innerHTML = billFilter === 'moving' && billStep < 0 && !billQuery && state.items.length ? weekDigest() : '';
   let items = state.items;
   if (billQuery) {
     const words = expand(billQuery);
@@ -1312,7 +1290,6 @@ function drawBillList() {
       return `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(title(g))}</h2><span class="lw-count">${all.length}</span></div>${grid(all.slice(0, n).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))}${more}</section>`;
     })
     .join('');
-  fillGists(out);
 }
 
 // 這週: passed into law, your followed bills that moved, and the busiest bills, last 7 days.

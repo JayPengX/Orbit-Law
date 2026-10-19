@@ -2708,13 +2708,3 @@ div.lw-jd-point {
 .lw-jd-point b { color: var(--q-accent); font-weight: 700; }
 .lw-jd-point p { margin: 8px 0 0 32px; font: 15px/1.7 var(--q-font); }
 .lw-jd-point[open] summary span { color: var(--q-label-2); }
-.lw-bill-gist:empty { display: none; }
-.lw-bill-gist {
-  display: -webkit-box;
-  overflow: hidden;
-  margin-top: -2px;
-  color: var(--q-label-2);
-  font: 14px/20px var(--q-font);
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}

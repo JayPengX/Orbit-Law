@@ -15,7 +15,7 @@ import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, historyChange, me
 import { compactBill, foldBills, mergeBills, billCounts, stageOf } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
-import { delegations, regCount } from '../public/lib/deleg.mjs';
+import { delegations, regCount, formerNames } from '../public/lib/deleg.mjs';
 import { noticesUrl, compactNotice, mergeNotices, twDay } from '../public/lib/notices.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
@@ -124,7 +124,8 @@ if (orders.length) await writeFile(out + 'orders.json', JSON.stringify({ d: orde
 // 授權: each law's articles → the regulations made under them, and each
 // regulation → its basis (data/deleg/<p>.json), with a count per law for its rows.
 if (orders.length) {
-  const deleg = delegations(orders, nameMap(index.laws), index.laws);
+  const names = nameMap(index.laws);
+  const deleg = delegations(orders, names, index.laws, formerNames(laws, names));
   await mkdir(out + 'deleg', { recursive: true });
   for (const [p, d] of Object.entries(deleg)) await writeFile(`${out}deleg/${p}.json`, JSON.stringify(d));
   await writeFile(out + 'deleg.json', JSON.stringify(Object.fromEntries(Object.entries(deleg).map(([p, d]) => [p, regCount(d)]).filter(([, n]) => n))));

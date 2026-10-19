@@ -23,8 +23,13 @@ export function basisOf(text, names) {
   const alias = {};
   for (const [, n, a] of t.matchAll(ALIAS)) alias[a] = n;
   const out = new Set();
-  // Only a sentence that says it is made under the law (訂定/授權), not one that only mentions it.
-  const said = t.split(/[。\n]/).filter(x => /訂定|授權|制定/.test(x)).join('。');
+  // Only a sentence that says it is made under the law (訂定/訂之/授權), not one that only mentions it.
+  // (第 4  條: spaces inside an article number, as 編制表 notes write them, closed up.)
+  const said = t
+    .split(/[。\n]/)
+    .filter(x => /訂定|訂之|授權|制定/.test(x))
+    .join('。')
+    .replace(/第\s*(\d+)\s*(條|項)/g, '第$1$2');
   for (const [, raw, arts] of said.matchAll(BASIS)) {
     const name = (alias[raw] || raw).replace(/^中華民國(?=.*(法|條例|通則)$)/, '');
     const p = names.get(name) || names.get(alias[raw] || raw);
@@ -37,10 +42,21 @@ export function basisOf(text, names) {
   return [...out];
 }
 
+// A law's former names, from its 沿革 (「原名稱：食品衛生管理法」): old name → pcode,
+// leaving out any name a law in force still has.
+export function formerNames(laws, names = new Map()) {
+  const out = new Map();
+  for (const l of laws)
+    for (const [, n] of String(l.h || '').replace(/\s+/g, '').matchAll(/原名稱[:：]([^；;）)，,]{2,40})/g))
+      if (!names.has(n) && !out.has(n)) out.set(n, l.p);
+  return out;
+}
+const OLD_BASIS = /依(?:據|照)?「?([^，。；「」（）、\n]{2,40}?)」?(?:（[^）]*）)?第/g;
+
 // Per law and regulation: { p: { to: { key: [[order p, name]] }, rest: [[p, name]], from: [[law p, key]] } }.
 // to: an article's regulations; rest: its regulations naming no article
 // (a 施行細則 known by its name); from: a regulation's basis.
-export function delegations(orders, names, rows) {
+export function delegations(orders, names, rows, former = new Map()) {
   const out = {};
   const at = p => (out[p] ||= { to: {}, rest: [], from: [] });
   for (const o of orders) {
@@ -54,7 +70,8 @@ export function delegations(orders, names, rows) {
         at(o.p).from.push([p, k]);
       }
     else {
-      const p = parentLaw(rows, o.n);
+      // Made under a law by its former name (its articles may since be renumbered): the law, no article.
+      const p = parentLaw(rows, o.n) || [...head.matchAll(OLD_BASIS)].map(m => former.get(m[1])).find(Boolean);
       if (!p) continue;
       at(p).rest.push([o.p, o.n]);
       at(o.p).from.push([p, '']);

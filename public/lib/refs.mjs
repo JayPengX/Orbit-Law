@@ -156,6 +156,11 @@ export function parentLaw(rows, name) {
 export function nameMap(rows) {
   const names = new Map();
   for (const r of rows) if (!r[5] || !names.has(r[1])) names.set(r[1], r[0]);
+  // 總統副總統選舉罷免法（新 84.08.09 制定）, 最低工資法（112.12.27制定）: cited by the bare name.
+  for (const r of rows) {
+    const base = !r[5] && r[1].match(/^(.+?)（[^）]*制定）$/)?.[1];
+    if (base && !names.has(base)) names.set(base, r[0]);
+  }
   for (const [short, full] of Object.entries(SHORT_NAMES)) if (names.has(full) && !names.has(short)) names.set(short, names.get(full));
   return names;
 }

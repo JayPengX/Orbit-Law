@@ -592,3 +592,18 @@ test('立委 feed: bills, one 質詢 per meeting a day, whole-bill votes, newest
   assert.equal(feedNew(f, '2026-09-05'), 2);
   assert.equal(feedNew(f, ''), 0);
 });
+
+test('授權: 訂之 wording, spaced article numbers, a former name, and a name with its 制定 date', async () => {
+  const { basisOf, delegations, formerNames } = await import('../public/lib/deleg.mjs');
+  const { nameMap } = await import('../public/lib/refs.mjs');
+  const rows = [['A0010001', '規費法', '法律'], ['L0040001', '食品安全衛生管理法', '法律'], ['D0020053', '總統副總統選舉罷免法（舊 36.03.31 制定）', '法律', '', '', '廢'], ['D0020054', '總統副總統選舉罷免法（新 84.08.09 制定）', '法律']];
+  const names = nameMap(rows);
+  assert.equal(names.get('總統副總統選舉罷免法'), 'D0020054');
+  assert.deepEqual(basisOf('本標準依規費法第十條第一項規定訂之。', names), ['A0010001:10']);
+  assert.deepEqual(basisOf('編      註：本編制表依據規費法第 4  條第 1  項訂定，內容請參閱相關圖表附檔。', names), ['A0010001:4']);
+  assert.deepEqual(basisOf('本辦法依總統副總統選舉罷免法第六十二條第四項規定訂定之。', names), ['D0020054:62']);
+  const former = formerNames([{ p: 'L0040001', h: '修正公布名稱及全文（原名稱：食品衛生管理法；新名稱：食品安全衛生管理法）' }], names);
+  assert.equal(former.get('食品衛生管理法'), 'L0040001');
+  const d = delegations([{ p: 'L0040099', n: '卵磷脂衛生標準', a: [['A', '1', '本標準依食品衛生管理法第十七條規定訂定之。']] }], names, rows, former);
+  assert.deepEqual(d.L0040001.rest, [['L0040099', '卵磷脂衛生標準']]);
+});

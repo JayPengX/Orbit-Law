@@ -1236,7 +1236,7 @@ function drawBills() {
   if (!panel.firstChild) {
     const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: () => setBillFilter(id === 'bills' ? 'moving' : id) })));
     const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
-    panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
+    panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
       if (col) {
@@ -1280,6 +1280,9 @@ function drawBillList() {
   if (billFilter === 'people' && billStep < 0) return void peopleList(out);
   if (billFilter === 'budget' && billStep < 0) return void budgetList(out);
   if (billFilter === 'votes' && billStep < 0) return void votesList(out);
+  // 這週: what a follower needs first, before the whole list.
+  const dg = $('bill-digest');
+  if (dg) (dg.innerHTML = billFilter === 'moving' && billStep < 0 && !billQuery && state.items.length ? weekDigest() : ''), fillGists(dg);
   let items = state.items;
   if (billQuery) {
     const words = expand(billQuery);
@@ -1310,6 +1313,20 @@ function drawBillList() {
     })
     .join('');
   fillGists(out);
+}
+
+// 這週: passed into law, your followed bills that moved, and the busiest bills, last 7 days.
+function weekDigest() {
+  const since = new Date(Date.now() + 8 * 3600e3 - 7 * 86400e3).toISOString().slice(0, 10);
+  const passed = state.items.filter(it => !it.dropped && it.passed >= since).sort((a, b) => (a.passed < b.passed ? 1 : -1));
+  const mine = state.items.filter(it => state.mine.items[it.k] && it.u > state.mine.items[it.k]);
+  const moved = state.items.filter(it => LIVE(it) && it.u >= since && !passed.includes(it) && !mine.includes(it)).sort((a, b) => b.stage - a.stage || b.count - a.count);
+  const card = it => billCard(it, { topic: itemTopic(it), en });
+  const html =
+    section(W('你追蹤的有新進度', 'Your bills moved'), rail(mine.slice(0, 10).map(card))) +
+    section(W(`這週三讀通過 ${passed.length}`, `Passed this week ${passed.length}`), rail(passed.slice(0, 10).map(card))) +
+    section(W('這週往前走的法案', 'Moving this week'), rail(moved.slice(0, 10).map(card)));
+  return html ? `<div class="lw-digest">${html}</div>` : '';
 }
 
 // 預告: ministries' drafts open for comment on join.gov.tw (open ones first),

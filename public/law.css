@@ -17,6 +17,10 @@
 .lw-head h1 {
   margin: 0;
 }
+/* Home: no app name (Jay), only the date. */
+.lw-head.bare {
+  padding: 0 0 12px;
+}
 .lw-over {
   margin: 0 0 2px;
   color: var(--q-label-2);

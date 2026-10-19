@@ -113,7 +113,7 @@ function showTab(id) {
   for (const t of TABS) $(`panel-${t}`).hidden = t !== id;
 }
 // A page's large title (and a line over it).
-const pageHead = (title, over = '') => `<header class="lw-head">${over ? `<p class="lw-over">${esc(over)}</p>` : ''}<h1 class="q-large-title">${esc(title)}</h1></header>`;
+const pageHead = (title, over = '') => `<header class="lw-head${title ? '' : ' bare'}">${over ? `<p class="lw-over">${esc(over)}</p>` : ''}${title ? `<h1 class="q-large-title">${esc(title)}</h1>` : ''}</header>`;
 const headNode = (title, over) => h('div', { html: pageHead(title, over) }).firstChild;
 
 // ---- Routing: #law=B0000001&a=184 · #tab=bills · #item=11-01126 · #tab=ask&q=… ------------
@@ -219,7 +219,7 @@ function drawHome() {
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 5);
 
   panel.innerHTML =
-    pageHead('Orbit Law', dayLine()) +
+    pageHead('', dayLine()) +
     hero +
     section(W('立法院動態', 'In 立法院'), (billsHead ? `<p class="lw-sub">${esc(billsHead)}</p>` : '') + bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +

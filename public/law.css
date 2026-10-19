@@ -1908,7 +1908,7 @@ button.lw-row {
   background: var(--q-red);
 }
 .lw-vote-me.a,
-.lw-vote-me.- {
+.lw-vote-me[class~='-'] {
   background: var(--q-gray);
 }
 .lw-vote-bar {
@@ -2746,3 +2746,5 @@ div.lw-jd-point {
 .lw-vg-side.a, .lw-vg-side.m { color: var(--q-label-2); }
 .lw-vgroup small { color: var(--q-label-2); font: var(--q-t-footnote); }
 .lw-vg-h { margin: 0 0 8px; color: var(--q-label-2); font: 600 13px/18px var(--q-font); }
+.lw-person-line { margin: 0 0 10px; color: var(--q-label-2); font: var(--q-t-subhead, 15px/1.4 var(--q-font)); }
+.lw-person-line b { color: var(--q-label); font: 700 22px/1 var(--q-font); margin-inline-end: 4px; }

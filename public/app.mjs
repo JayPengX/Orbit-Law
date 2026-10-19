@@ -1679,7 +1679,26 @@ async function openPerson(id) {
     const mine = personVotes(d, x.n, { from: x.from, to: x.to }).filter(([, m]) => m !== '-');
     if (!mine.length) return;
     const marks = new Map(mine);
-    votes.replaceChildren(h('h4', { text: W(`表決紀錄（${mine.length}）`, `Votes (${mine.length})`) }), voteList(mine.map(([j]) => [j, d.votes[j]]), marks));
+    // How often they vote with their own party's majority (y/n votes only).
+    const partyOfName = new Map(ppl.people.map(p => [p.n, p.party]));
+    let same = 0, cast = 0;
+    for (const [j, m] of mine) {
+      if (m !== 'y' && m !== 'n') continue;
+      const v = d.votes[j];
+      const side = k => v[k].filter(i => partyOfName.get(d.names[i]) === x.party).length;
+      const [py, pn] = [side(4), side(5)];
+      if (py === pn) continue;
+      cast++;
+      if ((py > pn ? 'y' : 'n') === m) same++;
+    }
+    const pct = same === cast ? '100' : String(Math.floor((same / Math.max(1, cast)) * 1000) / 10);
+    const whole = mine.filter(([j]) => /全案/.test(d.votes[j][2]));
+    const all = h('button', { type: 'button', class: 'lw-more', text: W(`看全部 ${mine.length} 筆表決`, `All ${mine.length} votes`), onclick: () => all.replaceWith(voteList(mine.map(([j]) => [j, d.votes[j]]), marks)) });
+    votes.replaceChildren(
+      h('h4', { text: W(`表決紀錄（${mine.length}）`, `Votes (${mine.length})`) }),
+      ...(cast >= 10 ? [h('p', { class: 'lw-person-line', html: W(`<b>${pct}%</b> 跟${esc(partyShort(x.party))}多數一致`, `<b>${pct}%</b> with ${esc(partyShort(x.party))}’s majority`) })] : []),
+      ...(whole.length ? [h('p', { class: 'lw-vg-h', text: W(`法案全案表決 ${whole.length}`, `Final votes on bills: ${whole.length}`) }), voteList(whole.map(([j]) => [j, d.votes[j]]), marks, 5, true), all] : [voteList(mine.map(([j]) => [j, d.votes[j]]), marks)])
+    );
   }).catch(() => {});
   const bills = h('div', { class: 'lw-person-sec', html: x.bills?.length ? `<h4>${W(`提案（${row.counts.bills}）`, `Bills (${row.counts.bills})`)}</h4><div class="lw-list in-sheet wrap">${x.bills.slice(0, 15).map(b => `<a class="lw-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(b[0])}/details" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(b[2])}</span><small>${esc([shortDay(b[1]), b[3]].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>` : '' });
   sheet({ title: W('立委', 'Legislator'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, tiles, clips, votes, bills], onClose: () => location.hash.startsWith('#who=') && history.replaceState(null, '', '#tab=bills') });

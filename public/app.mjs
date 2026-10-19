@@ -201,13 +201,12 @@ const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="tr
 
 // ---- 首頁 ---------------------------------------------------------------------------------
 
-const dayLine = () => new Date().toLocaleDateString(en ? 'en-US' : 'zh-TW', { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' });
 const LIVE = it => !it.dropped && !it.held && it.open && it.stage >= 1 && it.stage < PASSED;
 
 function drawHome() {
   const panel = $('panel-home');
   const starters = STARTERS.map(([zh, e]) => `<a class="lw-starter" href="#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}">${esc(W(zh, e))}</a>`).join('');
-  const hero = `<a class="lw-hero" href="#tab=ask"><span class="lw-hero-top">${ICON_SPARK}<span>${W('問法律', 'Ask the law')}</span></span><strong>${W('遇到法律問題？用白話問', 'A legal question? Ask in plain words')}</strong><span class="lw-hero-box"><span>${W('例如：房東不退押金怎麼辦？', 'e.g. My landlord won’t return my deposit')}</span><i>${ICON_SEND}</i></span></a><div class="lw-starters rail">${starters}</div>`;
+  const hero = `<a class="lw-hero" href="#tab=ask"><span class="lw-hero-top">${ICON_SPARK}<span>${W('問法律', 'Ask the law')}</span></span><strong>${W('遇到法律問題？用白話問', 'A legal question? Ask in plain words')}</strong><span class="lw-hero-box"><span>${W('輸入你遇到的事', 'Type what happened')}</span><i>${ICON_SEND}</i></span></a><div class="lw-starters rail">${starters}</div>`;
 
   // 立法院: the latest day anything moved, and the bills that moved last.
   const items = state.items.filter(it => !it.dropped && it.u);
@@ -219,8 +218,8 @@ function drawHome() {
 
   // One search for everything, then the hero, then three rows.
   panel.innerHTML =
-    pageHead('', dayLine()) +
-    `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、條文或生活問題', 'Search laws, articles or topics')}</span></a>` +
+    pageHead('') +
+    `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、條文或生活問題', 'Search laws or topics')}</span></a>` +
     hero +
     section(W('立法院動態', 'In 立法院'), (billsHead ? `<p class="lw-sub">${esc(billsHead)}</p>` : '') + bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +

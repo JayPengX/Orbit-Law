@@ -522,3 +522,9 @@ test('chat: an answer grounded in a notice is covered without article cites', as
   assert.equal(r.points.length, 1);
   assert.equal(cleanChat({ covered: true, answer: 'x', points: [{ text: 'y', cites: [] }], sources: [] }).covered, false);
 });
+
+test('chat: budget sources (budget:<k>, Chinese keys too) are kept', async () => {
+  const { cleanChat } = await import('../public/lib/chat.mjs');
+  const r = cleanChat({ covered: true, answer: 'a', points: [], sources: [], bills: [{ k: 'budget:116', n: '116年度中央政府總預算案', stage: -1 }, { k: 'budget:114追加', n: 'x', stage: -1 }, { k: 'budget:<b>', n: 'y' }] });
+  assert.deepEqual(r.bills.map(b => b.k), ['budget:116', 'budget:114追加']);
+});

@@ -32,7 +32,7 @@ export function cleanChat(j) {
     sources,
     // 政府公告 and 立法院 bills the answer drew on (links out, or a bill sheet).
     notices: list(j?.notices, 6).filter(x => x && /^https:\/\//.test(x.url) && str(x.t)).map(x => ({ t: str(x.t), url: x.url, d: str(x.d || ''), agency: str(x.agency || '') })),
-    bills: list(j?.bills, 6).filter(x => x && /^(\d+|budget):\w+$/.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
+    bills: list(j?.bills, 6).filter(x => x && /^(\d+:\w+|budget:[\p{L}\p{N}]{1,60})$/u.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
     left: Number.isFinite(j?.left) ? j.left : null
   };
 }

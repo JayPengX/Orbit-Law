@@ -367,7 +367,22 @@ test('修正 texts: old and new per changed article', () => {
   assert.deepEqual(diffTexts(a, b), { p: 'B1', m: '2', was: '1', arts: { 4: [null, 'added'], 1: ['old one', 'new one'], 3: ['gone', null] } });
 });
 
-import { sponsorOf } from '../public/lib/bills.mjs';
+import { sponsorOf, billCounts } from '../public/lib/bills.mjs';
+test('bill counts: how far each version got, and who still waits', () => {
+  const v = (id, st, flow, u = '2026-05-01', laws = ['L']) => ({ id, st, u, laws, flow });
+  const c = billCounts([
+    v(1, '排入院會', []),
+    v(2, '交付審查', [['2026-03-01', 1, '交付審查']]),
+    v(3, '審查完畢', [['2026-03-01', 1, ''], ['2026-04-01', 3, '審查完畢']], '2026-04-01'),
+    v(4, '三讀', [['2026-03-01', 1, ''], ['2026-04-01', 3, ''], ['2026-04-10', 6, '三讀']], '2026-04-10'),
+    v(5, '審查完畢', [['2026-06-01', 3, '審查完畢']], '2026-06-01'),
+    v(6, '撤案', [['2026-03-01', 1, '']])
+  ]);
+  // 3 went into 4's 三讀; 5 moved after it and still waits for the floor.
+  assert.deepEqual(c.reached, [6, 5, 3, 1]);
+  assert.deepEqual(c.waiting, [1, 1, 1]);
+  assert.equal(c.dropped, 1);
+});
 test('sponsors: 行政院, a caucus, a legislator by party', () => {
   const parties = new Map([['李坤城', '民主進步黨']]);
   assert.equal(sponsorOf('行政院', parties), '行政院');
@@ -376,22 +391,27 @@ test('sponsors: 行政院, a caucus, a legislator by party', () => {
   assert.equal(sponsorOf('本院委員王某等3人', parties), '');
 });
 
-import { stepOf, stageShort, progress, partyChips, billCard, funnel, diffWords, diffHtml, shortDay as cardDay } from '../public/lib/cards.mjs';
+import { stepOf, stageShort, progress, partyChips, billCard, funnel, billFunnel, diffWords, diffHtml, shortDay as cardDay } from '../public/lib/cards.mjs';
 import { topicOf } from '../public/lib/topics.mjs';
 test('cards: six steps, short stages, party chips, a bill card, the funnel', () => {
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(stepOf), [0, 1, 2, 2, 2, 3, 4, 5]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(stepOf), [0, 1, 2, 3, 3, 3, 4, 5]);
   assert.equal(stageShort({ stage: 4 }), '協商中');
   assert.equal(stageShort({ stage: 6 }, true), 'Passed');
   assert.equal(stageShort({ stage: 2, held: true }), '暫緩');
   assert.match(progress({ stage: 4 }), /lw-prog moving/);
-  assert.equal((progress({ stage: 4 }).match(/class="on/g) || []).length, 3);
+  assert.equal((progress({ stage: 4 }).match(/class="on/g) || []).length, 4);
+  assert.match(progress({ stage: 4 }, false, { counts: [3, 11, 0, 61, 0, 0] }), /lw-prog-counts"><span><b>3<\/b><\/span><span><b>11<\/b><\/span><span><\/span><span><b>61<\/b>/);
   assert.match(partyChips([['民主進步黨', 3], ['行政院', 1]]), /民進黨<b>3<\/b>.*行政院<\/span>/);
   const card = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20]] }, { topic: 'welfare', now: new Date('2026-10-18') });
   assert.match(card, /href="#item=11-01126"/);
   assert.match(card, /10\/20/);
   assert.match(card, /59 版 · 2 條/);
   assert.match(card, /國民黨<b>20<\/b>/);
-  assert.match(funnel([{ stage: 4, open: 1 }, { stage: 6, open: 0 }, { stage: 1, open: 1, dropped: true }]), /data-step="2"><b>1<\/b>.*data-step="4"><b>1<\/b>/s);
+  assert.match(funnel([{ stage: 4, open: 1 }, { stage: 6, open: 0 }, { stage: 1, open: 1, dropped: true }]), /data-step="3"><b>1<\/b>.*data-step="4"><b>1<\/b>/s);
+  const f = billFunnel({ total: 10, reached: [10, 9, 4, 2], waiting: [1, 5, 1] }, false, 1);
+  assert.match(f, /這屆 10 件法案走到哪/);
+  assert.match(f, /<b>9<\/b><i style="--h:90%"><\/i><span>一讀<\/span><small>等審查<br>5<\/small>/);
+  assert.match(f, /<span>三讀<\/span><small>1 部法<\/small>/);
   assert.equal(cardDay('20250801', new Date('2026-01-01')), '2025/08/01');
   assert.equal(topicOf('老人福利法'), 'welfare');
 });

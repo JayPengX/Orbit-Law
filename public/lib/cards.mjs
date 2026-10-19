@@ -4,7 +4,7 @@
 // and a list of 200 cards draws in one go.
 import { esc } from './view.mjs';
 import { TOPICS, partyOf } from './topics.mjs';
-import { PASSED, PROMULGATED, STAGES, STAGES_EN, openRound } from './bills.mjs';
+import { PASSED, PROMULGATED, STAGES, STAGES_EN, openRound, billStage } from './bills.mjs';
 
 const svg = (d, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -15,31 +15,35 @@ export function topicTile(id, size = '') {
 }
 export const topicName = (id, en = false) => (TOPICS[id] || TOPICS.gov)[en ? 'en' : 'zh'];
 
-// The six steps a reader follows: 提案, 一讀, 委員會 (審查 and 審查完畢),
-// 協商 folded into 委員會's end, 二讀, 三讀, 公布.
+// The six steps a reader follows: 提案, 一讀, 委員會, 院會 (審查完畢, 黨團
+// 協商 and 二讀: the floor's part before the vote), 三讀, 公布. 協商 is not a
+// step of its own: it happens at the floor, between 審查完畢 and 二讀.
 export const STEPS = [
   ['提案', 'Filed'],
   ['一讀', '1st'],
-  ['委員會', 'Review'],
-  ['二讀', '2nd'],
-  ['三讀', '3rd'],
+  ['委員會', 'Committee'],
+  ['院會', 'Floor'],
+  ['三讀', 'Passed'],
   ['公布', 'Law']
 ];
 // The 8-stage scale (bills.mjs) → the step reached (0–5).
-export const stepOf = stage => [0, 1, 2, 2, 2, 3, 4, 5][Math.max(0, Math.min(7, stage))];
+export const stepOf = stage => [0, 1, 2, 3, 3, 3, 4, 5][Math.max(0, Math.min(7, stage))];
 
 // The bar: six segments, filled to the step reached; its state's colour
-// (moving indigo, held orange, passed green, withdrawn grey).
+// (moving indigo, held orange, passed green, withdrawn grey). `counts`: how
+// many open versions stand at each step, shown under its name (an item with
+// many versions: the bar is the furthest one, the numbers say where the rest are).
 export const toneOf = item => (item.dropped ? 'dropped' : item.held ? 'held' : item.stage >= PASSED ? 'passed' : 'moving');
-export function progress(item, en = false, { labels = false } = {}) {
+export function progress(item, en = false, { labels = false, counts = null } = {}) {
   const step = stepOf(item.stage);
   const tone = toneOf(item);
   const segs = STEPS.map((s, i) => `<i class="${i <= step ? 'on' : ''}${i === step ? ' now' : ''}"></i>`).join('');
-  // The 委員會 step says 協商 while the item is in caucus talks.
-  const label = (s, i) => (i === 2 && item.stage === 4 ? (en ? 'Talks' : '協商') : s[en ? 1 : 0]);
-  const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(label(s, i))}</span>`).join('')}</span>` : '';
-  return `<span class="lw-prog ${tone}" role="img" aria-label="${esc(STEPS[step][en ? 1 : 0])}"><span class="lw-prog-bar">${segs}</span>${names}</span>`;
+  const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(s[en ? 1 : 0])}</span>`).join('')}</span>` : '';
+  const nums = counts ? `<span class="lw-prog-counts">${STEPS.map((s, i) => `<span>${counts[i] ? `<b>${counts[i]}</b>` : ''}</span>`).join('')}</span>` : '';
+  return `<span class="lw-prog ${tone}" role="img" aria-label="${esc(STEPS[step][en ? 1 : 0])}"><span class="lw-prog-bar">${segs}</span>${names}${nums}</span>`;
 }
+// How many of a round's versions stand at each step (each by the furthest it reached).
+export const roundSteps = round => round.reduce((c, b) => (c[stepOf(billStage(b).stage)]++, c), STEPS.map(() => 0));
 
 // A stage in words, short: 協商中, 委員會, 已三讀, 已公布, 暫緩, 已撤回.
 export function stageShort(item, en = false) {
@@ -127,12 +131,15 @@ export function funnel(items, en = false) {
 }
 
 // The funnel by bill (every version on its own, from items.json's bills):
-// 提案, 一讀, 審查・協商 (with 二讀), 三讀 (with 公布: a bill's own status stops there).
-export const BILL_COLS = [['提案', 'Filed'], ['一讀', '1st'], ['審查・協商', 'Review'], ['三讀', 'Passed']];
-export function billFunnel(c, en = false) {
-  const counts = [c.steps[0], c.steps[1], c.steps[2] + c.steps[3], c.steps[4] + c.steps[5]];
-  const max = Math.max(1, ...counts);
-  return `<div class="lw-funnel bills">${BILL_COLS.map((s, i) => `<button type="button" class="lw-funnel-col" data-step="${i}"><b>${counts[i].toLocaleString()}</b><i style="--h:${Math.max(6, Math.round((counts[i] / max) * 100))}%"></i><span>${esc(s[en ? 1 : 0])}</span></button>`).join('')}</div>`;
+// how many got at least this far (提案 all, 一讀, 審查完畢, 三讀), and under
+// it how many are still waiting there for the next step (versions a 三讀 of
+// their law already took over don't wait). `laws`: how many laws passed.
+export const BILL_COLS = [['提案', 'Filed'], ['一讀', '1st reading'], ['審查完畢', 'Reviewed'], ['三讀', 'Passed']];
+export function billFunnel(c, en = false, laws = 0) {
+  const max = Math.max(1, ...c.reached);
+  const sub = i => (i < 3 ? (c.waiting[i] ? `${esc(en ? ['wait 1st', 'wait review', 'wait floor'][i] : ['等一讀', '等審查', '等院會'][i])}<br>${c.waiting[i].toLocaleString()}` : '') : laws ? (en ? `${laws} laws` : `${laws} 部法`) : '');
+  const cols = BILL_COLS.map((s, i) => `<button type="button" class="lw-funnel-col" data-step="${i}"><b>${c.reached[i].toLocaleString()}</b><i style="--h:${Math.max(4, Math.round((c.reached[i] / max) * 100))}%"></i><span>${esc(s[en ? 1 : 0])}</span><small>${sub(i)}</small></button>`).join('');
+  return `<p class="lw-funnel-cap">${esc(en ? `${c.total.toLocaleString()} bills this term: how far they got` : `這屆 ${c.total.toLocaleString()} 件法案走到哪`)}</p><div class="lw-funnel bills">${cols}</div>`;
 }
 
 // Before and after, the changed words marked: [{ t, op: '=' | '-' | '+' }].

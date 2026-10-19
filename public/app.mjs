@@ -15,7 +15,7 @@ import { nameMap, parentLaw, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK } from './lib/find.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
-import { PASSED, PROMULGATED, whyOf } from './lib/bills.mjs';
+import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
@@ -25,7 +25,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -1280,7 +1280,7 @@ function drawBillList() {
   if (fn) fn.hidden = door !== 'bills';
   if (fn && door === 'bills') {
     const c = state.billCounts;
-    fn.innerHTML = !state.items.length ? '' : c ? billFunnel(c, en) : funnel(state.items, en);
+    fn.innerHTML = !state.items.length ? '' : c?.reached ? billFunnel(c, en, state.items.filter(it => it.stage >= PASSED).length) : funnel(state.items, en);
     fn.querySelectorAll('.lw-funnel-col').forEach(c => c.classList.toggle('on', Number(c.dataset.step) === billStep));
   }
   // 這週: what a follower needs first, before the whole list.
@@ -1296,8 +1296,8 @@ function drawBillList() {
     const words = expand(billQuery);
     items = items.filter(it => words.some(w => it.n.includes(w)));
   }
-  // (By bill: 提案 = items with a version not yet read; 審查 takes in 二讀, 三讀 公布.)
-  if (billStep >= 0 && state.billCounts) items = items.filter(it => !it.dropped && (billStep === 0 ? it.w > 0 : billStep === 3 ? it.stage >= PASSED : it.open && (billStep === 1 ? stepOf(it.stage) === 1 : [2, 3].includes(stepOf(it.stage)))));
+  // (By bill: 提案 = items with a version not yet read; 一讀 = waiting on committee; 審查完畢 = waiting on the floor.)
+  if (billStep >= 0 && state.billCounts?.reached) items = items.filter(it => !it.dropped && (billStep === 0 ? it.w > 0 : billStep === 3 ? it.stage >= PASSED : it.open && (billStep === 1 ? [1, 2].includes(stepOf(it.stage)) : stepOf(it.stage) === 3)));
   else if (billStep >= 0) items = items.filter(it => !it.dropped && stepOf(it.stage) === billStep && (it.open || it.stage >= PASSED));
   else if (billFilter === 'moving') items = items.filter(LIVE);
   else if (billFilter === 'talks') items = items.filter(it => LIVE(it) && it.stage >= 4);
@@ -1306,11 +1306,11 @@ function drawBillList() {
   // Grouped by the step reached, furthest first; held and withdrawn last.
   const groups = new Map();
   for (const it of [...items].sort((a, b) => (a.u < b.u ? 1 : -1))) {
-    const g = billStep === 0 && state.billCounts ? 'filed' : it.dropped ? 'dropped' : it.held ? 'held' : String(stepOf(it.stage));
+    const g = billStep === 0 && state.billCounts?.reached ? 'filed' : it.dropped ? 'dropped' : it.held ? 'held' : String(stepOf(it.stage));
     groups.set(g, [...(groups.get(g) || []), it]);
   }
   const order = ['filed', '5', '4', '3', '2', '1', '0', 'held', 'dropped'];
-  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查・協商', 'Committee & talks') : g === '3' ? W('二讀', '2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
+  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查中', 'In committee') : g === '3' ? W('院會：審查完畢、協商、二讀', 'On the floor: reviewed, talks, 2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
   out.innerHTML = order
     .filter(g => groups.has(g))
     .map(g => {
@@ -1372,8 +1372,8 @@ async function openItem(k) {
   const tone = it.dropped ? '' : it.held ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
   const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
   const now = whereNow(it, bills, en);
-  const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審`, `${now.open} versions still open`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span>${esc(W(`${now.before} 已三讀過一次`, `passed ${now.before}`))}</span></p>`].filter(Boolean).join('');
-  const prog = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true }) + (nowLine ? `<div class="lw-now">${nowLine}</div>` : '') });
+  const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審，數字是各停在哪一步`, `${now.open} versions open; the numbers say where each stands`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span>${esc(W(`${now.before} 已三讀過一次`, `passed ${now.before}`))}</span></p>`].filter(Boolean).join('');
+  const prog = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true, counts: now.open > 1 ? roundSteps(openRound(bills)) : null }) + (nowLine ? `<div class="lw-now">${nowLine}</div>` : '') });
   const artsHtml = articleChips(it, en);
   const arts = artsHtml ? h('div', { class: 'lw-item-who', html: `<h4>${W(`要改哪幾條（${Object.keys(it.arts).length}）`, `Articles it changes (${Object.keys(it.arts).length})`)}</h4><div class="lw-parties">${artsHtml}</div>` }) : null;
   const who = it.by?.length ? h('div', { class: 'lw-item-who', html: `<h4>${W('誰提的', 'Proposed by')}</h4><div class="lw-parties">${partyChips(it.by, en, 6)}</div>` }) : null;

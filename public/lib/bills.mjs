@@ -185,19 +185,28 @@ export function mergeBills(prev, fresh) {
   return [...byId.values()];
 }
 
-// Every bill of the term (each version on its own), by the step its own
-// status reached: { total, steps: [提案, 一讀, 委員會, 二讀, 三讀, 公布], dropped }.
-// (立法 tab's funnel: the items fold versions together; these don't.)
-const STEP_OF = [0, 1, 2, 2, 2, 3, 4, 5];
+// Every bill of the term (each version on its own): how many got at least
+// to 提案 (all), 一讀, 審查完畢 (or 逕付二讀) and 三讀 (`reached`), and how many
+// still wait for the next step after the first three (`waiting`). A reviewed
+// version whose law passed on or after its own last move went into that 三讀
+// (立法院 leaves its status at 審查完畢): it no longer waits.
 export function billCounts(bills) {
-  const steps = [0, 0, 0, 0, 0, 0];
+  const passedBy = new Map();
+  for (const b of bills) for (const law of b.laws) passedBy.set(law, [passedBy.get(law) || '', passedOn(b)].sort().pop());
+  const reached = [0, 0, 0, 0];
+  const waiting = [0, 0, 0];
   let dropped = 0;
   for (const b of bills) {
-    const { stage, dropped: gone } = stageOf(b.st);
+    const { stage, dropped: gone } = billStage(b);
+    reached[0]++;
+    if (stage >= 1) reached[1]++;
+    if (stage >= 3) reached[2]++;
+    if (stage >= PASSED) reached[3]++;
     if (gone) dropped++;
-    else steps[STEP_OF[Math.max(0, Math.min(7, stage))]]++;
+    if (gone || stage >= PASSED || (stage >= 3 && b.laws.some(law => passedBy.get(law) && passedBy.get(law) >= b.u))) continue;
+    waiting[stage < 1 ? 0 : stage < 3 ? 1 : 2]++;
   }
-  return { total: bills.length, steps, dropped };
+  return { total: bills.length, reached, waiting, dropped };
 }
 
 // A version's 案由 as its reason in plain words: who filed it, the 爰擬具

@@ -372,6 +372,19 @@
 .lw-prog-names .on {
   color: var(--q-label-2);
 }
+/* Under each step, how many of the round's versions stand there. */
+.lw-prog-counts {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  color: var(--c);
+  font: 600 11px/14px var(--q-font);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.lw-prog-counts b {
+  font-size: 13px;
+}
 
 /* The term at a glance: how many bills stand at each step. */
 .lw-funnel {
@@ -1745,6 +1758,22 @@ button.lw-row {
 
 .lw-funnel.bills {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 0;
+}
+.lw-funnel.bills .lw-funnel-col {
+  grid-template-rows: auto 64px auto auto;
+}
+.lw-funnel.bills .lw-funnel-col span {
+  margin: 0;
+}
+.lw-funnel-col small {
+  max-width: 100%;
+  min-height: 28px;
+  margin: 0 0 8px;
+  color: var(--q-label-3);
+  font: 500 11px/14px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 .lw-funnel.bills .lw-funnel-col i {
   background: color-mix(in srgb, var(--q-indigo) 55%, transparent);

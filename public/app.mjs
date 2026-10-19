@@ -10,6 +10,7 @@
 
 import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast } from '#kit/ui.mjs';
+import * as ui from '#kit/ui.mjs';
 import { nameMap, parentLaw, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK } from './lib/find.mjs';
@@ -117,7 +118,9 @@ function showTab(id) {
   for (const t of TABS) $(`panel-${t}`).hidden = t !== id;
 }
 // A page's large title (and a line over it).
-const pageHead = (title, over = '') => `<header class="lw-head${title ? '' : ' bare'}">${over ? `<p class="lw-over">${esc(over)}</p>` : ''}${title ? `<h1 class="q-large-title">${esc(title)}</h1>` : ''}</header>`;
+const pageHead = (title, over = '') => `<header class="lw-head${title ? '' : ' bare'}">${over ? `<p class="lw-over">${esc(over)}</p>` : ''}${title ? `<h1 class="q-large-title q-nav-title" data-q-nav>${esc(title)}</h1>` : ''}</header>`;
+// A tab's large title folds into the kit's small glass bar as it scrolls away.
+const wireTitles = root => setTimeout(() => ui.wireNavTitles?.(root));
 const headNode = (title, over) => h('div', { html: pageHead(title, over) }).firstChild;
 
 // ---- Routing: #law=B0000001&a=184 · #tab=bills · #item=11-01126 · #tab=ask&q=… ------------
@@ -293,6 +296,7 @@ function drawLaws() {
   // A topic or a quick question came from a tap: a way back (a Home Screen app has no back gesture).
   const back = state.topic || (state.linkedQuery && state.query) ? h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 ? history.back() : go('tab=laws')) }) : null;
   panel.replaceChildren(...[back, headNode(state.topic ? topicName(state.topic, en) : W('法規', 'Laws')), box, state.topic ? chips : null, h('div', { id: 'results' })].filter(Boolean));
+  wireTitles(panel);
   box.hidden = false;
   drawResults();
   const on = chips.querySelector('[aria-pressed="true"]');
@@ -1111,6 +1115,7 @@ function drawAsk() {
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('新對話', 'New chat'), html: MENU_ICON.edit, onclick: () => newChat() })
     ]);
     panel.append(h('div', { class: 'lw-ask-head' }, [headNode(W('問法律', 'Ask the law')), tools]), h('div', { class: 'lw-chat', id: 'chat' }), form);
+    wireTitles(panel);
     panel.addEventListener('click', e => {
       const b = e.target.closest('[data-ask]');
       if (b) ask(b.dataset.ask);
@@ -1218,6 +1223,7 @@ function drawBills() {
     const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: () => setBillFilter(id === 'bills' ? 'moving' : id) })));
     const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
     panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
+    wireTitles(panel);
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
       if (col) {
@@ -1481,6 +1487,7 @@ function drawMine() {
     pageHead(W('我的', 'Mine')) +
     ((html && (nothingFollowed ? html + hint : html)) ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
+  wireTitles($('panel-mine'));
   // 追蹤的立委: their cards, once the roster is in.
   if (Object.keys(m.people || {}).length)
     peopleData().then(d => {

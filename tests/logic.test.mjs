@@ -83,6 +83,22 @@ test('修法追蹤 from 沿革: the last entry’s articles, ranges over the law
   assert.deepEqual(merged.items.map(i => [i.p, i.seen]), [['J4', '2026-09-23'], ['J1', '2026-10-18']], 'a real diff wins over 沿革; newest amendment first');
 });
 
+test('bill sheet: where it stands, what it waits for, which articles', async () => {
+  const { whereNow, articleChips } = await import('../public/lib/cards.mjs');
+  const now = new Date('2026-10-19T06:00:00Z');
+  const bills = [
+    { id: 'a', u: '2026-10-20', flow: [['2026-10-02', 0, '排入院會'], ['2026-10-02', 4, '逕付二讀(交付協商)'], ['2026-10-20', 4, '排入院會 (討論事項)']] },
+    { id: 'b', u: '2025-07-11', flow: [['2025-07-11', 6, '三讀']] }
+  ];
+  const w = whereNow({ stage: 4, passed: '2025-07-11' }, bills, false, now);
+  assert.deepEqual(w, { last: '10/20 排入院會(討論事項)', next: '二讀', open: 1, before: '2025/07/11' });
+  assert.equal(whereNow({ stage: 6 }, [], false, now).next, '總統公布');
+  assert.equal(whereNow({ stage: 2, held: true }, [], false, now).next, '', 'held: no next step');
+  const chips = articleChips({ p: 'D1', arts: { 21: 5, '16-1': 1, 2: 1, 16: 2 } });
+  assert.deepEqual([...chips.matchAll(/第 ([\d-]+) 條/g)].map(m => m[1]), ['2', '16', '16-1', '21'], 'in the law’s order');
+  assert.match(chips, /第 21 條<b>5<\/b>/);
+});
+
 test('stages: raw 立法院 statuses fold into one scale', () => {
   assert.deepEqual(stageOf('排入院會 (交司法及法制委員會)'), { stage: 1, committee: '司法及法制委員會' });
   assert.equal(stageOf('交付審查').stage, 1);

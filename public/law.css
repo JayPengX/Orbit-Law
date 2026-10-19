@@ -1091,6 +1091,48 @@
 .lw-item-prog .lw-prog-names {
   font-size: 12px;
 }
+.lw-now {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--q-sep);
+}
+.lw-now p {
+  display: grid;
+  grid-template-columns: 4.5em 1fr;
+  gap: 8px;
+  margin: 0;
+  font: 400 14px/20px var(--q-font);
+}
+.lw-now b {
+  color: var(--q-label-2);
+  font-weight: 600;
+}
+.lw-art-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--q-sheet-cell, var(--q-surface));
+  color: var(--q-label);
+  font: 600 13px/1 var(--q-font);
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.lw-art-chip {
+  color: var(--q-accent);
+}
+.lw-art-chip b {
+  color: var(--q-label-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lw-art-chip.more {
+  color: var(--q-label-2);
+}
 .lw-item-who,
 .lw-item-diff {
   margin-top: 16px;

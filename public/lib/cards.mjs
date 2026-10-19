@@ -4,7 +4,7 @@
 // and a list of 200 cards draws in one go.
 import { esc } from './view.mjs';
 import { TOPICS, partyOf } from './topics.mjs';
-import { PASSED, PROMULGATED } from './bills.mjs';
+import { PASSED, PROMULGATED, STAGES, STAGES_EN, openRound } from './bills.mjs';
 
 const svg = (d, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -35,7 +35,9 @@ export function progress(item, en = false, { labels = false } = {}) {
   const step = stepOf(item.stage);
   const tone = toneOf(item);
   const segs = STEPS.map((s, i) => `<i class="${i <= step ? 'on' : ''}${i === step ? ' now' : ''}"></i>`).join('');
-  const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(s[en ? 1 : 0])}</span>`).join('')}</span>` : '';
+  // The 委員會 step says 協商 while the item is in caucus talks.
+  const label = (s, i) => (i === 2 && item.stage === 4 ? (en ? 'Talks' : '協商') : s[en ? 1 : 0]);
+  const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(label(s, i))}</span>`).join('')}</span>` : '';
   return `<span class="lw-prog ${tone}" role="img" aria-label="${esc(STEPS[step][en ? 1 : 0])}"><span class="lw-prog-bar">${segs}</span>${names}</span>`;
 }
 
@@ -69,6 +71,35 @@ export function shortDay(d, now = new Date()) {
 
 // The day it last moved; a day still ahead is the meeting it is set for (排入院會 dates the agenda).
 const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10) ? (en ? `set ${shortDay(d, now)}` : `${shortDay(d, now)} 排定`) : shortDay(d, now));
+// Where an item stands, in words, from its versions' own steps: the latest
+// step (a day ahead is the meeting it's set for), the step it waits for,
+// how many versions are still open, and an earlier round's 三讀.
+export function whereNow(it, bills = [], en = false, now = new Date()) {
+  const round = openRound(bills);
+  let last = null;
+  for (const b of round.length ? round : bills) for (const [d, , raw] of [...(b.flow || []), [b.u, 0, b.st]]) if (d && raw && (!last || d > last.d)) last = { d, raw };
+  const s = it.stage;
+  const next = it.dropped || it.held || s >= PROMULGATED || s < 0 ? '' : (en ? STAGES_EN : STAGES)[s === 3 || s === 4 ? 5 : s + 1];
+  return {
+    last: last ? `${/^排入/.test(last.raw) ? shortDay(last.d, now) : dayOf(last.d, en, now)} ${last.raw.replace(/\s+/g, '')}` : '',
+    next,
+    open: round.length,
+    before: s < PASSED && it.passed ? shortDay(it.passed, now) : ''
+  };
+}
+
+// The articles the open versions change, in the law's order, each with how
+// many versions touch it: 第 17 條 3. Links into the law when it has one.
+export function articleChips(it, en = false, max = 12) {
+  const num = k => k.split('-').map(Number);
+  const keys = Object.keys(it.arts || {}).sort((a, b) => num(a)[0] - num(b)[0] || (num(a)[1] || 0) - (num(b)[1] || 0));
+  const chip = k => {
+    const label = esc(en ? `Art. ${k}` : `第 ${k} 條`) + (it.arts[k] > 1 ? `<b>${it.arts[k]}</b>` : '');
+    return it.p ? `<a class="lw-art-chip" href="#law=${esc(it.p)}&amp;a=${esc(k)}">${label}</a>` : `<span class="lw-art-chip">${label}</span>`;
+  };
+  return keys.slice(0, max).map(chip).join('') + (keys.length > max ? `<span class="lw-art-chip more">${esc(en ? `+${keys.length - max}` : `等 ${keys.length} 條`)}</span>` : '');
+}
+
 // A bill item as a card: topic tile, the law, the bar, its stage and day,
 // who proposed it, how many versions and articles. `topic`: its topic id.
 export function billCard(it, { topic = 'gov', en = false, now, wide = false } = {}) {

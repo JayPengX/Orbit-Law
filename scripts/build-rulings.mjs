@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nameMap } from '../public/lib/refs.mjs';
-import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings, archiveMonths, pendingMonths, topCourtFile } from '../public/lib/rulings.mjs';
+import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings, archiveMonths, pendingMonths, topCourtFile, deletedIds, dropDeleted } from '../public/lib/rulings.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
@@ -126,6 +126,16 @@ if (inWindow() || args.force) {
       months = [...months, m.month];
       read.push(`${m.month}: ${files.length} files, ${fresh.length} citing a law`);
       console.log(`backfill ${read.at(-1)} (${Math.round((Date.now() - start) / 1000)}s)`);
+    }
+    // Rulings 司法院 has since taken down: dropped here too.
+    const del = list.find(d => /Delete-Infor/i.test(d.title || ''))?.filesets?.[0]?.fileSetId;
+    if (del) {
+      const r = await fetch(`${OPEN}api/FilesetLists/${del}/file`, { signal: AbortSignal.timeout(120_000) }).catch(() => null);
+      if (r?.ok) {
+        const before = rulings.length;
+        rulings = dropDeleted(rulings, deletedIds(await r.text()));
+        console.log(`Delete-Infor: ${before - rulings.length} dropped`);
+      }
     }
     if (read.length) backfill = `${read.join('; ')}${todo.length > read.length ? `; ${todo.length - read.length} months to go` : '; all months in'}`;
     else if (!todo.length) backfill = 'all months in';

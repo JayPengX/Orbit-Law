@@ -87,3 +87,9 @@ export function pendingMonths(months, done = [], now = new Date(), days = KEEP_D
 }
 // An archive entry worth reading: a top court's judgment file.
 export const topCourtFile = path => /\.json$/i.test(path) && /最高法院|最高行政法院|憲法法庭/.test(path);
+
+// 司法院's Delete-Infor list (rulings taken down, e.g. sealed later): every
+// JID in it, however the CSV lays its columns out.
+const JID = /[A-Z]{2,6},\d{2,3},[^,\r\n"]{1,12},\d{1,7},\d{8},\d{1,3}/g;
+export const deletedIds = csv => new Set(String(csv || '').match(JID) || []);
+export const dropDeleted = (rulings, gone) => (gone.size ? rulings.filter(r => !gone.has(r[0])) : rulings);

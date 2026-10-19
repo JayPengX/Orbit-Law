@@ -14,7 +14,9 @@ Live: https://jaypengx.github.io/Orbit-Law/
   `api/En/Law/JSON`) and writes `public/data/`: `index.json` (every law),
   `law/<pcode>.json`, `en/<pcode>.json`, `changes.json` (修法追蹤: each
   amendment's added, amended and removed articles, diffed against the
-  last deploy's copy, kept 120 days).
+  last deploy's copy, or read from the law's own 沿革 when no deploy saw
+  the old text; kept 120 days). The ministry's last good zips are kept
+  in the workflow cache (`.moj-cache/`) and stand in on a day it fails.
 - **Bills** come from the g0v 立法院 API (v2.ly.govapi.tw, a daily mirror
   of 立法院's 議事 data). Only bills whose 最新進度日期 moved since the last
   build are fetched, merged into the last deploy's `bills/all.json`.

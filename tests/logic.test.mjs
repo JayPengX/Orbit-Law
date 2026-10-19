@@ -1,7 +1,7 @@
 // The logic, without a browser: law records, links, bills and their stages.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artKey, pcodeOf, compactLaw, diffLaws, mergeChanges, indexRow } from '../public/lib/data.mjs';
+import { artKey, pcodeOf, compactLaw, diffLaws, historyChange, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
 import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
 import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
@@ -69,6 +69,18 @@ test('修法追蹤: what an amendment changed, kept for a while, one entry per v
   const prev = { items: [{ p: 'B1', m: '20260101', seen: '2026-10-01' }, { p: 'OLD', m: '1', seen: '2026-01-01' }] };
   const merged = mergeChanges(prev, [{ ...d }], now, 120);
   assert.deepEqual(merged.items.map(i => [i.p, i.seen]), [['B1', '2026-10-18']], 'the same version once, the old one dropped');
+});
+
+test('修法追蹤 from 沿革: the last entry’s articles, ranges over the law, new laws by count', () => {
+  const arts = ['1', '2', '19-1', '20', '20-1', '21', '22', '6-1'].map(k => ['A', k, 'x']);
+  const h = '1.中華民國九十年一月一日總統令制定公布全文 30 條\n7.中華民國一百十五年九月二十三日總統華總一經字第 11500093321  號\n  令修正公布第 2、19-1～21 條條文；增訂第\n  6-1 條條文；並刪除第 18 條條文；依第 22 條規定：自公布日施行';
+  const c = historyChange({ p: 'J1', n: '甲法', m: '20260923', h, a: arts });
+  assert.deepEqual([c.amended, c.added, c.removed, c.seen], [['2', '19-1', '20', '20-1', '21'], ['6-1'], ['18'], '2026-09-23']);
+  assert.deepEqual(['new', 24], ((x) => [x.whole, x.count])(historyChange({ p: 'J2', n: '乙', m: '20260911', h: '1.中華民國一百十五年九月十一日總統華總一經字第 1 號令\n  制定公布全文 24 條；依第 24 條規定：自公布後施行', a: [] })));
+  assert.equal(historyChange({ p: 'J3', n: '丙', m: '20260101', h: '2.中華民國一百十五年一月一日總統令修正公布名稱', a: [] }), null, 'no articles named, nothing to show');
+  const now = new Date('2026-10-18T00:00:00Z');
+  const merged = mergeChanges({ items: [] }, [{ p: 'J1', m: '20260923', added: ['6-1'], amended: [], removed: [] }], now, 120, [c, { ...c, p: 'J4', m: '20260930' }]);
+  assert.deepEqual(merged.items.map(i => [i.p, i.seen]), [['J4', '2026-09-23'], ['J1', '2026-10-18']], 'a real diff wins over 沿革; newest amendment first');
 });
 
 test('stages: raw 立法院 statuses fold into one scale', () => {

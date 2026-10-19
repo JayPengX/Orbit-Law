@@ -9,9 +9,9 @@
 // last build, merged into the last deploy's copy.
 //   node scripts/build-data.mjs [--zh ChLaw.zip] [--en EnLaw.zip] [--prev https://jaypengx.github.io/Orbit-Law/data/] [--bills off]
 import { execFileSync } from 'node:child_process';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
-import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
+import { mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
+import { readFileSync, existsSync } from 'node:fs';
+import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, historyChange, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
 import { compactBill, foldBills, mergeBills, billCounts, stageOf } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
@@ -23,24 +23,37 @@ const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const out = new URL('../public/data/', import.meta.url).pathname;
 
+// The last good copy of each file (.moj-cache/, kept between runs by the
+// workflow's cache) stands in when the ministry fails today, so one bad
+// morning never drops 7,000 regulations from the site.
+const CACHE = new URL('../.moj-cache/', import.meta.url).pathname;
 async function zipJson(kind) {
   let file = args[kind];
   if (!file) {
     file = `/tmp/orbit-law-${kind}.zip`;
-    // The ministry's server is slow (a minute for 6 MB some days) and, asked
-    // for one file right after another, sometimes answers with a page, not
-    // the zip: patient, checked, and tried again after a pause.
-    for (let tries = 1; ; tries++) {
-      execFileSync('curl', ['-sSfL', '--retry', '3', '--retry-all-errors', '-m', '600', '-o', file, SRC[kind]], { stdio: 'inherit' });
-      const head = readFileSync(file).subarray(0, 120);
-      if (head[0] === 0x50 && head[1] === 0x4b) break;
-      if (tries >= 4) throw new Error(`${kind}: not a zip (${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 100)})`);
-      console.warn(`${kind}: not a zip yet, try ${tries}: ${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 80)}`);
-      await new Promise(r => setTimeout(r, 30_000 * tries));
+    const kept = `${CACHE}${kind}.zip`;
+    try {
+      // The ministry's server is slow (a minute for 6 MB some days) and, asked
+      // for one file right after another, sometimes answers with a page, not
+      // the zip: patient, checked, and tried again after a pause.
+      for (let tries = 1; ; tries++) {
+        execFileSync('curl', ['-sSfL', '--retry', '3', '--retry-all-errors', '-m', '600', '-o', file, SRC[kind]], { stdio: 'inherit' });
+        const head = readFileSync(file).subarray(0, 120);
+        if (head[0] === 0x50 && head[1] === 0x4b) break;
+        if (tries >= 4) throw new Error(`${kind}: not a zip (${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 100)})`);
+        console.warn(`${kind}: not a zip yet, try ${tries}: ${head.toString('utf8').replace(/\s+/g, ' ').slice(0, 80)}`);
+        await new Promise(r => setTimeout(r, 30_000 * tries));
+      }
+      await mkdir(CACHE, { recursive: true });
+      await copyFile(file, kept);
+    } catch (e) {
+      if (!existsSync(kept)) throw e;
+      console.warn(`${kind}: ${e.message}; the last good copy instead`);
+      file = kept;
     }
   }
   const text = execFileSync('unzip', ['-p', file, '*.json'], { maxBuffer: 1 << 30 }).toString('utf8');
-  return JSON.parse(text.replace(/^﻿/, ''));
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }
 
 async function prevJson(path) {
@@ -138,7 +151,10 @@ if (prevIndex?.laws) {
     if (oldLaw) diffs.set(law.p, diffTexts(oldLaw, law, d));
   }
 }
-const changes = mergeChanges(prevChanges, found, new Date(), CHANGES_DAYS);
+// The versions MOJ published before any deploy of ours saw them, from their 沿革.
+const since = new Date(Date.now() - CHANGES_DAYS * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+const told = [...laws, ...orders].filter(l => l.m >= since).map(historyChange).filter(Boolean);
+const changes = mergeChanges(prevChanges, found, new Date(), CHANGES_DAYS, told);
 await writeFile(out + 'changes.json', JSON.stringify(changes));
 await mkdir(out + 'diff', { recursive: true });
 for (const it of changes.items) {

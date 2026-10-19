@@ -199,10 +199,16 @@ const ICON_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const ICON_GAVEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 6 6M11.5 6.5l6 6M13 5l-5.5 5.5 6 6L19 11M10.5 13.5 4 20"/></svg>';
 const countTag = (n, tone = '') => `<span class="lw-tag${tone ? ` ${tone}` : ''}">${esc(n)}</span>`;
 
+// What changed, by article: 改第 5、12 條・增第 30-1 條・刪第 8 條 (3 a kind,
+// then 等); a new law or a whole rewrite by its article count.
 function changeText(c) {
-  const n = c.added.length + c.amended.length + c.removed.length;
-  return `${W('修正', 'Amended')} ${shortDay(c.m)}${n ? ` · ${W(`${n} 條`, `${n} articles`)}` : ''}`;
+  if (c.whole) return `${c.whole === 'new' ? W('制定', 'Enacted') : W('全文修正', 'Rewritten')} ${shortDay(c.m)} · ${W(`全文 ${c.count} 條`, `${c.count} articles`)}`;
+  const keys = ks => ks.slice(0, 3).join(W('、', ', ')) + (ks.length > 3 ? W(` 等 ${ks.length} 條`, ` +${ks.length - 3}`) : W(' 條', ''));
+  const parts = [[c.amended, '改第', 'Art. '], [c.added, '增第', 'new '], [c.removed, '刪第', 'removed ']].filter(([ks]) => ks.length).map(([ks, zh, e]) => (en ? e : zh) + keys(ks));
+  return `${W('修正', 'Amended')} ${shortDay(c.m)}${parts.length ? ` · ${parts.join(W('・', ' · '))}` : ''}`;
 }
+// 新 on an amendment from the last two weeks; older ones in the list go untagged.
+const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
 
@@ -232,7 +238,7 @@ function drawHome() {
     section(W('繼續閱讀', 'Continue reading'), covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
     section(W('為你推薦', 'For you'), covers(picks)) +
     section(W('立法院動態', 'In 立法院'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
-    section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), countTag(W('新', 'New'), 'green')))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
+    section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
     `<div id="home-news"></div>` +
     section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
@@ -320,7 +326,7 @@ function drawResults() {
     quick +
     section(W('依生活情境找', 'By life situation'), topicGrid()) +
     section(W('常用', 'Common'), list(COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawItem(r)))) +
-    section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), countTag(W('修正', 'New'), 'green')))));
+    section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), freshTag(c)))));
 }
 
 // 找法: one search, answered in the order people need it. The articles that
@@ -710,7 +716,7 @@ async function diffSheet(law, change) {
           return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(artLabel(k, en))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${!was ? `<ins>${esc(now)}</ins>` : !now ? `<del>${esc(was)}</del>` : diffHtml(was, now)}</p></article>`;
         })
         .join('') + (d ? '' : `<p class="lw-none">${W('舊條文這次讀不到，先列出修正後的條文', 'The old text isn’t here; the articles as they are now')}</p>`)
-    : `<p class="lw-none">${W('這次修正沒有條文變動', 'No articles changed')}</p>`;
+    : `<p class="lw-none">${change.whole ? W('整部法律都是這次的條文，直接讀全文', 'The whole law is this version: read it in full') : W('這次修正沒有條文變動', 'No articles changed')}</p>`;
 }
 
 // An article's own menu (its number tapped): explain, ask, bookmark, copy, rulings.

@@ -77,16 +77,43 @@ export function diffTexts(oldLaw, law, d = diffLaws(oldLaw, law)) {
   return { p: law.p, m: law.m, was: d.was, arts };
 }
 
+// The latest amendment as its own 沿革 tells it, for a version no earlier
+// deploy saw (MOJ refreshes its files about monthly): the last entry's
+// 修正/增訂/刪除第…條 read into article keys (ranges 14～16 spread over the
+// law's own articles), or `whole` for 制定/全文 with its article count.
+// null when the entry names no articles (名稱 only, 施行 dates).
+export function historyChange(law) {
+  const entries = String(law.h || '').split(/\n\s*(?=\d+\.\s*中華民國)/);
+  const last = (entries[entries.length - 1] || '').replace(/\s+/g, '').replace(/^\d+\./, '');
+  const base = { p: law.p, n: law.n, m: law.m, was: '', added: [], amended: [], removed: [], seen: ymdDash(law.m) };
+  const whole = last.match(/(制定|訂定)(?:公布|發布)全文(\d+)條|修正(?:公布|發布)(?:名稱及)?全文(\d+)條/);
+  if (whole) return { ...base, whole: whole[1] ? 'new' : 'all', count: Number(whole[2] || whole[3]) };
+  const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
+  const spread = list =>
+    list.split('、').flatMap(x => {
+      const [a, b] = x.split('～');
+      if (!b) return [a];
+      const i = keys.indexOf(a), j = keys.indexOf(b);
+      return i >= 0 && j > i ? keys.slice(i, j + 1) : [a, b];
+    });
+  const kinds = { 修正: 'amended', 增訂: 'added', 刪除: 'removed' };
+  for (const [, verb, list] of last.matchAll(/(修正|增訂|刪除)(?:公布|發布)?第([\d\-、～]+)條(?!第)/g)) base[kinds[verb]].push(...spread(list));
+  return base.added.length + base.amended.length + base.removed.length ? base : null;
+}
+const ymdDash = m => (/^\d{8}$/.test(m) ? `${m.slice(0, 4)}-${m.slice(4, 6)}-${m.slice(6, 8)}` : '');
+
 // The running 修法追蹤 list: new findings first (stamped with the build
-// day), one entry per law and 異動日期, older than `days` dropped.
-export function mergeChanges(prev, found, now = new Date(), days = CHANGES_DAYS) {
+// day), one entry per law and 異動日期, older than `days` dropped. `told`:
+// versions read from their 沿革 (historyChange), kept when nothing better
+// (a real diff) has them. Newest amendment first.
+export function mergeChanges(prev, found, now = new Date(), days = CHANGES_DAYS, told = []) {
   const day = now.toISOString().slice(0, 10);
   const cutoff = new Date(now.getTime() - days * 864e5).toISOString().slice(0, 10);
-  const items = [...found.map(f => ({ ...f, seen: day })), ...(prev?.items || [])];
+  const items = [...found.map(f => ({ ...f, seen: day })), ...(prev?.items || []), ...told];
   const keep = new Map();
   for (const it of items) {
     const id = `${it.p}@${it.m}`;
     if (!keep.has(id) && it.seen >= cutoff) keep.set(id, it);
   }
-  return { items: [...keep.values()] };
+  return { items: [...keep.values()].sort((a, b) => (b.m > a.m) - (b.m < a.m)) };
 }

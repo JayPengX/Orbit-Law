@@ -41,6 +41,12 @@ jobs:
       - run: ln -sfn .shared/kit .kit
       - name: Run tests
         run: npm test
+      # The ministry's last good files, used when it fails on a given day.
+      - uses: actions/cache@v4
+        with:
+          path: .moj-cache
+          key: moj-${{ github.run_id }}
+          restore-keys: moj-
       - name: Build the law data
         run: node scripts/build-data.mjs
       # 立法院: votes by name, each legislator's record and clips, budget bills.

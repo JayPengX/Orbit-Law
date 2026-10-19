@@ -3,3 +3,4 @@ node_modules/
 .kit
 .shared
 public/data/
+.moj-cache/

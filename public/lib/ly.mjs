@@ -210,3 +210,23 @@ export function budgetGroups(rows, votes = []) {
     };
   }).sort((a, b) => (a.last < b.last ? 1 : -1));
 }
+
+// A followed legislator's doings, newest first, for 我的: the bills they
+// proposed, their 質詢 (one per meeting a day, its minutes added up) and
+// how they voted on whole bills (全案). → [{ k: 'bill'|'clip'|'vote', d, … }]
+export function personFeed(x, votes = null) {
+  const out = [];
+  for (const b of x.bills || []) out.push({ k: 'bill', d: b[1], id: b[0], t: b[2], s: b[3] || '' });
+  const clips = new Map();
+  for (const c of x.clips || []) {
+    const key = `${c[0]}|${c[1]}`;
+    const was = clips.get(key);
+    if (was) was.sec += c[4] || 0;
+    else clips.set(key, { k: 'clip', d: c[0], t: c[1] || '', id: c[2], sec: c[4] || 0 });
+  }
+  out.push(...clips.values());
+  if (votes) for (const [j, m] of personVotes(votes, x.n, x)) if (m !== '-' && /全案/.test(votes.votes[j][2])) out.push({ k: 'vote', d: votes.votes[j][1], j, m });
+  return out.sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+}
+// How many of them came after the day this device last looked.
+export const feedNew = (feed, seen) => (seen ? feed.filter(e => e.d > seen).length : 0);

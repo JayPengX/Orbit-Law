@@ -2059,6 +2059,87 @@ button.lw-row {
   color: var(--q-label);
   text-decoration: none;
 }
+/* 我的 · 追蹤的立委: a card each, their newest bills, 質詢 and votes under them. */
+.lw-tracks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 10px;
+}
+.lw-track {
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--q-surface);
+}
+.lw-track-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  color: var(--q-label);
+  text-decoration: none;
+}
+.lw-track-rows {
+  display: grid;
+  padding: 0 0 4px;
+}
+.lw-track-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 14px;
+  border: 0;
+  border-top: var(--q-hairline, 0.5px) solid var(--q-sep);
+  background: none;
+  color: var(--q-label);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.lw-track-row .lw-row-name {
+  overflow: hidden;
+  font: var(--q-t-subhead, 400 15px/20px var(--q-font));
+  line-height: 20px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+.lw-track-k {
+  min-width: 36px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--t) 14%, transparent);
+  color: var(--t);
+  font: 600 12px/1.2 var(--q-font);
+  text-align: center;
+  --t: var(--q-label-2);
+}
+.lw-track-k.indigo { --t: var(--q-indigo); }
+.lw-track-k.orange { --t: var(--q-orange); }
+.lw-track-k.green { --t: var(--q-green); }
+.lw-track-k.red { --t: var(--q-red); }
+.lw-track-d {
+  color: var(--q-label-2);
+  font: var(--q-t-caption, 400 12px/16px var(--q-font));
+  white-space: nowrap;
+}
+.lw-track-d.new {
+  color: var(--q-green);
+  font-weight: 600;
+}
+.lw-track-none {
+  margin: 0;
+  padding: 0 12px 12px 66px;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
 .lw-person .lw-photo {
   grid-row: 1 / span 2;
 }

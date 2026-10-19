@@ -580,3 +580,15 @@ test('a bill version’s 案由 reads as its reason', async () => {
   assert.equal(whyOf('本院委員李坤城等21人，為提升學校午餐品質，爰擬具「學校午餐及飲食教育條例草案」，俾利提升品質。是否有當？敬請公決。'), '為了提升學校午餐品質，俾利提升品質。');
   assert.equal(whyOf(''), '');
 });
+
+test('立委 feed: bills, one 質詢 per meeting a day, whole-bill votes, newest first', async () => {
+  const { personFeed, feedNew } = await import('../public/lib/ly.mjs');
+  const x = { n: '王小明', bills: [['1', '2026-09-01', 'A法修正草案', '交付審查']], clips: [['2026-09-10', '院會', 7, '10:00', 120], ['2026-09-10', '院會', 8, '11:00', 60], ['2026-08-01', '內政委員會', 9, '', 30]] };
+  const votes = { names: ['王小明'], votes: [['v1', '2026-09-20', '討論事項 A法 全案', 'a', [0], [], [], []], ['v2', '2026-09-19', '第3條', 'a', [0], [], [], []]] };
+  const f = personFeed(x, votes);
+  assert.deepEqual(f.map(e => [e.k, e.d]), [['vote', '2026-09-20'], ['clip', '2026-09-10'], ['bill', '2026-09-01'], ['clip', '2026-08-01']]);
+  assert.equal(f[1].sec, 180);
+  assert.equal(f[0].m, 'y');
+  assert.equal(feedNew(f, '2026-09-05'), 2);
+  assert.equal(feedNew(f, ''), 0);
+});

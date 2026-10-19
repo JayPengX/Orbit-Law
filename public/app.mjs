@@ -24,7 +24,7 @@ import { COURTS, courtOf, rulingUrl, caseKind, caseNo } from './lib/rulings.mjs'
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, gazetteUrl, ivodUrl } from './lib/ly.mjs';
+import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
@@ -1503,13 +1503,41 @@ function drawMine() {
     ((html && (nothingFollowed ? html + hint : html)) ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
   wireTitles($('panel-mine'));
-  // 追蹤的立委: their cards, once the roster is in.
-  if (Object.keys(m.people || {}).length)
-    peopleData().then(d => {
-      const el = $('mine-people');
-      const xs = d.people.filter(x => m.people[x.id]);
-      if (el && xs.length) el.outerHTML = section(W('追蹤的立委', 'Legislators'), `<div class="lw-people">${xs.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(shortArea(x.area))}</small></span><span class="lw-person-n">${esc(partyShort(x.party))}</span></a>`).join('')}</div>`);
-    }).catch(() => {});
+  // 追蹤的立委: each one's newest bills, 質詢 and whole-bill votes, what came since last time marked.
+  if (Object.keys(m.people || {}).length) drawTracked(m);
+}
+
+async function drawTracked(m) {
+  let ppl;
+  try {
+    ppl = await peopleData();
+  } catch {
+    return;
+  }
+  const xs = ppl.people.filter(x => m.people[x.id]);
+  if (!xs.length || !$('mine-people')) return;
+  const [files, votes] = await Promise.all([Promise.all(xs.map(x => data(`ly/person/${encodeURIComponent(x.id)}.json`).catch(() => null))), votesData().catch(() => null)]);
+  const el = $('mine-people');
+  if (!el) return;
+  const cards = xs.map((x, i) => {
+    const feed = files[i] ? personFeed({ ...files[i], from: x.from, to: x.to }, votes) : [];
+    const seen = m.people[x.id];
+    const fresh = feedNew(feed, seen);
+    const row = e => {
+      const isNew = e.d > seen;
+      const when = `<small class="lw-track-d${isNew ? ' new' : ''}">${esc(shortDay(e.d))}</small>`;
+      if (e.k === 'bill') return `<a class="lw-track-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(e.id)}/details"><span class="lw-track-k indigo">${W('提案', 'Bill')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</a>`;
+      if (e.k === 'clip') return `<a class="lw-track-row" href="${esc(ivodUrl(e.id))}"><span class="lw-track-k orange">${W('質詢', 'Spoke')}</span><span class="lw-row-name">${esc(e.t || W('院會', 'Plenary'))}${e.sec ? ` · ${Math.max(1, Math.round(e.sec / 60))} ${W('分鐘', 'min')}` : ''}</span>${when}</a>`;
+      const v = votes.votes[e.j];
+      return `<button type="button" class="lw-track-row" data-vote="${e.j}"><span class="lw-track-k ${{ y: 'green', n: 'red', a: 'gray' }[e.m]}">${{ y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain') }[e.m]}</span><span class="lw-row-name">${esc(v[7]?.length && state.byCode.has(v[7][0]) ? nameOf(v[7][0]) : String(votes.agendas?.[v[3]] || '').split('─')[0].replace(/(增訂|修正|刪除|部分條文|第[一二三四五六七八九十百]).*$/, '') || v[2])}</span>${when}</button>`;
+    };
+    return `<div class="lw-track" style="--p:${partyColor(x.party)}"><a class="lw-track-head" href="#who=${esc(x.id)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</a>${feed.length ? `<div class="lw-track-rows">${['bill', 'vote', 'clip'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1)).map(row).join('')}</div>` : `<p class="lw-track-none">${W('這屆還沒有提案、質詢或表決紀錄', 'No bills, speeches or votes yet this term')}</p>`}</div>`;
+  });
+  el.outerHTML = `<section class="q-section lw-sec" id="mine-people"><div class="q-section-head"><h2>${W('追蹤的立委', 'Legislators')}</h2></div><div class="lw-tracks">${cards.join('')}</div></section>`;
+  $('mine-people').addEventListener('click', e => {
+    const b = e.target.closest('[data-vote]');
+    if (b) voteSheet(Number(b.dataset.vote));
+  });
 }
 
 // ---- 立委 and 表決: who voted how, each legislator's record and speeches ----------------
@@ -1673,6 +1701,7 @@ async function openPerson(id) {
     return toast(W('這位立委的資料讀不到', 'Couldn’t load this legislator'));
   }
   const row = ppl.people.find(p => String(p.id) === String(id)) || x;
+  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), save());
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
   const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];

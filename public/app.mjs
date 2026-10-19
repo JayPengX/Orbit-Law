@@ -70,7 +70,7 @@ const save = () => {
   if (pass) (pass.changed(), pass.sync());
 };
 // The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
-const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes));
+const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes) + Object.entries(state.peopleNew || {}).reduce((n, [id, k]) => n + (state.mine.people?.[id] ? k : 0), 0));
 let itemsReady = Promise.resolve();
 let rulingsReady = Promise.resolve();
 let delegReady = Promise.resolve();
@@ -1507,22 +1507,32 @@ function drawMine() {
   if (Object.keys(m.people || {}).length) drawTracked(m);
 }
 
+// The followed legislators' doings (their files and the votes), and how many
+// came since each was last opened (for the 我的 badge too).
+async function trackedFeeds(m) {
+  const ppl = await peopleData();
+  const xs = ppl.people.filter(x => m.people?.[x.id]);
+  const [files, votes] = await Promise.all([Promise.all(xs.map(x => data(`ly/person/${encodeURIComponent(x.id)}.json`).catch(() => null))), votesData().catch(() => null)]);
+  const feeds = xs.map((x, i) => (files[i] ? personFeed({ ...files[i], from: x.from, to: x.to }, votes) : []));
+  state.peopleNew = Object.fromEntries(xs.map((x, i) => [x.id, feedNew(feeds[i], m.people[x.id])]));
+  badge();
+  return { xs, feeds, votes };
+}
+
 async function drawTracked(m) {
-  let ppl;
+  let t;
   try {
-    ppl = await peopleData();
+    t = await trackedFeeds(m);
   } catch {
     return;
   }
-  const xs = ppl.people.filter(x => m.people[x.id]);
-  if (!xs.length || !$('mine-people')) return;
-  const [files, votes] = await Promise.all([Promise.all(xs.map(x => data(`ly/person/${encodeURIComponent(x.id)}.json`).catch(() => null))), votesData().catch(() => null)]);
+  const { xs, feeds, votes } = t;
   const el = $('mine-people');
-  if (!el) return;
+  if (!xs.length || !el) return;
   const cards = xs.map((x, i) => {
-    const feed = files[i] ? personFeed({ ...files[i], from: x.from, to: x.to }, votes) : [];
+    const feed = feeds[i];
     const seen = m.people[x.id];
-    const fresh = feedNew(feed, seen);
+    const fresh = state.peopleNew[x.id];
     const row = e => {
       const isNew = e.d > seen;
       const when = `<small class="lw-track-d${isNew ? ' new' : ''}">${esc(shortDay(e.d))}</small>`;
@@ -1701,7 +1711,7 @@ async function openPerson(id) {
     return toast(W('這位立委的資料讀不到', 'Couldn’t load this legislator'));
   }
   const row = ppl.people.find(p => String(p.id) === String(id)) || x;
-  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), save());
+  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), state.peopleNew && (state.peopleNew[id] = 0), save());
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
   const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];
@@ -1858,6 +1868,8 @@ async function start() {
       if (state.tab === 'home') drawHome();
     })
     .catch(() => {});
+  // The followed legislators' news, for the badge.
+  if (Object.keys(state.mine.people || {}).length && state.tab !== 'mine') trackedFeeds(state.mine).catch(() => {});
   data('changes.json')
     .then(c => {
       state.changes = c;

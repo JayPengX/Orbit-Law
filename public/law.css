@@ -2036,7 +2036,13 @@ button.lw-row {
   min-width: 0;
 }
 .lw-person-text b {
+  overflow: hidden;
   font: 600 16px/21px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lw-vote-on {
+  margin: 8px 0 0;
 }
 .lw-person-text small,
 .lw-person-n {
@@ -2087,8 +2093,17 @@ button.lw-row {
 .lw-stats.four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.lw-stats.four .lw-stat {
+  padding: 10px 6px 10px 8px;
+}
 .lw-stats.four .lw-stat b {
-  font-size: 20px;
+  overflow: hidden;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.lw-stats.four .lw-stat span {
+  font-size: 11px;
 }
 .lw-clips {
   display: grid;

@@ -1179,11 +1179,14 @@ async function voteSheet(i) {
   const split = [...parties].sort((a, b) => b[1].y + b[1].n + b[1].a - (a[1].y + a[1].n + a[1].a)).map(([party, c]) => `<div class="lw-split"><span class="lw-party" style="--p:${partyColor(party)}">${esc(party ? partyShort(party) : W('其他', 'Other'))}</span><span class="lw-split-n"><b class="y">${c.y}</b><b class="n">${c.n}</b>${c.a ? `<b class="a">${c.a}</b>` : ''}</span></div>`).join('');
   const names = groups.filter(([, ids]) => ids.length).map(([k, ids, label]) => `<h4>${esc(label)} ${ids.length}</h4><div class="lw-names">${ids.map(j => { const who = byName.get(d.names[j]); return `<button type="button" class="lw-name" data-who="${esc(who?.id || '')}" style="--p:${partyColor(who?.party || '')}">${esc(d.names[j])}</button>`; }).join('')}</div>`).join('');
   const url = gazetteUrl(v[0]);
-  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(v[2])}</p>${voteRow([i, v]).replace('<button type="button" class="lw-vote"', '<div class="lw-vote static"').replace(/<\/button>$/, '</div>')}<h4>${W('各黨', 'By party')}</h4><div class="lw-splits">${split}</div>${names}${url ? `<a class="lw-out" href="${esc(url)}" target="_blank" rel="noopener">${W('立法院公報', 'In the 公報')}</a>` : ''}` });
+  // The laws it was on: their bill in 立法院 when tracked, else the law itself.
+  const on = (v[7] || []).map(p => { const it = (state.itemsByLaw.get(p) || []).find(x => x.open || x.stage >= PASSED); const r = state.byCode.get(p); return r ? `<a class="lw-notice" href="${it ? `#item=${esc(it.k.replace(':', '-'))}` : `#law=${esc(p)}`}"><b>${esc(nameOf(p))}</b><small>${esc(it ? stageShort(it, en) : W('現行法規', 'Law in force'))}</small></a>` : ''; }).join('');
+  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(v[2])}</p>${on ? `<div class="lw-cites lw-vote-on">${on}</div>` : ''}${voteRow([i, v]).replace('<button type="button" class="lw-vote"', '<div class="lw-vote static"').replace(/<\/button>$/, '</div>')}<h4>${W('各黨', 'By party')}</h4><div class="lw-splits">${split}</div>${names}${url ? `<a class="lw-out" href="${esc(url)}" target="_blank" rel="noopener">${W('立法院公報', 'In the 公報')}</a>` : ''}` });
   const s = sheet({ title: W(`表決 · ${shortDay(v[1])}`, `Vote · ${shortDay(v[1])}`), closeLabel: W('關閉', 'Close'), body });
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-who]');
     if (b?.dataset.who) (s.close(), go(`who=${b.dataset.who}`));
+    if (e.target.closest('.lw-vote-on a')) s.close();
   });
 }
 
@@ -1197,7 +1200,8 @@ async function peopleList(out) {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('立委資料讀不到，請稍後再試', 'Couldn’t load the legislators')}</strong></div>`);
   }
   const q = billQuery;
-  const now = ppl.filter(x => !x.to && (!q || x.n.includes(q) || x.area.includes(q) || x.party.includes(q)));
+  const ql = q.toLowerCase();
+  const now = ppl.filter(x => !x.to && (!q || x.n.includes(q) || x.area.includes(q) || x.party.includes(q) || partyOf(x.party).zh.includes(q) || partyOf(x.party).en.toLowerCase().includes(ql)));
   const followed = now.filter(x => state.mine.people?.[x.id]);
   const byParty = new Map();
   for (const x of now) byParty.set(x.party, [...(byParty.get(x.party) || []), x]);
@@ -1221,7 +1225,7 @@ async function openPerson(id) {
   const row = ppl.people.find(p => String(p.id) === String(id)) || x;
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
-  const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-signed'), row.counts.cosign, 'teal'], [W('質詢影片', 'Speeches'), row.counts.clips, 'orange'], [W('院會出席', 'Plenary'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];
+  const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];
   const head = h('div', { class: 'lw-person-head', html: `${personPhoto({ ...x, photo: x.photo || row.photo }, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span><span class="lw-tag">${esc(shortArea(x.area))}</span>${x.to ? `<span class="lw-tag red">${W('已離職', 'Left office')}</span>` : ''}</div></div>` });
   const tiles = h('div', { class: 'lw-stats four', html: stats.map(([l, n, tone]) => `<span class="lw-stat ${tone}"><b>${typeof n === 'number' ? n.toLocaleString() : n}</b><span>${esc(l)}</span></span>`).join('') });
   const clips = h('div', { class: 'lw-person-sec' });
@@ -1255,9 +1259,12 @@ async function budgetList(out) {
   } catch {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('預算資料讀不到，請稍後再試', 'Couldn’t load the budgets')}</strong></div>`);
   }
+  // A step in words: its note in brackets dropped; in English, the usual ones translated.
+  const STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢/, 'Reviewed'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/撤/, 'Withdrawn']];
+  const step = t => { const z = String(t || '').replace(/\s*[（(].*$/, ''); return en ? STEP_EN.find(([re]) => re.test(z))?.[1] || z : z; };
   const stageTone = st => (/三讀|公布/.test(st) ? 'green' : /協商|二讀|討論/.test(st) ? 'orange' : 'indigo');
   const budgets = [...b.budgets].map(x => ({ ...x, stage: x.stage || x.flow?.at(-1)?.[1]?.replace(/\s*\(.*$/, '') || '' })).sort((a, c) => (a.last < c.last ? 1 : -1));
-  out.innerHTML = `<div class="lw-grid">${budgets.map(x => `<div class="lw-bill lw-budget"><span class="lw-bill-top"><span class="lw-bill-stage ${stageTone(x.stage) === 'green' ? 'passed' : stageTone(x.stage) === 'orange' ? 'held' : ''}">${esc(x.stage)}</span><span class="lw-bill-day">${esc(shortDay(x.last))}</span></span><b class="lw-bill-name">${esc(x.title.replace(/案$/, ''))}</b><ol class="lw-timeline mini">${(x.flow || []).slice(-4).map(f => `<li class="done"><b>${esc(f[1])}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol>${x.votes?.length ? `<button type="button" class="lw-more" data-budget-votes="${esc(x.k)}">${W(`院會表決 ${x.votes.length} 次`, `${x.votes.length} floor votes`)}</button>` : ''}</div>`).join('')}</div>`;
+  out.innerHTML = `<div class="lw-grid">${budgets.map(x => `<div class="lw-bill lw-budget"><span class="lw-bill-top"><span class="lw-bill-stage ${stageTone(x.stage) === 'green' ? 'passed' : stageTone(x.stage) === 'orange' ? 'held' : ''}">${esc(step(x.stage))}</span><span class="lw-bill-day">${esc(shortDay(x.last))}</span></span><b class="lw-bill-name">${esc(x.title.replace(/案$/, ''))}</b><ol class="lw-timeline mini">${(x.flow || []).slice(-4).map(f => `<li class="done"><b>${esc(step(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol>${x.votes?.length ? `<button type="button" class="lw-more" data-budget-votes="${esc(x.k)}">${W(`院會表決 ${x.votes.length} 次`, `${x.votes.length} floor votes`)}</button>` : ''}</div>`).join('')}</div>`;
   out.onclick = async e => {
     const btn = e.target.closest('[data-budget-votes]');
     if (!btn) return;

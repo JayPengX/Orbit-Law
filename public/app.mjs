@@ -10,8 +10,9 @@
 
 import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast } from '#kit/ui.mjs';
-import { nameMap, parentLaw } from './lib/refs.mjs';
+import { nameMap, parentLaw, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
+import { expand, rankArticles, snippet, QUICK } from './lib/find.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED, PROMULGATED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
@@ -98,7 +99,7 @@ const tabs = tabBar({
     { id: 'laws', label: W('法規', 'Laws'), icon: 'book' },
     { id: 'ask', label: W('問法律', 'Ask'), icon: '<path d="M4.5 6.5A2.5 2.5 0 0 1 7 4h10a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 17 16h-6.5L6 19.5V16a2.5 2.5 0 0 1-1.5-2.3z"/><path d="M9.6 8.8a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 1.8-2.4 3"/><circle cx="12" cy="14.3" r=".4"/>' },
     { id: 'bills', label: W('立法', 'Bills'), icon: 'live' },
-    { id: 'mine', label: W('追蹤', 'Following'), icon: 'star' }
+    { id: 'mine', label: W('我的', 'Mine'), icon: 'star' }
   ],
   // The app keeps the address itself (#law=…, #item=…).
   hash: () => null,
@@ -154,8 +155,13 @@ async function route() {
   } else if (tab === 'laws') {
     state.law = null;
     state.topic = TOPICS[p.get('topic')] ? p.get('topic') : '';
+    if (p.has('q')) state.query = p.get('q');
     showTab('laws');
     drawLaws();
+    if (p.has('q')) {
+      const input = box.querySelector('input');
+      if (input) (input.value = state.query), p.get('q') || input.focus();
+    }
   } else {
     showTab('home');
     drawHome();
@@ -180,6 +186,7 @@ function lawSub(row) {
 // A law's row; the judgments citing it as a tag when nothing else is on the right.
 const lawItem = (row, sub, extra = '', href) => lawRow(row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${state.rulingLaws[row[0]]}</span>` : ''), href });
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const ICON_YT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033"/><path d="M10 9v6l5-3z" fill="#fff"/></svg>';
 const ICON_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>';
 const ICON_GAVEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 6 6M11.5 6.5l6 6M13 5l-5.5 5.5 6 6L19 11M10.5 13.5 4 20"/></svg>';
@@ -207,27 +214,17 @@ function drawHome() {
   const latest = items.reduce((m, it) => (it.u > m ? it.u : m), '');
   const moved = [...items].sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : b.stage - a.stage)).slice(0, 10);
   const movedToday = items.filter(it => it.u === latest).length;
-  const stats = `<div class="lw-stats">${[
-    [W('審議中', 'Moving'), state.items.filter(LIVE).length, 'tab=bills&f=moving', 'indigo'],
-    [W('協商・二讀', 'On the floor'), state.items.filter(it => LIVE(it) && it.stage >= 4).length, 'tab=bills&f=talks', 'orange'],
-    [W('本屆三讀', 'Passed'), state.items.filter(it => it.stage >= PASSED).length, 'tab=bills&f=passed', 'green']
-  ]
-    .map(([l, n, href, tone]) => `<a class="lw-stat ${tone}" href="#${href}"><b>${n}</b><span>${esc(l)}</span></a>`)
-    .join('')}</div>`;
-  const bills = state.items.length ? stats + rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
+  const bills = state.items.length ? rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
   const billsHead = latest ? W(`${shortDay(latest)} 有 ${movedToday} 案有進度`, `${movedToday} moved on ${shortDay(latest)}`) : '';
 
-  const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 4);
-  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 5);
-
+  // One search for everything, then the hero, then three rows.
   panel.innerHTML =
     pageHead('', dayLine()) +
+    `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、條文或生活問題', 'Search laws, articles or topics')}</span></a>` +
     hero +
     section(W('立法院動態', 'In 立法院'), (billsHead ? `<p class="lw-sub">${esc(billsHead)}</p>` : '') + bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
-    section(W('最近看過', 'Recent'), list(recent.map(r => lawItem(r)))) +
-    section(W('依主題找法規', 'Laws by topic'), state.rows.length ? topicGrid() : '') +
-    section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), countTag(W('修正', 'New'), 'green')))), { more: W('更多', 'More'), moreHref: '#tab=laws' });
+    section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
 }
 
 // A judgment as a card: its court, its matter, the day, the articles it cites (each opens).
@@ -251,7 +248,7 @@ function topicGrid() {
 
 const COMMON = ['中華民國憲法', '民法', '中華民國刑法', '民事訴訟法', '刑事訴訟法', '行政程序法', '勞動基準法', '道路交通管理處罰條例', '個人資料保護法', '消費者保護法'];
 
-const box = search({ placeholder: W('法規名稱，或「民法184」', 'Law name, or 民法184'), onInput: v => ((state.query = v), drawResults()), onSubmit: v => jump(v) });
+const box = search({ placeholder: W('找法規、條文或生活問題', 'Search laws, articles or topics'), onInput: v => ((state.query = v), drawResults()), onSubmit: v => jump(v) });
 
 function drawLaws() {
   const panel = $('panel-laws');
@@ -270,49 +267,81 @@ function drawResults() {
   const out = $('results');
   if (!out) return;
   const q = state.query.trim();
-  if (q) {
-    const jumpTo = parseJump(state.rows, q);
-    let found = searchLaws(state.rows, q);
-    if (state.topic) found = found.filter(r => rowTopic(r) === state.topic);
-    const jumpRow = jumpTo && lawRow([jumpTo.row[0], `${jumpTo.row[1]} ${artLabel(jumpTo.key, en)}`], { topic: rowTopic(jumpTo.row), sub: W('直接打開這一條', 'Open this article'), href: `#law=${jumpTo.row[0]}&a=${jumpTo.key}` });
-    out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + section(W('法規', 'Laws'), list(found.map(r => lawItem(r)))) + `<div id="text-hits"></div>`;
-    if (!jumpTo) textHits(q, !found.length);
-    return;
-  }
+  if (q) return void findAll(q, out);
+  const quick = `<div class="lw-quick">${(QUICK[state.topic || ''] || []).map(w => `<button type="button" class="lw-quick-q" data-q="${esc(w)}">${ICON_SEARCH}${esc(w)}</button>`).join('')}</div>`;
   if (state.topic) {
     const laws = state.rows.filter(r => r[2] !== '命令' && !r[5] && rowTopic(r) === state.topic).sort((a, b) => (a[4] < b[4] ? 1 : -1));
     const regs = state.rows.filter(r => r[2] === '命令' && rowTopic(r) === state.topic).length;
-    out.innerHTML = section(W(`${laws.length} 部法律，最近修正的在前`, `${laws.length} laws, latest amended first`), list(laws.slice(0, 300).map(r => lawItem(r)))) + (regs ? `<p class="lw-none">${W(`另有 ${regs} 個命令，可用搜尋找`, `${regs} regulations too: search to find them`)}</p>` : '');
+    out.innerHTML = quick + section(W(`${laws.length} 部法律，最近修正的在前`, `${laws.length} laws, latest amended first`), list(laws.slice(0, 300).map(r => lawItem(r)))) + (regs ? `<p class="lw-none">${W(`另有 ${regs} 個子法（辦法、規則），在各法律裡的「子法」看得到`, `Plus ${regs} regulations, listed under each law’s 子法`)}</p>` : '');
     return;
   }
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 8);
   out.innerHTML =
+    quick +
     section(W('常用', 'Common'), list(COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawItem(r)))) +
     section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), countTag(W('修正', 'New'), 'green')))));
 }
 
-// 全文檢索: the laws whose articles hold the words, most articles first
-// (a tap opens the law showing only those articles).
-let textTimer = 0;
-function textHits(q, alone) {
-  clearTimeout(textTimer);
-  const out = $('text-hits');
-  const none = text => `<div class="q-empty lw-empty-sm"><strong>${esc(text)}</strong><p>${W('也可以到「問法律」用白話問', 'Or ask it in plain words under Ask')}</p><a class="q-btn" href="#tab=ask&amp;q=${encodeURIComponent(q)}">${W('問法律', 'Ask')}</a></div>`;
-  if ([...q].length < 2) return void (alone && (out.innerHTML = none(W('找不到這個法規', 'No law by that name'))));
-  textTimer = setTimeout(async () => {
-    let ids;
-    try {
-      ids = await searchText(q, n => data(`text/${n}.json`));
-    } catch {
-      return;
+// 找法: one search, answered in the order people need it. The articles that
+// say it (with the words marked and the 子法 they call for), then laws and
+// 子法 by name, then bills in 立法院, then 問法律. Everyday words also try
+// the law books' words (學生會 → 學生自治組織).
+let findRun = 0;
+async function findAll(q, out) {
+  const run = ++findRun;
+  const terms = expand(q);
+  const jumpTo = parseJump(state.rows, q);
+  const named = [];
+  for (const t of terms) for (const r of searchLaws(state.rows, t, 30)) if (!named.includes(r)) named.push(r);
+  const keep = r => !state.topic || rowTopic(r) === state.topic;
+  // By name: whole-word matches only (a scattered-letter match is noise next to real hits).
+  const close = named.filter(r => keep(r) && terms.some(t => r[1].includes(t) || r[1] === SHORT[t]));
+  const laws = close.filter(r => r[2] !== '命令').slice(0, 6);
+  const regs = close.filter(r => r[2] === '命令').slice(0, 6);
+  const bills = state.items.filter(it => terms.some(t => it.n?.includes(t))).slice(0, 3);
+  const jumpRow = jumpTo && lawRow([jumpTo.row[0], `${jumpTo.row[1]} ${artLabel(jumpTo.key, en)}`], { topic: rowTopic(jumpTo.row), sub: W('直接打開這一條', 'Open this article'), href: `#law=${jumpTo.row[0]}&a=${jumpTo.key}` });
+  const ask = `<a class="lw-find-ask" href="#tab=ask&amp;q=${encodeURIComponent(q)}">${MENU_ICON.ask || ''}<span><b>${W(`用白話問「${esc(q)}」`, `Ask about “${esc(q)}”`)}</b><small>${W('問法律會引用條文回答', 'Answered from the articles, cited')}</small></span></a>`;
+  const nameBlocks = () =>
+    (laws.length ? section(W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '') +
+    (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
+    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(it.n)}</span><small>${esc(stageShort(it, en))}</small></span></a>`).join('')}</div>`) : '');
+  out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
+  if ([...q].length < 2 || jumpTo) return;
+  // The articles: each term's hits, best laws first, then each one's best articles.
+  let groups = [];
+  try {
+    const seen = new Map();
+    for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 12)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
+    groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && keep(g.row));
+    // Laws before 子法, then most hits.
+    groups.sort((a, b) => (a.row[2] === '命令') - (b.row[2] === '命令') || b.arts.length - a.arts.length);
+  } catch {}
+  if (run !== findRun) return;
+  const box = $('find-arts');
+  if (!box) return;
+  if (!groups.length) {
+    box.innerHTML = !laws.length && !regs.length && !bills.length ? `<div class="q-empty lw-empty-sm"><strong>${W('沒有法規或條文提到這個', 'Nothing found')}</strong><p>${W('換個說法，或直接用白話問', 'Try other words, or just ask')}</p></div>` : '';
+    return;
+  }
+  const top = groups.slice(0, 4);
+  const files = await Promise.all(top.map(g => lawFile(g.row[0]).catch(() => null)));
+  const delegs = await Promise.all(top.map(g => (state.regLaws[g.row[0]] ? data(`deleg/${g.row[0]}.json`).catch(() => null) : null)));
+  if (run !== findRun || !document.body.contains(box)) return;
+  const cards = [];
+  top.forEach((g, i) => {
+    for (const a of rankArticles(files[i], g.arts, terms).slice(0, i ? 2 : 4)) {
+      const subs = (delegs[i]?.to?.[a.key] || []).slice(0, 2);
+      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b>${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, terms)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
     }
-    if (state.query.trim() !== q || !document.body.contains(out)) return;
-    const rows = groupHits(ids)
-      .map(g => state.rows[g.law] && (!state.topic || rowTopic(state.rows[g.law]) === state.topic) && lawItem(state.rows[g.law], W(`${g.arts.length} 條提到「${q}」`, `${g.arts.length} articles mention “${q}”`), '', `#law=${state.rows[g.law][0]}&find=${encodeURIComponent(q)}`))
-      .filter(Boolean);
-    out.innerHTML = rows.length ? section(W('條文內容', 'In the text'), list(rows)) : alone ? none(W('沒有法規或條文提到這個', 'Nothing found')) : '';
-  }, 250);
+  });
+  const rest = groups.slice(4, 10).map(g => lawItem(g.row, W(`${g.arts.length} 條提到`, `${g.arts.length} articles mention it`), '', `#law=${g.row[0]}&find=${encodeURIComponent(terms[0])}`));
+  box.innerHTML = cards.length ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${cards.join('')}</div>`) + (rest.length ? section(W('也提到的法規', 'Also mentioned in'), list(rest)) : '') : '';
 }
+// A 子法's parent law, by name, for its line under the name.
+const parentName = r => {
+  const p = parentLaw(state.rows, r[1]);
+  return p ? W(`${state.byCode.get(p)?.[1] || ''}的子法`, `Under ${state.byCode.get(p)?.[1] || ''}`) : W('子法', 'Regulation');
+};
 
 function jump(q) {
   const j = parseJump(state.rows, q);
@@ -413,13 +442,11 @@ async function drawLaw() {
     h('div', { class: 'lw-over-top', html: `${topicTile(topic, 'lg')}<div class="lw-over-name"><strong>${esc(name)}</strong><span class="lw-meta">${chips.map(([t, c]) => `<span class="lw-tag ${c}">${esc(t)}</span>`).join('')}</span></div>` }),
     change ? h('button', { type: 'button', class: 'lw-strip green', html: `<b>${W('最近修法', 'Just amended')}</b><span>${esc(changeText(change))}</span><em>${W('看修了什麼', 'What changed')}</em>`, onclick: () => diffSheet(law, change) }) : null,
     live ? h('button', { type: 'button', class: 'lw-strip indigo', html: `<b>${W('立法院審議中', 'In 立法院')}</b><span>${esc([stageShort(live, en), partyText].filter(Boolean).join(' · '))}</span><em>${W('看進度', 'Progress')}</em>${progress(live, en)}`, onclick: () => go(`item=${live.k.replace(':', '-')}`) }) : null,
-    draftStrip(law),
-    basisStrip(law),
-    regsStrip(law),
-    rulingStrip(law)
+    draftStrip(law)
   ].filter(Boolean));
+  // The doors: 目錄, 子法, 判決 (and a regulation's 授權依據), each with its count.
   const toc = contents(law).filter(c => c.depth <= 1);
-  const chapters = toc.length > 1 ? h('div', { class: 'q-chips lw-chaps', html: toc.map(c => `<button type="button" class="q-chip" data-id="${c.id}">${esc(c.title.replace(/\s+/g, ' '))}</button>`).join(''), onclick: e => { const b = e.target.closest('[data-id]'); if (b) scrollToHeading(b.dataset.id); } }) : null;
+  const doors = h('div', { class: 'lw-doors' }, [tocDoor(law, toc, nArts), basisDoor(law), regsDoor(law), rulingDoor(law)].filter(Boolean));
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
   const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, self: selfOf(law), en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
@@ -432,17 +459,31 @@ async function drawLaw() {
     const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
     (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-regs" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
   }
-  panel.replaceChildren(head, find, over, ...[chapters, hint, fw, body].filter(Boolean));
+  panel.replaceChildren(head, find, over, doors, ...[hint, fw, body].filter(Boolean));
   box.hidden = true;
 }
 
 // 最高法院判決: how many cite this law, and which articles (a tap: the list, by article).
-function rulingStrip(law) {
+const door = (cls, icon, n, label, onclick) => h('button', { type: 'button', class: `lw-door ${cls}`, html: `<span class="lw-door-ic">${icon}</span><b>${esc(String(n))}</b><small>${esc(label)}</small>`, onclick });
+// 目錄: the chapters (a tap: there); a law without chapters opens 找字.
+function tocDoor(law, toc, nArts) {
+  if (toc.length < 2) return door('slate', ICON.find, nArts, W('條・找字', 'articles · find'), () => toggleFind());
+  return door('slate', MENU_ICON.steps, toc.length, W('章・目錄', 'chapters'), () => {
+    const s = sheet({ title: W(`${shortName(law.n)} · 目錄`, 'Contents'), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: toc.map(c => `<button type="button" class="lw-row" data-id="${c.id}"><span class="lw-row-text"><span class="lw-row-name">${esc(c.title.replace(/\s+/g, ' '))}</span></span></button>`).join('') }) });
+    s.el.addEventListener('click', e => {
+      const b = e.target.closest('[data-id]');
+      if (!b) return;
+      s.close();
+      scrollToHeading(b.dataset.id);
+    });
+  });
+}
+function rulingDoor(law) {
   const arts = Object.entries(state.lawRulings);
   if (!arts.length) return null;
   const n = state.rulingLaws[law.p] || new Set(arts.flatMap(([, l]) => l.map(x => x[0]))).size;
   const sorted = arts.sort((a, b) => b[1].length - a[1].length);
-  return h('button', { type: 'button', class: 'lw-strip slate', html: `<b>${W('最高法院判決', 'Top-court rulings')}</b><span>${esc(W(`${n} 則判決引用 ${arts.length} 條`, `${n} cite ${arts.length} articles`))}</span><em>${W('看判決', 'See')}</em>`, onclick: () => {
+  return door('court', ICON_GAVEL, n, W('則判決', 'rulings'), () => {
     const s = sheet({ title: W(`${shortName(law.n)} · 判決`, `${nameOf(law.p, law.n)} · rulings`), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html: sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${topicTile('justice', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('') }) });
     s.el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
@@ -450,22 +491,34 @@ function rulingStrip(law) {
       s.close();
       openRulings(b.dataset.k);
     });
-  } });
+  });
 }
 // 子法: every regulation made under this law, by the article that calls for it.
-function regsStrip(law) {
-  const arts = Object.entries(state.deleg.to).sort((a, b) => artOrder(a[0]) - artOrder(b[0]));
-  const rest = state.deleg.rest;
+function regsDoor(law) {
+  const arts = Object.entries(state.deleg.to);
   const ag = state.agency;
-  const n = new Set([...arts.flatMap(([, l]) => l), ...rest].map(r => r[0])).size + new Set([...Object.values(ag.to).flat(), ...ag.rest].map(r => r[0])).size;
+  const n = new Set([...arts.flatMap(([, l]) => l), ...state.deleg.rest].map(r => r[0])).size + new Set([...Object.values(ag.to).flat(), ...ag.rest].map(r => r[0])).size;
   if (!n) return null;
-  const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
-  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則`, `${n} regulations`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
-    const agArts = Object.entries(ag.to).sort((a, b) => artOrder(a[0]) - artOrder(b[0]));
-    const agRows = [...agArts.flatMap(([k, l]) => l.map(r => agencyRow(r, artLabel(k, en)))), ...ag.rest.map(r => agencyRow(r, ''))];
-    const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, '')), ...(agRows.length ? [`<p class="lw-list-cap">${W('各部會行政規則（連到部會網站）', 'Ministries’ own rules (on their sites)')}</p>`, ...agRows] : [])];
-    regSheet(W(`${nameOf(law.p, law.n)} · 子法`, 'Rules made under it'), rows.join(''));
-  } });
+  return door('teal', ICON_DOC, n, W('個子法', 'rules'), () => regsSheet(law));
+}
+// The 子法 sheet: by article, each with the words that call for the rules, then the rules.
+function regsSheet(law) {
+  const ag = state.agency;
+  const keys = [...new Set([...Object.keys(state.deleg.to), ...Object.keys(ag.to)])].sort((a, b) => artOrder(a) - artOrder(b));
+  const words = Object.fromEntries(law.a.filter(a => a[0] === 'A').map(a => [a[1], a[2]]));
+  const row = (p, name) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`;
+  const group = (k, rows) => `<div class="lw-reg-art"><button type="button" class="lw-reg-head" data-at="${esc(k)}"><b>${esc(artLabel(k, en))}</b><span>${esc(String(words[k] || '').replace(/\s+/g, ' ').slice(0, 70))}${String(words[k] || '').length > 70 ? '…' : ''}</span></button>${rows}</div>`;
+  const html =
+    keys.map(k => group(k, (state.deleg.to[k] || []).map(([p, name]) => row(p, name)).join('') + (ag.to[k] || []).map(r => agencyRow(r, '')).join(''))).join('') +
+    (state.deleg.rest.length || ag.rest.length ? `<div class="lw-reg-art"><p class="lw-list-cap">${W('其他', 'Others')}</p>${state.deleg.rest.map(([p, name]) => row(p, name)).join('')}${ag.rest.map(r => agencyRow(r, '')).join('')}</div>` : '');
+  const s = sheet({ title: W(`${shortName(law.n)} · 子法`, 'Rules made under it'), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet wrap', html }) });
+  s.el.addEventListener('click', e => {
+    const b = e.target.closest('[data-p],[data-at]');
+    if (!b) return;
+    s.close();
+    if (b.dataset.at) focusArticle(b.dataset.at);
+    else go(`law=${b.dataset.p}`);
+  });
 }
 const artOrder = k => { const [a, b = 0] = k.split('-').map(Number); return a + b / 1000; };
 function regSheet(title, rows) {
@@ -486,14 +539,14 @@ function openRegs(k) {
 // A ministry's 行政規則 (not in 全國法規資料庫): opens on its site.
 const agencyRow = ([id, name, agency, url, mine], label) => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener"${mine ? ` data-text="${esc(textFile(id))}"` : ''}>${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
 // A regulation's 授權依據: the law and article it is made under (a tap: there).
-function basisStrip(law) {
+function basisDoor(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
   if (!from.length) return null;
   const label = ([p, k]) => `${nameOf(p)}${k ? (en ? ` Art. ${k}` : artLabel(k)) : ''}`;
-  return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('授權依據', 'Made under')}</b><span>${esc(from.slice(0, 2).map(label).join('、') + (from.length > 2 ? W(` 等 ${from.length} 條`, ` +${from.length - 2}`) : ''))}</span><em>${W('看條文', 'Open')}</em>`, onclick: () => {
+  return door('indigo', MENU_ICON.gov, shortName(nameOf(from[0][0])), W('授權依據', 'made under'), () => {
     if (from.length === 1) return go(`law=${from[0][0]}${from[0][1] ? `&a=${from[0][1]}` : ''}`);
     regSheet(W('授權依據', 'Made under'), from.map(([p, k]) => `<button type="button" class="lw-row" data-p="${esc(p)}" data-k="${esc(k)}">${topicTile(rowTopic(state.byCode.get(p)), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(label([p, k]))}</span></span></button>`).join(''));
-  } });
+  });
 }
 
 function openRulings(k) {
@@ -818,6 +871,15 @@ async function openBillById(id) {
   }
 }
 
+// A 子法 chip on a search card opens that 子法, not the article.
+document.addEventListener('click', e => {
+  const sub = e.target.closest('[data-sub]');
+  if (sub) (e.preventDefault(), e.stopPropagation(), go(`law=${sub.dataset.sub}`));
+  // A quick question runs its search.
+  const q = e.target.closest('.lw-quick-q');
+  if (q) go(`tab=laws&q=${encodeURIComponent(q.dataset.q)}`);
+}, true);
+
 // Every link out of the app lands here first: what the app can read, it reads.
 document.addEventListener(
   'click',
@@ -1042,15 +1104,28 @@ async function ask(text) {
 
 // ---- 立法: every law with bills this term, by stage --------------------------------------
 
+// 立法 opens on five doors; 法案 has its stages and the funnel, the others are a page each.
 const BILL_FILTERS = [
   ['moving', W('審議中', 'Moving')],
   ['talks', W('協商・二讀', 'Floor')],
   ['passed', W('已三讀', 'Passed')],
-  ['notice', W('預告', 'Drafts')],
-  ['people', W('立委', 'Legislators')],
-  ['budget', W('預算', 'Budget')],
   ['all', W('全部', 'All')]
 ];
+const BILL_DOORS = [
+  ['bills', W('法案', 'Bills'), 'indigo', W('搜尋法案，例如「長照」', 'Search bills')],
+  ['notice', W('預告', 'Drafts'), 'orange', W('搜尋預告的修法', 'Search drafts')],
+  ['votes', W('表決', 'Votes'), 'green', W('搜尋表決，例如「預算」', 'Search votes')],
+  ['people', W('立委', 'People'), 'teal', W('搜尋立委或選區', 'Search by name or area')],
+  ['budget', W('預算', 'Budget'), 'court', W('搜尋預算', 'Search budgets')]
+];
+const DOOR_ICON = {
+  bills: ICON_DOC,
+  notice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>',
+  votes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5"/></svg>',
+  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/></svg>',
+  budget: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></svg>'
+};
+const doorOf = f => (BILL_FILTERS.some(([id]) => id === f) ? 'bills' : f);
 let billFilter = 'moving';
 let billQuery = '';
 let billStep = -1;
@@ -1060,10 +1135,11 @@ const billBox = search({ placeholder: W('搜尋法案，例如「長照」', 'Se
 function drawBills() {
   const panel = $('panel-bills');
   const f = new URLSearchParams(location.hash.slice(1)).get('f');
-  if (f && BILL_FILTERS.some(([id]) => id === f)) ((billFilter = f), (billStep = -1));
+  if (f && (BILL_FILTERS.some(([id]) => id === f) || BILL_DOORS.some(([id]) => id === f))) ((billFilter = f === 'bills' ? 'moving' : f), (billStep = -1));
   if (!panel.firstChild) {
-    const chips = h('div', { class: 'q-chips lw-chips', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
-    panel.append(headNode(W('立法', 'Bills'), W('立法院第 11 屆', 'Legislative Yuan, term 11')), billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
+    const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: () => setBillFilter(id === 'bills' ? 'moving' : id) })));
+    const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
+    panel.append(headNode(W('立法', 'Bills'), W('立法院第 11 屆', 'Legislative Yuan, term 11')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
       if (col) {
@@ -1089,8 +1165,15 @@ function drawBillList() {
   const out = $('bill-list');
   if (!out) return;
   document.querySelectorAll('.lw-chips [data-f]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.f === billFilter && billStep < 0)));
+  const door = doorOf(billFilter);
+  document.querySelectorAll('.lw-bill-doors [data-door]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.door === door)));
+  const input = billBox.querySelector('input');
+  if (input) input.placeholder = BILL_DOORS.find(([id]) => id === door)[3];
+  const stages = $('bill-stages');
+  if (stages) stages.hidden = door !== 'bills';
   const fn = $('bill-funnel');
-  if (fn) {
+  if (fn) fn.hidden = door !== 'bills';
+  if (fn && door === 'bills') {
     const c = state.billCounts;
     fn.innerHTML = !state.items.length ? '' : c ? `<p class="lw-funnel-cap">${esc(W(`本屆 ${c.total.toLocaleString()} 份提案，涉及 ${state.items.length} 部法律`, `${c.total.toLocaleString()} bills this term, on ${state.items.length} laws`))}</p>${billFunnel(c, en)}` : funnel(state.items, en);
     fn.querySelectorAll('.lw-funnel-col').forEach(c => c.classList.toggle('on', Number(c.dataset.step) === billStep));
@@ -1099,6 +1182,7 @@ function drawBillList() {
   if (billFilter === 'notice' && billStep < 0) return void (out.innerHTML = noticeList());
   if (billFilter === 'people' && billStep < 0) return void peopleList(out);
   if (billFilter === 'budget' && billStep < 0) return void budgetList(out);
+  if (billFilter === 'votes' && billStep < 0) return void votesList(out);
   let items = state.items;
   if (billQuery) items = items.filter(it => it.n.includes(billQuery));
   // (By bill: 提案 = items with a version not yet read; 審查 takes in 二讀, 三讀 公布.)
@@ -1259,9 +1343,10 @@ function drawMine() {
     section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))) +
     section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))) +
     section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))) +
+    section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))) +
     (Object.keys(m.people || {}).length ? `<div id="mine-people"></div>` : '');
   $('panel-mine').innerHTML =
-    pageHead(W('追蹤', 'Following')) +
+    pageHead(W('我的', 'Mine')) +
     (html ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
   // 追蹤的立委: their cards, once the roster is in.
@@ -1333,6 +1418,20 @@ async function voteSheet(i) {
     if (b?.dataset.who) (s.close(), go(`who=${b.dataset.who}`));
     if (e.target.closest('.lw-vote-on a')) s.close();
   });
+}
+
+// 表決: every recorded floor vote this term, newest first.
+async function votesList(out) {
+  out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(4)}</div>`;
+  let d;
+  try {
+    d = await votesData();
+  } catch {
+    return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('表決資料讀不到，請稍後再試', 'Couldn’t load the votes')}</strong></div>`);
+  }
+  if (billFilter !== 'votes') return;
+  const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => !billQuery || v[2].includes(billQuery));
+  out.replaceChildren(list.length ? voteList(list, null, 30) : h('div', { class: 'q-empty lw-empty-sm', html: `<strong>${W('沒有符合的表決', 'No votes match')}</strong>` }));
 }
 
 // 立委: everyone in office this term, by party; search by name or 選區.

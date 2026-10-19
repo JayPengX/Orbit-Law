@@ -2663,3 +2663,58 @@ button.lw-row {
 .lw-find-subs span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .lw-cover-art b { font-size: 14px; line-height: 19px; -webkit-line-clamp: 5; }
 .lw-back-row { margin: 4px 0 -8px; }
+
+/* 判決: outcome first, then who, then the reasons one point at a time. */
+.lw-jd-hero {
+  --c: #64748b;
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  padding: 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+}
+.lw-jd-hero.orange { --c: var(--q-orange); }
+.lw-jd-hero.green { --c: var(--q-green); }
+.lw-jd-hero.red { --c: var(--q-red); }
+.lw-jd-hero.indigo { --c: var(--q-indigo); }
+.lw-jd-hero > span { color: var(--c); font: 700 13px/18px var(--q-font); }
+.lw-jd-hero strong { font: 700 24px/30px var(--q-font); }
+.lw-jd-hero p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  font: 16px/1.6 var(--q-font);
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+}
+.lw-jd-who { margin: 0 0 8px; color: var(--q-label-2); font: var(--q-t-footnote); }
+.lw-jd-points { display: grid; gap: 8px; }
+.lw-jd-point {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--q-surface);
+}
+.lw-jd-point summary,
+div.lw-jd-point {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  font: 15px/1.6 var(--q-font);
+  list-style: none;
+  cursor: pointer;
+}
+.lw-jd-point summary::-webkit-details-marker { display: none; }
+.lw-jd-point b { color: var(--q-accent); font-weight: 700; }
+.lw-jd-point p { margin: 8px 0 0 32px; font: 15px/1.7 var(--q-font); }
+.lw-jd-point[open] summary span { color: var(--q-label-2); }
+.lw-bill-gist:empty { display: none; }
+.lw-bill-gist {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: -2px;
+  color: var(--q-label-2);
+  font: 14px/20px var(--q-font);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

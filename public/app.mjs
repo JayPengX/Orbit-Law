@@ -17,7 +17,7 @@ import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabe
 import { PASSED, PROMULGATED } from './lib/bills.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { W, en } from './lib/lang.mjs';
-import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
+import { askLaw, askBill, askDiff, askError, passFetch, gistBills, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
@@ -27,6 +27,7 @@ import { personVotes, gazetteUrl, ivodUrl } from './lib/ly.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
+import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { chatLaw, chatError, STARTERS, MAX_CHAT_Q } from './lib/chat.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
 
@@ -232,6 +233,7 @@ function drawHome() {
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
     `<div id="home-news"></div>` +
     section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
+  fillGists(panel);
   // 政府公告: the ministries' latest notices (they open in the reader).
   newsData()
     .then(d => {
@@ -347,7 +349,7 @@ async function findAll(q, out) {
   let groups = [];
   try {
     const seen = new Map();
-    for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 12)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
+    for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 30)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
     groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && keep(g.row));
     // Laws before 子法, everyday laws first, then most hits.
     const common = r => !COMMON.includes(r[1]);
@@ -841,6 +843,64 @@ async function openPage(u, label = '') {
   }
 }
 
+// 一句話: each bill card's plain line of what it changes (the proxy's /law-gist,
+// kept there for everyone and here on the phone), asked 10 cards at a time.
+const GIST_KEY = `law.gists.${en ? 'en' : 'zh'}`;
+const gists = (() => { try { return JSON.parse(localStorage.getItem(GIST_KEY) || '{}'); } catch { return {}; } })();
+let gistOff = false;
+async function fillGists(root) {
+  if (!root) return;
+  const show = () => root.querySelectorAll('.lw-bill[data-gb]').forEach(c => { const g = gists[c.dataset.gb]; const el = c.querySelector('.lw-bill-gist'); if (el && g?.line && !el.textContent) el.textContent = g.line; });
+  show();
+  if (gistOff) return;
+  const want = [...new Map([...root.querySelectorAll('.lw-bill[data-gb]')].filter(c => !(c.dataset.gb in gists)).map(c => [c.dataset.gb, { k: c.dataset.gk.slice(0, 40), bill: c.dataset.gb }])).values()].slice(0, 20);
+  for (let i = 0; i < want.length; i += 10) {
+    const r = await gistBills(want.slice(i, i + 10), en ? 'en' : 'zh', ai);
+    if (r.error) return void (gistOff = ['pass', 'cap', 'setup', 'http401', 'http429'].includes(r.error));
+    const byK = new Map(r.map(g => [g.k, g]));
+    for (const x of want.slice(i, i + 10)) if (byK.has(x.k)) gists[x.bill] = byK.get(x.k).covered ? { line: byK.get(x.k).line } : {};
+    try { localStorage.setItem(GIST_KEY, JSON.stringify(Object.fromEntries(Object.entries(gists).slice(-600)))); } catch {}
+    show();
+  }
+}
+
+// A judgment: the outcome first in plain words, then who, then the reasons a point at a time.
+async function openJudgment(u, label = '') {
+  const body = h('div', { class: 'lw-page lw-jd', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
+  sheet({ title: W('判決', 'Ruling'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
+  const out = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到司法院看原文', 'Open on 司法院')}</a>`;
+  try {
+    const j = await fetchPage(u);
+    if (j.type !== 'html') throw new Error('bad');
+    const r = readJudgment(j.html);
+    if (!r.main.length) throw new Error('empty');
+    const o = outcome(r.main.join(''));
+    const who = partiesLine(r.parties);
+    const point = x => {
+      const t = x.text.replace(/^[一二三四五六七八九十百]+、/, '');
+      const [first, ...rest] = t.split('\n');
+      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${[first.length > 90 ? first : '', ...rest].filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${esc(first)}</span></div>`;
+    };
+    body.innerHTML =
+      `<header class="lw-page-head"><h3>${esc(label || r.title)}</h3><small>${esc([r.title, r.no, r.date && shortDay(r.date)].filter(Boolean).join(' · '))}</small></header>` +
+      `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}<p>${esc(r.main.join(' '))}</p></div>` +
+      (who.length ? `<p class="lw-jd-who">${who.map(esc).join('<br>')}</p>` : '') +
+      (r.reasons.length ? `<h4>${W(`理由（${r.reasons.length} 點）`, `Reasons (${r.reasons.length})`)}</h4><div class="lw-jd-points">${r.reasons.map(point).join('')}</div>` : '') +
+      (r.judges.length ? `<p class="lw-page-src">${esc(W(`法官 ${r.judges.join('、')}`, `Judges ${r.judges.join(', ')}`))}</p>` : '') +
+      out;
+  } catch {
+    // Not the usual shape: the page as read, or the way out.
+    try {
+      const j = await fetchPage(u);
+      const r = readPage(j.html, j.url || u);
+      if (!hasText(r)) throw new Error('empty');
+      body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.title || label)}</h3></header>${blocksHtml(r.blocks)}${out}`;
+    } catch {
+      body.innerHTML = `<p class="lw-none">${W('現在讀不到這份判決，請稍後再試', 'Couldn’t load this ruling; try again later')}</p>${out}`;
+    }
+  }
+}
+
 // A 授權 rule whose whole text came with the ministry's open data: read from this site.
 async function openRuleText(file, label) {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p>` });
@@ -928,6 +988,7 @@ document.addEventListener(
     if (a.dataset.text) return e.preventDefault(), openRuleText(a.dataset.text, label);
     if ((m = href.match(/^https:\/\/ivod\.ly\.gov\.tw\/Play\/Clip\/\w+\/(\d+)/))) return e.preventDefault(), openClip(m[1], label);
     if ((m = href.match(/^https:\/\/ppg\.ly\.gov\.tw\/ppg\/bills\/(\d+)\/details/))) return e.preventDefault(), openBillById(m[1]);
+    if (/^https:\/\/judgment\.judicial\.gov\.tw\/FJUD\/data\.aspx/.test(href)) return e.preventDefault(), openJudgment(href, label);
     if (/^https?:/.test(href) && !href.startsWith(location.origin) && readable(href)) return e.preventDefault(), openPage(href, label);
   },
   true
@@ -1248,6 +1309,7 @@ function drawBillList() {
       return `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(title(g))}</h2><span class="lw-count">${all.length}</span></div>${grid(all.slice(0, n).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))}${more}</section>`;
     })
     .join('');
+  fillGists(out);
 }
 
 // 預告: ministries' drafts open for comment on join.gov.tw (open ones first),

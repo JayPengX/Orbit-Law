@@ -96,11 +96,12 @@ for (const law of laws) {
   const e = enByCode.get(law.p);
   if (e) await writeFile(`${out}en/${law.p}.json`, JSON.stringify(e));
 }
-// 全文檢索: the bigram buckets, in the index's order.
-for (const [b, pairs] of buildIndex(laws)) await writeFile(`${out}text/${b}.json`, JSON.stringify(pairs));
 const index = { d: zh.UpdateDate || '', built: new Date().toISOString(), laws: laws.map(l => indexRow(l, enByCode.get(l.p)?.n)) };
 await writeFile(out + 'index.json', JSON.stringify(index));
 const orders = (order?.Laws || []).map(compactLaw).filter(l => l && !l.ab);
+// 全文檢索: the bigram buckets over the laws then the regulations, the order the
+// app lists them in (index.json, then orders.json), so a regulation's words are found too.
+for (const [b, pairs] of buildIndex([...laws, ...orders])) await writeFile(`${out}text/${b}.json`, JSON.stringify(pairs));
 for (const o of orders) {
   await writeFile(`${out}law/${o.p}.json`, JSON.stringify(o));
   const e = enOrders.get(o.p);

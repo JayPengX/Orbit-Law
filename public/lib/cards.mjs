@@ -76,7 +76,7 @@ export function billCard(it, { topic = 'gov', en = false, now, wide = false } = 
 <span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(shortDay(it.u, now))}</span></span>
 <span class="lw-bill-name">${esc(it.n)}</span>
 ${progress(it, en)}
-<span class="lw-bill-foot">${partyChips(it.by, en, wide ? 3 : 2)}${meta.length ? `<span class="lw-bill-meta">${esc(meta.join(' · '))}</span>` : ''}</span>
+<span class="lw-bill-foot">${partyChips(it.by, en, 3)}${meta.length ? `<span class="lw-bill-meta">${esc(meta.join(' · '))}</span>` : ''}</span>
 </a>`;
 }
 

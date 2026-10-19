@@ -155,10 +155,12 @@ async function route() {
   } else if (tab === 'laws') {
     state.law = null;
     state.topic = TOPICS[p.get('topic')] ? p.get('topic') : '';
-    if (p.has('q')) state.query = p.get('q');
+    // A search from a link (a quick question) is undone by Back; a typed one stays.
+    if (p.has('q')) ((state.query = p.get('q')), (state.linkedQuery = true));
+    else if (state.linkedQuery) ((state.query = ''), (state.linkedQuery = false));
     showTab('laws');
     drawLaws();
-    if (p.has('q')) {
+    {
       const input = box.querySelector('input');
       if (input) (input.value = state.query), p.get('q') || input.focus();
     }
@@ -312,8 +314,9 @@ async function findAll(q, out) {
     const seen = new Map();
     for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 12)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
     groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && keep(g.row));
-    // Laws before 子法, then most hits.
-    groups.sort((a, b) => (a.row[2] === '命令') - (b.row[2] === '命令') || b.arts.length - a.arts.length);
+    // Laws before 子法, everyday laws first, then most hits.
+    const common = r => !COMMON.includes(r[1]);
+    groups.sort((a, b) => (a.row[2] === '命令') - (b.row[2] === '命令') || common(a.row) - common(b.row) || b.arts.length - a.arts.length);
   } catch {}
   if (run !== findRun) return;
   const box = $('find-arts');
@@ -542,7 +545,7 @@ function basisDoor(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
   if (!from.length) return null;
   const label = ([p, k]) => `${nameOf(p)}${k ? (en ? ` Art. ${k}` : artLabel(k)) : ''}`;
-  return door('indigo', MENU_ICON.gov, shortName(nameOf(from[0][0])), W('授權依據', 'made under'), () => {
+  return door('indigo wide', MENU_ICON.gov, nameOf(from[0][0]) + (from[0][1] ? (en ? ` Art. ${from[0][1]}` : artLabel(from[0][1])) : ''), W('授權依據', 'made under'), () => {
     if (from.length === 1) return go(`law=${from[0][0]}${from[0][1] ? `&a=${from[0][1]}` : ''}`);
     regSheet(W('授權依據', 'Made under'), from.map(([p, k]) => `<button type="button" class="lw-row" data-p="${esc(p)}" data-k="${esc(k)}">${topicTile(rowTopic(state.byCode.get(p)), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(label([p, k]))}</span></span></button>`).join(''));
   });
@@ -1183,7 +1186,10 @@ function drawBillList() {
   if (billFilter === 'budget' && billStep < 0) return void budgetList(out);
   if (billFilter === 'votes' && billStep < 0) return void votesList(out);
   let items = state.items;
-  if (billQuery) items = items.filter(it => it.n.includes(billQuery));
+  if (billQuery) {
+    const words = expand(billQuery);
+    items = items.filter(it => words.some(w => it.n.includes(w)));
+  }
   // (By bill: 提案 = items with a version not yet read; 審查 takes in 二讀, 三讀 公布.)
   if (billStep >= 0 && state.billCounts) items = items.filter(it => !it.dropped && (billStep === 0 ? it.w > 0 : billStep === 3 ? it.stage >= PASSED : it.open && (billStep === 1 ? stepOf(it.stage) === 1 : [2, 3].includes(stepOf(it.stage)))));
   else if (billStep >= 0) items = items.filter(it => !it.dropped && stepOf(it.stage) === billStep && (it.open || it.stage >= PASSED));
@@ -1224,7 +1230,7 @@ function noticeCard(n, day) {
   const openNow = isOpen(n, day);
   const topic = topicOf(n.t, '');
   const when = openNow ? W(`意見至 ${shortDay(n.to)}`, `till ${shortDay(n.to)}`) : W(`${shortDay(n.to)} 截止`, `closed ${shortDay(n.to)}`);
-  return `<a class="lw-bill wide notice${openNow ? '' : ' closed'}" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener" style="--t:${TOPICS[topic].color}"><span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage">${openNow ? W('開放意見', 'Open') : W('已截止', 'Closed')}</span><span class="lw-bill-day">${esc(when)}</span></span><span class="lw-bill-name">${esc(n.t)}</span><span class="lw-bill-foot"><span class="lw-party" style="--p:#64748b">${esc(n.gov)}</span></span></a>`;
+  return `<a class="lw-bill wide notice${openNow ? '' : ' closed'}" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener" style="--t:${TOPICS[topic].color}"><span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage">${openNow ? W('開放意見', 'Open') : W('已截止', 'Closed')}</span><span class="lw-bill-day">${esc(when)}</span></span><span class="lw-bill-name">${esc(n.t.replace(/[。.]+$/, ''))}</span><span class="lw-bill-foot"><span class="lw-party" style="--p:#64748b">${esc(n.gov)}</span></span></a>`;
 }
 
 // A bill item: where it stands, who proposed it, what it changes (the
@@ -1344,9 +1350,12 @@ function drawMine() {
     section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))) +
     section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))) +
     (Object.keys(m.people || {}).length ? `<div id="mine-people"></div>` : '');
+  // Only recent laws so far: say what ☆ adds, under them.
+  const nothingFollowed = !items.length && !laws.length && !marks.length && !news.length && !Object.keys(m.people || {}).length;
+  const hint = `<div class="lw-mine-hint"><span class="lw-orb star sm">${ICON.star}</span><div><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('按 ☆，修法和審議進度會出現在這裡', 'Tap ☆: amendments and progress show here')}</p></div></div>`;
   $('panel-mine').innerHTML =
     pageHead(W('我的', 'Mine')) +
-    (html ||
+    ((html && (nothingFollowed ? html + hint : html)) ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
   // 追蹤的立委: their cards, once the roster is in.
   if (Object.keys(m.people || {}).length)
@@ -1375,17 +1384,17 @@ async function votesOn(p, name) {
   }
 }
 // A vote as a row: its subject, day and a tally bar (贊成 green, 反對 red, 棄權 grey).
-function voteRow([i, v], mark = '') {
+function voteRow([i, v], mark = '', named = false) {
   const [y, n, a] = [v[4].length, v[5].length, v[6].length];
   const all = Math.max(1, y + n + a);
   const pass = y > n;
   const badge = mark ? `<span class="lw-vote-me ${mark}">${{ y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain'), '-': W('未投', 'Absent') }[mark]}</span>` : '';
-  return `<button type="button" class="lw-vote" data-vote="${i}"><span class="lw-vote-top">${badge}<span class="lw-vote-t">${esc(v[2])}</span></span><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span><small>${esc(shortDay(v[1]))} · ${pass ? W('通過', 'Passed') : W('未通過', 'Failed')} · ${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</small></button>`;
+  return `<button type="button" class="lw-vote" data-vote="${i}"><span class="lw-vote-top">${badge}<span class="lw-vote-t">${named && v[7]?.length && state.byCode.has(v[7][0]) ? `<b class="lw-vote-law">${esc(nameOf(v[7][0]))}</b>` : ''}${esc(v[2])}</span></span><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span><small>${esc(shortDay(v[1]))} · ${pass ? W('通過', 'Passed') : W('未通過', 'Failed')} · ${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</small></button>`;
 }
-function voteList(list, marks = null, first = 5) {
+function voteList(list, marks = null, first = 5, named = false) {
   const box = h('div', { class: 'lw-votes' });
   const draw = n => {
-    box.innerHTML = list.slice(0, n).map(x => voteRow(x, marks?.get(x[0]))).join('') + (list.length > n ? `<button type="button" class="lw-more" data-more="1">${W(`再顯示 ${Math.min(20, list.length - n)} 筆（共 ${list.length}）`, `Show ${Math.min(20, list.length - n)} more (${list.length})`)}</button>` : '');
+    box.innerHTML = list.slice(0, n).map(x => voteRow(x, marks?.get(x[0]), named)).join('') + (list.length > n ? `<button type="button" class="lw-more" data-more="1">${W(`再顯示 ${Math.min(20, list.length - n)} 筆（共 ${list.length}）`, `Show ${Math.min(20, list.length - n)} more (${list.length})`)}</button>` : '');
   };
   let shown = first;
   draw(shown);
@@ -1429,8 +1438,9 @@ async function votesList(out) {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('表決資料讀不到，請稍後再試', 'Couldn’t load the votes')}</strong></div>`);
   }
   if (billFilter !== 'votes') return;
-  const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => !billQuery || v[2].includes(billQuery));
-  out.replaceChildren(list.length ? voteList(list, null, 30) : h('div', { class: 'q-empty lw-empty-sm', html: `<strong>${W('沒有符合的表決', 'No votes match')}</strong>` }));
+  const words = billQuery ? expand(billQuery) : [];
+  const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => !words.length || words.some(w => v[2].includes(w) || (v[7] || []).some(p => nameOf(p).includes(w))));
+  out.replaceChildren(list.length ? voteList(list, null, 30, true) : h('div', { class: 'q-empty lw-empty-sm', html: `<strong>${W('沒有符合的表決', 'No votes match')}</strong>` }));
 }
 
 // 立委: everyone in office this term, by party; search by name or 選區.

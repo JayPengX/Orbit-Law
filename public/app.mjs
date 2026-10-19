@@ -39,7 +39,17 @@ document.documentElement.lang = en ? 'en' : 'zh-Hant';
 // ---- Quadra Pass: the Home Screen gate, the sign-in, the account button -----------------
 
 const q = quadraSession('law', { lang: en ? 'en' : 'zh' });
-window.__fxStarted = true;
+// boot.js's first look at version.json, waited for under the loading screen:
+// a newer deploy is loaded before anything shows (boot.js reloads only while
+// the app hasn't said it started), never shown and then swapped.
+// (The kit's updateChecked() does the same; this also covers a phone still
+// on an older boot.js, which reloads only before the app says it started.)
+const booted = Promise.race([Promise.resolve(globalThis.__bootCheck), new Promise(done => setTimeout(() => done('late'), 7000))])
+  .catch(() => '')
+  .then(r => {
+    if (r !== 'boot') window.__fxStarted = true;
+    return r;
+  });
 const gated = installGate('law');
 topActions(q);
 // The AI routes count per Pass: each call carries this app's session.
@@ -1907,9 +1917,14 @@ async function signIn() {
   pass.sync();
 }
 
-if (!gated) {
-  start();
-  signIn();
-  keepOffline();
-}
+// An update found later (back from the background) reloads the page: the
+// loading screen covers it meanwhile, so nothing is tapped on the old one.
+addEventListener('beforeunload', () => $('loading')?.removeAttribute('hidden'));
+if (!gated)
+  booted.then(r => {
+    if (r === 'boot') return;
+    start();
+    signIn();
+    keepOffline();
+  });
 watchUpdates({ current: BUILD, key: 'orbitLaw', cachePrefix: 'orbit-law-', busy: () => Boolean(document.querySelector('dialog[open]')) });

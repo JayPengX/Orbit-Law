@@ -56,7 +56,7 @@ async function data(path) {
 const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
-const state = { rulingLaws: {}, lawRulings: {}, regLaws: {}, deleg: { to: {}, rest: [], from: [] }, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
+const state = { rulingLaws: {}, lawRulings: {}, regLaws: {}, agencyLaws: {}, agency: { to: {}, rest: [] }, deleg: { to: {}, rest: [], from: [] }, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
 // What's followed: this phone's copy, then the Pass's (merged, written back).
 let pass = null;
 const save = () => {
@@ -343,6 +343,9 @@ async function openLaw(p, at, find = '') {
     state.deleg = { to: {}, rest: [], from: [] };
     await Promise.race([delegReady, new Promise(r => setTimeout(r, 1500))]);
     if (state.regLaws[p] || state.byCode.get(p)?.[2] === '命令') state.deleg = { ...state.deleg, ...((await Promise.race([data(`deleg/${p}.json`).catch(() => null), new Promise(r => setTimeout(() => r(null), 2000))])) || {}) };
+    // Ministries' own 行政規則 under it (from their open data): linked out.
+    state.agency = { to: {}, rest: [] };
+    if (state.agencyLaws[p]) state.agency = { ...state.agency, ...((await Promise.race([data(`agency/${p}.json`).catch(() => null), new Promise(r => setTimeout(() => r(null), 2000))])) || {}) };
     state.law = law;
     state.showEn = en && Boolean(state.byCode.get(p)?.[6]);
     addRecent(state.mine, p);
@@ -422,7 +425,8 @@ async function drawLaw() {
   // ⚖ 判決 N beside each article the top courts cited.
   for (const [k, list] of Object.entries(state.lawRulings)) body.querySelector(`#a-${CSS.escape(k)} .lw-no`)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul" data-art="${esc(k)}">${ICON_GAVEL}${W(`判決 ${list.length}`, `${list.length} ruling${list.length > 1 ? 's' : ''}`)}</button>`);
   // 📄 子法 N beside each article that calls for regulations (after any 判決 badge).
-  for (const [k, list] of Object.entries(state.deleg.to)) {
+  for (const k of new Set([...Object.keys(state.deleg.to), ...Object.keys(state.agency.to)])) {
+    const list = [...(state.deleg.to[k] || []), ...(state.agency.to[k] || [])];
     const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
     (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-regs" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
   }
@@ -450,11 +454,14 @@ function rulingStrip(law) {
 function regsStrip(law) {
   const arts = Object.entries(state.deleg.to).sort((a, b) => artOrder(a[0]) - artOrder(b[0]));
   const rest = state.deleg.rest;
-  const n = new Set([...arts.flatMap(([, l]) => l), ...rest].map(r => r[0])).size;
+  const ag = state.agency;
+  const n = new Set([...arts.flatMap(([, l]) => l), ...rest].map(r => r[0])).size + new Set([...Object.values(ag.to).flat(), ...ag.rest].map(r => r[0])).size;
   if (!n) return null;
   const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
   return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則`, `${n} regulations`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
-    const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, ''))];
+    const agArts = Object.entries(ag.to).sort((a, b) => artOrder(a[0]) - artOrder(b[0]));
+    const agRows = [...agArts.flatMap(([k, l]) => l.map(r => agencyRow(r, artLabel(k, en)))), ...ag.rest.map(r => agencyRow(r, ''))];
+    const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, '')), ...(agRows.length ? [`<p class="lw-list-cap">${W('各部會行政規則（連到部會網站）', 'Ministries’ own rules (on their sites)')}</p>`, ...agRows] : [])];
     regSheet(W(`${nameOf(law.p, law.n)} · 子法`, 'Rules made under it'), rows.join(''));
   } });
 }
@@ -470,9 +477,12 @@ function regSheet(title, rows) {
 }
 function openRegs(k) {
   const list = state.deleg.to[k] || [];
-  if (list.length === 1) return go(`law=${list[0][0]}`);
-  regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`).join(''));
+  const ag = state.agency.to[k] || [];
+  if (list.length === 1 && !ag.length) return go(`law=${list[0][0]}`);
+  regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`).join('') + ag.map(r => agencyRow(r, '')).join(''));
 }
+// A ministry's 行政規則 (not in 全國法規資料庫): opens on its site.
+const agencyRow = ([, name, agency, url], label) => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
 // A regulation's 授權依據: the law and article it is made under (a tap: there).
 function basisStrip(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
@@ -1330,7 +1340,7 @@ async function start() {
       if (state.tab === 'bills') drawBillList();
     })
     .catch(() => {});
-  delegReady = data('deleg.json').then(r => (state.regLaws = r || {})).catch(() => {});
+  delegReady = Promise.all([data('deleg.json').then(r => (state.regLaws = r || {})).catch(() => {}), data('agency/counts.json').then(r => (state.agencyLaws = r || {})).catch(() => {})]);
   rulingsReady = data('rulings/laws.json')
     .then(r => {
       state.rulingLaws = r;

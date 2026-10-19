@@ -99,6 +99,16 @@ if (inWindow() || args.force) {
     const index = JSON.parse(await readFile(new URL('../public/data/index.json', import.meta.url), 'utf8'));
     const names = nameMap(index.laws);
     const list = await (await fetch(`${OPEN}data/api/rest/categories/051/resources`, { signal: AbortSignal.timeout(60_000) })).json();
+    // The 裁判書 files are members only (others answer 'Entity … was not found'):
+    // a member token from the same account, when it is one.
+    let auth = {};
+    if (user && password) {
+      const t = await fetch(`${OPEN}api/MemberTokens`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberAccount: user, pwd: password }), signal: AbortSignal.timeout(60_000) })
+        .then(r => r.json())
+        .catch(e => ({ message: e.message }));
+      if (t.token) auth = { Authorization: `Bearer ${t.token}` };
+      else console.log(`opendata member token: ${JSON.stringify(t).slice(0, 160)}`);
+    }
     const todo = pendingMonths(archiveMonths(list), months);
     const read = [];
     for (const m of todo) {
@@ -106,7 +116,7 @@ if (inWindow() || args.force) {
       await rm(work, { recursive: true, force: true });
       await mkdir(join(work, 'x'), { recursive: true });
       const rar = join(work, 'month.rar');
-      const r = await fetch(`${OPEN}api/FilesetLists/${m.id}/file`, { signal: AbortSignal.timeout(BACKFILL_MINUTES * 6e4) });
+      const r = await fetch(`${OPEN}api/FilesetLists/${m.id}/file`, { headers: auth, signal: AbortSignal.timeout(BACKFILL_MINUTES * 6e4) });
       if (!r.ok) {
         backfill = `${m.month} download ${r.status}: ${(await r.text()).slice(0, 160)}`;
         break;
@@ -130,7 +140,7 @@ if (inWindow() || args.force) {
     // Rulings 司法院 has since taken down: dropped here too.
     const del = list.find(d => /Delete-Infor/i.test(d.title || ''))?.filesets?.[0]?.fileSetId;
     if (del) {
-      const r = await fetch(`${OPEN}api/FilesetLists/${del}/file`, { signal: AbortSignal.timeout(120_000) }).catch(() => null);
+      const r = await fetch(`${OPEN}api/FilesetLists/${del}/file`, { headers: auth, signal: AbortSignal.timeout(120_000) }).catch(() => null);
       if (r?.ok) {
         const before = rulings.length;
         rulings = dropDeleted(rulings, deletedIds(await r.text()));

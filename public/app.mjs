@@ -1103,11 +1103,19 @@ function drawMine() {
     section(W('自上次查看後的變動', 'New since you last looked'), (moved.length ? grid(moved.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)) +
     section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))) +
     section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))) +
-    section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`))));
+    section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))) +
+    (Object.keys(m.people || {}).length ? `<div id="mine-people"></div>` : '');
   $('panel-mine').innerHTML =
     pageHead(W('追蹤', 'Following')) +
     (html ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
+  // 追蹤的立委: their cards, once the roster is in.
+  if (Object.keys(m.people || {}).length)
+    peopleData().then(d => {
+      const el = $('mine-people');
+      const xs = d.people.filter(x => m.people[x.id]);
+      if (el && xs.length) el.outerHTML = section(W('追蹤的立委', 'Legislators'), `<div class="lw-people">${xs.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(shortArea(x.area))}</small></span><span class="lw-person-n">${esc(partyShort(x.party))}</span></a>`).join('')}</div>`);
+    }).catch(() => {});
 }
 
 // ---- 立委 and 表決: who voted how, each legislator's record and speeches ----------------

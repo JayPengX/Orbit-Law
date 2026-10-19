@@ -175,12 +175,24 @@ if (args.bills !== 'off') {
   const fresh = [];
   // Sorted by 最新進度日期, newest first: stop a week before the last build.
   const since = prevAll?.term === term && prevAll.built ? new Date(new Date(prevAll.built).getTime() - 7 * 864e5).toISOString().slice(0, 10) : '';
-  for (let page = 1; ; page++) {
-    const r = await lyPage({ 屆: term }, page);
-    const bills = (r.bills || []).map(compactBill);
-    fresh.push(...bills);
-    if (!bills.length || page >= (r.total_page || 0) || (since && bills[bills.length - 1].u < since)) break;
-  }
+  // The API pages only its first 10,000 (page × limit): past that a query
+  // is cut by 會期, one session at a time (each well under it).
+  const MAX_PAGE = 10000 / 500;
+  const fetchAll = async query => {
+    for (let page = 1; page <= MAX_PAGE; page++) {
+      const r = await lyPage(query, page);
+      const bills = (r.bills || []).map(compactBill);
+      fresh.push(...bills);
+      if (!bills.length || page >= (r.total_page || 0) || (since && bills[bills.length - 1].u < since)) return r.total || 0;
+    }
+    return Infinity;
+  };
+  const total = await fetchAll({ 屆: term });
+  if (!since && total > 10000)
+    for (let session = 1, empty = 0; empty < 2 && session <= 12; session++) empty = (await fetchAll({ 屆: term, 會期: String(session) })) ? 0 : empty + 1;
+  const unique = [...new Map(fresh.map(b => [b.id, b])).values()];
+  fresh.length = 0;
+  fresh.push(...unique);
   const all = since ? mergeBills(prevAll.bills, fresh) : fresh;
   await writeFile(out + 'bills/all.json', JSON.stringify({ term, built: new Date().toISOString(), bills: all }));
   const pcodes = new Map(laws.map(l => [l.n, l.p]));

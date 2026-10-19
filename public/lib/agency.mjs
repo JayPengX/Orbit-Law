@@ -123,7 +123,7 @@ export function citedLaws(text, names) {
   const out = new Set();
   const t = String(text || '').slice(0, 300).replace(/中華民國/g, '');
   for (const [, raw] of t.matchAll(CITED)) {
-    const p = names.get(raw) || names.get(raw.replace(/^中華民國/, ''));
+    const p = names.get(raw.replace(/^依(?:據|照)?/, ''));
     if (p) out.add(p);
   }
   return [...out];

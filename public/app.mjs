@@ -455,7 +455,7 @@ function regsStrip(law) {
   const row = (p, name, label) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span>${label ? `<small>${esc(label)}</small>` : ''}</span></button>`;
   return h('button', { type: 'button', class: 'lw-strip teal', html: `<b>${W('子法', 'Rules made under it')}</b><span>${esc(W(`${n} 個辦法、細則`, `${n} regulations`))}</span><em>${W('看子法', 'See')}</em>`, onclick: () => {
     const rows = [...arts.flatMap(([k, l]) => l.map(([p, name]) => row(p, name, artLabel(k, en)))), ...rest.map(([p, name]) => row(p, name, ''))];
-    regSheet(W(`${nameOf(law.p, law.n)} · 子法`, `${nameOf(law.p, law.n)} · rules`), rows.join(''));
+    regSheet(W(`${nameOf(law.p, law.n)} · 子法`, 'Rules made under it'), rows.join(''));
   } });
 }
 const artOrder = k => { const [a, b = 0] = k.split('-').map(Number); return a + b / 1000; };
@@ -960,7 +960,7 @@ function drawBillList() {
     groups.set(g, [...(groups.get(g) || []), it]);
   }
   const order = ['filed', '5', '4', '3', '2', '1', '0', 'held', 'dropped'];
-  const title = g => (g === 'filed' ? W('有新提案等一讀', 'New bills waiting for a 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查・協商', 'Committee & talks') : g === '3' ? W('二讀', '2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
+  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查・協商', 'Committee & talks') : g === '3' ? W('二讀', '2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
   out.innerHTML = order
     .filter(g => groups.has(g))
     .map(g => {

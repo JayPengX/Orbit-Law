@@ -1850,7 +1850,7 @@ button.lw-row {
 /* Lists of regulations: long names wrap to two lines, not cut. */
 .lw-list.wrap .lw-row-name {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   white-space: normal;
 }

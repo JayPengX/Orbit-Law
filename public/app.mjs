@@ -1260,7 +1260,7 @@ async function budgetList(out) {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('預算資料讀不到，請稍後再試', 'Couldn’t load the budgets')}</strong></div>`);
   }
   // A step in words: its note in brackets dropped; in English, the usual ones translated.
-  const STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢/, 'Reviewed'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/撤/, 'Withdrawn']];
+  const STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢|審查總報告/, 'Reviewed'], [/退回程序/, 'Sent back'], [/委員會發文/, 'Committee letter'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/復議/, 'Reconsidered'], [/預算流程/, 'Budget filed'], [/撤/, 'Withdrawn']];
   const step = t => { const z = String(t || '').replace(/\s*[（(].*$/, ''); return en ? STEP_EN.find(([re]) => re.test(z))?.[1] || z : z; };
   const stageTone = st => (/三讀|公布/.test(st) ? 'green' : /協商|二讀|討論/.test(st) ? 'orange' : 'indigo');
   const budgets = [...b.budgets].map(x => ({ ...x, stage: x.stage || x.flow?.at(-1)?.[1]?.replace(/\s*\(.*$/, '') || '' })).sort((a, c) => (a.last < c.last ? 1 : -1));

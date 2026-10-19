@@ -38,7 +38,18 @@ Live: https://jaypengx.github.io/Orbit-Law/
   after the 三讀. Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.
   After a 三讀, versions still moving are the item's open round; versions
   that went quiet before it don't count as open.
-- **Rulings:** each article links to 司法院's own search (no copy kept).
+- **Rulings** (`lib/rulings.mjs`, `scripts/build-rulings.mjs`): the three top
+  courts' judgments of the last 3 years, kept by the articles they cite
+  (`data/rulings/<pcode>.json`, no text kept). New ones from 司法院's JDoc
+  API, the past from its monthly archives (open 00:00–06:00 Taiwan time,
+  read a few months a night). A judgment opens through the proxy's
+  `/law-page` and is read by `lib/judgment.mjs`: the outcome first.
+- **授權** (`lib/deleg.mjs`): a regulation sits under the article its first
+  articles say it is made under (訂定/訂之/授權); a law cited by a former name
+  (its 沿革's 原名稱) lists the regulation without an article.
+- **Following 立委** (`lib/ly.mjs` personFeed): 我的 shows each one's newest
+  bill, 質詢 and whole-bill vote; what came since they were last opened counts
+  on the tab.
 - Gemini (白話解釋) waits for the proxy's `/law-ask`, which reads the
   articles itself from this site and cites only those.
 

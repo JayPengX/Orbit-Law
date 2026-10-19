@@ -169,6 +169,11 @@ async function route() {
       // Only the Home search pill (an empty q) opens the keyboard.
       if (input) (input.value = state.query), p.has('q') && !p.get('q') && input.focus();
     }
+  } else if (p.get('jd')) {
+    // A ruling's own link (#jd=<司法院 id>), over Home.
+    showTab('home');
+    drawHome();
+    openJudgment(`https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id=${encodeURIComponent(p.get('jd'))}`);
   } else {
     showTab('home');
     drawHome();

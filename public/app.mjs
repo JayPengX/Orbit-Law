@@ -1405,18 +1405,37 @@ async function compareBill(b, out, { first = 60 } = {}) {
   out.dataset.done = '1';
   try {
     const rows = await tableOf(b.id);
-    const card = row => {
+    const look = row => {
       const now = row['修正'] || row['增訂'] || '';
       const old = row['現行'] || '';
       const art = (now || old).match(/^\s*(第[一二三四五六七八九十百零〇\d]+條(之[一二三四五六七八九十\d]+)?)/)?.[1] || '';
       const kind = row['增訂'] || !old ? ['增訂', 'New', 'green'] : /^\s*(第\S+?條(之\S+?)?)?\s*[（(]?刪除[)）]?\s*$/.test(now) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo'];
+      return { now, old, art, kind };
+    };
+    const card = (row, i) => {
+      const { now, old, art, kind } = look(row);
       const text = kind[0] === '修正' ? diffHtml(old, now) : kind[0] === '增訂' ? `<ins>${esc(now)}</ins>` : `<del>${esc(old)}</del>`;
-      return `<article class="lw-diff"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${text}</p>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary><p>${esc(row['說明'])}</p></details>` : ''}</article>`;
+      return `<article class="lw-diff" data-i="${i}"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${text}</p>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary><p>${esc(row['說明'])}</p></details>` : ''}</article>`;
     };
     const rest = rows.length > first ? `<button type="button" class="lw-more">${W(`看全部 ${Math.min(60, rows.length)} 條`, `All ${Math.min(60, rows.length)} articles`)}</button>` : '';
-    out.innerHTML = (rows.length ? rows.slice(0, first).map(card).join('') + rest : `<p class="lw-none">${W('這個版本沒有對照表', 'No comparison table for this version')}</p>`);
-    const btn = out.querySelector('.lw-more');
-    btn?.addEventListener('click', () => (btn.outerHTML = rows.slice(first, 60).map(card).join('')));
+    // At a glance: how many articles it touches and how, each one a tap away.
+    const looks = rows.slice(0, 60).map(look);
+    const tally = [['修正', 'amended', 'indigo'], ['增訂', 'added', 'green'], ['刪除', 'removed', 'red']].map(([k, e, t]) => [looks.filter(l => l.kind[0] === k).length, k, e, t]).filter(([n]) => n);
+    const allNew = tally.length === 1 && tally[0][1] === '增訂';
+    const sum = rows.length > 1 && allNew ? `<div class="lw-diff-sum"><p><b class="green">${W(`新法，共 ${rows.length} 條`, `A new law, ${rows.length} articles`)}</b></p></div>` : rows.length > 1 ? `<div class="lw-diff-sum"><p>${W(`改 ${rows.length} 條：`, `${rows.length} articles: `)}${tally.map(([n, k, e, t]) => `<b class="${t}">${en ? `${n} ${e}` : `${k} ${n}`}</b>`).join(' · ')}</p><div class="lw-diff-arts">${looks.map((l, i) => (l.art ? `<button type="button" class="lw-diff-art ${l.kind[2]}" data-go="${i}">${esc(l.art.replace(/^第|條/g, ''))}</button>` : '')).join('')}</div></div>` : '';
+    out.innerHTML = rows.length ? sum + rows.slice(0, first).map(card).join('') + rest : `<p class="lw-none">${W('這個版本沒有對照表', 'No comparison table for this version')}</p>`;
+    const more = () => {
+      const btn = out.querySelector('.lw-more');
+      if (btn) btn.outerHTML = rows.slice(first, 60).map((r, i) => card(r, i + first)).join('');
+    };
+    out.querySelector('.lw-more')?.addEventListener('click', more);
+    out.querySelector('.lw-diff-arts')?.addEventListener('click', e => {
+      const b = e.target.closest('[data-go]');
+      if (!b) return;
+      if (Number(b.dataset.go) >= first) more();
+      const el = out.querySelector(`.lw-diff[data-i="${b.dataset.go}"]`);
+      if (el) (el.scrollIntoView({ behavior: 'smooth', block: 'start' }), flash(el));
+    });
   } catch {
     out.dataset.done = '';
     out.innerHTML = `<p class="lw-none">${W('對照表讀不到，請稍後再試', 'Couldn’t load the table')}</p>`;

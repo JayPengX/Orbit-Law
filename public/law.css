@@ -2708,3 +2708,14 @@ div.lw-jd-point {
 .lw-jd-point b { color: var(--q-accent); font-weight: 700; }
 .lw-jd-point p { margin: 8px 0 0 32px; font: 15px/1.7 var(--q-font); }
 .lw-jd-point[open] summary span { color: var(--q-label-2); }
+
+/* 對照表 at a glance: the tally, then each article as a chip */
+.lw-diff-sum { margin: 0 0 12px; }
+.lw-diff-sum p { margin: 0 0 8px; font-size: 15px; }
+.lw-diff-sum b.indigo { color: var(--q-indigo, #4f46e5); }
+.lw-diff-sum b.green { color: var(--q-green, #16a34a); }
+.lw-diff-sum b.red { color: var(--q-red, #dc2626); }
+.lw-diff-arts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lw-diff-art { min-height: 32px; min-width: 44px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--q-sep); background: var(--q-fill, transparent); color: var(--q-label); font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; }
+.lw-diff-art.green { border-color: color-mix(in srgb, var(--q-green, #16a34a) 50%, transparent); }
+.lw-diff-art.red { border-color: color-mix(in srgb, var(--q-red, #dc2626) 50%, transparent); text-decoration: line-through; }

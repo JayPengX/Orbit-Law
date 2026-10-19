@@ -2652,3 +2652,11 @@ button.lw-row {
   -webkit-box-orient: vertical;
 }
 .lw-cover small { color: var(--q-label-2); font: var(--q-t-footnote); }
+
+/* Chosen chip (design review): accent text on a light accent wash, not black. */
+.lw-chips .q-chip[aria-selected='true'],
+.lw-chips .q-chip[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--q-accent) 14%, transparent);
+  color: var(--q-accent);
+  font-weight: 600;
+}

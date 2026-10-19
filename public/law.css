@@ -2719,3 +2719,14 @@ div.lw-jd-point {
 .lw-diff-art { min-height: 32px; min-width: 44px; padding: 4px 10px; border-radius: 16px; border: 1px solid var(--q-sep); background: var(--q-fill, transparent); color: var(--q-label); font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; }
 .lw-diff-art.green { border-color: color-mix(in srgb, var(--q-green, #16a34a) 50%, transparent); }
 .lw-diff-art.red { border-color: color-mix(in srgb, var(--q-red, #dc2626) 50%, transparent); text-decoration: line-through; }
+.lw-tag.teal {
+  background: color-mix(in srgb, var(--q-teal) 16%, transparent);
+  color: var(--q-teal);
+}
+.lw-tag.purple {
+  background: color-mix(in srgb, var(--q-purple) 16%, transparent);
+  color: var(--q-purple);
+}
+/* A ruling in a list: its kind, then its 案由 */
+.lw-rul-row .q-cell-text > span:first-child { display: flex; align-items: center; gap: 8px; }
+.lw-rul-row b { font-weight: 600; min-width: 0; }

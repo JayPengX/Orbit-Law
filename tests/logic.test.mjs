@@ -536,3 +536,11 @@ test('bills: a party counts once whatever its spelling', () => {
   const [it] = foldBills([k1, k2, d1]);
   assert.deepEqual(it.by, [['國民黨', 2], ['民進黨', 1]]);
 });
+
+test('a judgment id reads as its kind and 案號', async () => {
+  const { caseKind, caseNo } = await import('../public/lib/rulings.mjs');
+  assert.deepEqual(caseKind('TPSM,115,台上,3024,20260930,1'), ['刑事', 'Criminal', 'red']);
+  assert.equal(caseKind('TPAA,115,上,300,20260930,1')[0], '行政');
+  assert.equal(caseKind('JCCC,114,憲判,1,20250101,1')[0], '憲法');
+  assert.equal(caseNo('TPSV,115,台上,12,20260930,1'), '115年度台上字第12號');
+});

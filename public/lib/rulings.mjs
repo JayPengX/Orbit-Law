@@ -10,6 +10,17 @@ export const courtOf = jid => {
   const c = String(jid || '').split(',')[0].slice(0, 3);
   return COURTS[c] ? c : '';
 };
+// A judgment id's kind (its fourth letter) with a colour, and its 案號 read out:
+// TPSM,115,台上,3024 → 刑事 · 115年度台上字第3024號.
+const KINDS = { M: ['刑事', 'Criminal', 'red'], V: ['民事', 'Civil', 'indigo'], A: ['行政', 'Administrative', 'teal'] };
+export const caseKind = jid => {
+  const head = String(jid || '').split(',')[0];
+  return head.startsWith('JCC') ? ['憲法', 'Constitutional', 'purple'] : KINDS[head[3]] || ['', '', 'gray'];
+};
+export const caseNo = jid => {
+  const [, y, w, n] = String(jid || '').split(',');
+  return y && w && n ? `${y}年度${w}字第${n}號` : '';
+};
 export const KEEP_PER_ARTICLE = 30;
 export const KEEP_DAYS = 3 * 365;
 

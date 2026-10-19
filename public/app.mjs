@@ -19,7 +19,7 @@ import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMa
 import { W, en } from './lib/lang.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
-import { COURTS, courtOf, rulingUrl } from './lib/rulings.mjs';
+import { COURTS, courtOf, rulingUrl, caseKind, caseNo } from './lib/rulings.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
@@ -765,7 +765,10 @@ const citeChip = (p, k, n) => `<a class="lw-ref lw-cite" href="#law=${esc(p)}&am
 
 // The top courts' rulings citing an article (newest first), each read in the app.
 function rulingsSheet(label, rulings, kw) {
-  const rows = rulings.map(([jid, d, t]) => `<a class="q-cell" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${esc(t || jid)}</span><small>${[COURTS[courtOf(jid)]?.[en ? 1 : 0], jid.split(',').slice(1, 4).join(' '), ymd(d)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join(' · ')}</small></span></a>`).join('');
+  const rows = rulings.map(([jid, d, t]) => {
+    const [zh, eng, tone] = caseKind(jid);
+    return `<a class="q-cell lw-rul-row" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener"><span class="q-cell-text"><span>${zh ? countTag(en ? eng : zh, tone) : ''}<b>${esc(t || jid)}</b></span><small>${[COURTS[courtOf(jid)]?.[en ? 1 : 0], caseNo(jid), ymd(d)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join(' · ')}</small></span></a>`;
+  }).join('');
   sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings', html: `<div class="q-list">${rows}</div>` }) });
 }
 

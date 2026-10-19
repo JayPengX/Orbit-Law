@@ -103,18 +103,56 @@ export function parseMoa(rows, urlOf = () => '') {
 }
 
 // The laws (not 命令) a rule's name speaks of: its name starts with the law's
-// name, or holds a long one (≥5 characters), or 「<name>第」: longest first.
+// name, or holds a long one (≥5 characters) anywhere, or 「依<name>」,
+// 「<name>第」, 「<name>之」 / 「<name>授權」 anywhere: longest first.
 export function nameLaws(laws, name) {
   const hit = [];
   for (const r of laws) {
     if (r[2] === '命令' || r[5]) continue;
     const n = r[1];
     if (n.length >= name.length) continue;
-    if (name.startsWith(n) || (n.length >= 5 && name.includes(n)) || name.includes(`${n}第`)) hit.push(r);
+    if (name.startsWith(n) || (n.length >= 5 && name.includes(n)) || name.includes(`${n}第`) || name.includes(`依${n}`) || name.includes(`據${n}`) || name.includes(`${n}授權`)) hit.push(r);
   }
   hit.sort((a, b) => b[1].length - a[1].length);
   return hit.map(r => r[0]);
 }
+
+// ---- 主管法規 vendor platform (農業部, 環境部, 財政部, 教育部, 客委會): HTML only.
+// LawQuery.aspx lists category checkboxes; leaves list their rules by page.
+
+// Leaf category ids of LawQuery.aspx: those that are not the prefix of another.
+export function vendorLeaves(html) {
+  const ids = [...new Set([...String(html).matchAll(/id="cbCategoryID(\d+)" value="\1"/g)].map(m => m[1]))];
+  return ids.filter(a => !ids.some(b => b !== a && b.startsWith(a)));
+}
+
+// 115.09.01 (民國) → 2026-09-01.
+export function rocDate(s) {
+  const m = String(s || '').match(/(\d{2,3})\D(\d{1,2})\D(\d{1,2})/);
+  return m ? `${+m[1] + 1911}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : '';
+}
+
+// One LawCategoryContentList.aspx page → { total, rows: [{ id, name, date, type }] }.
+export function vendorList(html) {
+  const t = String(html);
+  const total = +((t.match(/<h3>[\s\S]*?[：:]\s*(\d+)\s*筆/) || [])[1] || 0);
+  const rows = [];
+  for (const m of t.matchAll(/<tr>\s*<td[^>]*>\s*\d+\.\s*<\/td>\s*<td[^>]*>([^<]*)<\/td>([\s\S]*?)<\/tr>/g)) {
+    const a = m[2].match(/href="LawContent\.aspx\?id=([A-Z0-9]+)"[^>]*>([^<]*)<\/a>/);
+    const type = ((m[2].match(/<td[^>]*>\s*([^<\s][^<]*?)\s*<\/td>\s*$/) || [])[1] || '').trim();
+    if (a) rows.push({ id: a[1], name: unent(a[2]).trim(), date: rocDate(m[1]), type });
+  }
+  return { total, rows };
+}
+
+// A LawContent.aspx page → the start of its text (for the basis).
+export function vendorText(html) {
+  const m = String(html).match(/id="ctl00_cp_content_divLawContent\d*"[^>]*>([\s\S]*?)<\/div>/);
+  if (!m) return '';
+  return unent(m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ''));
+}
+
+export const vendorRule = (agency, base, id, name, date, text = '') => rule(`${agency}:${id}`, name, agency, date, `${base}/LawContent.aspx?id=${id}`, text);
 
 // The laws a rule says it rests on without an article (「依軍人保險條例規定」,
 // 「依據國防法第廿二條」 with an article basisOf could not read): law-level only.

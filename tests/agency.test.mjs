@@ -103,3 +103,28 @@ test('shards: by article, the rest by name, counted once', () => {
   assert.deepEqual(files.H0030001.to, {});
   assert.deepEqual(counts, { G0400001: 2, H0030001: 1 });
 });
+
+import { vendorLeaves, vendorList, vendorText, rocDate, vendorRule } from '../public/lib/agency.mjs';
+
+test('vendor: leaf categories, list rows, text', () => {
+  const q = ['01', '0101', '0102', '02'].map(i => `<input name="cbCategoryID${i}" type="checkbox" id="cbCategoryID${i}" value="${i}" />`).join('');
+  assert.deepEqual(vendorLeaves(q), ['0101', '0102', '02']);
+  assert.equal(rocDate('115.09.01'), '2026-09-01');
+  const row = (n, d, id, name, t) => `<tr><td class="aCenter" width="1%">${n}.</td><td class="aCenter" width="6%">${d}</td><td class="aCenter"><i class="x"></i><a id="a" href="LawContent.aspx?id=${id}">${name}</a></td><td class="aCenter" width="10%">${t}</td></tr>`;
+  const html = `<h3><i></i>畜牧目 - 畜牧行政：50\n 筆 </h3>${row(1, '115.09.01', 'GL000650', '漁業法第四十四條作業規定', '行政規則')}${row(2, '104.01.02', 'GL000651', '某辦法', '法規命令')}`;
+  const { total, rows } = vendorList(html);
+  assert.equal(total, 50);
+  assert.deepEqual(rows.map(r => [r.id, r.name, r.date, r.type]), [['GL000650', '漁業法第四十四條作業規定', '2026-09-01', '行政規則'], ['GL000651', '某辦法', '2015-01-02', '法規命令']]);
+  const c = '<div id="ctl00_cp_content_divLawContent08" class="ClearCss">一、本要點依大學法<br>\n&nbsp; &nbsp; 第一條訂定。</div>';
+  assert.ok(vendorText(c).startsWith('一、本要點依大學法\n') && vendorText(c).includes('第一條訂定'));
+  const r = vendorRule('農業部', 'https://law.moa.gov.tw', 'GL1', '某要點', '2026-01-01', c);
+  assert.equal(r.id, '農業部:GL1');
+  assert.equal(r.url, 'https://law.moa.gov.tw/LawContent.aspx?id=GL1');
+});
+
+test('names that hold a law name anywhere link to it', () => {
+  const ls = [['A1', '漁業法', '法律', '', '', 0, '', 1]];
+  assert.deepEqual(nameLaws(ls, '遠洋漁業條例依漁業法規定之作業規定'), ['A1']);
+  assert.deepEqual(nameLaws(ls, '漁業法第四十四條作業規定'), ['A1']);
+  assert.deepEqual(nameLaws(ls, '漁業署作業規定'), []);
+});

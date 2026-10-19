@@ -3,10 +3,13 @@
 // page per rule yet), linked to the laws and articles they rest on. A source
 // that fails never stops the deploy: its rules from the last deploy are kept.
 // Runs after build-data.mjs (needs public/data/index.json).
-//   node scripts/build-agency.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
+// Also the shared 主管法規 vendor sites (HTML only): 行政規則 listed per category,
+// each page read once for its first 400 characters, cached by (id, date) from the
+// last deploy, stopping at --minutes (default 20) and carrying the rest over.
+//   node scripts/build-agency.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/] [--minutes 20]
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
-import { parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, linkRules, byLaw } from '../public/lib/agency.mjs';
+import { parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, isRuleName, vendorLeaves, vendorList, vendorText, vendorRule } from '../public/lib/agency.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
@@ -14,16 +17,19 @@ const data = new URL('../public/data/', import.meta.url).pathname;
 const out = data + 'agency/';
 const UA = 'Orbit-Law build (+https://github.com/jaypengx/Orbit-Law)';
 
+const START = Date.now();
+const DEADLINE = START + (+args.minutes || 20) * 60_000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let last = 0;
-// One request at a time, about a second apart, three tries, 2 minutes each.
-async function get(url) {
+const lastAt = {};
+// One request at a time, at least a second apart per host, tries, a timeout each.
+async function get(url, { tries = 3, timeout = 120_000 } = {}) {
   let err;
-  for (let i = 1; i <= 3; i++) {
-    await sleep(Math.max(0, last + 1000 - Date.now()));
-    last = Date.now();
+  const host = new URL(url).host;
+  for (let i = 1; i <= tries; i++) {
+    await sleep(Math.max(0, (lastAt[host] || 0) + 1000 - Date.now()));
+    lastAt[host] = Date.now();
     try {
-      const r = await fetch(encodeURI(url), { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(120_000) });
+      const r = await fetch(encodeURI(url), { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(timeout) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return (await r.text()).replace(/^﻿/, '');
     } catch (e) {
@@ -54,6 +60,78 @@ const names = nameMap(index.laws);
 // Regulations 全國法規資料庫 already has: not repeated here.
 const known = new Set(index.laws.filter(r => r[2] === '命令').map(r => r[1]));
 
+// ---- vendor sites
+const VENDORS = [
+  ['農業部', 'https://law.moa.gov.tw'],
+  ['環境部', 'https://oaout.moenv.gov.tw/law'],
+  ['財政部', 'https://law-out.mof.gov.tw'],
+  ['教育部', 'https://edu.law.moe.gov.tw'],
+  ['客委會', 'https://law.hakka.gov.tw']
+];
+const checked = { ...(prev?.checked || {}) }; // vendor id → date, read in full at some deploy
+const vstats = {};
+const vraw = [];
+const vcarried = [];
+const prevRows = new Map((prev?.rules || []).map(r => [r[0], r]));
+const tooLate = () => Date.now() > DEADLINE;
+
+async function vendor(agency, base) {
+  const st = (vstats[agency] = { listed: 0, rules: 0, fetched: 0, cached: 0, deferred: 0 });
+  const items = new Map();
+  try {
+    const leaves = vendorLeaves(await get(`${base}/LawQuery.aspx`, { tries: 2, timeout: 30_000 }));
+    if (!leaves.length) throw new Error('no categories');
+    for (const leaf of leaves) {
+      for (let page = 1, got = 0; ; page++) {
+        if (tooLate()) throw new Error('time budget');
+        const { total, rows } = vendorList(await get(`${base}/LawCategoryContentList.aspx?CategoryID=${leaf}&size=30&page=${page}`, { tries: 2, timeout: 30_000 }));
+        for (const r of rows) items.set(r.id, r);
+        got += rows.length;
+        if (!rows.length || got >= total) break;
+      }
+    }
+  } catch (e) {
+    st.error = e.message;
+    console.warn(`${agency}: ${e.message}`);
+    if (!items.size) {
+      // Nothing listed: keep its old rules as they were.
+      vcarried.push(...(prev?.rules || []).filter(r => r[2] === agency && r[0].startsWith(agency + ':')));
+      for (const id of Object.keys(checked)) if (id.startsWith(agency + ':')) st.cached++;
+      return;
+    }
+  }
+  st.listed = items.size;
+  const want = [...items.values()].filter(r => r.type === '行政規則' && isRuleName(r.name) && !known.has(r.name));
+  st.rules = want.length;
+  const todo = [];
+  for (const r of want) {
+    const key = `${agency}:${r.id}`;
+    if (checked[key] === r.date) {
+      st.cached++;
+      if (prevRows.has(key)) vcarried.push(prevRows.get(key));
+    } else todo.push(r);
+  }
+  // Names that already speak of a law need no page to be kept: read the others first.
+  const linked = r => nameLaws(index.laws, r.name).length > 0;
+  todo.sort((a, b) => linked(a) - linked(b));
+  for (const r of todo) {
+    let text = '';
+    if (!tooLate()) {
+      try {
+        text = vendorText(await get(`${base}/LawContent.aspx?id=${r.id}`, { tries: 2, timeout: 30_000 }));
+        checked[`${agency}:${r.id}`] = r.date;
+        st.fetched++;
+      } catch { st.deferred++; }
+    } else st.deferred++;
+    vraw.push(vendorRule(agency, base, r.id, r.name, r.date, text));
+  }
+}
+console.log(`vendor sites (budget ${Math.round((DEADLINE - START) / 60000)} min)`);
+for (const [agency, base] of VENDORS) {
+  try { await vendor(agency, base); } catch (e) { console.warn(`${agency}: ${e.message}`); }
+  console.log(agency, JSON.stringify(vstats[agency]));
+}
+
 const sources = {};
 const raw = [];
 const carried = [];
@@ -82,14 +160,17 @@ if (Object.entries(sources).some(([k, v]) => k.startsWith('金管會') && typeof
   sources['金管會(carried)'] = old.length;
 }
 
-const fresh = linkRules(raw, index.laws, names, known);
+const fresh = linkRules([...raw, ...vraw], index.laws, names, known);
 const keep = new Set(fresh.map(r => r[0]));
-const rules = [...fresh, ...carried.filter(r => !keep.has(r[0]))];
+const keepName = new Set(fresh.map(r => `${r[2]}|${r[1]}`));
+// Carried rules: not rebuilt this time (same id, or same agency and name).
+const rules = [...fresh, ...[...carried, ...vcarried].filter(r => !keep.has(r[0]) && !keepName.has(`${r[2]}|${r[1]}`))];
+for (const r of rules) { keep.add(r[0]); keepName.add(`${r[2]}|${r[1]}`); }
 const { files, counts } = byLaw(rules);
 
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
-await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources, rules }));
+await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources, vendor: vstats, checked, rules }));
 for (const [p, f] of Object.entries(files)) await writeFile(`${out}${p}.json`, JSON.stringify(f));
 await writeFile(out + 'counts.json', JSON.stringify(counts));
 
@@ -112,3 +193,5 @@ for (const row of index.laws) {
   }
 }
 console.log(`delegating articles with no regulation linked: ${open}; now with an agency rule: ${gained}`);
+
+console.log(`done in ${Math.round((Date.now() - START) / 1000)} s`);

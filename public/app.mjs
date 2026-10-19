@@ -216,14 +216,16 @@ function drawHome() {
   const bills = state.items.length ? rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
   // Laws just amended or new (not regulations), and what you opened last.
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 4);
-  const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 3);
+  const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 8);
+  const picks = recommend(recent);
 
   // One search, the ask card, then calm shelves of what's new.
   panel.innerHTML =
     pageHead('') +
     `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、條文或生活問題', 'Search laws or topics')}</span></a>` +
     hero +
-    section(W('最近看過', 'Recently opened'), list(recent.map(r => lawItem(r))), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
+    section(W('繼續閱讀', 'Continue reading'), covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
+    section(W('為你推薦', 'For you'), covers(picks)) +
     section(W('立法院動態', 'In 立法院'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
     section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), countTag(W('新', 'New'), 'green')))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
@@ -237,6 +239,18 @@ function drawHome() {
       if (el && rows.length) el.outerHTML = section(W('政府公告', 'Government notices'), `<div class="lw-list">${rows.map(([day, gov, t, url]) => `<a class="lw-row" href="${esc(url)}">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(t)}</span><small>${esc(`${gov} · ${shortDay(day)}`)}</small></span></a>`).join('')}</div>`);
     })
     .catch(() => {});
+}
+// Laws as book covers (Books' shelves): the topic's colour, its mark, the name.
+const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b>${esc(nameOf(r[0], r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
+const svgTopic = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOPICS[id].icon}</svg>`;
+// For you: the laws people use most in the topics you read and follow, newest
+// amended first, not yet opened; everyday laws when there's nothing to go on.
+function recommend(recent) {
+  const seen = new Set(recent.map(r => r[0]));
+  const topics = new Set([...recent, ...Object.keys(state.mine.laws).map(p => state.byCode.get(p)).filter(Boolean)].map(rowTopic));
+  const pool = topics.size ? state.rows.filter(r => r[2] !== '命令' && !r[5] && topics.has(rowTopic(r)) && !seen.has(r[0])).sort((a, b) => (state.rulingLaws[b[0]] || 0) - (state.rulingLaws[a[0]] || 0) || (a[4] < b[4] ? 1 : -1)) : [];
+  const common = COMMON.map(n => state.rows.find(r => r[1] === n)).filter(r => r && !seen.has(r[0]));
+  return [...new Set([...pool.slice(0, 6), ...common])].slice(0, 8);
 }
 let lawNews;
 const newsData = () => (lawNews ||= data('ai/news.json').catch(e => ((lawNews = null), Promise.reject(e))));

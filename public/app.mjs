@@ -162,7 +162,8 @@ async function route() {
     drawLaws();
     {
       const input = box.querySelector('input');
-      if (input) (input.value = state.query), p.get('q') || input.focus();
+      // Only the Home search pill (an empty q) opens the keyboard.
+      if (input) (input.value = state.query), p.has('q') && !p.get('q') && input.focus();
     }
   } else {
     showTab('home');
@@ -288,7 +289,9 @@ function drawLaws() {
     h('button', { type: 'button', class: 'q-chip', 'aria-pressed': String(!state.topic), text: W('全部', 'All'), onclick: () => go('tab=laws', { replace: true }) }),
     ...Object.keys(TOPICS).map(id => h('button', { type: 'button', class: 'q-chip lw-tchip', style: `--t:${TOPICS[id].color}`, 'aria-pressed': String(state.topic === id), html: `<i></i>${esc(topicName(id, en))}`, onclick: () => go(`tab=laws&topic=${id}`, { replace: true }) }))
   ]);
-  panel.replaceChildren(...[headNode(state.topic ? topicName(state.topic, en) : W('法規', 'Laws')), box, state.topic ? chips : null, h('div', { id: 'results' })].filter(Boolean));
+  // A topic or a quick question came from a tap: a way back (a Home Screen app has no back gesture).
+  const back = state.topic || (state.linkedQuery && state.query) ? h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 ? history.back() : go('tab=laws')) }) : null;
+  panel.replaceChildren(...[back, headNode(state.topic ? topicName(state.topic, en) : W('法規', 'Laws')), box, state.topic ? chips : null, h('div', { id: 'results' })].filter(Boolean));
   box.hidden = false;
   drawResults();
   const on = chips.querySelector('[aria-pressed="true"]');
@@ -304,7 +307,7 @@ function drawResults() {
   if (state.topic) {
     const laws = state.rows.filter(r => r[2] !== '命令' && !r[5] && rowTopic(r) === state.topic).sort((a, b) => (a[4] < b[4] ? 1 : -1));
     const regs = state.rows.filter(r => r[2] === '命令' && rowTopic(r) === state.topic).length;
-    out.innerHTML = quick + section(W(`${laws.length} 部法律，最近修正的在前`, `${laws.length} laws, latest amended first`), list(laws.slice(0, 300).map(r => lawItem(r)))) + (regs ? `<p class="lw-none">${W(`另有 ${regs} 個子法（辦法、規則），在各法律裡的「子法」看得到`, `Plus ${regs} regulations, listed under each law’s 子法`)}</p>` : '');
+    out.innerHTML = quick + section(W(`法律 ${laws.length}`, `Laws ${laws.length}`), list(laws.slice(0, 300).map(r => lawItem(r)))) + (regs ? `<p class="lw-none">${W(`另有 ${regs} 個子法（辦法、規則），在各法律裡的「子法」看得到`, `Plus ${regs} regulations, listed under each law’s 子法`)}</p>` : '');
     return;
   }
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 8);

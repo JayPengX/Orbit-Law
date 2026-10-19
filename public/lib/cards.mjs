@@ -67,13 +67,15 @@ export function shortDay(d, now = new Date()) {
   return s.slice(0, 4) === String(now.getFullYear()) ? `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}` : s.slice(0, 10).replaceAll('-', '/');
 }
 
+// The day it last moved; a day still ahead is the meeting it is set for (排入院會 dates the agenda).
+const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10) ? (en ? `set ${shortDay(d, now)}` : `${shortDay(d, now)} 排定`) : shortDay(d, now));
 // A bill item as a card: topic tile, the law, the bar, its stage and day,
 // who proposed it, how many versions and articles. `topic`: its topic id.
 export function billCard(it, { topic = 'gov', en = false, now, wide = false } = {}) {
   const arts = Object.keys(it.arts || {}).length;
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版`) : '', arts ? (en ? `${arts} articles` : `${arts} 條`) : ''].filter(Boolean);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
-<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc([shortDay(it.u, now), ...meta].join(' · '))}</span></span>
+<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc([dayOf(it.u, en, now), ...meta].join(' · '))}</span></span>
 <span class="lw-bill-name">${esc(it.n)}</span>
 ${progress(it, en)}
 <span class="lw-bill-foot">${partyChips(it.by, en, 3)}</span>

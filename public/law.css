@@ -2660,3 +2660,6 @@ button.lw-row {
   color: var(--q-accent);
   font-weight: 600;
 }
+.lw-find-subs span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lw-cover-art b { font-size: 14px; line-height: 19px; -webkit-line-clamp: 5; }
+.lw-back-row { margin: 4px 0 -8px; }

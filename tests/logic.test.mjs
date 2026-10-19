@@ -544,3 +544,11 @@ test('a judgment id reads as its kind and 案號', async () => {
   assert.equal(caseKind('JCCC,114,憲判,1,20250101,1')[0], '憲法');
   assert.equal(caseNo('TPSV,115,台上,12,20260930,1'), '115年度台上字第12號');
 });
+
+test('a bill version’s 案由 reads as its reason', async () => {
+  const { whyOf } = await import('../public/lib/bills.mjs');
+  assert.equal(whyOf('本院台灣民眾黨黨團，有鑑於勞動基準法第五十五條勞工退休金給與標準未有調整，爰擬具「勞動基準法第五十五條條文修正草案」。是否有當？敬請公決。'), '因為勞動基準法第五十五條勞工退休金給與標準未有調整。');
+  assert.equal(whyOf('本院委員邱鎮軍、廖偉翔等19人，有鑑於少子女化問題日趨嚴重，爰擬具「勞動基準法第五十條條文修正草案」，將婚假全面周延。是否有當？敬請公決。'), '因為少子女化問題日趨嚴重，將婚假全面周延。');
+  assert.equal(whyOf('本院委員李坤城等21人，為提升學校午餐品質，爰擬具「學校午餐及飲食教育條例草案」，俾利提升品質。是否有當？敬請公決。'), '為了提升學校午餐品質，俾利提升品質。');
+  assert.equal(whyOf(''), '');
+});

@@ -199,3 +199,14 @@ export function billCounts(bills) {
   }
   return { total: bills.length, steps, dropped };
 }
+
+// A version's 案由 as its reason in plain words: who filed it, the 爰擬具
+// 「…草案」 and the 是否有當？敬請公決 taken off, what's left kept as written.
+export function whyOf(text) {
+  let s = String(text || '').replace(/\s+/g, '');
+  s = s.replace(/^(本院|行政院|司法院|考試院|監察院)[^，,]*?(黨團|等\d+人|委員[^，,]*)?[，,]/, '');
+  s = s.replace(/[，,]?爰(擬具|提出|擬)[^」]*」(條文)?(修正)?(草案)?[，,]?/, '，');
+  s = s.replace(/[，,。]?(是否有當|請審議|敬請公決|請公決)[^]*$/, '');
+  s = s.replace(/^(有鑑於|鑑於|為)/, m => (m === '為' ? '為了' : '因為')).replace(/[，,]+$/, '').replace(/[，,]{2,}/g, '，');
+  return s ? `${s}。` : '';
+}

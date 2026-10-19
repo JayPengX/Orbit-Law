@@ -4,7 +4,7 @@
 import { basisOf } from './deleg.mjs';
 
 // A rule's name ends like one: 要點, 作業規定, 注意事項… (not a 函釋 or 令).
-const RULE_END = /(要點|作業規定|注意事項|處理原則|準則|規範|須知|基準|辦法|規則|細則|規定|原則|標準|程序|指引|守則|規程|範本|流程|計畫|方案|綱要|措施)$/;
+const RULE_END = /(要點|作業規定|注意事項|處理原則|準則|規範|須知|基準|辦法|規則|細則|規定|原則|標準|程序|指引|守則|規程|範本|流程|計畫|方案|綱要|措施|事項)$/;
 const DEAD_NAME = /^(?:廢止|廢|停止|停)/;
 const DEAD_STATE = /廢止|停止適用/;
 
@@ -116,6 +116,19 @@ export function nameLaws(laws, name) {
   return hit.map(r => r[0]);
 }
 
+// The laws a rule says it rests on without an article (「依軍人保險條例規定」,
+// 「依據國防法第廿二條」 with an article basisOf could not read): law-level only.
+const CITED = /依(?:據|照)?[：:]?「?([^，。；：:「」（）、\n]{2,40}?)」?(?:（[^）]*）)?(?=第|之規定|規定|訂定|授權|，|。|$)/g;
+export function citedLaws(text, names) {
+  const out = new Set();
+  const t = String(text || '').slice(0, 300).replace(/中華民國/g, '');
+  for (const [, raw] of t.matchAll(CITED)) {
+    const p = names.get(raw) || names.get(raw.replace(/^中華民國/, ''));
+    if (p) out.add(p);
+  }
+  return [...out];
+}
+
 // Link raw rules → [id, name, agency, date, url, basis, laws], only those with
 // a law. `known`: names of regulations Orbit already has (skipped); one rule
 // per (agency, name), newest first.
@@ -131,7 +144,7 @@ export function linkRules(raw, laws, names, known = new Set()) {
     const basis = basisOf(r.text, names);
     const basisLaws = [...new Set(basis.map(b => b.slice(0, b.indexOf(':'))))];
     // The laws its basis names, and the one law its name speaks of (the longest).
-    const lawsOf = [...new Set([...basisLaws, ...nameLaws(laws, r.name).slice(0, 1)])];
+    const lawsOf = [...new Set([...basisLaws, ...citedLaws(r.text, names), ...nameLaws(laws, r.name).slice(0, 1)])];
     if (!lawsOf.length) continue;
     out.push([r.id, r.name, r.agency, r.date, r.url, basis, lawsOf]);
   }

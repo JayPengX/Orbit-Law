@@ -55,7 +55,7 @@ export function partyChips(by = [], en = false, max = 3) {
     .slice(0, max)
     .map(([who, n]) => {
       const p = partyOf(who);
-      return `<span class="lw-party" style="--p:${p.color}">${esc(p[en ? 'en' : 'zh'])}${n > 1 ? `<b>${n}</b>` : ''}</span>`;
+      return `<span class="lw-party" style="--p:${p.color}">${esc(p[en ? 'en' : 'zh'])}${n > 1 || (n && !p.zh.endsWith('院')) ? `<b>${n}</b>` : ''}</span>`;
     })
     .join('');
 }

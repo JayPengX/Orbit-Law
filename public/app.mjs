@@ -250,7 +250,11 @@ function recommend(recent) {
   const topics = new Set([...recent, ...Object.keys(state.mine.laws).map(p => state.byCode.get(p)).filter(Boolean)].map(rowTopic));
   const pool = topics.size ? state.rows.filter(r => r[2] !== '命令' && !r[5] && topics.has(rowTopic(r)) && !seen.has(r[0])).sort((a, b) => (state.rulingLaws[b[0]] || 0) - (state.rulingLaws[a[0]] || 0) || (a[4] < b[4] ? 1 : -1)) : [];
   const common = COMMON.map(n => state.rows.find(r => r[1] === n)).filter(r => r && !seen.has(r[0]));
-  return [...new Set([...pool.slice(0, 6), ...common])].slice(0, 8);
+  // Your topics' top laws woven with everyday laws from other topics, so the shelf isn't one colour.
+  const mine = pool.slice(0, 4), other = common.filter(r => !topics.has(rowTopic(r)));
+  const out = [];
+  for (let i = 0; out.length < 8 && (i < mine.length || i < other.length); i++) out.push(...[mine[i], other[i]].filter(Boolean));
+  return [...new Set([...out, ...common])].slice(0, 8);
 }
 let lawNews;
 const newsData = () => (lawNews ||= data('ai/news.json').catch(e => ((lawNews = null), Promise.reject(e))));

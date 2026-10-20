@@ -5,9 +5,8 @@
 //   node scripts/build-news.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { parseFeed, mergeNews } from '../public/lib/news.mjs';
+import { prevJson } from './lib.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const out = new URL('../public/data/ai/', import.meta.url).pathname;
 
 // [agency, feed]: notices and decisions first; news where figures get announced.
@@ -22,11 +21,7 @@ const FEEDS = [
   ['金融監督管理委員會', 'https://www.fsc.gov.tw/RSS/Messages?serno=201202290009&language=chinese']
 ];
 
-let prev = [];
-try {
-  const r = await fetch(PREV + 'ai/news.json');
-  if (r.ok) prev = (await r.json()).news || [];
-} catch {}
+const prev = (await prevJson('ai/news.json'))?.news || [];
 const fresh = [];
 const notes = [];
 for (const [agency, url] of FEEDS) {

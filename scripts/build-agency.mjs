@@ -10,16 +10,14 @@
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { textFile, parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, isRuleName, vendorLeaves, vendorList, vendorText, vendorRule } from '../public/lib/agency.mjs';
+import { args, sleep, prevJson } from './lib.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const data = new URL('../public/data/', import.meta.url).pathname;
 const out = data + 'agency/';
 const UA = 'Orbit-Law build (+https://github.com/jaypengx/Orbit-Law)';
 
 const START = Date.now();
 const DEADLINE = START + (+args.minutes || 20) * 60_000;
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const lastAt = {};
 // One request at a time, at least a second apart per host, tries, a timeout each.
 async function get(url, { tries = 3, timeout = 120_000 } = {}) {
@@ -49,11 +47,7 @@ const SOURCES = [
   ['國發會', async () => parseNdc(await get('https://ws.ndc.gov.tw/001/administrator/10/relfile/5781/26192/18370f9e-4372-4b12-8224-3a2f4c54921e.xml'))]
 ];
 
-let prev = null;
-try {
-  const r = PREV && (await fetch(PREV + 'agency/all.json', { signal: AbortSignal.timeout(60_000) }));
-  if (r?.ok) prev = await r.json();
-} catch {}
+const prev = await prevJson('agency/all.json');
 
 const index = JSON.parse(await readFile(data + 'index.json', 'utf8'));
 const names = nameMap(index.laws);

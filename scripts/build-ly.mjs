@@ -11,25 +11,14 @@ import { nameMap } from '../public/lib/refs.mjs';
 import { hash } from '../public/lib/bills.mjs';
 import { compactMeet, twNow } from '../public/lib/agenda.mjs';
 import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups } from '../public/lib/ly.mjs';
+import { args, sleep, prevJson } from './lib.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const API = 'https://v2.ly.govapi.tw/';
 const out = new URL('../public/data/ly/', import.meta.url).pathname;
 const WINDOW = 10000; // the API's page*limit ceiling (past it: 413)
 const started = Date.now();
 const notes = [];
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function prevJson(path) {
-  if (!PREV) return null;
-  try {
-    const r = await fetch(PREV + 'ly/' + path, { signal: AbortSignal.timeout(60_000) });
-    return r.ok ? await r.json() : null;
-  } catch {
-    return null;
-  }
-}
 
 // One page, politely: a pause before each, three tries with a growing wait.
 async function get(path, query = {}, fields = []) {
@@ -172,7 +161,7 @@ const people = roster ? await step('people build', async () => {
     const person = { ...base, term, built, bills: mine.slice(0, 200), cosign: cosigns.get(k) || 0, clips: myClips.slice(0, 200), attend: meets ? { meets: attended.get(k) || 0, plenary: [plenary.get(k) || 0, plenaryTotal] } : null };
     // A part that failed today: the last deploy's.
     if (!bills || !clips || !meets) {
-      const old = await prevJson(`person/${id}.json`);
+      const old = await prevJson(`ly/person/${id}.json`);
       if (old) {
         if (!bills) Object.assign(person, { bills: old.bills, cosign: old.cosign });
         if (!clips) person.clips = old.clips;
@@ -205,7 +194,7 @@ const agenda = await step('agenda', async () => {
 });
 // ---- Write, or carry over ----
 async function carry(path) {
-  const old = await prevJson(path);
+  const old = await prevJson('ly/' + path);
   if (old) await write(path, old);
   else notes.push(`${path}: nothing to carry over`);
   return old;

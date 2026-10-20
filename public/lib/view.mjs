@@ -78,13 +78,6 @@ export function articlesBetween(law, from, to = from) {
   return arts.slice(i, Math.max(i, j) + 1).slice(0, 20);
 }
 
-export function stageLabel(item, en = false) {
-  if (item.dropped) return en ? 'Withdrawn' : '已撤回';
-  const name = (en ? STAGES_EN : STAGES)[Math.max(0, item.stage)];
-  if (item.held) return en ? `${name} · on hold` : `${name}・暫緩`;
-  return name;
-}
-
 // A bill item's timeline: the first day each stage was reached, across
 // the versions in the open round (else all of them, 總統公布 from the MOJ copy).
 // `notices`: the law's 預告 (join.gov.tw); the one before the round's first

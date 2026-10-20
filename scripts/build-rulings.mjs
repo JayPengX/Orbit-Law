@@ -15,22 +15,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nameMap } from '../public/lib/refs.mjs';
 import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings, archiveMonths, pendingMonths, topCourtFile, deletedIds, dropDeleted } from '../public/lib/rulings.mjs';
+import { args, prevJson } from './lib.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const API = 'https://data.judicial.gov.tw/jdg/api/';
 const MAX_DOCS = 2000;
 const out = new URL('../public/data/rulings/', import.meta.url).pathname;
 
-async function prevJson(path) {
-  if (!PREV) return null;
-  try {
-    const r = await fetch(PREV + path);
-    return r.ok ? await r.json() : null;
-  } catch {
-    return null;
-  }
-}
 async function post(path, body) {
   const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60_000) });
   if (!r.ok) throw new Error(`JDoc ${path} ${r.status}`);

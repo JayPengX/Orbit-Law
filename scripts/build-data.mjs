@@ -17,10 +17,9 @@ import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 import { delegations, regCount, formerNames } from '../public/lib/deleg.mjs';
 import { noticesUrl, compactNotice, mergeNotices, twDay } from '../public/lib/notices.mjs';
+import { args, prevJson } from './lib.mjs';
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const SRC = { zh: 'https://law.moj.gov.tw/api/Ch/Law/JSON', en: 'https://law.moj.gov.tw/api/En/Law/JSON', order: 'https://law.moj.gov.tw/api/Ch/Order/JSON', enOrder: 'https://law.moj.gov.tw/api/En/Order/JSON' };
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 const out = new URL('../public/data/', import.meta.url).pathname;
 
 // The last good copy of each file (.moj-cache/, kept between runs by the
@@ -56,15 +55,6 @@ async function zipJson(kind) {
   return JSON.parse(text.replace(/^\uFEFF/, ''));
 }
 
-async function prevJson(path) {
-  if (!PREV) return null;
-  try {
-    const r = await fetch(PREV + path);
-    return r.ok ? await r.json() : null;
-  } catch {
-    return null;
-  }
-}
 
 const zh = await zipJson('zh');
 const en = await zipJson('en');

@@ -1,15 +1,19 @@
 # Orbit Law
 
 Taiwan's laws to read, with every reference a link, and the bills in 立法院
-that will change them, stage by stage. No Pass: the data is public, built
-onto this site once a day, and works offline once opened.
+that will change them, stage by stage. Behind the Quadra Pass like every
+Orbit app; the data is public, built onto this site once a day, and works
+offline once opened. Tabs: 首頁 · 法規 · 問法律 · 立法 · 追蹤.
 
 Live: https://jaypengx.github.io/Orbit-Law/
 
 ## How it works
 
-- **Data at deploy, never in git.** `scripts/build-data.mjs` runs in the
-  Pages workflow on every push and daily at 03:30 Taiwan time. It reads
+- **Data at deploy, never in git.** `pages.yml` runs on every push and daily
+  at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-ly.mjs`,
+  `build-agency.mjs`, `build-rulings.mjs` and `build-news.mjs` in that order
+  (each builds on the last deploy's copy, `scripts/lib.mjs`), then
+  `stamp-version.mjs`. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,
   `api/En/Law/JSON`) and writes `public/data/`: `index.json` (every law),
   `law/<pcode>.json`, `en/<pcode>.json`, `changes.json` (修法追蹤: each
@@ -73,25 +77,41 @@ Live: https://jaypengx.github.io/Orbit-Law/
 - **Following 立委** (`lib/ly.mjs` personFeed): 我的 shows each one's newest
   bill, 質詢 and whole-bill vote; what came since they were last opened counts
   on the tab.
-- Gemini (白話解釋) waits for the proxy's `/law-ask`, which reads the
-  articles itself from this site and cites only those.
+- **問法律** (`lib/chat.mjs`, `chats.mjs`, `find.mjs`): the proxy's live
+  `/law-chat` finds the articles for a question across every law and
+  regulation and answers from them only, each point citing one; chats are
+  kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  on a law's latest amendment or a bill's 對照表. Both only on a tap, both
+  through the Pass (`passFetch`), both reading this site's own files.
+- **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,
+  `data-src/facts.json`): ministries' rules and RSS notices, and 預告 on
+  join.gov.tw, kept beside the laws they rest on; the news and `facts.json`
+  feed the AI's exact figures (最低工資).
+- **Finding** (`lib/search.mjs`, `fulltext.mjs`, `topics.mjs`): names, short
+  names and article jumps; 全文檢索 by bigram buckets built at deploy; every
+  law sorted into a topic.
 
 ## Files
 
 | File | What |
 | --- | --- |
-| `public/app.mjs`, `index.html`, `law.css` | The page: tabs 法規 / 立法 / 追蹤, the reader, the sheets |
+| `public/app.mjs`, `index.html`, `law.css` | The page: five tabs, the reader, the sheets |
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
-| `public/lib/bills.mjs` | Stages, a bill made small, folding versions into items |
-| `public/lib/agenda.mjs` | 議程: meetings made small, live by Taiwan time, 國會頻道 streams |
-| `public/lib/data.mjs` | The law files' shape, 修法追蹤 diffs |
-| `public/lib/search.mjs` | Finding a law, jumping to an article, dates |
-| `public/lib/view.mjs` | Articles, contents, stage bar and timeline as HTML |
-| `public/lib/store.mjs` | Follows, bookmarks, recent (this device) |
-| `scripts/build-data.mjs` | The data build |
+| `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
+| `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
+| `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
+| `public/lib/rulings.mjs`, `judgment.mjs`, `reader.mjs` | Rulings by article; a judgment read into parts; a government page read in the app |
+| `public/lib/agency.mjs`, `news.mjs`, `notices.mjs` | 行政規則, 政府公告, 預告 |
+| `public/lib/search.mjs`, `fulltext.mjs`, `find.mjs`, `topics.mjs` | Finding a law or article, full text, topics |
+| `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
+| `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
+| `scripts/build-*.mjs`, `lib.mjs` | The five data builds and what they share |
+| `scripts/live-ly.mjs` | IVOD's live list, run by `live.yml` |
+| `data-src/facts.json` | Figures the news build keeps |
 
 ## Run and test
 
 - `npm test` (logic only), `node scripts/build-data.mjs --prev ''` for
-  real data locally (about 60 MB in `public/data/`).
+  real data locally (about 60 MB in `public/data/`; the other builds
+  follow it).
 - `npm start`, or `node ../Shared-Proxy/tools/preview.mjs law --width 375`.

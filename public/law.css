@@ -3037,3 +3037,99 @@ div.lw-video {
   color: var(--q-label-2);
   font: var(--q-t-subhead, 400 14px/20px var(--q-font));
 }
+
+/* A bill card's purpose line, and who filed it. */
+.lw-bill-about {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: -2px;
+  color: var(--q-label-2);
+  font: 400 13px/18px var(--q-font);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.lw-bill-parties {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+.lw-bill-meta {
+  flex: none;
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--q-label-3);
+  font: 500 12px/16px var(--q-font);
+  white-space: nowrap;
+}
+
+/* 法案怎麼變成法律: the plain-words guide, opened from the bar and the funnel. */
+.lw-how {
+  justify-self: start;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-indigo);
+  font: 600 13px/18px var(--q-font);
+  cursor: pointer;
+}
+.lw-funnel-cap .lw-how {
+  margin: 0 0 0 8px;
+}
+.lw-howto {
+  display: grid;
+  gap: 0;
+  margin: 8px 0 12px;
+  padding: 0;
+  list-style: none;
+  counter-reset: how;
+}
+.lw-howto li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 10px 0 12px 40px;
+  counter-increment: how;
+}
+.lw-howto li::before {
+  content: counter(how);
+  position: absolute;
+  top: 10px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--q-fill-2);
+  color: var(--q-label-2);
+  font: 700 13px/1 var(--q-font);
+}
+.lw-howto li::after {
+  content: '';
+  position: absolute;
+  top: 40px;
+  bottom: -8px;
+  left: 12.5px;
+  width: 1px;
+  background: var(--q-sep);
+}
+.lw-howto li:last-child::after {
+  display: none;
+}
+.lw-howto li.done::before,
+.lw-howto li.now::before {
+  background: var(--q-indigo);
+  color: #fff;
+}
+.lw-howto b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 16px/22px var(--q-font);
+}
+.lw-howto span {
+  color: var(--q-label-2);
+  font: 400 14px/20px var(--q-font);
+}

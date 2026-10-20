@@ -26,7 +26,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -961,6 +961,12 @@ async function openClip(id, label = '') {
   }
 }
 
+// How a bill becomes law: the six steps in plain words, `at` (a step) marked.
+function howBillsWork(at = -1) {
+  const rows = STEP_HELP.map(([zh, zhText, e, enText], i) => `<li class="${i === at ? 'now' : i < at ? 'done' : ''}"><b>${esc(W(zh, e))}${i === at ? `<span class="lw-tag indigo">${W('在這一步', 'Here now')}</span>` : ''}</b><span>${esc(W(zhText, enText))}</span></li>`).join('');
+  sheet({ title: W('法案怎麼變成法律', 'How a bill becomes law'), closeLabel: W('關閉', 'Close'), body: [h('ol', { class: 'lw-howto', html: rows }), h('p', { class: 'lw-hint-sm', text: W('同一部法常有很多版本（不同立委或政黨各提一個），委員會通常會把它們併在一起審。', 'One law often has many versions (each legislator or party files their own); committees usually review them together.') })] });
+}
+
 // An HLS stream in a <video>: Safari's own player, else hls.js (loaded only then).
 async function playHls(v, url) {
   if (v.canPlayType('application/vnd.apple.mpegurl')) return void (v.src = url);
@@ -1224,8 +1230,8 @@ async function ask(text) {
 // 立法 opens on five doors; 法案 has its stages and the funnel, the others are a page each.
 const BILL_FILTERS = [
   ['moving', W('審議中', 'Moving')],
-  ['talks', W('協商・二讀', 'Floor')],
-  ['passed', W('已三讀', 'Passed')],
+  ['talks', W('快表決了', 'Near a vote')],
+  ['passed', W('已通過', 'Passed')],
   ['all', W('全部', 'All')]
 ];
 const BILL_DOORS = [
@@ -1268,6 +1274,8 @@ function drawBills() {
         billMore = {};
         return drawBillList();
       }
+      const how = e.target.closest('[data-how]');
+      if (how) return howBillsWork(Number(how.dataset.how));
       const more = e.target.closest('[data-more]');
       if (more) ((billMore[more.dataset.more] = (billMore[more.dataset.more] || 0) + 40), drawBillList());
     });
@@ -1316,7 +1324,7 @@ function drawBillList() {
   if (billStep >= 0 && state.billCounts?.reached) items = items.filter(it => !it.dropped && (billStep === 0 ? it.w > 0 : billStep === 3 ? it.stage >= PASSED : it.open && (billStep === 1 ? [1, 2].includes(stepOf(it.stage)) : stepOf(it.stage) === 3)));
   else if (billStep >= 0) items = items.filter(it => !it.dropped && stepOf(it.stage) === billStep && (it.open || it.stage >= PASSED));
   else if (billFilter === 'moving') items = items.filter(LIVE);
-  else if (billFilter === 'talks') items = items.filter(it => LIVE(it) && it.stage >= 4);
+  else if (billFilter === 'talks') items = items.filter(it => LIVE(it) && it.stage >= 3);
   else if (billFilter === 'passed') items = items.filter(it => it.stage >= PASSED);
   if (!items.length) return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的法案', 'No bills match')}</strong></div>`);
   // Grouped by the step reached, furthest first; held and withdrawn last.
@@ -1326,7 +1334,7 @@ function drawBillList() {
     groups.set(g, [...(groups.get(g) || []), it]);
   }
   const order = ['filed', '5', '4', '3', '2', '1', '0', 'held', 'dropped'];
-  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已三讀', 'Passed') : g === '2' ? W('委員會審查中', 'In committee') : g === '3' ? W('院會：審查完畢、協商、二讀', 'On the floor: reviewed, talks, 2nd reading') : g === '1' ? W('一讀', '1st reading') : STEPS[g][en ? 1 : 0]);
+  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已通過（三讀）', 'Passed') : g === '2' ? W('委員會審查中', 'In committee') : g === '3' ? W('在院會：協商、等表決', 'On the floor: talks, awaiting a vote') : g === '1' ? W('一讀過了，等委員會審', 'Read once, awaiting committee') : STEPS[g][en ? 1 : 0]);
   out.innerHTML = order
     .filter(g => groups.has(g))
     .map(g => {
@@ -1390,6 +1398,8 @@ async function openItem(k) {
   const now = whereNow(it, bills, en);
   const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審，數字是各停在哪一步`, `${now.open} versions open; the numbers say where each stands`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span>${esc(W(`${now.before} 已三讀過一次`, `passed ${now.before}`))}</span></p>`].filter(Boolean).join('');
   const prog = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true, counts: now.open > 1 ? roundSteps(openRound(bills)) : null }) + `<div class="lw-now">${nowLine}</div>` });
+  prog.querySelector('.lw-prog').insertAdjacentHTML('afterend', `<button type="button" class="lw-how" data-how="${it.dropped || it.held ? -1 : stepOf(it.stage)}">${W('每一步是什麼意思？', 'What do the steps mean?')}</button>`);
+  prog.addEventListener('click', e => e.target.closest('[data-how]') && howBillsWork(Number(e.target.closest('[data-how]').dataset.how)));
   // On the agenda: the next meeting that takes it up (from 立法院's 議程).
   if (!it.dropped && it.stage < PASSED)
     agendaData().then(a => {

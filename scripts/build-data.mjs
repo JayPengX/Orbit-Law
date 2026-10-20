@@ -169,7 +169,7 @@ for (const [p, d] of diffs) await writeFile(`${out}diff/${p}.json`, JSON.stringi
 
 // ---- Bills ----
 const LY = 'https://v2.ly.govapi.tw/bills';
-const FIELDS = ['議案編號', '議案名稱', '提案單位/提案委員', '提案來源', '屆', '提案日期', '最新進度日期', '議案狀態', '法律編號', '議案流程', '關連議案'];
+const FIELDS = ['議案編號', '議案名稱', '提案單位/提案委員', '提案來源', '屆', '提案日期', '最新進度日期', '議案狀態', '法律編號', '議案流程', '關連議案', '案由'];
 async function lyPage(query, page) {
   const q = new URLSearchParams({ 議案類別: '法律案', limit: '500', page: String(page), ...query });
   for (const f of FIELDS) q.append('output_fields', f);
@@ -192,7 +192,8 @@ if (args.bills !== 'off') {
   if (!term) throw new Error('立法院 API: no term');
   const fresh = [];
   // Sorted by 最新進度日期, newest first: stop a week before the last build.
-  const since = prevAll?.term === term && prevAll.built ? new Date(new Date(prevAll.built).getTime() - 7 * 864e5).toISOString().slice(0, 10) : '';
+  // (A copy from before bills kept their purpose line, `a`, is fetched again in full.)
+  const since = prevAll?.term === term && prevAll.built && 'a' in (prevAll.bills?.[0] || {}) ? new Date(new Date(prevAll.built).getTime() - 7 * 864e5).toISOString().slice(0, 10) : '';
   // The API pages only its first 10,000 (page × limit): past that a query
   // is cut by 會期, one session at a time (each well under it).
   const MAX_PAGE = 10000 / 500;

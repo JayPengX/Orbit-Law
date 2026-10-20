@@ -4,7 +4,7 @@
 // and a list of 200 cards draws in one go.
 import { esc } from './view.mjs';
 import { TOPICS, partyOf } from './topics.mjs';
-import { PASSED, PROMULGATED, STAGES, STAGES_EN, openRound, billStage } from './bills.mjs';
+import { PASSED, PROMULGATED, openRound, billStage } from './bills.mjs';
 
 const svg = (d, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -45,15 +45,25 @@ export function progress(item, en = false, { labels = false, counts = null } = {
 // How many of a round's versions stand at each step (each by the furthest it reached).
 export const roundSteps = round => round.reduce((c, b) => (c[stepOf(billStage(b).stage)]++, c), STEPS.map(() => 0));
 
-// A stage in words, short: 協商中, 委員會, 已三讀, 已公布, 暫緩, 已撤回.
+// A stage in plain words, short: 等委員會審, 政黨協商中, 已通過, 已公布…
 export function stageShort(item, en = false) {
   if (item.dropped) return en ? 'Withdrawn' : '已撤回';
-  if (item.held) return en ? 'On hold' : '暫緩';
+  if (item.held) return en ? 'On hold' : '暫停審查';
   const s = item.stage;
   if (s >= PROMULGATED) return en ? 'Now law' : '已公布';
-  if (s >= PASSED) return en ? 'Passed' : '已三讀';
-  return [['提案', 'Filed'], ['一讀', '1st reading'], ['委員會', 'Committee'], ['審查完畢', 'Reviewed'], ['協商中', 'Talks'], ['二讀', '2nd reading']][Math.max(0, s)][en ? 1 : 0];
+  if (s >= PASSED) return en ? 'Passed' : '已通過';
+  return [['剛提出', 'Just filed'], ['等委員會審', 'Awaiting committee'], ['委員會審查中', 'In committee'], ['等院會討論', 'Awaiting the floor'], ['政黨協商中', 'Party talks'], ['院會表決中', 'Floor vote']][Math.max(0, s)][en ? 1 : 0];
 }
+
+// How a bill becomes law, a step at a time, in plain words (the bar's six steps).
+export const STEP_HELP = [
+  ['提案', '立委、黨團或行政院提出法案，寫好要改哪些條文、為什麼。', 'Filed', 'A legislator, a caucus or the Executive Yuan files the bill: which articles change, and why.'],
+  ['一讀', '在院會唸過名稱，交給負責的委員會。很多法案會停在這裡，等委員會排進議程。', '1st reading', 'Its title is read on the floor and it goes to a committee. Many bills wait here until the committee takes them up.'],
+  ['委員會', '委員會逐條審查，常把同一部法的好幾個版本併在一起審。', 'Committee', 'The committee goes article by article, often reviewing several versions of one law together.'],
+  ['院會', '審查完畢後回到院會。意見不同時，政黨先協商（黨團協商），再進行二讀逐條表決。', 'Floor', 'Back on the floor. Where parties disagree they negotiate first (caucus talks), then the 2nd reading votes article by article.'],
+  ['三讀', '院會做最後的文字確認並通過，法案就完成立法。', 'Passed', 'The floor confirms the final text and passes it.'],
+  ['公布', '總統公布後成為法律，通常隔天生效（除非另有規定）。', 'Law', 'The President promulgates it; it usually takes effect after that unless it says otherwise.']
+];
 
 // Who proposed it, as coloured chips: [[who, versions]] → 民進黨 3.
 export function partyChips(by = [], en = false, max = 3) {
@@ -73,6 +83,9 @@ export function shortDay(d, now = new Date()) {
   return s.slice(0, 4) === String(now.getFullYear()) ? `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}` : s.slice(0, 10).replaceAll('-', '/');
 }
 
+// The step it waits for, in plain words (by the 8-stage scale).
+const NEXT = ['提案', '一讀，交給委員會', '委員會審查', '委員會審查完畢', '政黨協商', '院會二讀、三讀表決', '三讀通過', '總統公布'];
+const NEXT_EN = ['Filing', '1st reading, to committee', 'Committee review', 'Committee finishing review', 'Party talks', 'Floor votes (2nd and 3rd reading)', 'Passing', 'Promulgation'];
 // The day it last moved; a day still ahead is the meeting it is set for (排入院會 dates the agenda).
 const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10) ? (en ? `set ${shortDay(d, now)}` : `${shortDay(d, now)} 排定`) : shortDay(d, now));
 // Where an item stands, in words, from its versions' own steps: the latest
@@ -83,7 +96,7 @@ export function whereNow(it, bills = [], en = false, now = new Date()) {
   let last = null;
   for (const b of round.length ? round : bills) for (const [d, , raw] of [...(b.flow || []), [b.u, 0, b.st]]) if (d && raw && (!last || d > last.d)) last = { d, raw };
   const s = it.stage;
-  const next = it.dropped || it.held || s >= PROMULGATED || s < 0 ? '' : (en ? STAGES_EN : STAGES)[s === 3 || s === 4 ? 5 : s + 1];
+  const next = it.dropped || it.held || s >= PROMULGATED || s < 0 ? '' : (en ? NEXT_EN : NEXT)[s === 3 || s === 4 ? 5 : s + 1];
   return {
     last: last ? `${/^排入/.test(last.raw) ? shortDay(last.d, now) : dayOf(last.d, en, now)} ${last.raw.replace(/\s+/g, '')}` : '',
     next,
@@ -108,12 +121,13 @@ export function articleChips(it, en = false, max = 12) {
 // who proposed it, how many versions and articles. `topic`: its topic id.
 export function billCard(it, { topic = 'gov', en = false, now, wide = false } = {}) {
   const arts = Object.keys(it.arts || {}).length;
-  const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版`) : '', arts ? (en ? `${arts} articles` : `${arts} 條`) : ''].filter(Boolean);
+  const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 個版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
-<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc([dayOf(it.u, en, now), ...meta].join(' · '))}</span></span>
+<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(dayOf(it.u, en, now))}</span></span>
 <span class="lw-bill-name">${esc(it.n)}</span>
+${it.about && !en ? `<span class="lw-bill-about">${esc(it.about)}</span>` : ''}
 ${progress(it, en)}
-<span class="lw-bill-foot">${partyChips(it.by, en, 3)}</span>
+<span class="lw-bill-foot"><span class="lw-bill-parties">${partyChips((it.by || []).map(([who]) => [who, 0]), en, 2)}</span>${meta.length ? `<small class="lw-bill-meta">${esc(meta.join(' · '))}</small>` : ''}</span>
 </a>`;
 }
 
@@ -139,7 +153,7 @@ export function billFunnel(c, en = false, laws = 0) {
   const max = Math.max(1, ...c.reached);
   const sub = i => (i < 3 ? (c.waiting[i] ? `${esc(en ? ['wait 1st', 'wait review', 'wait floor'][i] : ['等一讀', '等審查', '等院會'][i])}<br>${c.waiting[i].toLocaleString()}` : '') : laws ? (en ? `${laws} laws` : `${laws} 部法`) : '');
   const cols = BILL_COLS.map((s, i) => `<button type="button" class="lw-funnel-col" data-step="${i}"><b>${c.reached[i].toLocaleString()}</b><i style="--h:${Math.max(4, Math.round((c.reached[i] / max) * 100))}%"></i><span>${esc(s[en ? 1 : 0])}</span><small>${sub(i)}</small></button>`).join('');
-  return `<p class="lw-funnel-cap">${esc(en ? `${c.total.toLocaleString()} bills this term: how far they got` : `這屆 ${c.total.toLocaleString()} 件法案走到哪`)}</p><div class="lw-funnel bills">${cols}</div>`;
+  return `<p class="lw-funnel-cap">${esc(en ? `${c.total.toLocaleString()} bills this term: how far they got` : `這屆 ${c.total.toLocaleString()} 件法案走到哪`)}<button type="button" class="lw-how" data-how="-1">${en ? 'How a bill becomes law' : '法案怎麼變成法律？'}</button></p><div class="lw-funnel bills">${cols}</div>`;
 }
 
 // Before and after, the changed words marked: [{ t, op: '=' | '-' | '+' }].

@@ -51,7 +51,8 @@ export function compactBill(b) {
     laws: b['法律編號'] || [],
     names: b['法律編號:str'] || [],
     flow,
-    rel: (b['關連議案'] || []).map(r => r['議案編號']).filter(Boolean)
+    rel: (b['關連議案'] || []).map(r => r['議案編號']).filter(Boolean),
+    a: aboutOf(b['案由'])
   };
 }
 
@@ -141,6 +142,8 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       // The proposers of the round (or every version), most versions first: [[who, n]] ≤ 3,
       // each party once whatever its spelling (中國國民黨 and 國民黨 are one).
       by: [...(open.length ? open : it.bills).reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(partyOf(sponsorOf(b.by, parties)).zh), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3),
+      // What it's for, in a line: the newest version's own words that say so.
+      about: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1)).find(b => b.a)?.a || '',
       // The newest version (its 對照表 summarised on the card).
       top: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1))[0]?.id || '',
       ids: it.bills.map(b => b.id)
@@ -218,4 +221,19 @@ export function whyOf(text) {
   s = s.replace(/[，,。]?(是否有當|請審議|敬請公決|請公決)[^]*$/, '');
   s = s.replace(/^(有鑑於|鑑於|為)/, m => (m === '為' ? '為了' : '因為')).replace(/[，,]+$/, '').replace(/[，,]{2,}/g, '，');
   return s ? `${s}。` : '';
+}
+
+// A version's purpose in a line, for a card: its 案由's 為… clause (what the
+// sponsor wants), else its first words; nothing for a procedural motion.
+export function aboutOf(text, max = 48) {
+  const s = whyOf(text).replace(/。$/, '').replace(/[；;]\s*[，,]/g, '，').replace(/。，/g, '，');
+  if (!s || /復議|^(行政院|司法院|考試院|監察院)函/.test(s)) return '';
+  const parts = s.split(/(?<=[，；。])/);
+  let i = -1;
+  parts.forEach((p, k) => {
+    if (k && /^(為了?|以利|俾)(?!何)/.test(p)) i = k;
+  });
+  let out = i > 0 ? `為了${parts.slice(i).join('').replace(/^(為了?|以利|俾)/, '')}` : s.replace(/^(因為|經?查|按)/, '');
+  out = out.replace(/^為了(利|使|期)/, '為了').replace(/[，；。]$/, '');
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out;
 }

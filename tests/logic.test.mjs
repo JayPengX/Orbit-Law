@@ -91,7 +91,7 @@ test('bill sheet: where it stands, what it waits for, which articles', async () 
     { id: 'b', u: '2025-07-11', flow: [['2025-07-11', 6, '三讀']] }
   ];
   const w = whereNow({ stage: 4, passed: '2025-07-11' }, bills, false, now);
-  assert.deepEqual(w, { last: '10/20 排入院會(討論事項)', next: '二讀', open: 1, before: '2025/07/11' });
+  assert.deepEqual(w, { last: '10/20 排入院會(討論事項)', next: '院會二讀、三讀表決', open: 1, before: '2025/07/11' });
   assert.equal(whereNow({ stage: 6 }, [], false, now).next, '總統公布');
   assert.equal(whereNow({ stage: 2, held: true }, [], false, now).next, '', 'held: no next step');
   const chips = articleChips({ p: 'D1', arts: { 21: 5, '16-1': 1, 2: 1, 16: 2 } });
@@ -395,9 +395,10 @@ import { stepOf, stageShort, progress, partyChips, billCard, funnel, billFunnel,
 import { topicOf } from '../public/lib/topics.mjs';
 test('cards: six steps, short stages, party chips, a bill card, the funnel', () => {
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(stepOf), [0, 1, 2, 3, 3, 3, 4, 5]);
-  assert.equal(stageShort({ stage: 4 }), '協商中');
+  assert.equal(stageShort({ stage: 4 }), '政黨協商中');
+  assert.equal(stageShort({ stage: 1 }), '等委員會審');
   assert.equal(stageShort({ stage: 6 }, true), 'Passed');
-  assert.equal(stageShort({ stage: 2, held: true }), '暫緩');
+  assert.equal(stageShort({ stage: 2, held: true }), '暫停審查');
   assert.match(progress({ stage: 4 }), /lw-prog moving/);
   assert.equal((progress({ stage: 4 }).match(/class="on/g) || []).length, 4);
   assert.match(progress({ stage: 4 }, false, { counts: [3, 11, 0, 61, 0, 0] }), /lw-prog-counts"><span><b>3<\/b><\/span><span><b>11<\/b><\/span><span><\/span><span><b>61<\/b>/);
@@ -405,8 +406,8 @@ test('cards: six steps, short stages, party chips, a bill card, the funnel', () 
   const card = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20]] }, { topic: 'welfare', now: new Date('2026-10-18') });
   assert.match(card, /href="#item=11-01126"/);
   assert.match(card, /10\/20/);
-  assert.match(card, /59 版 · 2 條/);
-  assert.match(card, /國民黨<b>20<\/b>/);
+  assert.match(card, /59 個版本 · 改 2 條/);
+  assert.match(card, /<span class="lw-party"[^>]*>國民黨<\/span><\/span><small class="lw-bill-meta">59 個版本 · 改 2 條<\/small>/);
   assert.match(funnel([{ stage: 4, open: 1 }, { stage: 6, open: 0 }, { stage: 1, open: 1, dropped: true }]), /data-step="3"><b>1<\/b>.*data-step="4"><b>1<\/b>/s);
   const f = billFunnel({ total: 10, reached: [10, 9, 4, 2], waiting: [1, 5, 1] }, false, 1);
   assert.match(f, /這屆 10 件法案走到哪/);
@@ -599,6 +600,11 @@ test('a bill version’s 案由 reads as its reason', async () => {
   assert.equal(whyOf('本院委員邱鎮軍、廖偉翔等19人，有鑑於少子女化問題日趨嚴重，爰擬具「勞動基準法第五十條條文修正草案」，將婚假全面周延。是否有當？敬請公決。'), '因為少子女化問題日趨嚴重，將婚假全面周延。');
   assert.equal(whyOf('本院委員李坤城等21人，為提升學校午餐品質，爰擬具「學校午餐及飲食教育條例草案」，俾利提升品質。是否有當？敬請公決。'), '為了提升學校午餐品質，俾利提升品質。');
   assert.equal(whyOf(''), '');
+  const { aboutOf } = await import('../public/lib/bills.mjs');
+  // A card's line: the purpose clause when there is one, else the reason; none for a motion.
+  assert.equal(aboutOf('本院委員甲等16人，鑑於就學貸款負擔沉重，為減輕學生負擔，爰擬具「大學法第三十五條條文修正草案」。是否有當？敬請公決。'), '為了減輕學生負擔');
+  assert.equal(aboutOf('本院委員乙等20人，有鑑於少子女化問題日趨嚴重，爰擬具「甲法草案」。是否有當？敬請公決。'), '少子女化問題日趨嚴重');
+  assert.equal(aboutOf('針對第11屆第6會期第2次會議報告事項第32案院會所作之決定提出復議。'), '');
 });
 
 test('立委 feed: bills, one 質詢 per meeting a day, whole-bill votes, newest first', async () => {

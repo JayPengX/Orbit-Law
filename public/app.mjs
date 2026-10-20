@@ -253,13 +253,15 @@ function drawHome() {
     `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、條文或生活問題', 'Search laws or topics')}</span></a>` +
     hero +
     section(W('繼續閱讀', 'Continue reading'), covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
-    section(W('為你推薦', 'For you'), covers(picks)) +
+    // A first visit starts from everyday life; a returning one from what they read.
+    (recent.length ? '' : section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '')) +
     `<div id="home-live"></div>` +
-    section(W('立法院動態', 'In 立法院'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
+    section(W('立法院這週', 'In 立法院 this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
     section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
+    section(W('為你推薦', 'For you'), covers(picks)) +
     section(W('最新判決', 'Latest rulings'), rail(state.latestRulings.map(rulingCard))) +
     `<div id="home-news"></div>` +
-    section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
+    (recent.length ? section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '') : '');
   // 立法院 meeting now: its rooms, each opening the live video.
   agendaData()
     .then(a => {
@@ -371,14 +373,25 @@ async function findAll(q, out) {
   const close = named.filter(r => keep(r) && terms.some(t => r[1].includes(t) || r[1] === SHORT[t]));
   const laws = close.filter(r => r[2] !== '命令').slice(0, 6);
   const regs = close.filter(r => r[2] === '命令').slice(0, 6);
-  const bills = state.items.filter(it => terms.some(t => it.n?.includes(t))).slice(0, 3);
+  // Bills by their law's name, then by what they're for (their purpose line).
+  const bills = [...state.items.filter(it => terms.some(t => it.n?.includes(t))), ...state.items.filter(it => !terms.some(t => it.n?.includes(t)) && terms.some(t => it.about?.includes(t)))].filter(it => !it.dropped).slice(0, 5);
   const jumpRow = jumpTo && lawRow([jumpTo.row[0], `${jumpTo.row[1]} ${artLabel(jumpTo.key, en)}`], { topic: rowTopic(jumpTo.row), sub: W('直接打開這一條', 'Open this article'), href: `#law=${jumpTo.row[0]}&a=${jumpTo.key}` });
   const ask = `<a class="lw-find-ask" href="#tab=ask&amp;q=${encodeURIComponent(q)}">${MENU_ICON.ask || ''}<span><b>${W(`用白話問「${esc(q)}」`, `Ask about “${esc(q)}”`)}</b><small>${W('問法律會引用條文回答', 'Answered from the articles, cited')}</small></span></a>`;
   const nameBlocks = () =>
     (laws.length ? section(W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '') +
     (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
-    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(it.n)}</span><small>${esc(stageShort(it, en))}</small></span></a>`).join('')}</div>`) : '');
+    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
+    `<div id="find-people"></div>`;
   out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
+  // 立委 by name or 選區: straight to their page.
+  if ([...q].length >= 2)
+    peopleData()
+      .then(ppl => {
+        const hit = ppl.people.filter(x => !x.to && (x.n.includes(q) || x.area.includes(q))).slice(0, 4);
+        const el = $('find-people');
+        if (run === findRun && el && hit.length) el.outerHTML = section(W('立委', 'Legislators'), `<div class="lw-people">${hit.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a>`).join('')}</div>`);
+      })
+      .catch(() => {});
   if ([...q].length < 2 || jumpTo) return;
   // The articles: each term's hits, best laws first, then each one's best articles.
   let groups = [];

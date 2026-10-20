@@ -44,6 +44,10 @@ Live: https://jaypengx.github.io/Orbit-Law/
   The 立法 funnel counts versions by how far they got (`billCounts`), with how
   many still wait under each; a reviewed version a 三讀 of its law took over
   doesn't wait.
+- **Plain words** (`lib/cards.mjs`): stages read as what's happening
+  (等委員會審, 政黨協商中, 已通過), and 法案怎麼變成法律 (`STEP_HELP`) opens from
+  the funnel and a bill's bar. A card's line under the name is the newest
+  version's purpose (`aboutOf`, the 案由's 為… clause), also searched.
 - **議程** (`lib/agenda.mjs`): 立法院's meetings from the API's `/meets`
   (`ly/agenda.json`, three days back on; today's read again in the app, its
   發言名單 filling in on the day). The live video is IVOD's own stream for

@@ -9,6 +9,7 @@
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { hash } from '../public/lib/bills.mjs';
+import { compactMeet, streamsOf, twNow } from '../public/lib/agenda.mjs';
 import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups } from '../public/lib/ly.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
@@ -191,6 +192,27 @@ const budgetData = budget ? await step('budget build', () => {
   return { term, built, budgets: budgetGroups(budget, words) };
 }) : null;
 
+// ---- Agenda: the meetings from three days back on, and 國會頻道's live streams ----
+const agenda = await step('agenda', async () => {
+  const since = twNow(new Date(Date.now() - 3 * 864e5)).day;
+  const rows = [];
+  for (let page = 1; page <= 4; page++) {
+    const r = await get('meets', { limit: '100', page: String(page) });
+    rows.push(...(r.meets || []));
+    if (!(r.meets || []).length || (r.meets || []).every(m => [].concat(m['日期'] || []).every(d => d < since))) break;
+  }
+  return rows.map(compactMeet).filter(m => m.days.some(d => d.d >= since));
+});
+let streams = null;
+try {
+  const r = await fetch('https://www.youtube.com/@ParliamentaryTV/streams', { headers: { 'accept-language': 'zh-TW', 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30_000) });
+  streams = r.ok ? streamsOf(await r.text()) : null;
+  if (!streams || !Object.keys(streams).length) throw new Error(`no streams (${r.status})`);
+} catch (e) {
+  notes.push(`streams failed: ${e.message}`);
+  streams = (await prevJson('agenda.json'))?.streams || {};
+}
+
 // ---- Write, or carry over ----
 async function carry(path) {
   const old = await prevJson(path);
@@ -202,6 +224,11 @@ if (voteData) await write('votes.json', voteData);
 else await carry('votes.json');
 if (budgetData) await write('budget.json', budgetData);
 else await carry('budget.json');
+if (agenda) await write('agenda.json', { built, meets: agenda, streams });
+else {
+  const old = await prevJson('agenda.json');
+  await write('agenda.json', { built: old?.built || built, meets: old?.meets || [], streams: Object.keys(streams).length ? streams : old?.streams || {} });
+}
 if (people) await write('people.json', { term, built, people });
 else {
   const old = await carry('people.json');
@@ -209,5 +236,5 @@ else {
 }
 
 const secs = Math.round((Date.now() - started) / 1000);
-console.log(`ly: term ${term || '?'}, ${people?.length ?? 'carried'} legislators, ${voteData?.votes.length ?? 'carried'} votes, ${budgetData?.budgets.length ?? 'carried'} budgets, ${bills?.length ?? '-'} bills, ${clips?.length ?? '-'} clips, ${secs}s`);
+console.log(`ly: term ${term || '?'}, ${people?.length ?? 'carried'} legislators, ${voteData?.votes.length ?? 'carried'} votes, ${budgetData?.budgets.length ?? 'carried'} budgets, ${agenda?.length ?? 'carried'} meetings, ${Object.keys(streams).length} streams, ${bills?.length ?? '-'} bills, ${clips?.length ?? '-'} clips, ${secs}s`);
 for (const n of notes) console.log(`ly note: ${n}`);

@@ -627,3 +627,32 @@ test('授權: 訂之 wording, spaced article numbers, a former name, and a name 
   const d = delegations([{ p: 'L0040099', n: '卵磷脂衛生標準', a: [['A', '1', '本標準依食品衛生管理法第十七條規定訂定之。']] }], names, rows, former);
   assert.deepEqual(d.L0040001.rest, [['L0040099', '卵磷脂衛生標準']]);
 });
+
+import { compactMeet, sittings, sittingState, nextSitting, streamsOf, roomOf } from '../public/lib/agenda.mjs';
+test('議程: meetings kept small, live by Taiwan time, a bill’s next sitting, 國會頻道 streams', () => {
+  const raw = {
+    會議代碼: '委員會-11-6-26-3', 會議種類: '委員會', 會議標題: '社福委員會第3次全體委員會議', '委員會代號:str': ['社會福利及衛生環境委員會'],
+    會議資料: [{ 日期: '2026-10-22', 開始時間: '2026-10-22T09:00:00', 結束時間: '2026-10-22T17:30:00', 會議地點: '群賢樓801會議室', 會議單位: '社會福利及衛生環境委員會', 會議事由: '一、繼續審查行政院函請審議「食品安全衛生管理法部分條文修正草案」案。', ppg_url: 'u' }],
+    議事網資料: [{ 關係文書: { 議案: [{ 標題: '一、宣讀議事錄。' }, { 標題: '二、本院委員甲等16人擬具「乙法第一條條文修正草案」，請審議案。', 議案編號: '202110000010000', 法律編號: ['09999'] }] }, 連結: [{ 類型: 'video', 連結: 'https://ivod.ly.gov.tw/Demand/Meetvod?Meet=1' }] }],
+    發言紀錄: [{ smeetingDate: '2026-10-22', legislatorNameList: ['王一', '李二'] }, { smeetingDate: '2026-10-22', legislatorNameList: ['王一'] }]
+  };
+  const m = compactMeet(raw);
+  assert.equal(m.room, '社會福利及衛生環境委員會');
+  assert.deepEqual(m.days, [{ d: '2026-10-22', from: '09:00', to: '17:30', place: '群賢樓801會議室', ppg: 'u' }]);
+  assert.deepEqual(m.bills, [{ id: '202110000010000', t: '乙法第一條條文修正草案', laws: ['09999'], cat: '' }]);
+  assert.deepEqual(m.speakers, { '2026-10-22': ['王一', '李二'] });
+  assert.equal(m.videos.length, 1);
+  assert.equal(roomOf({ 會議種類: '院會', 會議資料: [{ 會議單位: '院會' }] }), '立法院會議');
+  const s = sittings([m])[0];
+  assert.equal(sittingState(s, new Date('2026-10-22T00:30:00Z')), 'later'); // 08:30 in Taipei
+  assert.equal(sittingState(s, new Date('2026-10-22T03:00:00Z')), 'live');
+  assert.equal(sittingState(s, new Date('2026-10-22T10:00:00Z')), 'done');
+  assert.equal(sittingState(s, new Date('2026-10-21T03:00:00Z')), 'ahead');
+  const now = new Date('2026-10-20T03:00:00Z');
+  assert.equal(nextSitting([m], { law: '09999' }, now)?.d, '2026-10-22');
+  assert.equal(nextSitting([m], { name: '食品安全衛生管理法' }, now)?.m.id, m.id);
+  assert.equal(nextSitting([m], { name: '安全衛生管理法' }, now), null);
+  assert.equal(nextSitting([m], { law: '09999' }, new Date('2026-10-23T03:00:00Z')), null);
+  const page = `<script>var ytInitialData = ${JSON.stringify({ a: [{ lockupViewModel: { contentId: 'bR5UF8qNktI', contentImage: { x: { imageName: 'LIVE' } }, metadata: { lockupMetadataViewModel: { title: { content: '內政委員會 | 國會頻道-立法院議事轉播' } } } } }, { lockupViewModel: { contentId: 'K0qWV0BHIJ4', contentImage: {}, metadata: { lockupMetadataViewModel: { title: { content: '記者會 | 國會頻道-立法院議事轉播' } } } } }] })};</script>`;
+  assert.deepEqual(streamsOf(page), { 內政委員會: 'bR5UF8qNktI' });
+});

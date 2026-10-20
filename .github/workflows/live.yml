@@ -1,0 +1,50 @@
+# 立法院 live: which IVOD channel carries each meeting on now (scripts/live-ly.mjs),
+# written every 90 seconds in sitting hours to live.json on the `live` branch
+# (one commit, replaced each time), which the app reads from
+# raw.githubusercontent.com. Each run watches for most of an hour; the
+# schedule starts one each hour, 08:00–22:00 Taiwan time, Monday to Friday.
+name: 立法院 live
+
+on:
+  schedule:
+    - cron: '0 0-13 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: 'live'
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 62
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts
+            public/lib
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Watch IVOD's live list
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          mkdir -p .live
+          git fetch -q origin live && git show origin/live:live.json > .live/live.json || true
+          last=''
+          end=$((SECONDS + 57 * 60))
+          while [ $SECONDS -lt $end ]; do
+            if node scripts/live-ly.mjs .live/live.json > .live/log.txt; then
+              now=$(jq -c '{rooms, places}' .live/live.json)
+              if [ "$now" != "$last" ]; then
+                cat .live/log.txt
+                ( cd .live && rm -rf .git && git init -q -b live && git add live.json && git -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -qm 'live' && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" live ) && last=$now
+              fi
+            fi
+            sleep 90
+          done

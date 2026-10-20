@@ -46,10 +46,14 @@ Live: https://jaypengx.github.io/Orbit-Law/
   doesn't wait.
 - **議程** (`lib/agenda.mjs`): 立法院's meetings from the API's `/meets`
   (`ly/agenda.json`, three days back on; today's read again in the app, its
-  發言名單 filling in on the day). Each room's live video is 國會頻道's
-  YouTube stream (its /streams page read at build; the room's name is the
-  title before 「|」), embedded from youtube-nocookie. IVOD itself can't be
-  framed (X-Frame-Options DENY). A meeting shows its bills' cards, the
+  發言名單 filling in on the day). The live video is IVOD's own stream for
+  that meeting: `scripts/live-ly.mjs`, run by `live.yml` every 90 seconds in
+  sitting hours, reads IVOD's live list and each live meeting's channel and
+  writes `live.json` to the `live` branch (read from raw.githubusercontent);
+  the app plays `ly-live<ch>`'s HLS. Nothing is matched by room name: a
+  meeting IVOD doesn't list as streaming shows its state, not a video.
+  (國會頻道's YouTube room streams were tried first and showed other
+  meetings; IVOD's own pages can't be framed.) A meeting shows its bills' cards, the
   speakers signed up, and the clips of who has spoken (the API's `/ivods`,
   each appearing as a speech ends). A bill's sheet shows the next meeting
   that takes it up (by 議案編號, law id, or its name in the 事由).

@@ -3025,3 +3025,15 @@ div.lw-video {
   width: 100%;
   margin: 0;
 }
+.lw-video-wait {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--q-surface);
+}
+.lw-video-wait p {
+  margin: 0;
+  color: var(--q-label-2);
+  font: var(--q-t-subhead, 400 14px/20px var(--q-font));
+}

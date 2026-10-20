@@ -1,8 +1,8 @@
 // 立法院's agenda (議事日程): its meetings from the g0v 立法院 API (/meets),
-// kept small, in Taiwan time; the 國會頻道 YouTube stream of each room; and
+// kept small, in Taiwan time; which IVOD channel streams each one now; and
 // which meeting a bill is next on. One place for the build and the app.
 
-// A meeting's room, as 國會頻道 names its streams: 立法院會議 for the floor,
+// A meeting's room: 立法院會議 for the floor,
 // 黨團協商 for caucus talks, else the convening committee.
 export function roomOf(m) {
   const kind = m['會議種類'] || '';
@@ -84,21 +84,34 @@ export function nextSitting(meets, { ids = [], law = '', name = '' } = {}, now =
   return sittings(meets.filter(on)).find(s => s.d >= day && sittingState(s, now) !== 'done') || null;
 }
 
-// 國會頻道's live streams from its /streams page (ytInitialData): { room: videoId }.
-// Titles read 「內政委員會 | 國會頻道-立法院議事轉播」.
-export function streamsOf(html) {
-  const out = {};
-  const json = (String(html).match(/ytInitialData\s*=\s*(\{.*?\});\s*<\/script>/s) || [])[1];
-  if (!json) return out;
-  const walk = o => {
-    if (!o || typeof o !== 'object') return;
-    const v = o.lockupViewModel;
-    if (v) {
-      const room = String(v.metadata?.lockupMetadataViewModel?.title?.content || '').split('|')[0].trim();
-      if (room && /^[\w-]{11}$/.test(v.contentId || '') && /"LIVE"/.test(JSON.stringify(v.contentImage || '')) && !out[room]) out[room] = v.contentId;
+// IVOD's live list (ivod.ly.gov.tw/Live/FetchCommInfo, HTML): one row per
+// meeting today, under its unit's heading: [{ unit, time, place, status, title, single }].
+// `single` is the meeting's player page (/Live/Single/...), there only while it streams.
+export function ivodLive(html) {
+  const out = [];
+  for (const block of String(html).split('<div class="live-list">').slice(1)) {
+    const unit = (block.match(/<h2>[^]*?<\/i>\s*([^<]+?)\s*<\/h2>/) || [])[1] || '';
+    for (const li of block.split('<li>').slice(1)) {
+      const pick = re => ((li.match(re) || [])[1] || '').trim();
+      out.push({
+        unit,
+        time: pick(/class="time">([^<]+)</),
+        place: pick(/class="place">([^<]+)</),
+        status: pick(/class="status"[^>]*>([^<]+)</),
+        title: pick(/class="metdec"\s+title="([^"]+)"/),
+        single: pick(/href="(\/Live\/Single\/[^"]+)"/)
+      });
     }
-    for (const x of Object.values(o)) walk(x);
-  };
-  walk(JSON.parse(json));
+  }
   return out;
+}
+
+// A live HLS stream of 立法院's own (IVOD's channels on HiNet; open to any page).
+export const liveHls = ch => `https://lylive-ott2b2.cdn.hinet.net/live/pool/ly-live${ch}/live-hls-cl-tv/index.m3u8`;
+
+// Today's meeting in IVOD's live list: same unit (院會 for the floor) and start time.
+export function liveOf(rooms, m, s) {
+  const unit = m.room === '立法院會議' ? '院會' : m.room;
+  const at = `${s.d} ${s.from}`;
+  return (rooms || []).find(r => r.time === at && (r.unit === unit || r.unit.includes(unit) || unit.includes(r.unit) || r.title.startsWith(m.title))) || null;
 }

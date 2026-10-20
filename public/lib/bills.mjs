@@ -174,12 +174,6 @@ export function openRound(bills, passed = bills.map(passedOn).sort().pop() || ''
   return bills.filter(b => !billStage(b).dropped && !passedOn(b) && (!passed || b.u > passed));
 }
 
-// "What changed since you last looked": the items whose 最新進度日期 is
-// past the day this device last saw them (a followed item never seen counts).
-export function changedSince(items, seen = {}) {
-  return items.filter(it => it.u && it.u > (seen[it.k] || ''));
-}
-
 // Bills worth refetching: everything whose 最新進度日期 is on or after the
 // last build day less a margin (the API's dates are meeting days, set ahead).
 export function mergeBills(prev, fresh) {

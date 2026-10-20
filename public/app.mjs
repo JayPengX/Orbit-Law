@@ -8,9 +8,10 @@
 // Tabs: 首頁 (ask, today's bills, topics), 法規 (search and topics, then a
 // law to read), 問法律, 立法 (bills by stage), 追蹤 (followed and moved).
 
-import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
-import { h, sheet, search, toast } from '#kit/ui.mjs';
-import * as ui from '#kit/ui.mjs';
+import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic, updateChecked } from '#kit/quadra.mjs';
+import { h, sheet, search, toast, wireNavTitles } from '#kit/ui.mjs';
+import { passSync } from '#kit/pass-sync.mjs';
+import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK } from './lib/find.mjs';
@@ -18,7 +19,6 @@ import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabe
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, sittingState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
-import { W, en } from './lib/lang.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo } from './lib/rulings.mjs';
@@ -43,14 +43,10 @@ const q = quadraSession('law', { lang: en ? 'en' : 'zh' });
 // boot.js's first look at version.json, waited for under the loading screen:
 // a newer deploy is loaded before anything shows (boot.js reloads only while
 // the app hasn't said it started), never shown and then swapped.
-// (The kit's updateChecked() does the same; this also covers a phone still
-// on an older boot.js, which reloads only before the app says it started.)
-const booted = Promise.race([Promise.resolve(globalThis.__bootCheck), new Promise(done => setTimeout(() => done('late'), 7000))])
-  .catch(() => '')
-  .then(r => {
-    if (r !== 'boot') window.__fxStarted = true;
-    return r;
-  });
+const booted = updateChecked().then(ok => {
+  if (ok) window.__fxStarted = true;
+  return ok;
+});
 const gated = installGate('law');
 topActions(q);
 // The AI routes count per Pass: each call carries this app's session.
@@ -131,7 +127,7 @@ function showTab(id) {
 // A page's large title (and a line over it).
 const pageHead = (title, over = '') => `<header class="lw-head${title ? '' : ' bare'}">${over ? `<p class="lw-over">${esc(over)}</p>` : ''}${title ? `<h1 class="q-large-title q-nav-title" data-q-nav>${esc(title)}</h1>` : ''}</header>`;
 // A tab's large title folds into the kit's small glass bar as it scrolls away.
-const wireTitles = root => setTimeout(() => ui.wireNavTitles?.(root));
+const wireTitles = root => setTimeout(() => wireNavTitles(root));
 const headNode = (title, over) => h('div', { html: pageHead(title, over) }).firstChild;
 
 // ---- Routing: #law=B0000001&a=184 · #tab=bills · #item=11-01126 · #tab=ask&q=… ------------
@@ -2071,26 +2067,22 @@ async function start() {
   $('loading')?.setAttribute('hidden', '');
 }
 
-// What's followed on the Pass: the kit's sync (an older kit cached on a
-// phone may lack it: this phone's copy only, then).
+// What's followed on the Pass: the kit's sync.
 async function signIn() {
-  const kit = await import('#kit/pass-sync.mjs').catch(() => null);
-  if (kit?.passSync)
-    pass = kit.passSync(q, {
-      decode: decodeMine,
-      encode: () => encodeMine(state.mine),
-      apply: theirs => {
-        const was = encodeMine(state.mine);
-        state.mine = mergeMine(state.mine, theirs);
-        if (encodeMine(state.mine) === was) return;
-        saveMine(state.mine, undefined, state.mine.t);
-        badge();
-        if (state.tab === 'mine') drawMine();
-        if (state.tab === 'home') drawHome();
-      }
-    });
+  pass = passSync(q, {
+    decode: decodeMine,
+    encode: () => encodeMine(state.mine),
+    apply: theirs => {
+      const was = encodeMine(state.mine);
+      state.mine = mergeMine(state.mine, theirs);
+      if (encodeMine(state.mine) === was) return;
+      saveMine(state.mine, undefined, state.mine.t);
+      badge();
+      if (state.tab === 'mine') drawMine();
+      if (state.tab === 'home') drawHome();
+    }
+  });
   const first = await q.start();
-  if (!pass) return;
   const m = state.mine;
   await pass.first(first, { local: Boolean(Object.keys(m.laws).length || Object.keys(m.items).length || m.marks.length || m.recent.length) });
   pass.watch();
@@ -2101,8 +2093,8 @@ async function signIn() {
 // loading screen covers it meanwhile, so nothing is tapped on the old one.
 addEventListener('beforeunload', () => $('loading')?.removeAttribute('hidden'));
 if (!gated)
-  booted.then(r => {
-    if (r === 'boot') return;
+  booted.then(ok => {
+    if (!ok) return;
     start();
     signIn();
     keepOffline();

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { artKey, pcodeOf, compactLaw, diffLaws, historyChange, mergeChanges, indexRow } from '../public/lib/data.mjs';
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
-import { stageOf, compactBill, billStage, foldBills, lawOfTitle, changedSince, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
+import { stageOf, compactBill, billStage, foldBills, lawOfTitle, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
 import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
 import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
 import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
@@ -143,12 +143,11 @@ test('bills: every version on one law in a term is one item; 三讀 then the MOJ
   assert.deepEqual([again.stage, again.open, again.pub], [4, 1, '20260320'], 'a quiet version from before the vote is not open');
 });
 
-test('bills: titles name their law; merge keeps the newest; changed since last look', () => {
+test('bills: titles name their law; merge keeps the newest', () => {
   assert.equal(lawOfTitle('民法部分條文修正草案', new Map([['民法', 'B']])), '民法');
   assert.equal(lawOfTitle('「行政法人法第二條條文修正草案」'), '行政法人法');
   assert.equal(lawOfTitle('寵物食品安全管理法草案'), '寵物食品安全管理法');
   assert.deepEqual(mergeBills([{ id: '1', u: 'a' }, { id: '2', u: 'a' }], [{ id: '1', u: 'b' }]).map(b => b.u), ['b', 'a']);
-  assert.deepEqual(changedSince([{ k: 'x', u: '2026-02-01' }, { k: 'y', u: '2026-01-01' }], { x: '2026-01-15', y: '2026-01-01' }).map(i => i.k), ['x']);
 });
 
 test('search: names, short names, characters in order, jumps to an article', () => {
@@ -544,8 +543,8 @@ test('saved chats: kept newest first, failed questions dropped, renames stay, ca
   assert.equal(titleOf([{ role: 'user', text: 'a'.repeat(50) }]).length, 40);
 });
 
-test('政府公告: feeds parsed and merged, the best match for a figure found', async () => {
-  const { parseFeed, mergeNews, matchNews } = await import('../public/lib/news.mjs');
+test('政府公告: feeds parsed and merged', async () => {
+  const { parseFeed, mergeNews } = await import('../public/lib/news.mjs');
   const xml = `<rss><channel><title>公布欄</title><item><title><![CDATA[最低工資連11漲!每月30,900元]]></title><link>
     https://www.mol.gov.tw/a/1/
   </link><description><![CDATA[<p>自116年1月1日起，每小時205元。</p>]]></description><pubDate>Wed, 30 Sep 2026 02:00:00 GMT</pubDate></item><item><title>金管會每日新聞（115年10月16日）</title><link>https://x/2</link></item></channel></rss>`;
@@ -553,8 +552,6 @@ test('政府公告: feeds parsed and merged, the best match for a figure found',
   assert.deepEqual(items, [['2026-09-30', '勞動部', '最低工資連11漲!每月30,900元', 'https://www.mol.gov.tw/a/1/', '自116年1月1日起，每小時205元。']]);
   const kept = mergeNews([['2020-01-01', 'x', 'old', 'u0', ''], ['2026-01-01', 'x', '健保費率調整', 'u1', '']], items, new Date('2026-10-18'));
   assert.deepEqual(kept.map(r => r[3]), ['https://www.mol.gov.tw/a/1/', 'u1']);
-  assert.equal(matchNews(kept, '明年基本工資多少')[0][3], 'https://www.mol.gov.tw/a/1/');
-  assert.deepEqual(matchNews(kept, '颱風假'), []);
 });
 
 test('chat: notices and bills the answer drew on are kept only in a safe shape', async () => {

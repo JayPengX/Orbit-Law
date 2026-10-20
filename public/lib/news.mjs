@@ -44,31 +44,3 @@ export function mergeNews(prev, fresh, now = new Date(), days = KEEP_DAYS) {
   for (const r of [...fresh, ...(prev || [])]) if (!by.has(r[3]) && (!r[0] || r[0] >= cutoff)) by.set(r[3], r);
   return [...by.values()].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0)).slice(0, KEEP_MAX);
 }
-
-// The notices that best match a question: shared two-character pieces,
-// the title counting double, newer first on a tie. (The AI Worker does the same.)
-const SAME = [['基本工資', '最低工資'], ['時薪', '每小時工資'], ['月薪', '每月工資']];
-const pairs = s => {
-  const t = String(s).replace(/[^\p{Script=Han}\p{L}\p{N}]/gu, '');
-  const out = new Set();
-  for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
-  return out;
-};
-export function matchNews(items, q, n = 5) {
-  let query = String(q);
-  for (const group of SAME) if (group.some(w => query.includes(w))) query += group.join('');
-  const want = pairs(query);
-  if (!want.size) return [];
-  const score = r => {
-    let s = 0;
-    for (const p of pairs(r[2])) if (want.has(p)) s += 2;
-    for (const p of pairs(r[4])) if (want.has(p)) s += 0.25;
-    return s;
-  };
-  return items
-    .map(r => [score(r), r])
-    .filter(([s]) => s >= 4)
-    .sort((a, b) => b[0] - a[0] || (a[1][0] < b[1][0] ? 1 : -1))
-    .slice(0, n)
-    .map(([, r]) => r);
-}

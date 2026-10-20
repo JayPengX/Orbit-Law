@@ -154,10 +154,6 @@
   background: color-mix(in srgb, var(--q-orange) 18%, transparent);
   color: var(--q-orange);
 }
-.lw-day {
-  color: var(--q-label-2);
-  font: var(--q-t-caption);
-}
 
 /* ---- Lists of laws: a card of rows, each a tile, two lines and a chevron ---- */
 .lw-list {
@@ -794,20 +790,6 @@
 .lw-strip .lw-prog {
   grid-column: 1 / -1;
   margin-top: 6px;
-}
-.lw-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 0 0;
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-}
-.lw-hint svg {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  color: var(--q-indigo);
 }
 .lw-fw {
   margin: 16px 0 0;

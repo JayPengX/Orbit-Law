@@ -2,7 +2,7 @@
 // bill item's stage bar and timeline. Strings, so the tests read them and
 // a long law (民法: 1,225 articles) draws in one go.
 import { linkText, paragraphs, interpLinks } from './refs.mjs';
-import { STAGES, STAGES_EN, PASSED, PROMULGATED, stageOf, openRound } from './bills.mjs';
+import { STAGES, STAGES_EN, PROMULGATED, stageOf, openRound } from './bills.mjs';
 import { headingDepth, ymd } from './search.mjs';
 import { noticeBefore, noticeUrl } from './notices.mjs';
 
@@ -78,12 +78,6 @@ export function articlesBetween(law, from, to = from) {
   return arts.slice(i, Math.max(i, j) + 1).slice(0, 20);
 }
 
-// The stage bar: one dot per stage, filled to where the item is.
-export function stageBar(item, en = false) {
-  const names = en ? STAGES_EN : STAGES;
-  const dots = names.map((n, i) => `<i class="${i <= item.stage ? 'on' : ''}${i === item.stage ? ' now' : ''}" title="${esc(n)}"></i>`).join('');
-  return `<span class="lw-stages${item.held ? ' held' : ''}${item.dropped ? ' dropped' : ''}" aria-label="${esc(stageLabel(item, en))}">${dots}</span>`;
-}
 export function stageLabel(item, en = false) {
   if (item.dropped) return en ? 'Withdrawn' : '已撤回';
   const name = (en ? STAGES_EN : STAGES)[Math.max(0, item.stage)];
@@ -109,7 +103,6 @@ export function timeline(item, all, en = false, notices = []) {
   return draft ? [{ stage: -1, name: en ? 'Draft posted' : '預告', date: draft.from, raw: draft.t, done: true, url: noticeUrl(draft.id), by: draft.gov }, ...steps] : steps;
 }
 
-export const PASSED_STAGE = PASSED;
 export { stageOf, ymd };
 
 // The latest amendment's marks for a law (修法追蹤): its added and amended

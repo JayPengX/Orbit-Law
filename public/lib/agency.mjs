@@ -212,7 +212,3 @@ export function byLaw(rules, withText = new Set()) {
   for (const [p, f] of Object.entries(files)) counts[p] = new Set([...Object.values(f.to).flat(), ...f.rest].map(x => x[0])).size;
   return { files, counts };
 }
-
-// Articles that call for a rule (「…辦法，由主管機關定之」), by key.
-const DELEGATES = /(辦法|規則|標準|細則|準則|規程|要點|規定)[^。]{0,20}由[^。]{0,30}定之/;
-export const delegates = text => DELEGATES.test(text || '');

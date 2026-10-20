@@ -2795,6 +2795,10 @@ button.lw-row {
   white-space: nowrap;
   font-size: calc(16px * var(--q-fit, 1));
 }
+.lw-list .lw-row-name.q-fit.lw-fit-sm,
+.lw-bill-name.q-fit.lw-fit-sm {
+  font-size: calc(15px * var(--q-fit, 1));
+}
 .lw-vote-law { display: block; color: var(--q-indigo); font: 700 13px/18px var(--q-font); }
 .lw-mine-hint {
   display: flex;

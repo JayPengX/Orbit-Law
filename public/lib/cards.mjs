@@ -119,7 +119,8 @@ export function articleChips(it, en = false, max = 12) {
 
 // A Chinese name short enough to fit one line once shrunk (the kit's .q-fit,
 // down to 72%) gets one line; a longer one keeps two even lines.
-export const fitClass = (name, max = 17) => (/^[^a-z]*$/i.test(name) && String(name).length <= max ? ' q-fit' : '');
+// One more character fits from a size smaller (lw-fit-sm).
+export const fitClass = (name, max = 17) => (/[a-z]/i.test(name) ? '' : String(name).length <= max ? ' q-fit' : String(name).length === max + 1 ? ' q-fit lw-fit-sm' : '');
 
 // A bill item as a card: topic tile, the law, the bar, its stage and day,
 // who proposed it, how many versions and articles (a rail's narrow card: the

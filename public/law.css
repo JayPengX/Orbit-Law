@@ -621,7 +621,7 @@
   text-overflow: ellipsis;
 }
 /* English topic names run longer: two lines, never cut. */
-:lang(en) .lw-topic > span {
+:lang(en) .lw-topic > span.q-wrapped {
   font-size: 13px;
   white-space: normal;
   overflow-wrap: normal;
@@ -2788,16 +2788,24 @@ button.lw-row {
   -webkit-box-orient: vertical;
 }
 .lw-bill-name { text-wrap: balance; }
-/* A name that fits one line shrunk (cards.mjs fitClass): one line, the kit's .q-fit. */
-.lw-list .lw-row-name.q-fit,
-.lw-bill-name.q-fit {
+/* A name on one line, shrunk by the kit (.q-fit-wrap); wrapped, two even lines (English rows: whole). */
+.lw-list .lw-row-name.q-fit-wrap:not(.q-wrapped),
+.lw-bill-name.q-fit-wrap:not(.q-wrapped) {
   display: block;
   white-space: nowrap;
-  font-size: calc(16px * var(--q-fit, 1));
 }
-.lw-list .lw-row-name.q-fit.lw-fit-sm,
-.lw-bill-name.q-fit.lw-fit-sm {
-  font-size: calc(15px * var(--q-fit, 1));
+:lang(en) .lw-list .lw-row-name.q-wrapped {
+  display: block;
+}
+:lang(en) .lw-bill-name.q-wrapped {
+  -webkit-line-clamp: 3;
+}
+/* A row's name gets the room up to the chevron. */
+.lw-row .lw-chev {
+  margin-left: -6px;
+}
+.lw-row {
+  padding-right: 8px;
 }
 .lw-vote-law { display: block; color: var(--q-indigo); font: 700 13px/18px var(--q-font); }
 .lw-mine-hint {

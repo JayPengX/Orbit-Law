@@ -26,7 +26,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, fitClass, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, fit, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -282,7 +282,7 @@ function drawHome() {
     .catch(() => {});
 }
 // Laws as book covers (Books' shelves): the topic's colour, its mark, the name.
-const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b>${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
+const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b class="q-fit-wrap">${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
 const svgTopic = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOPICS[id].icon}</svg>`;
 // For you: the laws people use most in the topics you read and follow, newest
 // amended first, not yet opened; everyday laws when there's nothing to go on.
@@ -310,14 +310,14 @@ function rulingCard([jid, d, t, cites]) {
   for (const c of cites) { const [p, k] = c.split(':'); if (state.byCode.has(p)) byLaw.set(p, [...(byLaw.get(p) || []), k]); }
   const groups = [...byLaw];
   const chips = groups.slice(0, 2).map(([p, ks]) => citeChip(p, ks, state.byCode.get(p)[1])).join('') + (groups.length > 2 ? `<span class="lw-cite more">+${groups.length - 2}</span>` : '');
-  return `<div class="lw-bill lw-ruling" style="--t:${TOPICS.justice.color}"><span class="lw-bill-top">${topicTile('justice', 'sm')}<span class="lw-bill-stage court">${esc(court)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name${fitClass(t || jid, 18)}" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener">${esc(t || jid)}</a><span class="lw-cites">${chips}</span></div>`;
+  return `<div class="lw-bill lw-ruling" style="--t:${TOPICS.justice.color}"><span class="lw-bill-top">${topicTile('justice', 'sm')}<span class="lw-bill-stage court">${esc(court)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name${fit(t || jid)}" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener">${esc(t || jid)}</a><span class="lw-cites">${chips}</span></div>`;
 }
 
 function topicGrid() {
   const counts = {};
   for (const r of state.rows) if (r[2] !== '命令' && !r[5]) counts[rowTopic(r)] = (counts[rowTopic(r)] || 0) + 1;
   return `<div class="lw-topics">${Object.keys(TOPICS)
-    .map(id => `<a class="lw-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}">${topicTile(id)}<span>${esc(topicName(id, en))}</span><small>${counts[id] ? W(`${counts[id]} 部`, `${counts[id]}`) : ''}</small></a>`)
+    .map(id => `<a class="lw-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}">${topicTile(id)}<span class="q-fit-wrap">${esc(topicName(id, en))}</span><small>${counts[id] ? W(`${counts[id]} 部`, `${counts[id]}`) : ''}</small></a>`)
     .join('')}</div>`;
 }
 
@@ -386,7 +386,7 @@ async function findAll(q, out) {
   const nameBlocks = () =>
     (laws.length ? section(W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '') +
     (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
-    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fitClass(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
+    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-people"></div>`;
   out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
   // 立委 by name or 選區: straight to their page.
@@ -1360,12 +1360,12 @@ function drawBillList() {
     groups.set(g, [...(groups.get(g) || []), it]);
   }
   const order = ['filed', '5', '4', '3', '2', '1', '0', 'held', 'dropped'];
-  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已通過（三讀）', 'Passed') : g === '2' ? W('委員會審查中', 'In committee') : g === '3' ? W('在院會：協商、等表決', 'On the floor: talks, awaiting a vote') : g === '1' ? W('一讀過了，等委員會審', 'Read once, awaiting committee') : STEPS[g][en ? 1 : 0]);
+  const title = g => (g === 'filed' ? W('有新提案等一讀', 'Awaiting 1st reading') : g === 'held' ? W('暫緩', 'On hold') : g === 'dropped' ? W('已撤回', 'Withdrawn') : g === '5' ? W('已公布', 'Now law') : g === '4' ? W('已通過（三讀）', 'Passed') : g === '2' ? W('委員會審查中', 'In committee') : g === '3' ? W('在院會：協商、等表決', 'On the floor') : g === '1' ? W('一讀過了，等委員會審', 'Waiting for committee') : STEPS[g][en ? 1 : 0]);
   out.innerHTML = order
     .filter(g => groups.has(g))
     .map(g => {
       const all = groups.get(g);
-      const n = 20 + (billMore[g] || 0);
+      const n = 8 + (billMore[g] || 0);
       const more = all.length > n ? `<button type="button" class="lw-more" data-more="${g}">${W(`再顯示 ${Math.min(40, all.length - n)} 項（共 ${all.length}）`, `Show ${Math.min(40, all.length - n)} more (${all.length})`)}</button>` : '';
       return `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(title(g))}</h2><span class="lw-count">${all.length}</span></div>${grid(all.slice(0, n).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))}${more}</section>`;
     })

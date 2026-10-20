@@ -586,10 +586,21 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Three across; the last row's leftovers share it, so the grid has no hole. */
 .lw-topics {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
+}
+.lw-topics > * {
+  grid-column: span 2;
+}
+.lw-topics > :last-child:nth-child(3n + 1) {
+  grid-column: 1 / -1;
+}
+.lw-topics > :nth-last-child(2):nth-child(3n + 1),
+.lw-topics > :last-child:nth-child(3n + 2) {
+  grid-column: span 3;
 }
 .lw-topic {
   display: grid;
@@ -1671,9 +1682,6 @@ a.lw-art-chip {
   }
   .lw-stat b {
     font-size: 21px;
-  }
-  .lw-topics {
-    grid-template-columns: repeat(3, 1fr);
   }
   .lw-hero strong {
     font-size: 19px;
@@ -2780,6 +2788,13 @@ button.lw-row {
   -webkit-box-orient: vertical;
 }
 .lw-bill-name { text-wrap: balance; }
+/* A name that fits one line shrunk (cards.mjs fitClass): one line, the kit's .q-fit. */
+.lw-list .lw-row-name.q-fit,
+.lw-bill-name.q-fit {
+  display: block;
+  white-space: nowrap;
+  font-size: calc(16px * var(--q-fit, 1));
+}
 .lw-vote-law { display: block; color: var(--q-indigo); font: 700 13px/18px var(--q-font); }
 .lw-mine-hint {
   display: flex;

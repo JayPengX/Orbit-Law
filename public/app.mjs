@@ -26,7 +26,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, fitClass, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -224,7 +224,7 @@ function changeText(c, brief = false) {
   const keys = ks => ks.slice(0, 3).join(W('、', ', ')) + (ks.length > 3 ? W(` 等 ${ks.length} 條`, ` +${ks.length - 3}`) : W(' 條', ''));
   const kinds = [[c.amended, '改第', 'Art. ', '改', 'amended'], [c.added, '增第', 'new ', '增', 'new'], [c.removed, '刪第', 'removed ', '刪', 'removed']];
   const parts = kinds.filter(([ks]) => ks.length).map(([ks, zh, e, zhN, eN]) => (brief && ks.length > 2 ? W(`${zhN} ${ks.length} 條`, `${ks.length} ${eN}`) : (en ? e : zh) + keys(ks)));
-  return `${W('修正', 'Amended')} ${shortDay(c.m)}${parts.length ? ` · ${parts.join(W('・', ' · '))}` : ''}`;
+  return `${W('修正', brief ? 'Rev.' : 'Amended')} ${shortDay(c.m)}${parts.length ? ` · ${parts.join(W('・', ' · '))}` : ''}`;
 }
 // 新 on an amendment from the last two weeks; older ones in the list go untagged.
 const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
@@ -310,7 +310,7 @@ function rulingCard([jid, d, t, cites]) {
   for (const c of cites) { const [p, k] = c.split(':'); if (state.byCode.has(p)) byLaw.set(p, [...(byLaw.get(p) || []), k]); }
   const groups = [...byLaw];
   const chips = groups.slice(0, 2).map(([p, ks]) => citeChip(p, ks, state.byCode.get(p)[1])).join('') + (groups.length > 2 ? `<span class="lw-cite more">+${groups.length - 2}</span>` : '');
-  return `<div class="lw-bill lw-ruling" style="--t:${TOPICS.justice.color}"><span class="lw-bill-top">${topicTile('justice', 'sm')}<span class="lw-bill-stage court">${esc(court)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener">${esc(t || jid)}</a><span class="lw-cites">${chips}</span></div>`;
+  return `<div class="lw-bill lw-ruling" style="--t:${TOPICS.justice.color}"><span class="lw-bill-top">${topicTile('justice', 'sm')}<span class="lw-bill-stage court">${esc(court)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name${fitClass(t || jid, 18)}" href="${esc(rulingUrl(jid))}" target="_blank" rel="noopener">${esc(t || jid)}</a><span class="lw-cites">${chips}</span></div>`;
 }
 
 function topicGrid() {
@@ -386,7 +386,7 @@ async function findAll(q, out) {
   const nameBlocks = () =>
     (laws.length ? section(W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '') +
     (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
-    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
+    (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fitClass(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-people"></div>`;
   out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
   // 立委 by name or 選區: straight to their page.
@@ -2065,7 +2065,7 @@ async function start() {
       if (state.tab === 'laws' && !state.law) drawResults();
     })
     .catch(() => {});
-  data('rulings/latest.json')
+  const latestReady = data('rulings/latest.json')
     .then(r => {
       state.latestRulings = r.rulings || [];
       if (state.tab === 'home') drawHome();
@@ -2073,7 +2073,7 @@ async function start() {
     .catch(() => {});
   // The followed legislators' news, for the badge.
   if (Object.keys(state.mine.people || {}).length && state.tab !== 'mine') trackedFeeds(state.mine).catch(() => {});
-  data('changes.json')
+  const changesReady = data('changes.json')
     .then(c => {
       state.changes = c;
       redraw();
@@ -2081,6 +2081,10 @@ async function start() {
     })
     .catch(() => {});
   await route();
+  // The loading screen lifts on a finished screen: home's and 立法's cards
+  // drawn (kept files come at once; a slow first open waits 4 s at most).
+  const firstNeeds = { home: [itemsReady, changesReady, latestReady], bills: [itemsReady], mine: [itemsReady, changesReady] }[state.tab] || [];
+  await Promise.race([Promise.all(firstNeeds), new Promise(r => setTimeout(r, 4000))]);
   $('loading')?.setAttribute('hidden', '');
 }
 

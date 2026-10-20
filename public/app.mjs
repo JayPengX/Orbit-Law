@@ -2099,4 +2099,4 @@ if (!gated)
     signIn();
     keepOffline();
   });
-watchUpdates({ current: BUILD, key: 'orbitLaw', cachePrefix: 'orbit-law-', busy: () => Boolean(document.querySelector('dialog[open]')) });
+watchUpdates({ current: BUILD, key: 'orbitLaw', cachePrefix: 'orbit-law-' });

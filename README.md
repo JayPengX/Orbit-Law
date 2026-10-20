@@ -37,6 +37,10 @@ Live: https://jaypengx.github.io/Orbit-Law/
   (index names plus `SHORT_NAMES`). A name we don't know right before 第X條
   links nothing (a repealed 組織條例 is not this law). About 99% of the 28k
   references in force land on a real article.
+- **Names** (`abbr` in `lib/refs.mjs`): a law's 簡稱 (only ones in real use,
+  勞基法, 道交條例) where it shares a line: chips, title bars, vote labels. Rows
+  and cards show the whole name across their full width, two lines at most;
+  counts sit on the line under it.
 - **Stages** (`lib/bills.mjs`): 提案 → 一讀 → 委員會審查 → 審查完畢 → 黨團協商
   → 二讀 → 三讀 → 總統公布. 總統公布 is when the MOJ copy's 異動日期 is on or
   after the 三讀. Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.

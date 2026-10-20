@@ -118,22 +118,24 @@ export function articleChips(it, en = false, max = 12) {
 }
 
 // A bill item as a card: topic tile, the law, the bar, its stage and day,
-// who proposed it, how many versions and articles. `topic`: its topic id.
+// who proposed it, how many versions and articles (a rail's narrow card: the
+// first of those). `topic`: its topic id.
 export function billCard(it, { topic = 'gov', en = false, now, wide = false } = {}) {
   const arts = Object.keys(it.arts || {}).length;
-  const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 個版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean);
+  const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean).slice(0, wide ? 2 : 1);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
 <span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(dayOf(it.u, en, now))}</span></span>
-<span class="lw-bill-name">${esc(it.n)}</span>
+<span class="lw-bill-name">${esc(String(it.n).replace(/^中華民國(?!\d)/, ''))}</span>
 ${it.about && !en ? `<span class="lw-bill-about">${esc(it.about)}</span>` : ''}
 ${progress(it, en)}
-<span class="lw-bill-foot"><span class="lw-bill-parties">${partyChips((it.by || []).map(([who]) => [who, 0]), en, 2)}</span>${meta.length ? `<small class="lw-bill-meta">${esc(meta.join(' · '))}</small>` : ''}</span>
+<span class="lw-bill-foot"><span class="lw-bill-parties">${partyChips((it.by || []).map(([who]) => [who, 0]), en, 1)}${it.by?.length > 1 ? `<span class="lw-party more">+${it.by.length - 1}</span>` : ''}</span>${meta.length ? `<small class="lw-bill-meta">${esc(meta.join(en ? ' · ' : '・'))}</small>` : ''}</span>
 </a>`;
 }
 
-// A law as a row: tile, name, one line under it; `extra` on the right.
+// A law as a row: tile, the name (the whole width, two lines), one line under it
+// ending in `extra` (a count tag).
 export function lawRow(row, { topic = 'gov', sub = '', extra = '', href } = {}) {
-  return `<a class="lw-row" href="${esc(href || `#law=${row[0]}`)}">${topicTile(topic, 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(row[1])}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span>${extra}<svg class="lw-chev" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
+  return `<a class="lw-row" href="${esc(href || `#law=${row[0]}`)}">${topicTile(topic, 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(row[1])}</span>${sub || extra ? `<span class="lw-row-meta">${sub ? `<small>${esc(sub)}</small>` : ''}${extra}</span>` : ''}</span><svg class="lw-chev" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>`;
 }
 
 // How many bills stand at each step: a small bar chart of the term.

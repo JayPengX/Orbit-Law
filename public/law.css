@@ -202,6 +202,25 @@
   color: var(--q-label-2);
   font: var(--q-t-footnote);
 }
+.lw-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.lw-row-meta small {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lw-row-meta .lw-tag {
+  flex: none;
+  min-height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+}
 .lw-chev {
   flex: none;
   width: 8px;
@@ -590,6 +609,16 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* English topic names run longer: two lines, never cut. */
+:lang(en) .lw-topic > span {
+  font-size: 13px;
+  white-space: normal;
+  overflow-wrap: normal;
+  text-overflow: clip;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  text-wrap: balance;
+}
 .lw-topic small {
   margin-top: -6px;
   color: var(--q-label-2);
@@ -726,17 +755,25 @@
 }
 .lw-over-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
 }
-.lw-over-name {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-.lw-over-name strong {
+.lw-over-title {
+  display: block;
   font: 700 22px/28px var(--q-font);
   overflow-wrap: anywhere;
+}
+/* A long name in big type steps down a size and breaks evenly. */
+.lw-big-name {
+  text-wrap: balance;
+}
+.lw-big-name.long {
+  font-size: 19px;
+  line-height: 25px;
+}
+.lw-big-name.xlong {
+  font-size: 17px;
+  line-height: 23px;
 }
 .lw-tag.topic {
   background: color-mix(in srgb, var(--t, var(--q-indigo)) 16%, transparent);
@@ -778,6 +815,13 @@
   font: var(--q-t-footnote);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* What's moving: two lines before it gives up. */
+.lw-strip > span {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .lw-strip em {
   grid-column: 2;
@@ -1723,7 +1767,20 @@ a.lw-art-chip {
   gap: 4px;
 }
 .lw-cites .lw-cite {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
   margin: 0;
+  overflow: hidden;
+  line-height: 22px;
+  text-overflow: ellipsis;
+}
+.lw-cite b {
+  font-weight: 800;
+}
+.lw-cite.more {
+  background: var(--q-fill-3);
+  color: var(--q-label-2);
 }
 .lw-list.in-sheet {
   margin-bottom: calc(16px + env(safe-area-inset-bottom));
@@ -2565,7 +2622,7 @@ button.lw-row {
 /* Law page doors: 目錄, 子法, 判決, 授權依據 with their counts. */
 .lw-doors {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
   gap: 8px;
   margin: 0 0 12px;
 }
@@ -2575,7 +2632,7 @@ button.lw-row {
   justify-items: start;
   gap: 2px;
   min-width: 0;
-  padding: 10px 10px 9px;
+  padding: 10px 8px 9px;
   border: 0;
   border-radius: 16px;
   background: var(--q-surface);
@@ -2706,14 +2763,6 @@ button.lw-row {
 .lw-find-card { grid-template-columns: minmax(0, 1fr); min-width: 0; overflow: hidden; }
 .lw-find-card p { overflow-wrap: anywhere; }
 .lw-find-subs span { display: block; box-sizing: border-box; }
-.lw-title h2 {
-  display: -webkit-box;
-  white-space: normal;
-  font-size: 16px;
-  line-height: 20px;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
 .lw-door.wide { grid-column: span 2; }
 .lw-door.wide b {
   display: -webkit-box;
@@ -2726,10 +2775,11 @@ button.lw-row {
 .lw-list .lw-row-name {
   display: -webkit-box;
   white-space: normal;
+  text-wrap: balance;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.lw-bill-name { text-wrap: pretty; }
+.lw-bill-name { text-wrap: balance; }
 .lw-vote-law { display: block; color: var(--q-indigo); font: 700 13px/18px var(--q-font); }
 .lw-mine-hint {
   display: flex;
@@ -2872,10 +2922,12 @@ div.lw-jd-point {
 /* 表決: one card a day per agenda item, with each party's side */
 .lw-vgroups { display: grid; gap: 10px; }
 .lw-vgroup { display: grid; gap: 8px; width: 100%; padding: 14px 16px; border: 0; border-radius: 18px; background: var(--q-surface); color: var(--q-label); font: inherit; text-align: start; }
-.lw-vg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.lw-vg-top b { font: 600 17px/1.35 var(--q-font); min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.lw-vg-t { font: 600 17px/1.35 var(--q-font); min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: balance; }
+.lw-vg-foot { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lw-vg-foot small { min-width: 0; }
+.lw-vg-foot small span { white-space: nowrap; }
 .lw-vg-sides { display: flex; flex-wrap: wrap; gap: 6px; }
-.lw-vg-side { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 13px; font: 600 13px/1 var(--q-font); background: color-mix(in srgb, var(--p) 12%, transparent); }
+.lw-vg-side { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 8px; border-radius: 13px; font: 600 12px/1 var(--q-font); background: color-mix(in srgb, var(--p) 12%, transparent); }
 .lw-vg-side b { color: var(--p); font-weight: 700; }
 .lw-vg-side.y { color: var(--q-green); }
 .lw-vg-side.n { color: var(--q-red); }
@@ -3032,12 +3084,17 @@ div.lw-video {
 }
 .lw-bill-parties {
   display: flex;
+  flex: none;
   gap: 4px;
-  min-width: 0;
-  overflow: hidden;
+}
+.lw-party.more {
+  --p: #64748b;
 }
 .lw-bill-meta {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-left: auto;
   padding-left: 6px;
   color: var(--q-label-3);

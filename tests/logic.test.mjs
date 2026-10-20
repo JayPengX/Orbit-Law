@@ -405,8 +405,9 @@ test('cards: six steps, short stages, party chips, a bill card, the funnel', () 
   const card = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20]] }, { topic: 'welfare', now: new Date('2026-10-18') });
   assert.match(card, /href="#item=11-01126"/);
   assert.match(card, /10\/20/);
-  assert.match(card, /59 個版本 · 改 2 條/);
-  assert.match(card, /<span class="lw-party"[^>]*>國民黨<\/span><\/span><small class="lw-bill-meta">59 個版本 · 改 2 條<\/small>/);
+  assert.match(card, /<span class="lw-party"[^>]*>國民黨<\/span><\/span><small class="lw-bill-meta">59 版本<\/small>/);
+  const wide = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20], ['民主進步黨', 3]] }, { topic: 'welfare', wide: true });
+  assert.match(wide, /國民黨<\/span><span class="lw-party more">\+1<\/span><\/span><small class="lw-bill-meta">59 版本・改 2 條<\/small>/);
   assert.match(funnel([{ stage: 4, open: 1 }, { stage: 6, open: 0 }, { stage: 1, open: 1, dropped: true }]), /data-step="3"><b>1<\/b>.*data-step="4"><b>1<\/b>/s);
   const f = billFunnel({ total: 10, reached: [10, 9, 4, 2], waiting: [1, 5, 1] }, false, 1);
   assert.match(f, /這屆 10 件法案走到哪/);

@@ -57,6 +57,12 @@ jobs:
       - name: Mirror the legislators' photos
         run: (npm i --no-save --no-package-lock sharp@0.33.5 || true) && node scripts/build-photos.mjs
         continue-on-error: true
+      # The budgets' money: 主計總處's 預算表 (ws.dgbas.gov.tw leaves its certificate's issuer out).
+      - name: Read the budget books
+        run: node scripts/build-budget.mjs
+        env:
+          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
+        continue-on-error: true
       # Ministries' own 行政規則 (open data and their rule sites), linked to the
       # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
       - name: Build the ministries' rules

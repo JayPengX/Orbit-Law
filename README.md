@@ -12,7 +12,9 @@ Live: https://jaypengx.github.io/Orbit-Law/
 - **Data at deploy, never in git.** `pages.yml` runs on every push and daily
   at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-ly.mjs`,
   `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
-  under `public/img/ly/`; only a newcomer's is fetched), `build-agency.mjs`, `build-rulings.mjs` and `build-news.mjs` in that order
+  under `public/img/ly/`; only a newcomer's is fetched), `build-budget.mjs` (each 總預算's
+  money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
+  as 預算案 − 法定預算), `build-agency.mjs`, `build-rulings.mjs` and `build-news.mjs` in that order
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
   `stamp-version.mjs`. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,

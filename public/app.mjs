@@ -26,6 +26,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
+import { money, change } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, fit, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
@@ -155,6 +156,7 @@ async function route() {
     await itemsReady;
     if (p.get('item')) openItem(p.get('item').replace('-', ':'));
     if (p.get('who')) openPerson(p.get('who'));
+    if (p.get('budget')) openBudget(p.get('budget'));
     if (p.get('meet')) openMeet(p.get('meet'), p.get('d') || '');
   } else if (tab === 'mine') {
     showTab('mine');
@@ -1848,31 +1850,106 @@ async function openPerson(id) {
   sheet({ title: W('立委', 'Legislator'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, tiles, clips, votes, bills], onClose: () => location.hash.startsWith('#who=') && history.replaceState(null, '', '#tab=bills') });
 }
 
-// 預算: the term's budgets (yearly 總預算, 追加, 特別), each by its stage.
+// 預算: the term's budgets (yearly 總預算, 追加, 特別), each by its stage, and
+// for a yearly one the money (主計總處's 預算表, scripts/build-budget.mjs):
+// the total and its change from last year, where it goes, what 立法院 cut.
+// A card opens the budget's page (#budget=<k>): by function, by ministry →
+// agency → 工作計畫, the biggest cuts, its steps and its floor votes.
+const BUDGET_STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢|審查總報告/, 'Reviewed'], [/退回程序/, 'Sent back'], [/委員會發文/, 'Committee letter'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/復議/, 'Reconsidered'], [/預算流程/, 'Budget filed'], [/撤/, 'Withdrawn']];
+// A step in words: its note in brackets dropped; in English, the usual ones translated.
+const budgetStep = t => { const z = String(t || '').replace(/\s*[（(].*$/, ''); return en ? BUDGET_STEP_EN.find(([re]) => re.test(z))?.[1] || z : z; };
+const budgetTone = st => (/三讀|公布/.test(st) ? 'passed' : /協商|二讀|討論/.test(st) ? 'held' : '');
+// 政事別 (what the money is for): a colour and a short name each.
+const FN = {
+  一般政務支出: ['#64748b', '一般政務', 'Government'],
+  國防支出: ['#ef4444', '國防', 'Defense'],
+  教育科學文化支出: ['#8b5cf6', '教科文', 'Education'],
+  經濟發展支出: ['#f59e0b', '經濟', 'Economy'],
+  社會福利支出: ['#10b981', '社福', 'Welfare'],
+  社區發展及環境保護支出: ['#14b8a6', '環保', 'Environment'],
+  退休撫卹支出: ['#3b82f6', '退撫', 'Pensions'],
+  退休撫恤支出: ['#3b82f6', '退撫', 'Pensions'],
+  債務支出: ['#a16207', '債務', 'Debt'],
+  補助及其他支出: ['#94a3b8', '補助', 'Grants'],
+  一般補助及其他支出: ['#94a3b8', '補助', 'Grants']
+};
+const fnOf = n => FN[n] || ['#94a3b8', n.replace(/支出$/, ''), n];
+const fnName = n => (en ? fnOf(n)[2] : fnOf(n)[1]);
+const pct = (a, total) => `${total ? Math.round((a / total) * 100) : 0}%`;
+const chgTag = (now, before) => (before ? `<span class="lw-bud-chg ${now >= before ? 'up' : 'down'}">${esc(change(now, before))}</span>` : '');
+const fnBar = fns => { const t = fns.reduce((s, f) => s + Math.max(0, f[1]), 0); return `<span class="lw-bud-bar">${fns.filter(f => f[1] > 0).map(f => `<i style="--c:${fnOf(f[0])[0]};flex-grow:${f[1] / t}"></i>`).join('')}</span>`; };
+const budgetName = x => (en ? x.title.replace(/^(\d+)年度中央政府總預算追加預算案$/, 'FY$1 supplementary budget').replace(/^(\d+)年度中央政府總預算案$/, 'FY$1 central budget').replace(/^(\d+)年度第二預備金動支數額表$/, 'FY$1 reserve fund report') : x.title.replace(/案$/, '').replace(/^(\d+年度)中央政府/, '$1 '));
+
 async function budgetList(out) {
   out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(2)}</div>`;
   let b;
   try {
-    b = await (lyBudget ||= data('ly/budget.json').catch(e => ((lyBudget = null), Promise.reject(e))));
+    b = await budgetData();
   } catch {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('預算資料讀不到，請稍後再試', 'Couldn’t load the budgets')}</strong></div>`);
   }
-  // A step in words: its note in brackets dropped; in English, the usual ones translated.
-  const STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢|審查總報告/, 'Reviewed'], [/退回程序/, 'Sent back'], [/委員會發文/, 'Committee letter'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/復議/, 'Reconsidered'], [/預算流程/, 'Budget filed'], [/撤/, 'Withdrawn']];
-  const step = t => { const z = String(t || '').replace(/\s*[（(].*$/, ''); return en ? STEP_EN.find(([re]) => re.test(z))?.[1] || z : z; };
-  const stageTone = st => (/三讀|公布/.test(st) ? 'green' : /協商|二讀|討論/.test(st) ? 'orange' : 'indigo');
-  const budgets = [...b.budgets].map(x => ({ ...x, stage: x.stage || x.flow?.at(-1)?.[1]?.replace(/\s*\(.*$/, '') || '' })).sort((a, c) => (a.last < c.last ? 1 : -1));
-  out.innerHTML = `<div class="lw-grid">${budgets.map(x => `<div class="lw-bill lw-budget"><span class="lw-bill-top"><span class="lw-bill-stage ${stageTone(x.stage) === 'green' ? 'passed' : stageTone(x.stage) === 'orange' ? 'held' : ''}">${esc(step(x.stage))}</span><span class="lw-bill-day">${esc(shortDay(x.last))}</span></span><b class="lw-bill-name">${esc(x.title.replace(/案$/, ''))}</b><ol class="lw-timeline mini">${(x.flow || []).slice(-4).map(f => `<li class="done"><b>${esc(step(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol>${x.votes?.length ? `<button type="button" class="lw-more" data-budget-votes="${esc(x.k)}">${W(`院會表決 ${x.votes.length} 次`, `${x.votes.length} floor votes`)}</button>` : ''}</div>`).join('')}</div>`;
-  out.onclick = async e => {
-    const btn = e.target.closest('[data-budget-votes]');
-    if (!btn) return;
-    const x = budgets.find(y => y.k === btn.dataset.budgetVotes);
-    const d = await votesData().catch(() => null);
-    if (!d || !x) return;
-    const ids = new Set(x.votes);
-    const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => ids.has(v[0]));
-    sheet({ title: x.title.replace(/案$/, ''), closeLabel: W('關閉', 'Close'), body: voteList(list, null, 20) });
+  const card = x => {
+    const m = x.money;
+    const head = `<span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(x.stage)}">${esc(budgetStep(x.stage))}</span><span class="lw-bill-day">${esc(shortDay(x.last))}</span></span><b class="lw-bill-name">${esc(budgetName(x))}</b>`;
+    if (!m) {
+      const last = x.flow?.at(-1);
+      return `<a class="lw-bill lw-budget" href="#tab=bills&amp;f=budget&amp;budget=${encodeURIComponent(x.k)}">${head}<span class="lw-bud-steps">${last ? [budgetStep(last[1]) !== budgetStep(x.stage) && budgetStep(last[1]), last[0] && W(`最新進度 ${ymd(last[0])}`, `Latest ${ymd(last[0])}`)].filter(Boolean).map(esc).join(' · ') : ''}</span><span class="lw-bill-foot"><span class="lw-bud-note">${x.votes?.length ? W(`院會表決 ${x.votes.length} 次`, `${x.votes.length} floor votes`) : W(`${x.bills?.length || 0} 件議案`, `${x.bills?.length || 0} bill${x.bills?.length === 1 ? '' : 's'}`)}</span></span></a>`;
+    }
+    const top = [...m.fn].sort((a, c) => c[1] - a[1]).slice(0, 3);
+    const cut = m.cut > 0 ? `<span class="lw-bud-cut">${W('立法院刪減', 'Cut by 立法院')} <b>${esc(money(m.cut, en))}</b> · ${esc(pct(m.cut, m.asked))}</span>` : `<span class="lw-bud-note">${m.passed ? W('照案通過', 'Passed as sent') : /三讀/.test(x.stage) ? W('刪減數待主計總處公布法定預算', 'Cuts once the passed budget is published') : W('行政院送審的預算案', 'As the Cabinet sent it')}</span>`;
+    return `<a class="lw-bill lw-budget money" href="#tab=bills&amp;f=budget&amp;budget=${encodeURIComponent(x.k)}">${head}<span class="lw-bud-total"><b>${esc(money(m.total, en))}</b><small>${W('歲出', 'Spending')}</small>${chgTag(m.total, m.prev)}</span>${fnBar(m.fn)}<span class="lw-bud-legend">${top.map(f => `<span><i style="--c:${fnOf(f[0])[0]}"></i>${esc(fnName(f[0]))} ${pct(f[1], m.total)}</span>`).join('')}</span>${cut}</a>`;
   };
+  const q = billQuery;
+  const shown = b.budgets.filter(x => !q || x.title.includes(q) || x.k.includes(q) || x.money?.top.some(t => t[0].includes(q)));
+  out.innerHTML = shown.length ? `<div class="lw-grid">${shown.map(card).join('')}</div>` : `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的預算', 'No budget matches')}</strong></div>`;
+}
+
+const budgetData = () => (lyBudget ||= data('ly/budget.json').then(b => ({ ...b, budgets: b.budgets.map(x => ({ ...x, stage: x.stage || x.flow?.at(-1)?.[1]?.replace(/\s*\(.*$/, '') || '' })).sort((a, c) => /預備金$/.test(a.k) - /預備金$/.test(c.k) || ((a.first || '0') < (c.first || '0') ? 1 : -1)) })).catch(e => ((lyBudget = null), Promise.reject(e))));
+
+// A budget's page.
+async function openBudget(k) {
+  const b = await budgetData().catch(() => null);
+  const x = b?.budgets.find(y => y.k === k);
+  if (!x) return;
+  const m = x.money;
+  const body = h('div', { class: 'lw-bud-page' });
+  const close = () => location.hash.includes('budget=') && history.replaceState(null, '', '#tab=bills&f=budget');
+  sheet({ title: W('預算', 'Budget'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
+  const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage)}">${esc(budgetStep(x.stage))}</span>${x.last ? `<span class="lw-tag">${esc(ymd(x.last))}</span>` : ''}</div>`;
+  const steps = x.flow?.length ? `<section class="lw-person-sec"><h4>${W('進度', 'Steps')}</h4><ol class="lw-timeline">${x.flow.map(f => `<li class="done"><b>${esc(budgetStep(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol></section>` : '';
+  const votesBox = h('section', { class: 'lw-person-sec' });
+  if (x.votes?.length)
+    votesData().then(d => {
+      const ids = new Set(x.votes);
+      const list = d.votes.map((v, i) => [i, v]).filter(([, v]) => ids.has(v[0]));
+      votesBox.replaceChildren(h('h4', { text: W(`院會表決（${list.length}）`, `Floor votes (${list.length})`) }), voteList(list, null, 5));
+    }).catch(() => {});
+  if (!m) {
+    body.innerHTML = `${head}<p class="lw-hint-sm">${/^\d+$/.test(x.k) ? W('主計總處的預算表公開後，這裡會列出金額、各部會和刪減。', 'Amounts, ministries and cuts appear here once 主計總處 publishes the budget tables.') : W('特別預算和追加預算的金額不在主計總處的開放資料裡。', 'Special and supplementary budgets aren’t in 主計總處’s open data.')}</p>${steps}`;
+    return void body.append(votesBox);
+  }
+  const tiles = [[W('歲出', 'Spending'), money(m.total, en), 'indigo'], [W('較上年', 'vs last year'), change(m.total, m.prev) || '–', m.total >= m.prev ? 'orange' : 'green'], [W('歲入', 'Revenue'), m.rev ? money(m.rev, en) : '–', 'teal'], m.cut > 0 ? [W('立法院刪減', 'Cut'), money(m.cut, en), 'red'] : [W('差短', 'Shortfall'), m.rev ? money(m.total - m.rev, en) : '–', 'red']];
+  body.innerHTML = `${head}<div class="lw-stats four">${tiles.map(([l, n, tone]) => `<span class="lw-stat ${tone}"><b>${esc(n)}</b><span>${esc(l)}</span></span>`).join('')}</div><div class="lw-bud-more"><span class="q-skel lw-bud-skel"></span></div>${steps}`;
+  body.append(votesBox);
+  let y;
+  try {
+    y = await data(`ly/budget/${x.k}.json`);
+  } catch {
+    return void (body.querySelector('.lw-bud-more').innerHTML = `<p class="lw-hint-sm">${W('明細讀不到，請稍後再試', 'Couldn’t load the details')}</p>`);
+  }
+  const total = y.total;
+  const cutTag = c => (c > 0 ? `<span class="lw-bud-chg cut">${W('刪', 'Cut')} ${esc(money(c, en))}</span>` : c < 0 ? `<span class="lw-bud-chg up">${W('增', 'Added')} ${esc(money(-c, en))}</span>` : '');
+  const line = (name, amt, prev, cut, max, color) => `<span class="lw-bud-line"><span class="lw-bud-name q-fit-wrap">${esc(name)}</span><b>${esc(money(amt, en))}</b></span><span class="lw-bud-sub"><span class="lw-bud-track"><i style="width:${Math.max(1.5, (amt / max) * 100).toFixed(1)}%${color ? `;--c:${color}` : ''}"></i></span>${chgTag(amt, prev)}${cutTag(cut)}</span>`;
+  const fnSec = `<section class="lw-person-sec"><h4>${W('錢花在哪', 'Where it goes')}</h4>${fnBar(y.fn)}<div class="lw-bud-rows">${[...y.fn].sort((a, c) => c[1] - a[1]).map(f => `<div class="lw-bud-row">${line(`${fnName(f[0])} · ${pct(f[1], total)}`, f[1], 0, f[2], y.fn.reduce((s, z) => Math.max(s, z[1]), 0), fnOf(f[0])[0])}</div>`).join('')}</div></section>`;
+  const mins = [...y.min].sort((a, c) => c[1] - a[1]);
+  const maxMin = mins[0]?.[1] || 1;
+  const plans = a => { const ps = [...a[4]].sort((p, q) => q[1] - p[1]); const top = ps[0]?.[1] || 1; return ps.slice(0, 20).map(p => `<div class="lw-bud-row plan">${line(p[0], p[1], p[2], p[3], top)}</div>`).join('') + (ps.length > 20 ? `<p class="lw-hint-sm">${W(`另有 ${ps.length - 20} 項較小的計畫`, `${ps.length - 20} smaller plans not shown`)}</p>` : ''); };
+  const agencies = mn => { const as = [...mn[4]].sort((a, c) => c[1] - a[1]); const top = as[0]?.[1] || 1; return as.length === 1 ? plans(as[0]) : as.map(a => `<details class="lw-bud-row"><summary>${line(a[0], a[1], a[2], a[3], top)}</summary><div class="lw-bud-kids">${plans(a)}</div></details>`).join(''); };
+  const minSec = `<section class="lw-person-sec"><h4>${W(`各部會（${mins.length}）`, `By ministry (${mins.length})`)}</h4><p class="lw-hint-sm">${W('點一下看所屬機關和工作計畫', 'Tap for its agencies and programs')}</p><div class="lw-bud-rows">${mins.map(mn => `<details class="lw-bud-row"><summary>${line(mn[0], mn[1], mn[2], mn[3], maxMin)}</summary><div class="lw-bud-kids">${agencies(mn)}</div></details>`).join('')}</div></section>`;
+  const cuts = y.min.flatMap(mn => (mn[4].length > 1 ? mn[4] : [mn])).filter(a => a[3] > 0).sort((a, c) => c[3] - a[3]).slice(0, 8);
+  const cutSec = y.cut != null ? `<section class="lw-person-sec"><h4>${W('立法院刪減最多', 'Biggest cuts')}</h4><p class="lw-hint-sm">${W(`行政院送 ${money(y.asked, en)}，三讀 ${money(y.total, en)}，刪 ${money(y.cut, en)}（${pct(y.cut, y.asked)}）。凍結的錢仍在預算裡，要報告後才能動支，不在這裡。`, `The Cabinet asked for ${money(y.asked, en)}; ${money(y.total, en)} passed, ${money(y.cut, en)} (${pct(y.cut, y.asked)}) cut. Frozen money stays in the budget and isn’t counted here.`)}</p><div class="lw-bud-rows">${cuts.map(a => `<div class="lw-bud-row">${line(a[0], a[3], 0, 0, cuts[0][3], 'var(--q-red)')}</div>`).join('')}</div></section>` : '';
+  const src = `<p class="lw-hint-sm lw-bud-src">${W('資料：行政院主計總處預算表（政府資料開放平臺', 'Source: 主計總處 budget tables (data.gov.tw')} ${['b', 'c'].filter(kd => y.src?.[kd]).map(kd => `<a href="https://data.gov.tw/dataset/${esc(y.src[kd])}" target="_blank" rel="noopener">${kd === 'b' ? W('預算案', 'as sent') : W('法定預算', 'as passed')}</a>`).join('、')}）</p>`;
+  body.querySelector('.lw-bud-more').outerHTML = fnSec + cutSec + minSec + src;
 }
 
 // ---- 議程: 立法院's meetings, today's live ------------------------------------------------

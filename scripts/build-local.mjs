@@ -32,9 +32,32 @@ const tooLate = () => Date.now() > DEADLINE;
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
 const door = url => [`${DOOR}?v=1&u=${encodeURIComponent(url)}`, { 'X-Build-Key': KEY }];
+// base: the site's root, or a few to try (the first whose 法規 list reads is kept).
 const platform = (code, city, base, { twOnly = false } = {}) => {
   const via = twOnly && KEY ? door : null;
-  return platformSite(code, city, base, (url, o) => get(url, { ...o, via }));
+  const get1 = (url, o) => get(url, { ...o, via });
+  if (!Array.isArray(base)) return platformSite(code, city, base, get1);
+  let site = platformSite(code, city, base[0], get1);
+  return {
+    ...site,
+    keys: async () => {
+      let err;
+      for (const b of base) {
+        const s = platformSite(code, city, b, get1);
+        try {
+          const keys = await s.keys();
+          site = s;
+          return keys;
+        } catch (e) {
+          err = e;
+        }
+      }
+      throw err;
+    },
+    list: (...a) => site.list(...a),
+    read: id => site.read(id),
+    url: id => site.url(id)
+  };
 };
 const platformSite = (code, city, base, get) => ({
   code, city,
@@ -82,12 +105,12 @@ const SITES = [
   platform('CHA', '彰化縣', 'https://lawsearch.chcg.gov.tw/GLRSNEWSOUT'),
   // These serve only Taiwan (from the cloud box and GitHub's runners: refused): read through the proxy's door.
   platform('TYC', '桃園市', 'https://law.tycg.gov.tw', { twOnly: true }),
-  platform('TNN', '臺南市', 'https://law01.tainan.gov.tw', { twOnly: true }),
+  platform('TNN', '臺南市', ['https://law01.tainan.gov.tw/glrsout', 'https://law01.tainan.gov.tw', 'https://law01.tainan.gov.tw/GLRSNEWSOUT'], { twOnly: true }),
   platform('ILA', '宜蘭縣', 'https://glrslaw.e-land.gov.tw', { twOnly: true }),
   platform('YUN', '雲林縣', 'https://law.yunlin.gov.tw', { twOnly: true }),
   platform('PIF', '屏東縣', 'https://ptlaw.pthg.gov.tw', { twOnly: true }),
   platform('TTT', '臺東縣', 'https://law.taitung.gov.tw', { twOnly: true }),
-  platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw', { twOnly: true }),
+  platform('HUA', '花蓮縣', ['https://glrs.hl.gov.tw', 'https://glrs.hl.gov.tw/glrsnewsout', 'https://glrs.hl.gov.tw/glrsout'], { twOnly: true }),
   platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
   // Guessed hosts (no site found by search): kept only if they answer; Taiwan only too.
   platform('KEE', '基隆市', 'https://law.klcg.gov.tw', { twOnly: true }),

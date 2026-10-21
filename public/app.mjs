@@ -348,7 +348,7 @@ function drawResults() {
   if (!out) return;
   const q = state.query.trim();
   if (q) return void findAll(q, out);
-  const quick = `<div class="lw-quick">${(QUICK[state.topic || ''] || []).map(w => `<button type="button" class="lw-quick-q" data-q="${esc(w)}">${ICON_SEARCH}${esc(w)}</button>`).join('')}</div>`;
+  const quick = `<div class="lw-quick q-balance">${(QUICK[state.topic || ''] || []).map(w => `<button type="button" class="lw-quick-q" data-q="${esc(w)}">${ICON_SEARCH}${esc(w)}</button>`).join('')}</div>`;
   if (state.topic) {
     const laws = state.rows.filter(r => r[2] !== '命令' && !r[5] && rowTopic(r) === state.topic).sort((a, b) => (a[4] < b[4] ? 1 : -1));
     const regs = state.rows.filter(r => r[2] === '命令' && rowTopic(r) === state.topic).length;
@@ -424,7 +424,7 @@ async function findAll(q, out) {
   top.forEach((g, i) => {
     for (const a of rankArticles(files[i], g.arts, terms).slice(0, i ? 2 : 4)) {
       const subs = (delegs[i]?.to?.[a.key] || []).slice(0, 2);
-      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b>${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, terms)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
+      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b class="q-fit-wrap">${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, terms)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
     }
   });
   const rest = groups.slice(4, 10).map(g => lawItem(g.row, W(`${g.arts.length} 條提到`, `${g.arts.length} articles mention it`), '', `#law=${g.row[0]}&find=${encodeURIComponent(terms[0])}`));

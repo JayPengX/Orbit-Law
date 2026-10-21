@@ -2558,6 +2558,9 @@ button.lw-row {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.lw-find-law b.q-wrapped {
+  white-space: normal;
+}
 .lw-find-law em {
   flex: none;
   margin-left: auto;
@@ -2794,7 +2797,8 @@ button.lw-row {
   display: block;
   white-space: nowrap;
 }
-:lang(en) .lw-list .lw-row-name.q-wrapped {
+/* (Wrapped: whole, never clamped to an ellipsis; 全民健康保險執行公共安全事故… was cut.) */
+.lw-list .lw-row-name.q-wrapped {
   display: block;
 }
 :lang(en) .lw-bill-name.q-wrapped {

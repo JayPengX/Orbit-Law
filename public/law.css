@@ -3203,3 +3203,17 @@ div.lw-video {
   color: var(--q-label-2);
   font: 400 14px/20px var(--q-font);
 }
+
+/* No white in dark mode (Jay 2026-10-21): the hero's icon is glass. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .lw-hero-box i {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    box-shadow: none;
+  }
+}
+:root[data-theme='dark'] .lw-hero-box i {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  box-shadow: none;
+}

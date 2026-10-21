@@ -141,3 +141,38 @@ export function money(k, en = false) {
 
 // The change from last year, as a share: +6.4%.
 export const change = (now, before) => (before ? `${now >= before ? '+' : '−'}${Math.abs(((now - before) / before) * 100).toFixed(1)}%` : '');
+
+// A budget's road through 立法院, in six steps, from its flow ([[day, step
+// text]], oldest first): 送審 (filed), 院會 (on the floor: the 院長's
+// report), 委員會 (committees review it), 總報告 (their report), 協商 (party
+// talks on what's left) and 三讀. Talks before the report are about getting
+// it reviewed at all, so they don't count as the 協商 step. `now` is the
+// furthest step reached; `days[i]` the day each step was first reached;
+// `back` [day, '退回' | '復議'] when it was sent back to the 程序委員會 or
+// held up by a motion to reconsider.
+export const BUDGET_STEPS = [['送審', 'Filed'], ['院會', 'Floor'], ['委員會', 'Cmte'], ['總報告', 'Report'], ['協商', 'Talks'], ['三讀', 'Passed']];
+export function budgetSteps(flow = [], first = '') {
+  const days = BUDGET_STEPS.map(() => '');
+  let now = 0, back = '';
+  const reach = (i, d) => {
+    if (!days[i] || (d && d < days[i])) days[i] = d || days[i];
+    now = Math.max(now, i);
+  };
+  const start = first || flow.find(f => f[0])?.[0] || '';
+  if (start) days[0] = start;
+  for (const [d, t] of flow) {
+    const s = String(t || '');
+    if (/三讀|公布/.test(s)) reach(5, d);
+    else if (/總報告|審查完畢/.test(s)) reach(3, d);
+    else if (/^排入院會/.test(s)) reach(1, d);
+    else if (/^(交付審查|委員會審查|委員會發文)/.test(s)) reach(2, d);
+    else if (/^(黨團協商|交付協商)/.test(s)) now >= 3 && reach(4, d);
+    if (!back && /退回程序|^復議/.test(s)) back = [d, /復議/.test(s) ? '復議' : '退回'];
+  }
+  return { now, days, back };
+}
+// The day 立法院 should have passed a year's 總預算 by: a month before its
+// fiscal year (預算法 第51條), so 11/30 of the year before. 115 → 2025-11-30.
+export const budgetDue = y => `${Number(y) + 1910}-11-30`;
+// Whole days from a to b (YYYY-MM-DD).
+export const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400e3);

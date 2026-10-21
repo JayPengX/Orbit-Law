@@ -37,3 +37,14 @@ test('budget amounts in words', () => {
   assert.equal(change(110, 100), '+10.0%');
   assert.equal(change(90, 100), '−10.0%');
 });
+
+test('a budget’s six steps: talks count only after the report; sent back is noted', async () => {
+  const { budgetSteps, budgetDue, daysBetween } = await import('../public/lib/budget.mjs');
+  const s = budgetSteps([['2024-09-20', '排入院會 (退回程序委員會重新提出)'], ['2024-09-20', '退回程序委員會'], ['2024-10-17', '黨團協商'], ['2024-11-01', '排入院會'], ['2024-11-01', '交付審查'], ['2025-01-06', '審查總報告'], ['2025-01-15', '黨團協商'], ['2025-01-21', '三讀']], '2024-09-20');
+  assert.equal(s.now, 5);
+  assert.deepEqual(s.days, ['2024-09-20', '2024-09-20', '2024-11-01', '2025-01-06', '2025-01-15', '2025-01-21']);
+  assert.deepEqual(s.back, ['2024-09-20', '退回']);
+  assert.equal(budgetSteps([['2026-10-02', '排入院會']]).now, 1);
+  assert.equal(budgetDue(116), '2026-11-30');
+  assert.equal(daysBetween('2026-10-21', '2026-11-30'), 40);
+});

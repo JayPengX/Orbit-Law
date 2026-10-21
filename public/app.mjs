@@ -2390,18 +2390,23 @@ const budgetName = x => (en ? x.title.replace(/^(\d+)年度中央政府總預算
 // A budget's road through 立法院: six steps, the ones passed filled in;
 // `big` adds each step's day under it.
 const md = d => (d ? `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` : '');
+// A budget's steps; one marked 審查完畢 with no report in its flow (a reserve-fund
+// report deemed reviewed when its review period ran out) counts as reviewed that day.
+const stepsOf = x => budgetSteps(/審查完畢/.test(x.stage) && !(x.flow || []).some(f => /總報告|審查完畢/.test(f[1])) ? [...(x.flow || []), [x.last, '審查完畢']] : x.flow, x.first);
+const lapsed = x => (x.bills || []).some(b => /逾審查期限/.test(b[3] || ''));
 const roadHtml = (x, big = false) => {
-  const r = budgetSteps(x.flow, x.first);
+  const r = stepsOf(x);
   return `<span class="lw-road${big ? ' big' : ''}${r.now === 5 ? ' passed' : ''}" role="img" aria-label="${esc(BUDGET_STEPS[r.now][en ? 1 : 0])}">${BUDGET_STEPS.map(([zh, e], i) => `<span class="${i < r.now || (i === r.now && r.now === 5) ? 'done' : i === r.now ? 'now' : ''}"><i></i>${big ? `<b>${esc(en ? e : zh)}</b><small>${i <= r.now && r.days[i] ? esc(md(r.days[i])) : ''}</small>` : ''}</span>`).join('')}</span>`;
 };
 // Where a budget stands in a line: the step and its day, how long it took,
 // and for a yearly 總預算 the legal deadline (11/30 before its year).
 function roadLine(x, long = false) {
-  const r = budgetSteps(x.flow, x.first);
+  const r = stepsOf(x);
   const now = BUDGET_STEPS[r.now][en ? 1 : 0];
   const day = r.days[r.now] || x.last;
-  const parts = [`${now}${day ? ` ${ymd(day)}` : ''}`];
+  const parts = [`${lapsed(x) && r.now === 3 ? W('逾期視為審完', 'Deemed reviewed') : now}${day ? ` ${ymd(day)}` : ''}`];
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  if (long && lapsed(x)) parts.push(W('審查期限已過，依法視為審查完畢', 'the review period ran out'));
   if (r.now === 5 && r.days[0] && day) parts.push(W(`歷時 ${daysBetween(r.days[0], day)} 天`, `${daysBetween(r.days[0], day)} days`));
   if (long && /^\d+$/.test(x.k)) {
     const due = budgetDue(x.k);
@@ -2443,7 +2448,7 @@ async function budgetList(out) {
   // The 總預算 in 立法院 now: the newest year's.
   const cur = !q && shown.filter(x => budgetKind(x.k) === 'year').sort((a, c) => Number(c.k) - Number(a.k))[0];
   const hero = cur
-    ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${budgetSteps(cur.flow, cur.first).now < 5 ? W('立法院正在審', 'In 立法院 now') : W('最新的總預算', 'Latest budget')}</h2></div><a class="lw-bill lw-budget lw-bud-hero${cur.money ? ' money' : ''}" href="${href(cur)}"><span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(cur.stage)}">${esc(budgetStep(cur.stage))}</span><span class="lw-bill-day">${esc(shortDay(cur.last))}</span></span><b class="lw-bill-name">${esc(budgetName(cur))}</b>${roadHtml(cur, true)}<span class="lw-bud-road-note">${roadLine(cur, true).map(dueSpan).join('')}</span>${cur.money ? moneyBits(cur.money) : `<span class="lw-bud-note wrap">${W('主計總處公布預算表後，這裡會有金額、各部會和刪減。', 'Amounts, ministries and cuts show once 主計總處 publishes the tables.')}</span>`}</a></section>`
+    ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${stepsOf(cur).now < 5 ? W('立法院正在審', 'In 立法院 now') : W('最新的總預算', 'Latest budget')}</h2></div><a class="lw-bill lw-budget lw-bud-hero${cur.money ? ' money' : ''}" href="${href(cur)}"><span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(cur.stage)}">${esc(budgetStep(cur.stage))}</span><span class="lw-bill-day">${esc(shortDay(cur.last))}</span></span><b class="lw-bill-name">${esc(budgetName(cur))}</b>${roadHtml(cur, true)}<span class="lw-bud-road-note">${roadLine(cur, true).map(dueSpan).join('')}</span>${cur.money ? moneyBits(cur.money) : `<span class="lw-bud-note wrap">${W('主計總處公布預算表後，這裡會有金額、各部會和刪減。', 'Amounts, ministries and cuts show once 主計總處 publishes the tables.')}</span>`}</a></section>`
     : '';
   out.innerHTML =
     hero +
@@ -2538,7 +2543,19 @@ const meetDay = d => {
   return rel || (en ? `${WEEKDAY_EN[t.getUTCDay()]} ${shortDay(d)}` : `${shortDay(d)}（${WEEKDAY[t.getUTCDay()]}）`);
 };
 // What a meeting is about, in a line: its 事由's first item, numbering and 繼續 off.
-const meetWhat = m => String(m.why || m.title).split(/\n|。(?=[二三四五六七八九十]+、)/)[0].replace(/^[一二三四五六七八九十]+、/, '').replace(/^(繼續)?審查/, W('審查', 'Review: ')).slice(0, 90);
+// A meeting's business in two short lines: its first item, the filler words
+// (行政院函送, 擬具) out, cut at a clause so a narrow screen never clamps it.
+const meetWhat = m => {
+  let t = String(m.why || m.title).split(/\n|。(?=[二三四五六七八九十]+、)/)[0].replace(/^[一二三四五六七八九十]+、/, '').replace(/行政院函(送|請)?|(本院)?委員[^，、]{2,12}?等\d+人擬具|擬具|請審議案|請同意案|[。]$/g, '');
+  // A briefing or a hearing: its title in 「」 says it best.
+  const quoted = t.length > 26 && t.match(/[「《]([^」》]{4,})[」》]/);
+  if (quoted) t = `${/^邀請/.test(t) ? W('專題報告：', 'Briefing: ') : ''}${quoted[1].replace(/[《》]/g, '')}`;
+  if (t.length > 26) {
+    const cut = Math.max(...['，', '、', '；', '：', '—'].map(c => t.lastIndexOf(c, 26)));
+    t = cut > 8 ? t.slice(0, cut) : `${t.slice(0, 25)}…`;
+  }
+  return t.replace(/^(繼續)?審查(審議)?/, W('審查', 'Review: '));
+};
 // The bill items a meeting takes up: by 立法院 law id, or a law named in its 事由.
 const meetItems = m => {
   const laws = new Set(m.bills.flatMap(b => b.laws));

@@ -135,14 +135,19 @@ export const LOW_COURTS = {
   TPB: '臺北高等行政', TCB: '臺中高等行政', KSB: '高雄高等行政', IPC: '智財商業法院',
   TPD: '臺北地院', SLD: '士林地院', PCD: '新北地院', ILD: '宜蘭地院', KLD: '基隆地院', TYD: '桃園地院', SCD: '新竹地院', MLD: '苗栗地院',
   TCD: '臺中地院', CHD: '彰化地院', NTD: '南投地院', ULD: '雲林地院', CYD: '嘉義地院', TND: '臺南地院', KSD: '高雄地院', CTD: '橋頭地院',
-  HLD: '花蓮地院', TTD: '臺東地院', PTD: '屏東地院', PHD: '澎湖地院', KMD: '金門地院', LCD: '連江地院', KSY: '高雄少家法院'
+  HLD: '花蓮地院', TTD: '臺東地院', PTD: '屏東地院', PHD: '澎湖地院', KMD: '金門地院', LCD: '連江地院', KSY: '高雄少家法院',
+  TPP: '懲戒法院', TPJ: '懲戒法院職務法庭', TPT: '臺北高行地方庭', TCT: '臺中高行地方庭', KST: '高雄高行地方庭',
+  // 簡易庭 by their own place (FJUD's headings, 2026-10).
+  STE: '新店簡易庭', NHE: '內湖簡易庭', SJE: '三重簡易庭', CLE: '中壢簡易庭', CPE: '竹北簡易庭', SDE: '沙鹿簡易庭', FYE: '豐原簡易庭',
+  OLE: '員林簡易庭', PDE: '北斗簡易庭', TLE: '斗六簡易庭', PKE: '北港簡易庭', HUE: '虎尾簡易庭', SYE: '柳營簡易庭', SSE: '新市簡易庭',
+  FSE: '鳳山簡易庭', GSE: '岡山簡易庭', CSE: '旗山簡易庭', CDE: '橋頭簡易庭', CCE: '潮州簡易庭', MKE: '馬公簡易庭', LTE: '羅東簡易庭'
 };
 export const lowCode = jid => {
   const c = String(jid || '').split(',')[0].slice(0, 3);
   return /^[A-Z]{3}$/.test(c) && !COURTS[c] ? c : '';
 };
 // A court's level: 高等 (and 高等行政, 智財), else 地方 (簡易庭 and 少家 with it).
-export const lowLevel = code => (/^[A-Z]{2}[HB]$/.test(code) || code === 'IPC' ? 'high' : 'district');
+export const lowLevel = code => (/^[A-Z]{2}[HB]$/.test(code) || ['IPC', 'TPP', 'TPJ'].includes(code) ? 'high' : 'district');
 // A 簡易庭's name read off its court's (TPE → 臺北地院's, by the first two letters).
 export function lowCourtName(code, names = {}) {
   if (names[code]) return names[code];

@@ -3243,14 +3243,23 @@ div.lw-jd-point {
   gap: 3px;
   min-width: 0;
 }
+/* One line: the room's name gives way (ellipsis) before its tags do. */
 .lw-meet-top {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 .lw-meet-top b {
+  min-width: 3em;
+  overflow: hidden;
   font: 600 16px/20px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lw-meet-top > :not(b) {
+  flex: none;
+  white-space: nowrap;
 }
 .lw-meet-what {
   display: -webkit-box;

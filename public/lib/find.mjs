@@ -2,6 +2,7 @@
 // (學生會, 押金, 加班費), not a law's name, so a search also tries the words
 // laws use for it, and the answer leads with the articles that say it.
 import { esc } from './view.mjs';
+import { SHORT_NAMES } from './refs.mjs';
 
 // Everyday words → the words in the law books (each group searched together).
 const SAME = [
@@ -20,6 +21,7 @@ const SAME = [
   ['育嬰假', '育嬰留職停薪'],
   ['勞保', '勞工保險'],
   ['健保', '全民健康保險'],
+  ['食安', '食品安全'],
   ['車禍', '交通事故'],
   ['酒駕', '酒精濃度'],
   ['網購', '通訊交易'],
@@ -37,11 +39,17 @@ const SAME = [
 ];
 
 // The query, then the law books' words for it (none twice).
+// Also: 台 and 臺 both ways (臺北 is 台北), and a law's short name for its
+// full one (勞基法 → 勞動基準法).
 export function expand(q) {
   const t = String(q || '').trim();
   const out = [t];
-  for (const g of SAME) if (g.some(w => t.includes(w))) for (const w of g) for (const x of [t.replace(g.find(v => t.includes(v)), w)]) if (!out.includes(x)) out.push(x);
-  return out.filter(Boolean).slice(0, 4);
+  const add = x => x && !out.includes(x) && out.push(x);
+  for (const g of SAME) if (g.some(w => t.includes(w))) for (const w of g) add(t.replace(g.find(v => t.includes(v)), w));
+  for (const [short, full] of Object.entries(SHORT_NAMES)) if (short !== full && t.includes(short)) add(t.replace(short, full));
+  for (const x of [...out]) (add(x.replaceAll('台', '臺')), add(x.replaceAll('臺', '台')));
+  if (/^ncc$/i.test(t)) add('國家通訊傳播委員會');
+  return out.filter(Boolean).slice(0, 6);
 }
 
 const count = (text, w) => (w ? String(text).split(w).length - 1 : 0);

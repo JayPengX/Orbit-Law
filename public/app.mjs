@@ -1726,6 +1726,12 @@ function keepPlace(el, draw) {
   requestAnimationFrame(fix);
 }
 function setBillFilter(id) {
+  // Another door, another list: what was typed for the last one would hide this one's.
+  if (doorOf(id) !== doorOf(billFilter) && billQuery) {
+    billQuery = '';
+    const input = billBox.querySelector('input');
+    if (input) input.value = '';
+  }
   billFilter = id;
   billStep = -1;
   billMore = {};
@@ -2285,15 +2291,19 @@ async function peopleList(out) {
     return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('立委資料讀不到，請稍後再試', 'Couldn’t load the legislators')}</strong></div>`);
   }
   const q = billQuery;
-  const ql = q.toLowerCase();
-  const now = ppl.filter(x => !x.to && (!q || x.n.includes(q) || x.area.includes(q) || x.party.includes(q) || partyOf(x.party).zh.includes(q) || partyOf(x.party).en.toLowerCase().includes(ql)));
+  const words = q ? expand(q).map(w => w.toLowerCase()) : [];
+  const hit = x => words.some(w => x.n.includes(w) || x.area.includes(w) || x.party.includes(w) || partyOf(x.party).zh.includes(w) || partyOf(x.party).en.toLowerCase().includes(w));
+  // A search finds those who left this term too (by name); the list shows those in office.
+  const now = ppl.filter(x => !x.to && (!q || hit(x)));
+  const left = q ? ppl.filter(x => x.to && x.n.includes(q)) : [];
   const followed = now.filter(x => state.mine.people?.[x.id]);
   const byParty = new Map();
   for (const x of now) byParty.set(x.party, [...(byParty.get(x.party) || []), x]);
   const card = x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(shortArea(x.area))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
   out.innerHTML =
     (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people">${followed.map(card).join('')}</div></section>` : '') +
-    [...byParty].sort((a, b) => b[1].length - a[1].length).map(([party, xs]) => `<section class="q-section lw-sec"><div class="q-section-head"><h2><span class="lw-party" style="--p:${partyColor(party)}">${esc(partyShort(party))}</span></h2><span class="lw-count">${xs.length}</span></div><div class="lw-people">${xs.map(card).join('')}</div></section>`).join('') ||
+    [...byParty].sort((a, b) => b[1].length - a[1].length).map(([party, xs]) => `<section class="q-section lw-sec"><div class="q-section-head"><h2><span class="lw-party" style="--p:${partyColor(party)}">${esc(partyShort(party))}</span></h2><span class="lw-count">${xs.length}</span></div><div class="lw-people">${xs.map(card).join('')}</div></section>`).join('') +
+    (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people">${left.map(card).join('')}</div></section>` : '') ||
     `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的立委', 'No one matches')}</strong></div>`;
 }
 const shortArea = a => String(a || '').replace('全國不分區及僑居國外國民', W('不分區', 'At-large')).replace(/選舉區$/, W('選區', ''));

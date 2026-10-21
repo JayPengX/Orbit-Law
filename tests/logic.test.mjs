@@ -714,3 +714,10 @@ test('預告: a draft’s table read from where its words sit; its purpose in a 
   assert.deepEqual(d.rows.map(r => [r.a, r.now, r.old]), [['第二條', '本辦法適用於全國。', '本法適用於全國。'], ['第三條', '新規定。', '']]);
   assert.equal(draftWhy(d.about), '為保障民眾權益');
 });
+
+test('a search also tries 台/臺, a law’s short name and everyday words', async () => {
+  const { expand } = await import('../public/lib/find.mjs');
+  assert.ok(expand('台北').includes('臺北'));
+  assert.ok(expand('勞基法').includes('勞動基準法'));
+  assert.ok(expand('食安').includes('食品安全'));
+});

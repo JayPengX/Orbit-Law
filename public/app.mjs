@@ -1768,7 +1768,9 @@ async function peopleList(out) {
     `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的立委', 'No one matches')}</strong></div>`;
 }
 const shortArea = a => String(a || '').replace('全國不分區及僑居國外國民', W('不分區', 'At-large')).replace(/選舉區$/, W('選區', ''));
-const personPhoto = (x, cls = '') => `<span class="lw-photo ${cls}" style="--p:${partyColor(x.party)}">${esc(x.n.slice(0, 1))}${x.photo ? `<img src="${esc(x.photo)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`;
+// A mirrored headshot (scripts/build-photos.mjs) at the size it's drawn; an unmirrored one from ly.gov.tw.
+const photoSrc = (photo, big) => (/^https?:/.test(photo) ? photo : `${photo}.${big ? 192 : 96}.webp`);
+const personPhoto = (x, cls = '') => `<span class="lw-photo ${cls}" style="--p:${partyColor(x.party)}">${esc(x.n.slice(0, 1))}${x.photo ? `<img src="${esc(photoSrc(x.photo, cls === 'lg'))}" alt="" width="${cls === 'lg' ? 72 : 44}" height="${cls === 'lg' ? 72 : 44}" ${cls === 'lg' ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" onerror="this.remove()">` : ''}</span>`;
 
 // A legislator's page: their numbers, then 質詢 videos, votes and bills.
 async function openPerson(id) {

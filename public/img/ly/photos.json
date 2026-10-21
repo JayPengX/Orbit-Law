@@ -1,0 +1,494 @@
+{
+ "626": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110041.jpg",
+  "stem": "626.862f5949"
+ },
+ "688": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110106.jpg",
+  "stem": "688.a8fbdde1"
+ },
+ "837": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110073.jpg",
+  "stem": "837.f8139274"
+ },
+ "856": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110087.jpg",
+  "stem": "856.d2640efd"
+ },
+ "869": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110100.jpg",
+  "stem": "869.7a189d44"
+ },
+ "882": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110109.jpg",
+  "stem": "882.a5da283f"
+ },
+ "908": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110027.jpg",
+  "stem": "908.9114dda5"
+ },
+ "912": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110034.jpg",
+  "stem": "912.acf2340a"
+ },
+ "917": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110039.jpg",
+  "stem": "917.eac0820c"
+ },
+ "930": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110051.jpg",
+  "stem": "930.bf3f1c08"
+ },
+ "953": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110076.jpg",
+  "stem": "953.68fb7e02"
+ },
+ "1008": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110013.jpg",
+  "stem": "1008.57ce2a68"
+ },
+ "1011": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110019.jpg",
+  "stem": "1011.4835f658"
+ },
+ "1015": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110023.jpg",
+  "stem": "1015.c3d3b7a5"
+ },
+ "1021": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110032.jpg",
+  "stem": "1021.c3056f22"
+ },
+ "1047": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110074.jpg",
+  "stem": "1047.4986c924"
+ },
+ "1062": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110094.jpg",
+  "stem": "1062.c8bd238b"
+ },
+ "1075": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110003.jpg",
+  "stem": "1075.d1d08b99"
+ },
+ "1093": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110056.jpg",
+  "stem": "1093.b0fcdfd9"
+ },
+ "1094": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110065.jpg",
+  "stem": "1094.4b2147c8"
+ },
+ "1108": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110093.jpg",
+  "stem": "1108.4ae48042"
+ },
+ "1109": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110050.jpg",
+  "stem": "1109.b4315673"
+ },
+ "1113": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110004.jpg",
+  "stem": "1113.2af22bc3"
+ },
+ "1116": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110009.jpg",
+  "stem": "1116.c3dc444d"
+ },
+ "1118": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110010.jpg",
+  "stem": "1118.ab216ab2"
+ },
+ "1121": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110017.jpg",
+  "stem": "1121.8809430b"
+ },
+ "1128": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110036.jpg",
+  "stem": "1128.5f82c133"
+ },
+ "1130": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110046.jpg",
+  "stem": "1130.8beacb1f"
+ },
+ "1133": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110059.jpg",
+  "stem": "1133.868377a0"
+ },
+ "1134": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110071.jpg",
+  "stem": "1134.37a8faa8"
+ },
+ "1142": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110086.jpg",
+  "stem": "1142.ed3821e4"
+ },
+ "1146": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110096.jpg",
+  "stem": "1146.69005212"
+ },
+ "1148": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110113.jpg",
+  "stem": "1148.611452ea"
+ },
+ "1149": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110107.jpg",
+  "stem": "1149.6c58e27e"
+ },
+ "1155": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110057.jpg",
+  "stem": "1155.336368bf"
+ },
+ "1157": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110069.jpg",
+  "stem": "1157.25086196"
+ },
+ "1160": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110005.jpg",
+  "stem": "1160.74664fc1"
+ },
+ "1164": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110014.jpg",
+  "stem": "1164.c7c22fd9"
+ },
+ "1166": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110016.jpg",
+  "stem": "1166.fe90e1a2"
+ },
+ "1168": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110020.jpg",
+  "stem": "1168.7f0c8af1"
+ },
+ "1172": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110028.jpg",
+  "stem": "1172.b9276633"
+ },
+ "1176": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110040.jpg",
+  "stem": "1176.aef12fbe"
+ },
+ "1182": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110052.jpg",
+  "stem": "1182.52f54f33"
+ },
+ "1189": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110080.jpg",
+  "stem": "1189.0f068897"
+ },
+ "1190": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110084.jpg",
+  "stem": "1190.27b6b353"
+ },
+ "1193": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110095.jpg",
+  "stem": "1193.831b2531"
+ },
+ "1197": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110102.jpg",
+  "stem": "1197.c2eaed0c"
+ },
+ "1199": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110105.jpg",
+  "stem": "1199.b85317bb"
+ },
+ "1201": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110112.jpg",
+  "stem": "1201.e4fbef14"
+ },
+ "1211": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110061.jpg",
+  "stem": "1211.18578452"
+ },
+ "1213": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110063.jpg",
+  "stem": "1213.15492c36"
+ },
+ "1215": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110006.jpg",
+  "stem": "1215.2e22c35a"
+ },
+ "1217": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110008.jpg",
+  "stem": "1217.a2ee1dc1"
+ },
+ "1222": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110026.jpg",
+  "stem": "1222.070a4f32"
+ },
+ "1223": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110029.jpg",
+  "stem": "1223.c287d3f0"
+ },
+ "1224": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110033.jpg",
+  "stem": "1224.809bf1cf"
+ },
+ "1227": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110042.jpg",
+  "stem": "1227.2c1edc18"
+ },
+ "1228": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110043.jpg",
+  "stem": "1228.0665e4b2"
+ },
+ "1229": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110044.jpg",
+  "stem": "1229.e601cbb6"
+ },
+ "1236": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110064.jpg",
+  "stem": "1236.2378ef5a"
+ },
+ "1239": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110077.jpg",
+  "stem": "1239.36072c91"
+ },
+ "1243": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110088.jpg",
+  "stem": "1243.d7cfd8cc"
+ },
+ "1246": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110097.jpg",
+  "stem": "1246.43906512"
+ },
+ "1247": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110098.jpg",
+  "stem": "1247.eb0e7657"
+ },
+ "1250": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110101.jpg",
+  "stem": "1250.7e0ca872"
+ },
+ "1251": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110103.jpg",
+  "stem": "1251.7ed0abf0"
+ },
+ "1252": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110110.jpg",
+  "stem": "1252.0199caf1"
+ },
+ "1255": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110007.jpg",
+  "stem": "1255.2b5fd12b"
+ },
+ "1256": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110070.jpg",
+  "stem": "1256.a739a700"
+ },
+ "1257": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110001.jpg",
+  "stem": "1257.99d4aa0a"
+ },
+ "1258": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110002.jpg",
+  "stem": "1258.b0987655"
+ },
+ "1259": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110011.jpg",
+  "stem": "1259.ee3efc72"
+ },
+ "1260": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110012.jpg",
+  "stem": "1260.ab2c374b"
+ },
+ "1261": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110015.jpg",
+  "stem": "1261.0107bcf2"
+ },
+ "1262": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110018.jpg",
+  "stem": "1262.d6d3d9cc"
+ },
+ "1263": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110021.jpg",
+  "stem": "1263.576ae7ab"
+ },
+ "1264": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110022.jpg",
+  "stem": "1264.269c5957"
+ },
+ "1265": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110024.jpg",
+  "stem": "1265.55543ea7"
+ },
+ "1266": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110025.jpg",
+  "stem": "1266.9e60a005"
+ },
+ "1267": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110030.jpg",
+  "stem": "1267.01fb522e"
+ },
+ "1268": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110031.jpg",
+  "stem": "1268.e8489af8"
+ },
+ "1269": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110035.jpg",
+  "stem": "1269.e31a1930"
+ },
+ "1270": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110037.jpg",
+  "stem": "1270.16ba5346"
+ },
+ "1271": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110038.jpg",
+  "stem": "1271.57e86ac2"
+ },
+ "1272": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110045.jpg",
+  "stem": "1272.776be2dc"
+ },
+ "1273": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110047.jpg",
+  "stem": "1273.1c431e6c"
+ },
+ "1274": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110048.jpg",
+  "stem": "1274.1ee718b6"
+ },
+ "1275": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110049.jpg",
+  "stem": "1275.a1ab550e"
+ },
+ "1276": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110053.jpg",
+  "stem": "1276.56555aca"
+ },
+ "1277": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110054.jpg",
+  "stem": "1277.be1011a2"
+ },
+ "1278": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110055.jpg",
+  "stem": "1278.e30da492"
+ },
+ "1279": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110058.jpg",
+  "stem": "1279.c1277e6c"
+ },
+ "1280": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110060.jpg",
+  "stem": "1280.7430e9cc"
+ },
+ "1281": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110062.jpg",
+  "stem": "1281.8a73c001"
+ },
+ "1282": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110066.jpg",
+  "stem": "1282.e82c49c0"
+ },
+ "1283": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110067.jpg",
+  "stem": "1283.0d500d03"
+ },
+ "1284": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110068.jpg",
+  "stem": "1284.a7229ee2"
+ },
+ "1285": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110072.jpg",
+  "stem": "1285.eda95ad1"
+ },
+ "1286": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110075.jpg",
+  "stem": "1286.2f22cbeb"
+ },
+ "1287": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110078.jpg",
+  "stem": "1287.3d917c6d"
+ },
+ "1288": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110079.jpg",
+  "stem": "1288.4782b0dd"
+ },
+ "1289": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110081.jpg",
+  "stem": "1289.6a1f3c08"
+ },
+ "1290": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110082.jpg",
+  "stem": "1290.7457fa9c"
+ },
+ "1291": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110083.jpg",
+  "stem": "1291.041c8988"
+ },
+ "1292": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110085.jpg",
+  "stem": "1292.fe42b8d5"
+ },
+ "1293": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110089.jpg",
+  "stem": "1293.4321ed45"
+ },
+ "1294": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110090.jpg",
+  "stem": "1294.3a3b9221"
+ },
+ "1295": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110091.jpg",
+  "stem": "1295.5202d2af"
+ },
+ "1296": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110092.jpg",
+  "stem": "1296.21b50c97"
+ },
+ "1297": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110099.jpg",
+  "stem": "1297.17fe9daa"
+ },
+ "1298": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110104.jpg",
+  "stem": "1298.e7d89c88"
+ },
+ "1299": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110108.jpg",
+  "stem": "1299.b299f1eb"
+ },
+ "1300": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110111.jpg",
+  "stem": "1300.61c8c500"
+ },
+ "1301": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110114.jpg",
+  "stem": "1301.04ad9e11"
+ },
+ "nff0eba27": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110122.jpg",
+  "stem": "nff0eba27.b601c6f6"
+ },
+ "n3a427498": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110121.jpg",
+  "stem": "n3a427498.9dc73265"
+ },
+ "n7a5387dd": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110117.jpg",
+  "stem": "n7a5387dd.07a54341"
+ },
+ "n7a19076b": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110118.jpg",
+  "stem": "n7a19076b.17c644ca"
+ },
+ "n85252914": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110119.jpg",
+  "stem": "n85252914.544b1835"
+ },
+ "nf7b40256": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110120.jpg",
+  "stem": "nf7b40256.bde20f79"
+ },
+ "n7b4844cf": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110123.jpg",
+  "stem": "n7b4844cf.93fb5dd7"
+ },
+ "n73eb194c": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110115.jpg",
+  "stem": "n73eb194c.059d4887"
+ },
+ "n7d6f7ca8": {
+  "src": "https://www.ly.gov.tw//Images/Legislators/110116.jpg",
+  "stem": "n7d6f7ca8.23d35752"
+ }
+}

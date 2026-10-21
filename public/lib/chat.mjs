@@ -30,7 +30,11 @@ export function cleanChat(j) {
   const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => known.has(c)) })).filter(pt => pt.text && (pt.cites.length || grounded));
   const points = cited(j?.points);
   return {
-    covered: j?.covered === true && (points.length > 0 || (grounded && Boolean(str(j?.answer)))),
+    covered: j?.covered === true && (points.length > 0 || (grounded && Boolean(str(j?.answer || j?.verdict)))),
+    // The answer at a glance: a short verdict, key facts as tiles, a timeline for progress.
+    verdict: str(j?.verdict || '').slice(0, 60),
+    facts: list(j?.facts, 4).map(f => ({ k: str(f?.k).slice(0, 16), v: str(f?.v).slice(0, 20) })).filter(f => f.k && f.v),
+    timeline: list(j?.timeline, 6).map(x => ({ d: str(x?.d).slice(0, 20), t: str(x?.t).slice(0, 30) })).filter(x => x.t),
     answer: str(j?.answer),
     points,
     consequences: cited(j?.consequences),
@@ -63,19 +67,59 @@ export const mineOf = m => ({
   marks: (m?.marks || []).map(x => `${x.p}:${x.k}`).filter(c => CITE.test(c)).slice(0, 8)
 });
 
-export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh' }, { fetcher = globalThis.fetch, headers = {} } = {}) {
+// Streamed: the proxy sends a line as each step starts ({ stage: 'find' |
+// 'found' | 'write' }), heard by onStage, then the answer's line with its
+// status. A plain JSON answer (an error, an older proxy) reads the same.
+export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh' }, { fetcher = globalThis.fetch, headers = {}, onStage = () => {} } = {}) {
   let r;
   try {
-    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), lang }) });
+    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), lang, stream: true }) });
   } catch {
     return { error: 'offline' };
   }
-  const j = await r.json().catch(() => ({}));
+  let j = {};
+  let status = r.status;
+  if (/ndjson/.test(r.headers?.get?.('content-type') || '') && r.body?.getReader) {
+    const last = await readLines(r.body, o => (typeof o.stage === 'string' ? onStage(o) : null)).catch(() => null);
+    if (!last) return { error: 'offline' };
+    ({ status = 502, ...j } = last);
+  } else j = await r.json().catch(() => ({}));
   // A route not there yet: the proxy's own 404 ({ error: { code } }, or none).
-  if (r.status === 404 && typeof j.error !== 'string') return { error: 'soon' };
-  if (!r.ok) return { error: typeof j.error === 'string' ? j.error : `http${r.status}`, left: j.left };
+  if (status === 404 && typeof j.error !== 'string') return { error: 'soon' };
+  if (status < 200 || status > 299) return { error: typeof j.error === 'string' ? j.error : `http${status}`, left: j.left };
   if (typeof j.covered !== 'boolean') return { error: 'bad' };
   return cleanChat(j);
+}
+
+// NDJSON lines, each to `each`; the last line that isn't a stage is the answer.
+async function readLines(body, each) {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let last = null;
+  const take = l => {
+    if (!l.trim()) return;
+    const o = JSON.parse(l);
+    if (typeof o.stage === 'string') each(o);
+    else last = o;
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    lines.forEach(take);
+  }
+  take(buf + dec.decode());
+  return last;
+}
+
+// What the waiting bubble says at each step.
+export function stageText(o, en = false) {
+  if (o?.stage === 'found') return o.arts ? (en ? `Found ${o.arts} articles; checking rulings…` : `找到 ${o.arts} 條條文，查判決與規定…`) : en ? 'Checking rulings and rules…' : '查判決與規定…';
+  if (o?.stage === 'write') return en ? 'Writing the answer…' : '撰寫回答中…';
+  return en ? 'Finding the laws…' : '找條文中…';
 }
 
 export function chatError(code, en = false) {

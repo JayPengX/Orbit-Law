@@ -675,3 +675,23 @@ test('議程: meetings kept small, live by Taiwan time, a bill’s next sitting,
   assert.equal(liveOf(rows, m, { ...s, from: '14:00' }), null);
   assert.match(liveHls(3), /ly-live3\/live-hls-cl-tv\/index\.m3u8$/);
 });
+
+test('問法律 streamed: each step heard, then the answer with its verdict, facts and timeline', async () => {
+  const { chatLaw, stageText } = await import('../public/lib/chat.mjs');
+  const lines = [{ stage: 'find' }, { stage: 'found', arts: 4 }, { stage: 'write' }, { status: 200, covered: true, verdict: '房東不能扣光押金', facts: [{ k: '時效', v: '2 年' }, { k: '', v: 'x' }], timeline: [{ d: '2026-01-10', t: '三讀' }], answer: 'a', points: [{ text: 'x', cites: ['B0000001:421'] }], sources: [{ p: 'B0000001', n: '民法', key: '421' }] }];
+  const text = lines.map(o => JSON.stringify(o)).join('\n');
+  const enc = new TextEncoder().encode(text);
+  // Split mid-line, as a network would.
+  const body = new ReadableStream({ start(c) { c.enqueue(enc.slice(0, 30)); c.enqueue(enc.slice(30)); c.close(); } });
+  const heard = [];
+  let sent;
+  const r = await chatLaw({ q: 'x' }, { fetcher: async (u, o) => ((sent = JSON.parse(o.body)), { status: 200, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body }), onStage: o => heard.push(o.stage) });
+  assert.equal(sent.stream, true);
+  assert.deepEqual(heard, ['find', 'found', 'write']);
+  assert.equal(r.verdict, '房東不能扣光押金');
+  assert.deepEqual(r.facts, [{ k: '時效', v: '2 年' }]);
+  assert.deepEqual(r.timeline, [{ d: '2026-01-10', t: '三讀' }]);
+  assert.match(stageText({ stage: 'found', arts: 4 }), /找到 4 條/);
+  const cap = await chatLaw({ q: 'x' }, { fetcher: async () => ({ status: 200, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"stage":"find"}\n{"status":429,"error":"cap","left":0}\n')); c.close(); } }) }) });
+  assert.equal(cap.error, 'cap');
+});

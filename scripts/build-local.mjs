@@ -100,6 +100,9 @@ const read = state.read || {};
 const stats = {};
 const raw = [];
 const OLD = id => prevJson(`local/text/${textFile(id)}.json`);
+// The rules the last deploy kept a text of (names.json's flag): a read stamp lost from state.json
+// is taken back from it, so a kept text is never read again for nothing.
+const hadText = new Set(((await prevJson('local/names.json')) || []).filter(r => r?.[4]).map(r => r[0]));
 
 async function site(s) {
   const st = (stats[s.city] = { parts: 0, listedNow: 0, listed: 0, rules: 0, fetched: 0, cached: 0, deferred: 0 });
@@ -131,6 +134,10 @@ async function site(s) {
     }
   }
   const items = listedRows(keys, mine);
+  // A list not read in full this time: the last deploy's rules of the city it misses stay.
+  if (st.error)
+    for (const r of prev?.rules || [])
+      if (r[0].startsWith(s.code + ':') && !items.has(r[0].slice(s.code.length + 1))) items.set(r[0].slice(s.code.length + 1), { id: r[0].slice(s.code.length + 1), name: r[1], date: r[3], type: /自治條例$/.test(r[1]) ? '自治條例' : '自治規則' });
   st.listed = items.size;
   if (!items.size) {
     // Nothing listed: keep its old rules, with their old text.
@@ -143,6 +150,7 @@ async function site(s) {
   const todo = [];
   await pool(want, 8, async r => {
     const id = `${s.code}:${r.id}`;
+    if (read[id] === undefined && hadText.has(id)) read[id] = r.date || TODAY;
     const old = read[id] === undefined ? null : await OLD(id);
     const row = (text, date) => rule(id, r.name, s.city, date || r.date, s.url(r.id), text);
     if (read[id] !== undefined && !needsRead(r, { stamp: read[id] }, TODAY)) (st.cached++, raw.push(row(old?.t || '', old?.d)));

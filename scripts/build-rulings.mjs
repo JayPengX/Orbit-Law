@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nameMap } from '../public/lib/refs.mjs';
-import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings, archiveMonths, pendingMonths, topCourtFile, deletedIds, dropDeleted } from '../public/lib/rulings.mjs';
+import { courtOf, compactRuling, mergeRulings, byLaw, inWindow, lawCounts, latestRulings, archiveMonths, pendingMonths, topCourtFile, deletedIds, dropDeleted, byMonth, monthCounts, findRows } from '../public/lib/rulings.mjs';
 import { args, prevJson } from './lib.mjs';
 
 const API = 'https://data.judicial.gov.tw/jdg/api/';
@@ -174,5 +174,11 @@ const laws = byLaw(rulings);
 for (const [p, arts] of Object.entries(laws)) await writeFile(`${out}${p}.json`, JSON.stringify(arts));
 // Per law, how many judgments cite it; and the newest few for 首頁.
 await writeFile(out + 'laws.json', JSON.stringify(lawCounts(rulings)));
-await writeFile(out + 'latest.json', JSON.stringify({ rulings: latestRulings(rulings) }));
+await writeFile(out + 'latest.json', JSON.stringify({ rulings: latestRulings(rulings.filter(r => courtOf(r[0]) !== 'JCC')) }));
+// 裁判's browsing: a file a month, how many each month, and every one by number and matter.
+const perMonth = byMonth(rulings);
+await mkdir(out + 'm', { recursive: true });
+for (const [m, list] of Object.entries(perMonth)) await writeFile(`${out}m/${m}.json`, JSON.stringify(list));
+await writeFile(out + 'months.json', JSON.stringify({ months: monthCounts(perMonth), read: months }));
+await writeFile(out + 'find.json', JSON.stringify(findRows(rulings)));
 console.log(`rulings: ${note}; backfill: ${backfill}; ${rulings.length} kept, under ${Object.keys(laws).length} laws`);

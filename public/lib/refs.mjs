@@ -195,22 +195,3 @@ export function nameMap(rows) {
   for (const [short, full] of Object.entries(SHORT_NAMES)) if (names.has(full) && !names.has(short)) names.set(short, names.get(full));
   return names;
 }
-
-// 大法官解釋 (司法院釋字第七四八號解釋) inside a plain run: each one a link
-// to its page on 憲法法庭's site. → [string | { t, url }].
-const INTERP = new RegExp(`(?:司法院)?(?:大法官)?(?:會議)?釋字第\\s*(${N})\\s*號(?:解釋)?`, 'g');
-export const interpUrl = n => `https://cons.judicial.gov.tw/jcc/zh-tw/jep03/show?expno=${n}`;
-export function interpLinks(text) {
-  const out = [];
-  let last = 0;
-  INTERP.lastIndex = 0;
-  for (let m; (m = INTERP.exec(text)); ) {
-    const n = cnNumber(m[1]);
-    if (!(n > 0)) continue;
-    if (m.index > last) out.push(text.slice(last, m.index));
-    out.push({ t: m[0], url: interpUrl(n) });
-    last = INTERP.lastIndex;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
-}

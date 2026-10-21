@@ -1,9 +1,12 @@
 # Orbit Law
 
-Taiwan's laws to read, with every reference a link, and the bills in 立法院
-that will change them, stage by stage. Behind the Quadra Pass like every
-Orbit app; the data is public, built onto this site once a day, and works
-offline once opened. Tabs: 首頁 · 法規 · 問法律 · 立法 · 追蹤.
+Taiwan's law on three sides that link to each other: the laws to read
+(法規), with every reference a link; the courts' rulings on them (裁判:
+憲法法庭's every 釋字 and 憲判字, the top courts' judgments); and the bills in
+立法院 that will change them (立法), stage by stage. Behind the Quadra Pass
+like every Orbit app; the data is public, built onto this site once a day,
+and works offline once opened. Tabs: 首頁 (one search, 問法律) · 法規 · 裁判 ·
+立法 · 我的.
 
 Live: https://jaypengx.github.io/Orbit-Law/
 
@@ -14,7 +17,7 @@ Live: https://jaypengx.github.io/Orbit-Law/
   `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
   under `public/img/ly/`; only a newcomer's is fetched), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
-  as 預算案 − 法定預算), `build-agency.mjs`, `build-rulings.mjs` and `build-news.mjs` in that order
+  as 預算案 − 法定預算), `build-agency.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
   `stamp-version.mjs`. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,
@@ -72,12 +75,33 @@ Live: https://jaypengx.github.io/Orbit-Law/
   speakers signed up, and the clips of who has spoken (the API's `/ivods`,
   each appearing as a speech ends). A bill's sheet shows the next meeting
   that takes it up (by 議案編號, law id, or its name in the 事由).
-- **Rulings** (`lib/rulings.mjs`, `scripts/build-rulings.mjs`): the three top
-  courts' judgments of the last 3 years, kept by the articles they cite
-  (`data/rulings/<pcode>.json`, no text kept). New ones from 司法院's JDoc
-  API, the past from its monthly archives (open 00:00–06:00 Taiwan time,
-  read a few months a night). A judgment opens through the proxy's
-  `/law-page` and is read by `lib/judgment.mjs`: the outcome first.
+- **One id, one link** for everything on the three sides: a law `#law=<pcode>`,
+  an article `&a=<key>` (`184`, `39-1`), a ruling `#r=<id>` (`s748` 釋字第748號,
+  `j111-10` 111年憲判字第10號, else the 司法院 JID), a bill `#item=<term>-<law>`.
+  Data files use the same: cites are `pcode:key` (`pcode` alone: the law as a whole).
+- **裁判, 憲法法庭** (`lib/cons.mjs`, `scripts/build-cons.mjs`): every 大法官解釋
+  (1–813) and 憲判字 read from the court's own pages (open all day): question,
+  holding, reasons, opinions, and its 相關法令 as article cites. Numbers cited
+  as of a version older than the law's last whole rewrite (its 沿革) cite the
+  law only. Each kept in the workflow cache (`.cons-cache/`), this year's read
+  again. `data/cons/index.json` (every one's row: id, date, name, question,
+  cites, the rulings it names, the bills whose purpose names it), `<id>.json`,
+  `laws.json` (by law and article). The holding's word (違憲/合憲/部分違憲) is
+  read from its own text.
+- **裁判, top courts** (`lib/rulings.mjs`, `scripts/build-rulings.mjs`): 最高法院
+  and 最高行政法院 judgments of the last 3 years, kept by the articles they cite
+  (`data/rulings/<pcode>.json`, no text kept), by month for browsing
+  (`rulings/m/<YYYYMM>.json`, `months.json`) and by number and matter
+  (`find.json`, loaded on a search). New ones from 司法院's JDoc API, the past
+  from its monthly archives (open 00:00–06:00 Taiwan time, read a few months a
+  night). A judgment opens through the proxy's `/law-page` and is read by
+  `lib/judgment.mjs`: the outcome first.
+- **The sides link** (app.mjs): an article shows its rulings (purple when
+  憲法法庭's) and the bills open on it; a law its 憲法法庭 strip; a ruling the
+  articles it rules on, the bills that name it and the bills open on those
+  articles; a bill the rulings that named it, 憲法法庭's on what it changes and
+  how many top-court rulings cite those articles. 釋字/憲判 in any text open in
+  the app. The 法規 search finds rulings too.
 - **授權** (`lib/deleg.mjs`): a regulation sits under the article its first
   articles say it is made under (訂定/訂之/授權); a law cited by a former name
   (its 沿革's 原名稱) lists the regulation without an article.
@@ -107,17 +131,18 @@ Live: https://jaypengx.github.io/Orbit-Law/
 
 | File | What |
 | --- | --- |
-| `public/app.mjs`, `index.html`, `law.css` | The page: five tabs, the reader, the sheets |
+| `public/app.mjs`, `index.html`, `law.css` | The page: five tabs, the reader, 裁判, the sheets |
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
-| `public/lib/rulings.mjs`, `judgment.mjs`, `reader.mjs` | Rulings by article; a judgment read into parts; a government page read in the app |
+| `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |
+| `public/lib/rulings.mjs`, `judgment.mjs`, `reader.mjs` | Top-court rulings by article and month; a judgment read into parts; a government page read in the app |
 | `public/lib/agency.mjs`, `news.mjs`, `notices.mjs` | 行政規則, 政府公告, 預告 |
 | `public/lib/search.mjs`, `fulltext.mjs`, `find.mjs`, `topics.mjs` | Finding a law or article, full text, topics |
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
-| `scripts/build-*.mjs`, `lib.mjs` | The five data builds and what they share |
+| `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |
 | `scripts/live-ly.mjs` | IVOD's live list, run by `live.yml` |
 | `data-src/facts.json` | Figures the news build keeps |
 

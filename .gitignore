@@ -4,3 +4,4 @@ node_modules/
 .shared
 public/data/
 .moj-cache/
+.cons-cache/

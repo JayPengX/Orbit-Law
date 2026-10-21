@@ -104,21 +104,21 @@ const SITES = [
   platform('MIA', '苗栗縣', 'https://law.miaoli.gov.tw/glrsnewsout'),
   platform('CHA', '彰化縣', 'https://lawsearch.chcg.gov.tw/GLRSNEWSOUT'),
   // These serve only Taiwan (from the cloud box and GitHub's runners: refused): read through the proxy's door.
+  // Every site's address as 全國法規資料庫's 相關網站 lists it (law.moj.gov.tw/RelatedWebsite.aspx).
   platform('TYC', '桃園市', 'https://law.tycg.gov.tw', { twOnly: true }),
-  platform('TNN', '臺南市', ['https://law01.tainan.gov.tw/glrsout', 'https://law01.tainan.gov.tw', 'https://law01.tainan.gov.tw/GLRSNEWSOUT'], { twOnly: true }),
+  platform('TNN', '臺南市', 'https://law01.tainan.gov.tw/glrsnewsout', { twOnly: true }),
   platform('ILA', '宜蘭縣', 'https://glrslaw.e-land.gov.tw', { twOnly: true }),
   platform('YUN', '雲林縣', 'https://law.yunlin.gov.tw', { twOnly: true }),
   platform('PIF', '屏東縣', 'https://ptlaw.pthg.gov.tw', { twOnly: true }),
   platform('TTT', '臺東縣', 'https://law.taitung.gov.tw', { twOnly: true }),
-  platform('HUA', '花蓮縣', ['https://glrs.hl.gov.tw', 'https://glrs.hl.gov.tw/glrsnewsout', 'https://glrs.hl.gov.tw/glrsout'], { twOnly: true }),
+  platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw/glrsout', { twOnly: true }),
   platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
-  // Guessed hosts (no site found by search): kept only if they answer; Taiwan only too.
-  platform('KEE', '基隆市', 'https://law.klcg.gov.tw', { twOnly: true }),
-  platform('HSQ', '新竹縣', 'https://law.hsinchu.gov.tw', { twOnly: true }),
-  platform('NAN', '南投縣', 'https://law.nantou.gov.tw', { twOnly: true }),
+  platform('KEE', '基隆市', 'https://exlaw.klcg.gov.tw', { twOnly: true }),
+  platform('HSQ', '新竹縣', 'https://hclaw.hsinchu.gov.tw/law', { twOnly: true }),
+  platform('NAN', '南投縣', 'https://glrs.nantou.gov.tw/glrsout', { twOnly: true }),
   platform('CYI', '嘉義市', 'https://law.chiayi.gov.tw'),
   platform('CYQ', '嘉義縣', 'https://law.cyhg.gov.tw', { twOnly: true }),
-  platform('PEN', '澎湖縣', 'https://law.penghu.gov.tw', { twOnly: true })
+  platform('PEN', '澎湖縣', 'https://law.penghu.gov.tw/glrsnewsout', { twOnly: true })
 ];
 
 const prev = await prevJson('local/all.json');

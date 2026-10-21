@@ -134,14 +134,17 @@ Live: https://jaypengx.github.io/Orbit-Law/
 - **地方法規** (`lib/local.mjs`, `build-local.mjs`): the cities' 自治條例,
   自治規則, 委辦規則 and 行政規則 from their own 法規查詢系統 (臺北市
   laws.gov.taipei, 新北市 web.law.ntpc.gov.tw, and the 主管法規 platform of
-  高雄市, 臺中市, 新竹市, 金門縣), built like the ministries' rules: every
+  every other city and county: `platform(code, city, base)` in
+  `build-local.mjs`), built like the ministries' rules: every
   rule kept, `local/all.json` (`[id, name, city, date, url, laws]`, id =
   city code + `:` + the site's id), `local/names.json` for the 法規 search's
   地方法規 section, whole text in `local/text/`, `local/state.json` carrying
   each list part and each page's read stamp between deploys (自治條例 read
   first, then 自治規則, 委辦規則, 行政規則). The AI Worker reads
-  `all.json` and `text/` by that shape. Not reachable from the build when
-  last tried: 桃園市, 臺南市, 新竹縣 and the rest of the counties.
+  `all.json` and `text/` by that shape. A site that fails keeps the last
+  copy; `local/all.json`'s `sources` says each one's count and error (the
+  cloud box reached 臺北, 新北, 高雄, 臺中, 新竹市, 金門, 苗栗, 彰化, 連江,
+  嘉義市; the rest are tried from the deploy's runner).
 - **Finding** (`lib/search.mjs`, `fulltext.mjs`, `topics.mjs`): names, short
   names and article jumps; 全文檢索 by bigram buckets built at deploy; every
   law sorted into a topic.

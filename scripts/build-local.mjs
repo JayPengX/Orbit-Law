@@ -1,5 +1,5 @@
 // 地方法規: the cities' 自治條例, 自治規則, 委辦規則 and 行政規則 from their own 法規查詢系統
-// (臺北市, 新北市, and the 主管法規 platform of 高雄市, 臺中市, 新竹市, 金門縣), each rule's whole
+// (臺北市, 新北市, and the 主管法規 platform every other city and county runs), each rule's whole
 // text kept, linked to the laws it names or rests on. All sites run at once, each host one
 // request a second: every list is read a part at a time (the longest unread first, carried over
 // between deploys in local/state.json), then the pages not read yet, until --minutes (default
@@ -68,7 +68,25 @@ const SITES = [
   platform('KHH', '高雄市', 'https://outlaw.kcg.gov.tw'),
   platform('TXG', '臺中市', 'https://law.taichung.gov.tw'),
   platform('HSZ', '新竹市', 'https://law.hccg.gov.tw'),
-  platform('KNH', '金門縣', 'https://law.kinmen.gov.tw')
+  platform('KNH', '金門縣', 'https://law.kinmen.gov.tw'),
+  platform('MIA', '苗栗縣', 'https://law.miaoli.gov.tw/glrsnewsout'),
+  platform('CHA', '彰化縣', 'https://lawsearch.chcg.gov.tw/GLRSNEWSOUT'),
+  // Not reachable from the cloud box when added (2026-10-21); tried from the deploy's runner, a failure keeps the last copy.
+  platform('TYC', '桃園市', 'https://law.tycg.gov.tw'),
+  platform('TNN', '臺南市', 'https://law01.tainan.gov.tw'),
+  platform('ILA', '宜蘭縣', 'https://glrslaw.e-land.gov.tw'),
+  platform('YUN', '雲林縣', 'https://law.yunlin.gov.tw'),
+  platform('PIF', '屏東縣', 'https://ptlaw.pthg.gov.tw'),
+  platform('TTT', '臺東縣', 'https://law.taitung.gov.tw'),
+  platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw'),
+  platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
+  // Guessed hosts (no site found by search): kept only if they answer.
+  platform('KEE', '基隆市', 'https://law.klcg.gov.tw'),
+  platform('HSQ', '新竹縣', 'https://law.hsinchu.gov.tw'),
+  platform('NAN', '南投縣', 'https://law.nantou.gov.tw'),
+  platform('CYI', '嘉義市', 'https://law.chiayi.gov.tw'),
+  platform('CYQ', '嘉義縣', 'https://law.cyhg.gov.tw'),
+  platform('PEN', '澎湖縣', 'https://law.penghu.gov.tw')
 ];
 
 const prev = await prevJson('local/all.json');

@@ -1266,8 +1266,8 @@ function turnHtml(t) {
   return `<div class="lw-msg ai${r.covered ? '' : ' thin'}">${parts}</div>${follow}`;
 }
 
-// A judgment opens in the app's reader (司法院's page); a 釋字 or 憲判字 on its own link.
-const caseHref = jid => (/^(s\d|j\d)/.test(jid) ? `#r=${encodeURIComponent(jid)}` : `https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id=${encodeURIComponent(jid)}`);
+// A judgment, 釋字 or 憲判字: the app's one ruling link.
+const caseHref = jid => `#r=${encodeURIComponent(jid)}`;
 const caseChip = c => {
   const [, y, w, n] = c.jid.split(',');
   const label = c.jid.startsWith('s') ? W(`釋字${c.jid.slice(1)}`, `J.Y. ${c.jid.slice(1)}`) : c.jid.startsWith('j') ? W(`${c.jid.slice(1).replace('-', '憲判')}`, `${c.jid.slice(1)} TCC`) : `${y}${w}${n}`;

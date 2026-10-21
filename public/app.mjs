@@ -1377,7 +1377,7 @@ const lowIndex = once('rulings/low/index.json');
 // The four doors: each court (and 釋字, the old 大法官's), its colour.
 const COURT_DOORS = [
   ['cons', W('憲法法庭', 'Const.'), 'cons'],
-  ['interp', W('大法官解釋', 'Interpret.'), 'interp'],
+  ['interp', W('大法官', 'Interpret.'), 'interp'],
   ['TPS', W('最高法院', 'Supreme'), 'tps'],
   ['TPA', W('最高行政', 'Admin.'), 'tpa'],
   ['low', W('各級法院', 'Lower'), 'low']

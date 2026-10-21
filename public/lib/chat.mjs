@@ -75,7 +75,8 @@ export async function chatLaw({ q, history = [], pin = [], mine = null, lang = '
   try {
     r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), lang, stream: true }) });
   } catch {
-    return { error: 'offline' };
+    // (No connection only when the phone says so: a slow or failed answer from the server isn't the person's internet.)
+    return { error: globalThis.navigator?.onLine === false ? 'offline' : 'failed' };
   }
   let j = {};
   let status = r.status;

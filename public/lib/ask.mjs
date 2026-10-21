@@ -25,7 +25,8 @@ async function post(body, fetcher) {
   try {
     r = await fetcher(ASK_URL, { method: 'POST', body: JSON.stringify(body) });
   } catch {
-    return { error: 'offline' };
+    // (No connection only when the phone says so: a slow or failed answer from the server isn't the person's internet.)
+    return { error: globalThis.navigator?.onLine === false ? 'offline' : 'failed' };
   }
   const j = await r.json().catch(() => ({}));
   if (!r.ok) return { error: typeof j.error === 'string' ? j.error : `http${r.status}`, left: j.left };

@@ -260,16 +260,17 @@ test('rulings: top courts only, the articles cited by law name, newest kept per 
   assert.equal(inWindow(new Date('2026-10-18T04:00:00Z')), false, '12:00 Taiwan');
 });
 
-import { interpLinks } from '../public/lib/refs.mjs';
+import { consLinks } from '../public/lib/cons.mjs';
 import { relatedLaws } from '../public/lib/search.mjs';
 import { newCount } from '../public/lib/store.mjs';
-test('cross-links: 大法官解釋 out to 憲法法庭, a law with its 施行法, the 追蹤 badge count', () => {
-  const s = interpLinks('依司法院釋字第七四八號解釋之意旨，及大法官釋字第 499  號。');
+test('cross-links: 大法官解釋 and 憲判 to 裁判, a law with its 施行法, the 追蹤 badge count', () => {
+  const s = consLinks('依司法院釋字第七四八號解釋之意旨，及大法官釋字第 499  號。');
   assert.equal(s[1].t, '司法院釋字第七四八號解釋');
-  assert.match(s[1].url, /expno=748$/);
-  assert.match(s[3].url, /expno=499$/);
+  assert.equal(s[1].id, 's748');
+  assert.equal(s[3].id, 's499');
   assert.equal(s.filter(x => typeof x === 'string').join(''), '依之意旨，及。');
-  assert.deepEqual(interpLinks('第十條'), ['第十條']);
+  assert.deepEqual(consLinks('第十條'), ['第十條']);
+  assert.equal(consLinks('憲法法庭１１１年憲判字第８號判決')[0].id, 'j111-8');
   const rows = [['B1', '民法'], ['B2', '民法總則施行法'], ['B3', '民法親屬編施行法'], ['B4', '民事訴訟法'], ['B5', '民法舊施行法', 0, 0, 0, 1]];
   assert.deepEqual(relatedLaws(rows, rows[0]).map(r => r[0]), ['B2', 'B3']);
   assert.deepEqual(relatedLaws(rows, rows[2]).map(r => r[0]), ['B1', 'B2']);
@@ -424,7 +425,7 @@ test('before/after: the changed characters marked, long sameness shortened', () 
   assert.match(html, /…<\/span>甲{10}<del>乙<\/del><ins>丙<\/ins>/);
 });
 
-import { cleanChat, historyOf, chatLaw } from '../public/lib/chat.mjs';
+import { cleanChat, historyOf, chatLaw, mineOf } from '../public/lib/chat.mjs';
 test('問法律: only cites among its sources; soon when the route isn’t there', async () => {
   const c = cleanChat({ covered: true, answer: ' a ', sources: [{ p: 'B0000001', n: '民法', key: '421' }, { p: 'bad', key: '1' }], points: [{ text: 'x', cites: ['B0000001:421', 'B0000001:999'] }, { text: 'y', cites: ['C0000001:1'] }], consequences: [{ text: 'fine', cites: [] }], next: ['存證信函', 3], followups: ['f'] });
   assert.deepEqual(c.points, [{ text: 'x', cites: ['B0000001:421'] }]);
@@ -437,6 +438,16 @@ test('問法律: only cites among its sources; soon when the route isn’t there
   assert.equal(historyOf(Array.from({ length: 9 }, (_, i) => ({ role: 'user', text: String(i) }))).length, 6);
   const r = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 404, json: async () => ({}) }) });
   assert.equal(r.error, 'soon');
+});
+
+test('問法律: judgments and rules cite like articles, only those the answer carries; follows sent as the proxy reads them', () => {
+  const jid = 'TPSV,114,台上,2031,20260514,1';
+  const c = cleanChat({ covered: true, answer: 'a', sources: [], cases: [{ jid, d: '2026-05-14', t: '請求返還押金', no: '最高法院民事 114年度台上字第2031號' }, { jid: '<x>' }], rules: [{ id: '教育部:FL001', n: '注意事項', url: 'javascript:1', text: true }], people: [{ id: '1261', n: '吳春城' }, { id: 'x', n: 'y' }], votes: [{ id: 'v1', t: '表決' }], meets: [{ id: 'm1', t: '會議', d: '2026-10-22' }], points: [{ text: 'x', cites: [jid, 'TPSV,1,台上,1,20200101,1'] }, { text: 'y', cites: ['教育部:FL001'] }] });
+  assert.deepEqual(c.points.map(p => p.cites), [[jid], ['教育部:FL001']]);
+  assert.deepEqual([c.cases.length, c.rules[0].url, c.rules[0].text, c.people.length, c.votes.length, c.meets.length], [1, '', true, 1, 1, 1]);
+  assert.deepEqual(cleanChat({ covered: true, answer: 'a', votes: [{ id: 'v1', t: '表決' }], points: [] }).covered, true);
+  assert.deepEqual(historyOf([{ role: 'model', text: 'a', cites: ['B0000001:1', jid] }])[0].cites, ['B0000001:1']);
+  assert.deepEqual(mineOf({ laws: { B0000001: 'd' }, items: { '11:01126': 'd' }, people: { 1261: 'd' }, marks: [{ p: 'B0000001', k: '184' }, { p: 'x', k: 'y' }] }), { laws: ['B0000001'], items: ['11:01126'], people: ['1261'], marks: ['B0000001:184'] });
 });
 
 import { encodeMine, decodeMine, mergeMine } from '../public/lib/store.mjs';

@@ -1,7 +1,8 @@
 // The app's pieces as HTML: an article with its links, a law's contents, a
 // bill item's stage bar and timeline. Strings, so the tests read them and
 // a long law (民法: 1,225 articles) draws in one go.
-import { linkText, paragraphs, interpLinks } from './refs.mjs';
+import { linkText, paragraphs } from './refs.mjs';
+import { consLinks } from './cons.mjs';
 import { STAGES, STAGES_EN, PROMULGATED, stageOf, openRound } from './bills.mjs';
 import { headingDepth, ymd } from './search.mjs';
 import { noticeBefore, noticeUrl } from './notices.mjs';
@@ -32,8 +33,8 @@ export function articleHtml([, k, text], ctx = {}) {
   return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(k, ctx.en))}</button>${fresh}${body}</article>`;
 }
 
-// A plain run: text, with any 大法官解釋 a link out.
-const plainHtml = s => (s.includes('釋字') ? interpLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-ref out" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.t)}</a>`)).join('') : esc(s));
+// A plain run: text, with any 大法官解釋 or 憲法法庭判決 a link to it in 裁判.
+export const plainHtml = s => (/釋字|憲判/.test(s) ? consLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-cons" href="#r=${esc(x.id)}">${esc(x.t)}</a>`)).join('') : esc(s));
 
 // A reference: to an article (its law or this one), or to a 項 of the
 // article it sits in.

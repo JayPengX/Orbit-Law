@@ -61,7 +61,7 @@ test('budget bills grouped by budget, with a stage', () => {
   assert.equal(g.k, '115');
   assert.equal(g.title, '115年度中央政府總預算案');
   assert.equal(g.stage, '審查總報告');
-  assert.deepEqual(g.flow, [['2025-09-30', '排入院會 (交經濟委員會)'], ['2026-04-17', '中央政府總預算流程']], 'the master bill’s flow');
+  assert.deepEqual(g.flow, [['2025-09-30', '排入院會 (交經濟委員會)'], ['2026-07-01', '審查總報告']], 'the master bill’s flow, then the report’s');
   assert.deepEqual(g.votes, ['v1'], 'not the 追加預算 vote');
   assert.equal(g.bills.find(b => b[0] === 'B')[2], '財政委員會');
   [g] = budgetGroups(rows.slice(0, 3));
@@ -69,4 +69,11 @@ test('budget bills grouped by budget, with a stage', () => {
   rows[3]['議案狀態'] = '三讀';
   [g] = budgetGroups(rows);
   assert.deepEqual([g.stage, g.done], ['三讀', '2026-07-14']);
+  assert.deepEqual(g.flow.at(-1), ['2026-07-14', '三讀']);
+  // 第二預備金 is a list of its own: it never moves the year's dates.
+  rows.push({ 議案編號: 'P', 議案名稱: '115年度中央政府總預算第二預備金動支數額表', '提案單位/提案委員': '行政院', 議案狀態: '交付審查', 提案日期: '2027-04-01', 最新進度日期: '2027-05-01', 議案流程: [] });
+  const gs = budgetGroups(rows);
+  assert.deepEqual(gs.map(x => x.k).sort(), ['115', '115預備金']);
+  assert.equal(gs.find(x => x.k === '115').last, '2026-07-14');
+  assert.equal(gs.find(x => x.k === '115預備金').title, '115年度第二預備金動支數額表');
 });

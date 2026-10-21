@@ -3845,6 +3845,9 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
   .lw-panel .lw-list:not(.in-sheet) > .lw-row:nth-child(2)::before {
     display: none;
   }
+  .lw-panel .lw-list:not(.in-sheet) > .lw-row:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
   /* (One column in a half-width section.) */
   .lw-panel .lw-half .lw-list:not(.in-sheet) {
     grid-template-columns: minmax(0, 1fr);

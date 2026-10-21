@@ -90,13 +90,18 @@ Live: https://jaypengx.github.io/Orbit-Law/
   cites, the rulings it names, the bills whose purpose names it), `<id>.json`,
   `laws.json` (by law and article). The holding's word (違憲/合憲/部分違憲) is
   read from its own text.
-- **裁判, top courts** (`lib/rulings.mjs`, `scripts/build-rulings.mjs`): 最高法院
-  and 最高行政法院 judgments of the last 3 years, kept by the articles they cite
-  (`data/rulings/<pcode>.json`, no text kept), by month for browsing
-  (`rulings/m/<YYYYMM>.json`, `months.json`) and by number and matter
-  (`find.json`, loaded on a search). New ones from 司法院's JDoc API, the past
-  from its monthly archives (open 00:00–06:00 Taiwan time, read a few months a
-  night). A judgment opens through the proxy's `/law-page` and is read by
+- **裁判, the courts** (`lib/rulings.mjs`): every court's judgments citing a law,
+  3 years back. `scripts/backfill-rulings.mjs` (workflow `rulings.yml`, nightly
+  00:05–06:00 Taiwan time, when 司法院 opens; it saves the store to the cache,
+  asks Pages for a deploy and starts itself again while months remain) reads
+  司法院's monthly archives and JDoc into `.rulings-store/` (cache only, never
+  carried through a deploy). `scripts/build-rulings.mjs` (Pages) makes what the
+  app reads: 最高法院 and 最高行政法院 whole, by article (`rulings/<pcode>.json`),
+  month (`rulings/m/`, `months.json`) and number (`find.json`); the other courts'
+  判決 (高等法院 and branches, 高等行政法院, 智財商業法院, 地方法院 and 簡易庭) by
+  article (`rulings/low/law/<pcode>.json`), 案由 (`low/t/<key>.json`), court
+  (`low/c/<code>.json`), with `low/index.json` (courts, 案由, newest). No text
+  is kept; a judgment opens through the proxy's `/law-page` and is read by
   `lib/judgment.mjs`: the outcome first.
 - **The sides link** (app.mjs): an article shows its rulings (purple when
   憲法法庭's) and the bills open on it; a law its 憲法法庭 strip; a ruling the

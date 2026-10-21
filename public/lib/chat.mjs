@@ -23,7 +23,7 @@ const str = x => (typeof x === 'string' ? x.trim() : '');
 export function cleanChat(j) {
   const sources = list(j?.sources, 20).filter(s => s && CITE.test(`${s.p}:${s.key}`)).map(s => ({ p: s.p, n: str(s.n), key: String(s.key) }));
   const cases = list(j?.cases, 6).filter(x => x && JID.test(String(x.jid || ''))).map(x => ({ jid: String(x.jid), d: str(x.d || ''), t: str(x.t || ''), no: str(x.no || '') }));
-  const rules = list(j?.rules, 6).filter(x => x && RULE.test(String(x.id || '')) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), agency: str(x.agency || ''), d: str(x.d || ''), url: /^https:\/\//.test(x.url) ? x.url : '', text: x.text === true }));
+  const rules = list(j?.rules, 6).filter(x => x && RULE.test(String(x.id || '')) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), agency: str(x.agency || ''), d: str(x.d || ''), url: /^https:\/\//.test(x.url) ? x.url : '', text: x.text === true, dir: x.dir === 'local' ? 'local' : 'agency' }));
   const known = new Set([...sources.map(s => `${s.p}:${s.key}`), ...cases.map(x => x.jid), ...rules.map(x => x.id)]);
   // Grounded in what isn't an article (notices, bills, legislators…): points without cites stand too.
   const grounded = ['notices', 'bills', 'people', 'votes', 'meets', 'cases', 'rules'].some(k => Array.isArray(j?.[k]) && j[k].length > 0);

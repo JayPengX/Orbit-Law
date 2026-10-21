@@ -31,7 +31,7 @@ const head = s => String(s || '').replace(/[\r\n]+\s*/g, '').slice(0, 400);
 
 // Raw rule: { id, name, agency, date, url, text } (text: its start, for the basis).
 // (full: the whole text when the source gives it, for reading in the app.)
-const rule = (id, name, agency, date, url, text = '') => ({ id, name: flat(name), agency, date, url, text: head(text), full: String(text || '').slice(0, 60000) });
+export const rule = (id, name, agency, date, url, text = '') => ({ id, name: flat(name), agency, date, url, text: head(text), full: String(text || '').slice(0, 60000) });
 // A rule's own text file name (data/agency/text/<this>.json).
 export const textFile = id => String(id).replace(/[^A-Za-z0-9_-]/g, '_');
 

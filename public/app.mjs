@@ -386,9 +386,9 @@ function drawResults() {
 // 子法 by name, then 行政規則 by name, then bills in 立法院, then 問法律. Everyday words also try
 // the law books' words (學生會 → 學生自治組織).
 let findRun = 0;
-// The ministries' 行政規則 by name (agency/names.json, read at the first search).
-let ruleNames;
-const ruleList = () => (ruleNames ||= data('agency/names.json').catch(() => ((ruleNames = null), [])));
+// The ministries' 行政規則 and the cities' 地方法規 by name (agency/names.json, local/names.json, read at the first search).
+const ruleNames = {};
+const ruleList = dir => (ruleNames[dir] ||= data(`${dir}/names.json`).catch(() => ((ruleNames[dir] = null), [])));
 async function findAll(q, out) {
   const run = ++findRun;
   const terms = expand(q);
@@ -409,7 +409,7 @@ async function findAll(q, out) {
   const nameBlocks = () =>
     (laws.length ? section(W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '') +
     (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
-    `<div id="find-rules"></div>` +
+    `<div id="find-rules"></div><div id="find-local"></div>` +
     (bills.length ? section(W('立法院審議中', 'In 立法院'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-rulings"></div><div id="find-people"></div>`;
   out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
@@ -422,18 +422,19 @@ async function findAll(q, out) {
         if (run === findRun && el && html) el.innerHTML = `<div class="lw-find-rulings">${html}</div><a class="lw-more-link" href="#tab=rulings&amp;q=${encodeURIComponent(q)}">${W(`在裁判找「${esc(q)}」`, `Search rulings for “${esc(q)}”`)}</a>`;
       })
       .catch(() => {});
-  // 行政規則 by name: a ministry's 要點 or 注意事項 has no law of its own to open.
+  // 行政規則 by name (a ministry's 要點 or 注意事項 has no law of its own to open), and the cities' 地方法規.
   if ([...q].length >= 2 && !state.topic)
-    ruleList().then(rows => {
-      const el = $('find-rules');
-      if (run !== findRun || !el) return;
-      const hit = [];
-      for (const t of terms) for (const r of searchLaws(rows, t, 30)) if (!hit.includes(r) && r[1].includes(t)) hit.push(r);
-      if (!hit.length) return;
-      ruleHits = hit.length;
-      el.outerHTML = section(W('行政規則（要點、注意事項）', 'Agency rules'), list(hit.slice(0, 8).map(r => agencyRow(r, ''))));
-      $('find-arts')?.querySelector('.q-empty')?.remove();
-    });
+    for (const [dir, slot, title] of [['agency', 'find-rules', W('行政規則（要點、注意事項）', 'Agency rules')], ['local', 'find-local', W('地方法規（自治條例、自治規則）', 'City rules')]])
+      ruleList(dir).then(rows => {
+        const el = $(slot);
+        if (run !== findRun || !el) return;
+        const hit = [];
+        for (const t of terms) for (const r of searchLaws(rows, t, 30)) if (!hit.includes(r) && r[1].includes(t)) hit.push(r);
+        if (!hit.length) return;
+        ruleHits += hit.length;
+        el.outerHTML = section(title, list(hit.slice(0, 8).map(r => agencyRow(r, '', dir))));
+        $('find-arts')?.querySelector('.q-empty')?.remove();
+      });
   // 立委 by name or 選區: straight to their page.
   if ([...q].length >= 2)
     peopleData()
@@ -689,7 +690,8 @@ function openRegs(k) {
   regSheet(W(`${artLabel(k)} 的子法`, `Rules under Art. ${k}`), list.map(([p, name]) => `<button type="button" class="lw-row" data-p="${esc(p)}">${topicTile(rowTopic(state.byCode.get(p) || [p, name, '命令']), 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(nameOf(p, name))}</span></span></button>`).join('') + ag.map(r => agencyRow(r, '')).join(''));
 }
 // A ministry's 行政規則 (not in 全國法規資料庫): opens on its site.
-const agencyRow = ([id, name, agency, url, mine], label) => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener"${mine ? ` data-text="${esc(textFile(id))}"` : ''}>${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
+// (dir: whose rule it is, data/<dir>/text/ keeps its text.)
+const agencyRow = ([id, name, agency, url, mine], label, dir = 'agency') => `<a class="lw-row" href="${esc(url)}" target="_blank" rel="noopener"${mine ? ` data-text="${esc(`${dir}/${textFile(id)}`)}"` : ''}>${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${esc([agency, label].filter(Boolean).join(' · '))}</small></span></a>`;
 // A regulation's 授權依據: the law and article it is made under (a tap: there).
 function basisDoor(law) {
   const from = state.deleg.from.filter(([p]) => state.byCode.has(p));
@@ -1005,12 +1007,13 @@ async function openJudgment(u, label = '') {
   }
 }
 
-// A 授權 rule whose whole text came with the ministry's open data: read from this site.
-async function openRuleText(file, label) {
+// A rule whose whole text we kept (a ministry's or a city's, 'agency/<file>' or 'local/<file>'): read from this site.
+async function openRuleText(path, label) {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p>` });
   sheet({ title: label.slice(0, 40), closeLabel: W('關閉', 'Close'), body });
   try {
-    const r = await fetch(`./data/agency/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
+    const [dir, file] = path.split('/');
+    const r = await fetch(`./data/${dir}/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
     body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><p class="lw-page-pre">${esc(r.t.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n'))}</p>`;
   } catch {
     body.innerHTML = `<p class="lw-none">${W('讀不到這個規定', 'Couldn’t load this rule')}</p>`;
@@ -1318,7 +1321,7 @@ const caseChip = c => {
   return `<a class="lw-ref lw-cite" href="${esc(caseHref(c.jid))}"><b>${W('判決', 'Ruling')}</b> ${esc(label)}</a>`;
 };
 // A rule: its text kept on this site, else the ministry's page (read in the app), else just its name.
-const ruleLink = (x, cls, inner) => (x.text || x.url ? `<a class="${cls}" href="${esc(x.url || '#')}"${x.text ? ` data-text="${esc(textFile(x.id))}"` : ''}>${inner}</a>` : `<span class="${cls}">${inner}</span>`);
+const ruleLink = (x, cls, inner) => (x.text || x.url ? `<a class="${cls}" href="${esc(x.url || '#')}"${x.text ? ` data-text="${esc(`${x.dir}/${textFile(x.id)}`)}"` : ''}>${inner}</a>` : `<span class="${cls}">${inner}</span>`);
 
 async function ask(text) {
   if (chat.busy) return;

@@ -69,6 +69,11 @@ jobs:
       - name: Build the ministries' rules
         run: node scripts/build-agency.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
         continue-on-error: true
+      # Cities' 自治條例, 自治規則 and 行政規則 (臺北市, 新北市, 高雄市, 臺中市, 新竹市, 金門縣),
+      # whole text, linked to the laws they rest on. Same budget, same carrying over.
+      - name: Build the cities' rules
+        run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
+        continue-on-error: true
       # Court rulings by article: JDoc answers 00:00-06:00 Taiwan time, so the
       # 03:30 run reads it; other runs (and no account yet) carry the last copy.
       - name: An unpacker for the monthly ruling archives (RAR)

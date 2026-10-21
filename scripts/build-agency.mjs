@@ -12,7 +12,7 @@
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { textFile, parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, vendorLeaves, vendorList, vendorText, vendorRule, vendorWant, staleFirst, listedRows, listedKeep } from '../public/lib/agency.mjs';
-import { args, sleep, prevJson } from './lib.mjs';
+import { args, prevJson, getter, pool } from './lib.mjs';
 
 const data = new URL('../public/data/', import.meta.url).pathname;
 const out = data + 'agency/';
@@ -20,25 +20,7 @@ const UA = 'Orbit-Law build (+https://github.com/jaypengx/Orbit-Law)';
 
 const START = Date.now();
 const DEADLINE = START + (+args.minutes || 20) * 60_000;
-const lastAt = {};
-// One request at a time, at least a second apart per host, tries, a timeout each.
-async function get(url, { tries = 3, timeout = 120_000 } = {}) {
-  let err;
-  const host = new URL(url).host;
-  for (let i = 1; i <= tries; i++) {
-    await sleep(Math.max(0, (lastAt[host] || 0) + 1000 - Date.now()));
-    lastAt[host] = Date.now();
-    try {
-      const r = await fetch(encodeURI(url), { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(timeout) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return (await r.text()).replace(/^﻿/, '');
-    } catch (e) {
-      err = e;
-      await sleep(3000 * i);
-    }
-  }
-  throw err;
-}
+const get = getter(UA);
 
 const FSC = ['本會', '銀行局', '證券期貨局', '保險局', '檢查局'];
 const SOURCES = [
@@ -78,12 +60,6 @@ const vcarried = [];
 const prevRows = new Map((prev?.rules || []).map(r => [r[0], r]));
 const tooLate = () => Date.now() > DEADLINE;
 const LIST_UNTIL = START + (DEADLINE - START) * 0.5; // the rest of the time goes to reading pages
-
-// fn over items, n at a time.
-async function pool(items, n, fn) {
-  let i = 0;
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); }));
-}
 
 // One category's rows, all its pages, added to `rows` as they come (the time can run out halfway).
 async function listLeaf(base, leaf, rows) {

@@ -17,7 +17,7 @@ Live: https://jaypengx.github.io/Orbit-Law/
   `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
   under `public/img/ly/`; only a newcomer's is fetched), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
-  as 預算案 − 法定預算), `build-agency.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
+  as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
   `stamp-version.mjs`. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,
@@ -129,6 +129,17 @@ Live: https://jaypengx.github.io/Orbit-Law/
   all at once, each host a request a second; `agency/state.json` carries
   each category's rows between deploys, so every night lists the longest
   unlisted categories and reads the pages not read yet.
+- **地方法規** (`lib/local.mjs`, `build-local.mjs`): the cities' 自治條例,
+  自治規則, 委辦規則 and 行政規則 from their own 法規查詢系統 (臺北市
+  laws.gov.taipei, 新北市 web.law.ntpc.gov.tw, and the 主管法規 platform of
+  高雄市, 臺中市, 新竹市, 金門縣), built like the ministries' rules: every
+  rule kept, `local/all.json` (`[id, name, city, date, url, laws]`, id =
+  city code + `:` + the site's id), `local/names.json` for the 法規 search's
+  地方法規 section, whole text in `local/text/`, `local/state.json` carrying
+  each list part and each page's read stamp between deploys (自治條例 read
+  first, then 自治規則, 委辦規則, 行政規則). The AI Worker reads
+  `all.json` and `text/` by that shape. Not reachable from the build when
+  last tried: 桃園市, 臺南市, 新竹縣 and the rest of the counties.
 - **Finding** (`lib/search.mjs`, `fulltext.mjs`, `topics.mjs`): names, short
   names and article jumps; 全文檢索 by bigram buckets built at deploy; every
   law sorted into a topic.
@@ -144,7 +155,7 @@ Live: https://jaypengx.github.io/Orbit-Law/
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |
 | `public/lib/rulings.mjs`, `judgment.mjs`, `reader.mjs` | Top-court rulings by article and month; a judgment read into parts; a government page read in the app |
-| `public/lib/agency.mjs`, `news.mjs`, `notices.mjs` | 行政規則, 政府公告, 預告 |
+| `public/lib/agency.mjs`, `local.mjs`, `news.mjs`, `notices.mjs` | 行政規則, 地方法規, 政府公告, 預告 |
 | `public/lib/search.mjs`, `fulltext.mjs`, `find.mjs`, `topics.mjs` | Finding a law or article, full text, topics |
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |

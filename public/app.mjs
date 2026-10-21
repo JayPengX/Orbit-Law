@@ -332,11 +332,17 @@ const COMMON = ['中華民國憲法', '民法', '中華民國刑法', '民事訴
 
 const box = search({ placeholder: W('找法規、條文或生活問題', 'Search laws, articles or topics'), onInput: v => ((state.query = v), drawResults()), onSubmit: v => jump(v) });
 
+// A topic chip tapped: where its row was, so the next topic opens with the row in the same place.
+let lawChipsAt = null;
+const lawChipTap = e => {
+  const row = e.currentTarget.parentNode;
+  lawChipsAt = { left: row.scrollLeft, top: row.getBoundingClientRect().top };
+};
 function drawLaws() {
   const panel = $('panel-laws');
   const chips = h('div', { class: 'q-chips lw-chips' }, [
     h('button', { type: 'button', class: 'q-chip', 'aria-pressed': String(!state.topic), text: W('全部', 'All'), onclick: () => go('tab=laws', { replace: true }) }),
-    ...Object.keys(TOPICS).map(id => h('button', { type: 'button', class: 'q-chip lw-tchip', style: `--t:${TOPICS[id].color}`, 'aria-pressed': String(state.topic === id), html: `<i></i>${esc(topicName(id, en))}`, onclick: () => go(`tab=laws&topic=${id}`, { replace: true }) }))
+    ...Object.keys(TOPICS).map(id => h('button', { type: 'button', class: 'q-chip lw-tchip', style: `--t:${TOPICS[id].color}`, 'aria-pressed': String(state.topic === id), html: `<i></i>${esc(topicName(id, en))}`, onclick: e => (lawChipTap(e), go(`tab=laws&topic=${id}`, { replace: true })) }))
   ]);
   // A topic or a quick question came from a tap: a way back (a Home Screen app has no back gesture).
   const back = state.topic || (state.linkedQuery && state.query) ? h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 ? history.back() : go('tab=laws')) }) : null;
@@ -345,7 +351,14 @@ function drawLaws() {
   box.hidden = false;
   drawResults();
   const on = chips.querySelector('[aria-pressed="true"]');
-  if (on && state.topic) chips.scrollLeft = on.offsetLeft - 16;
+  const at = lawChipsAt;
+  lawChipsAt = null;
+  if (at && state.topic) {
+    $('results').style.minHeight = `${Math.round(innerHeight * 0.9)}px`;
+    chips.scrollLeft = at.left;
+    const by = chips.getBoundingClientRect().top - at.top;
+    if (Math.abs(by) > 1) scrollBy({ top: by, behavior: 'instant' });
+  } else if (on && state.topic) chips.scrollLeft = on.offsetLeft - 16;
 }
 
 function drawResults() {
@@ -1657,17 +1670,20 @@ function drawBills() {
   const f = new URLSearchParams(location.hash.slice(1)).get('f');
   if (f && (BILL_FILTERS.some(([id]) => id === f) || BILL_DOORS.some(([id]) => id === f))) ((billFilter = f === 'bills' ? 'moving' : f), (billStep = -1));
   if (!panel.firstChild) {
-    const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: () => setBillFilter(id === 'bills' ? 'moving' : id) })));
-    const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: () => setBillFilter(id) })));
-    panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-list' }));
+    const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id === 'bills' ? 'moving' : id)) })));
+    const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id)) })));
+    // The stage chips sit above 這週 so a tap never moves them.
+    panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-list' }));
     wireTitles(panel);
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
       if (col) {
-        billStep = billStep === Number(col.dataset.step) ? -1 : Number(col.dataset.step);
-        if (billStep < 0) billFilter = 'moving';
-        billMore = {};
-        return drawBillList();
+        return keepPlace($('bill-funnel'), () => {
+          billStep = billStep === Number(col.dataset.step) ? -1 : Number(col.dataset.step);
+          if (billStep < 0) billFilter = 'moving';
+          billMore = {};
+          drawBillList();
+        });
       }
       const how = e.target.closest('[data-how]');
       if (how) return howBillsWork(Number(how.dataset.how));
@@ -1676,6 +1692,21 @@ function drawBills() {
     });
   }
   drawBillList();
+}
+// A filter tap redraws what's below it without moving it: the tapped control
+// stays where the finger left it (the list below keeps at least a screen's
+// height, so a short list never pulls the page up under it).
+function keepPlace(el, draw) {
+  const top = el.getBoundingClientRect().top;
+  const list = $('bill-list');
+  if (list) list.style.minHeight = `${Math.round(innerHeight * 0.9)}px`;
+  draw();
+  const fix = () => {
+    const by = el.getBoundingClientRect().top - top;
+    if (Math.abs(by) > 1) scrollBy({ top: by, behavior: 'instant' });
+  };
+  fix();
+  requestAnimationFrame(fix);
 }
 function setBillFilter(id) {
   billFilter = id;

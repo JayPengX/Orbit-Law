@@ -27,7 +27,16 @@ const tooLate = () => Date.now() > DEADLINE;
 // ---- The sites. code: the ASCII prefix of a rule's id (ids repeat across sites; a text file's name keeps only ASCII).
 //  keys(): the parts the list comes in (a category, a page); list(key, rows): that part's rows pushed
 //  one page at a time ({ id, name, date, type }); read(id): { text, date } of a rule; url(id): its page.
-const platform = (code, city, base) => ({
+// A site that serves only Taiwan is read through the proxy's /law-page with the build's key
+// (LAW_BUILD_KEY; without it, tried directly), fetched there from Taiwan.
+const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
+const KEY = process.env.LAW_BUILD_KEY || '';
+const door = url => [`${DOOR}?v=1&u=${encodeURIComponent(url)}`, { 'X-Build-Key': KEY }];
+const platform = (code, city, base, { twOnly = false } = {}) => {
+  const via = twOnly && KEY ? door : null;
+  return platformSite(code, city, base, (url, o) => get(url, { ...o, via }));
+};
+const platformSite = (code, city, base, get) => ({
   code, city,
   keys: async () => {
     const leaves = vendorLeaves(await get(`${base}/LawQuery.aspx`, { tries: 2, timeout: 30_000 }));
@@ -71,22 +80,22 @@ const SITES = [
   platform('KNH', '金門縣', 'https://law.kinmen.gov.tw'),
   platform('MIA', '苗栗縣', 'https://law.miaoli.gov.tw/glrsnewsout'),
   platform('CHA', '彰化縣', 'https://lawsearch.chcg.gov.tw/GLRSNEWSOUT'),
-  // Not reachable from the cloud box when added (2026-10-21); tried from the deploy's runner, a failure keeps the last copy.
-  platform('TYC', '桃園市', 'https://law.tycg.gov.tw'),
-  platform('TNN', '臺南市', 'https://law01.tainan.gov.tw'),
-  platform('ILA', '宜蘭縣', 'https://glrslaw.e-land.gov.tw'),
-  platform('YUN', '雲林縣', 'https://law.yunlin.gov.tw'),
-  platform('PIF', '屏東縣', 'https://ptlaw.pthg.gov.tw'),
-  platform('TTT', '臺東縣', 'https://law.taitung.gov.tw'),
-  platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw'),
+  // These serve only Taiwan (from the cloud box and GitHub's runners: refused): read through the proxy's door.
+  platform('TYC', '桃園市', 'https://law.tycg.gov.tw', { twOnly: true }),
+  platform('TNN', '臺南市', 'https://law01.tainan.gov.tw', { twOnly: true }),
+  platform('ILA', '宜蘭縣', 'https://glrslaw.e-land.gov.tw', { twOnly: true }),
+  platform('YUN', '雲林縣', 'https://law.yunlin.gov.tw', { twOnly: true }),
+  platform('PIF', '屏東縣', 'https://ptlaw.pthg.gov.tw', { twOnly: true }),
+  platform('TTT', '臺東縣', 'https://law.taitung.gov.tw', { twOnly: true }),
+  platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw', { twOnly: true }),
   platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
-  // Guessed hosts (no site found by search): kept only if they answer.
-  platform('KEE', '基隆市', 'https://law.klcg.gov.tw'),
-  platform('HSQ', '新竹縣', 'https://law.hsinchu.gov.tw'),
-  platform('NAN', '南投縣', 'https://law.nantou.gov.tw'),
+  // Guessed hosts (no site found by search): kept only if they answer; Taiwan only too.
+  platform('KEE', '基隆市', 'https://law.klcg.gov.tw', { twOnly: true }),
+  platform('HSQ', '新竹縣', 'https://law.hsinchu.gov.tw', { twOnly: true }),
+  platform('NAN', '南投縣', 'https://law.nantou.gov.tw', { twOnly: true }),
   platform('CYI', '嘉義市', 'https://law.chiayi.gov.tw'),
-  platform('CYQ', '嘉義縣', 'https://law.cyhg.gov.tw'),
-  platform('PEN', '澎湖縣', 'https://law.penghu.gov.tw')
+  platform('CYQ', '嘉義縣', 'https://law.cyhg.gov.tw', { twOnly: true }),
+  platform('PEN', '澎湖縣', 'https://law.penghu.gov.tw', { twOnly: true })
 ];
 
 const prev = await prevJson('local/all.json');

@@ -77,6 +77,9 @@ jobs:
       - name: Build the cities' rules
         run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
         continue-on-error: true
+        # The counties that serve only Taiwan are read through the proxy with this key.
+        env:
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       # Court rulings: made from the rulings store that rulings.yml fills each
       # night (司法院 opens only 00:00-06:00 Taiwan time), restored from the cache.
       - uses: actions/cache/restore@v4

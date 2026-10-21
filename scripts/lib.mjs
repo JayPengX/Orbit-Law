@@ -18,16 +18,18 @@ export async function prevJson(path) {
 // A page fetcher: one request at a time per host, at least a second apart, tries and a timeout each.
 export function getter(ua) {
   const lastAt = {};
-  return async function get(url, { tries = 3, timeout = 120_000 } = {}) {
+  // via(url) → [the url fetched, its headers] (a door the page is read through); the pause stays the site's own.
+  return async function get(url, { tries = 3, timeout = 120_000, via = null } = {}) {
     let err;
     const host = new URL(url).host;
+    const [to, extra] = via ? via(url) : [url, {}];
     for (let i = 1; i <= tries; i++) {
       await sleep(Math.max(0, (lastAt[host] || 0) + 1000 - Date.now()));
       lastAt[host] = Date.now();
       try {
-        const r = await fetch(encodeURI(url), { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(timeout) });
+        const r = await fetch(via ? to : encodeURI(to), { headers: { 'User-Agent': ua, ...extra }, signal: AbortSignal.timeout(timeout) });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return (await r.text()).replace(/^﻿/, '');
+        return (via ? (await r.json()).html || '' : await r.text()).replace(/^﻿/, '');
       } catch (e) {
         err = e;
         await sleep(3000 * i);

@@ -1459,6 +1459,12 @@ a.lw-art-chip {
 .lw-block.teal {
   --c: #0d9488;
 }
+.lw-block.purple {
+  --c: var(--q-purple, #af52de);
+}
+.lw-block.orange {
+  --c: var(--q-orange);
+}
 .lw-block h4 {
   display: flex;
   align-items: center;
@@ -1784,7 +1790,21 @@ a.lw-art-chip {
   text-overflow: ellipsis;
 }
 .lw-cite b {
+  margin-inline-end: 4px;
   font-weight: 800;
+}
+/* (A long English law name wraps inside its chip, never past the screen.) */
+.lw-points .lw-cite {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  line-height: 16px;
+  white-space: normal;
+}
+/* An answer's cards: one under another. */
+.lw-cards {
+  display: grid;
+  gap: 6px;
 }
 .lw-cite.more {
   background: var(--q-fill-3);
@@ -1973,6 +1993,12 @@ button.lw-row {
   background: var(--q-surface);
   color: var(--q-label);
   text-decoration: none;
+}
+button.lw-notice {
+  border: 0;
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
 }
 .lw-notice b {
   font: 600 15px/20px var(--q-font);

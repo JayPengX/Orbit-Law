@@ -83,9 +83,14 @@ Live: https://jaypengx.github.io/Orbit-Law/
   bill, 質詢 and whole-bill vote; what came since they were last opened counts
   on the tab.
 - **問法律** (`lib/chat.mjs`, `chats.mjs`, `find.mjs`): the proxy's live
-  `/law-chat` finds the articles for a question across every law and
-  regulation and answers from them only, each point citing one; chats are
-  kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  `/law-chat` (Shared-Proxy `law-chat.js`, `law-ground.js`, `law-more.js`)
+  finds what a question needs in this site's data: articles of every law
+  and regulation, similar judgments and 釋字 (their 主文 and reasons read),
+  行政規則, bills, budgets, legislators, votes, meetings, 政府公告, and the
+  reader's own follows (sent only with a question about them). Flash then
+  applies it to the reader's facts (who is likely right, penalties,
+  remedies, next steps), each point citing an article, a judgment or a
+  rule; each opens in the app. Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,

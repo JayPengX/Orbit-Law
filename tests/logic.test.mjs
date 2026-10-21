@@ -694,6 +694,8 @@ test('問法律 streamed: each step heard, then the answer with its verdict, fac
   assert.match(stageText({ stage: 'found', arts: 4 }), /找到 4 條/);
   const cap = await chatLaw({ q: 'x' }, { fetcher: async () => ({ status: 200, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"stage":"find"}\n{"status":429,"error":"cap","left":0}\n')); c.close(); } }) }) });
   assert.equal(cap.error, 'cap');
+});
+
 test('預告: a draft’s table read from where its words sit; its purpose in a line', async () => {
   const { readDraft, draftWhy } = await import('../public/lib/notices.mjs');
   const w = (page, x0, y0, t) => ({ page, x0, y0, x1: x0 + t.length * 10, t });

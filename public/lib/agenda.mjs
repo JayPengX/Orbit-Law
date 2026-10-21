@@ -75,6 +75,24 @@ export function sittingState(s, now = new Date()) {
   return 'live';
 }
 
+const pad = n => String(n).padStart(2, '0');
+// A sitting's state with IVOD's word on it (`room`, from its live list;
+// `fresh` when that list was read in the last half hour). Live only while
+// IVOD says it streams (an overrun past its hours too) or, without word,
+// in its scheduled hours; 休息 only inside those hours; a break that
+// 繼續開會 another day, or anything past its hours, is over for the day.
+export function meetState(s, room = null, now = new Date(), fresh = true) {
+  const st = sittingState(s, now);
+  if (st === 'past' || st === 'ahead' || !room) return st;
+  const t = String(room.status || '');
+  const later = t.match(/(\d+)月(\d+)日繼續/);
+  if (/結束|散會/.test(t) || (later && `${pad(later[1])}-${pad(later[2])}` !== s.d.slice(5))) return 'done';
+  if (!fresh) return st;
+  if (/進行中/.test(t)) return 'live';
+  if (/休息/.test(t)) return st === 'live' ? 'break' : st;
+  return st === 'live' ? 'later' : st;
+}
+
 // The next sitting (today or later) whose agenda carries one of `ids` (議案編號),
 // `law` (立法院 law id) or names `name` in its 事由 (「name…草案」).
 export function nextSitting(meets, { ids = [], law = '', name = '' } = {}, now = new Date()) {

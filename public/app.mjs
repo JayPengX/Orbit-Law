@@ -17,7 +17,7 @@ import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK } from './lib/find.mjs';
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
-import { compactMeet, sittings, sittingState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
+import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
@@ -267,9 +267,18 @@ function drawHome() {
   // 立法院 meeting now: its rooms, each opening the live video.
   agendaData()
     .then(a => {
-      const live = sittings(a.meets).filter(x => ['live', 'break'].includes(liveState(x, a.live)));
+      const all = sittings(a.meets);
+      const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
       const el = $('home-live');
-      if (el && live.length) el.outerHTML = section(W('立法院開會中', 'In session now'), `<div class="lw-meets">${live.map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' });
+      if (!el) return;
+      if (live.length) return void (el.outerHTML = section(W('立法院開會中', 'In session now'), `<div class="lw-meets">${live.map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' }));
+      // Today's meetings all over: say so, with the next day that has any.
+      const { day } = twNow();
+      const today = all.filter(x => x.d === day);
+      const next = all.find(x => x.d > day);
+      if (!today.length || today.some(x => liveState(x, a.live) !== 'done') || !next) return;
+      const nextDay = all.filter(x => x.d === next.d);
+      el.outerHTML = section(W('今日已散會', 'Done for today'), `<p class="lw-hint-sm lw-next-sit">${esc(W(`下次開會：${meetDay(next.d)}，${nextDay.length} 場`, `Next: ${meetDay(next.d)}, ${nextDay.length} meeting${nextDay.length === 1 ? '' : 's'}`))}</p><div class="lw-meets">${nextDay.slice(0, 3).map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' });
     })
     .catch(() => {});
   // 政府公告: the ministries' latest notices (they open in the reader).
@@ -1879,7 +1888,8 @@ async function budgetList(out) {
 // and what IVOD streams now (live.yml's live.json: each meeting's channel).
 let lyAgenda;
 const LIVE_URL = 'https://raw.githubusercontent.com/JayPengX/Orbit-Law/live/live.json';
-const liveData = () => fetch(`${LIVE_URL}?t=${Math.floor(Date.now() / 60e3)}`, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? l.rooms || [] : null)).catch(() => null);
+// (The rooms carry `fresh`: read in the last half hour. live.yml stops after sitting hours.)
+const liveData = () => fetch(`${LIVE_URL}?t=${Math.floor(Date.now() / 60e3)}`, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
 const agendaData = () =>
   (lyAgenda ||= (async () => {
     const [a, live] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), liveData()]);
@@ -1916,12 +1926,7 @@ const meetItems = m => {
 };
 
 // A sitting's state, IVOD's word first when it has one for today: live only while it streams.
-const liveState = (x, live) => {
-  const st = sittingState(x);
-  const r = live && (st === 'live' || st === 'later' || st === 'done') ? liveOf(live, x.m, x) : null;
-  if (!r) return st;
-  return /進行中/.test(r.status) ? 'live' : /結束|散會/.test(r.status) ? 'done' : /休息/.test(r.status) ? 'break' : st === 'live' ? 'later' : st;
-};
+const liveState = (x, live) => meetState(x, live ? liveOf(live, x.m, x) : null, new Date(), Boolean(live?.fresh));
 const meetRow = (x, live = null) => {
   const st = liveState(x, live);
   const items = meetItems(x.m).length;

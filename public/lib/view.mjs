@@ -94,7 +94,7 @@ export function timeline(item, all, en = false, notices = []) {
   const names = en ? STAGES_EN : STAGES;
   const steps = names.map((n, i) => ({ stage: i, name: n, date: first.get(i)?.d || '', raw: first.get(i)?.raw || '', done: i <= item.stage }));
   const draft = noticeBefore(notices, first.get(0)?.d);
-  return draft ? [{ stage: -1, name: en ? 'Draft posted' : '預告', date: draft.from, raw: draft.t, done: true, url: noticeUrl(draft.id), by: draft.gov }, ...steps] : steps;
+  return draft ? [{ stage: -1, name: en ? 'Draft posted' : '預告', date: draft.from, raw: draft.t, done: true, url: `#notice=${draft.id}`, by: draft.gov }, ...steps] : steps;
 }
 
 export { stageOf, ymd };

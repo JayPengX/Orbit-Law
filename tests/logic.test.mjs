@@ -694,4 +694,21 @@ test('問法律 streamed: each step heard, then the answer with its verdict, fac
   assert.match(stageText({ stage: 'found', arts: 4 }), /找到 4 條/);
   const cap = await chatLaw({ q: 'x' }, { fetcher: async () => ({ status: 200, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"stage":"find"}\n{"status":429,"error":"cap","left":0}\n')); c.close(); } }) }) });
   assert.equal(cap.error, 'cap');
+test('預告: a draft’s table read from where its words sit; its purpose in a line', async () => {
+  const { readDraft, draftWhy } = await import('../public/lib/notices.mjs');
+  const w = (page, x0, y0, t) => ({ page, x0, y0, x1: x0 + t.length * 10, t });
+  const words = [
+    w(0, 70, 84, '行政院公報'), w(0, 100, 120, '某某辦法修正草案總說明'),
+    w(0, 100, 140, '某某辦法於九十年訂定。為保障民眾權益，爰擬具本辦法修正草案。'),
+    w(0, 100, 165, '某某辦法修正草案條文對照表'),
+    w(0, 160, 185, '修正條文'), w(0, 283, 185, '現行條文'), w(0, 416, 185, '說明'),
+    w(0, 120, 198, '第二條'), w(0, 175, 198, '本辦法'), w(0, 243, 198, '第二條'), w(0, 298, 198, '本法'), w(0, 366, 198, '一、修正文字。'),
+    w(0, 131, 211, '適用於全國。'), w(0, 254, 211, '適用於全國。'),
+    w(0, 300, 800, '2'),
+    w(1, 120, 198, '第三條'), w(1, 175, 198, '新規定。'), w(1, 366, 198, '一、本條新增。')
+  ];
+  const d = readDraft(words);
+  assert.match(d.about, /^某某辦法於九十年訂定/);
+  assert.deepEqual(d.rows.map(r => [r.a, r.now, r.old]), [['第二條', '本辦法適用於全國。', '本法適用於全國。'], ['第三條', '新規定。', '']]);
+  assert.equal(draftWhy(d.about), '為保障民眾權益');
 });

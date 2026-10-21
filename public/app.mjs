@@ -85,6 +85,7 @@ const save = () => {
 // The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
 const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes) + Object.entries(state.peopleNew || {}).reduce((n, [id, k]) => n + (state.mine.people?.[id] ? k : 0), 0));
 let itemsReady = Promise.resolve();
+let noticesReady = Promise.resolve();
 let rulingsReady = Promise.resolve();
 let delegReady = Promise.resolve();
 let ordersReady = Promise.resolve();
@@ -156,13 +157,14 @@ async function route() {
   if (p.get('law')) {
     showTab('laws');
     await openLaw(p.get('law'), p.get('a'), p.get('find'));
-  } else if (tab === 'bills' || p.get('item') || p.get('who') || p.get('meet')) {
+  } else if (tab === 'bills' || p.get('item') || p.get('who') || p.get('meet') || p.get('notice')) {
     showTab('bills');
     drawBills();
     await itemsReady;
     if (p.get('item')) openItem(p.get('item').replace('-', ':'));
     if (p.get('who')) openPerson(p.get('who'));
     if (p.get('budget')) openBudget(p.get('budget'));
+    if (p.get('notice')) noticesReady.then(() => openNotice(p.get('notice')));
     if (p.get('meet')) openMeet(p.get('meet'), p.get('d') || '');
   } else if (tab === 'rulings' || p.get('r') || p.get('jd')) {
     // A ruling's own link (#r=<id>; #jd=<司法院 id> from before), over 裁判.
@@ -718,7 +720,7 @@ function consStrip(law) {
 // A ministry's draft of this law still open for comment (預告).
 function draftStrip(law) {
   const draft = (state.noticesByLaw.get(law.p) || []).find(n => isOpen(n, today()));
-  return draft ? h('a', { class: 'lw-strip orange', href: noticeUrl(draft.id), target: '_blank', rel: 'noopener', html: `<b>${esc(W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`))}</b><span>${esc(W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`))}</span><em>${W('去留言', 'Comment')}</em>` }) : null;
+  return draft ? h('a', { class: 'lw-strip orange', href: `#notice=${draft.id}`, html: `<b>${esc(W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`))}</b><span>${esc(W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`))}</span><em>${W('去留言', 'Comment')}</em>` }) : null;
 }
 
 function scrollToHeading(id) {
@@ -1806,16 +1808,80 @@ function weekDigest() {
 function noticeList() {
   const day = today();
   let rows = state.notices;
-  if (billQuery) rows = rows.filter(n => n.t.includes(billQuery) || n.gov.includes(billQuery));
-  const open = rows.filter(n => isOpen(n, day)), closed = rows.filter(n => !isOpen(n, day));
-  const html = section(W('開放意見中', 'Open for comment'), grid(open.map(n => noticeCard(n, day)))) + section(W('已截止', 'Closed'), grid(closed.slice(0, 60).map(n => noticeCard(n, day))));
-  return html || `<div class="q-empty lw-empty-sm"><strong>${W('目前沒有預告中的修法', 'No drafts open for comment')}</strong></div>`;
+  if (billQuery) {
+    const words = expand(billQuery);
+    rows = rows.filter(n => words.some(w => n.t.includes(w) || n.gov.includes(w) || n.cat?.includes(w) || n.s?.includes(w) || n.laws.some(p => nameOf(p).includes(w))));
+  }
+  const open = rows.filter(n => isOpen(n, day)).sort((a, b) => (a.to < b.to ? -1 : 1)), closed = rows.filter(n => !isOpen(n, day));
+  const html = section(W(`開放意見中 ${open.length}`, `Open for comment ${open.length}`), grid(open.map(n => noticeCard(n, day)))) + section(W('已截止', 'Closed'), grid(closed.slice(0, 60).map(n => noticeCard(n, day))));
+  return html || `<div class="q-empty lw-empty-sm"><strong>${billQuery ? W('沒有符合的預告', 'No drafts match') : W('目前沒有預告中的修法', 'No drafts open for comment')}</strong></div>`;
 }
+const NOTICE_KIND = { amend: [W('修正草案', 'Amendment'), 'indigo'], new: [W('新訂草案', 'New rule'), 'green'], repeal: [W('廢止草案', 'Repeal'), 'red'] };
+// A draft's title without 預告 and its full stop: 「產業創新條例」第四十三條 修正.
+const noticeName = n => n.t.replace(/^預告(修正|訂定|制定|廢止)?/, '').replace(/[。.]+$/, '').replace(/草案$/, '').replace(/(?<=」.*)(修正|訂定|廢止)$/, '');
+// A draft's law and the rest: ['產業創新條例', '第四十三條'].
+const noticeParts = n => {
+  const t = noticeName(n);
+  const names = [...t.matchAll(/「([^」]+)」/g)].map(m => m[1]);
+  if (names.length > 1) return [names.join('、'), W('部分條文', 'Amendments')];
+  const m = t.match(/「([^」]+)」(.*)/);
+  return m ? [m[1], m[2].replace(/^[，、\s]+/, '').replace(/^部分條文$/, W('部分條文', 'Amendments')).replace(/^修正$/, '')] : [t, ''];
+};
+// Days left to comment: 0 on its last day.
+const daysLeft = (n, day) => Math.round((Date.parse(n.to) - Date.parse(day)) / 864e5);
 function noticeCard(n, day) {
   const openNow = isOpen(n, day);
   const topic = topicOf(n.t, '');
-  const when = openNow ? W(`意見至 ${shortDay(n.to)}`, `till ${shortDay(n.to)}`) : W(`${shortDay(n.to)} 截止`, `closed ${shortDay(n.to)}`);
-  return `<a class="lw-bill wide notice${openNow ? '' : ' closed'}" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener" style="--t:${TOPICS[topic].color}"><span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage">${openNow ? W('開放意見', 'Open') : W('已截止', 'Closed')}</span><span class="lw-bill-day">${esc(when)}</span></span><span class="lw-bill-name">${esc(n.t.replace(/[。.]+$/, ''))}</span><span class="lw-bill-foot"><span class="lw-party" style="--p:#64748b">${esc(n.gov)}</span></span></a>`;
+  const left = daysLeft(n, day);
+  const when = openNow ? (left === 0 ? W('今天截止', 'Closes today') : W(`還有 ${left} 天`, `${left} days left`)) : W(`${shortDay(n.to)} 截止`, `closed ${shortDay(n.to)}`);
+  const [kind, tone] = NOTICE_KIND[n.kind] || NOTICE_KIND.amend;
+  return `<a class="lw-bill wide notice${openNow ? '' : ' closed'}" href="#tab=bills&amp;f=notice&amp;notice=${esc(n.id)}" style="--t:${TOPICS[topic].color}"><span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-tag ${tone}">${esc(kind)}</span><span class="lw-bill-day${openNow && left <= 7 ? ' soon' : ''}">${esc(when)}</span></span><span class="lw-bill-name${fit(noticeParts(n)[0])}">${esc(noticeParts(n)[0])}</span>${noticeParts(n)[1] ? `<span class="lw-notice-arts">${esc(noticeParts(n)[1])}</span>` : ''}${n.s ? `<span class="lw-notice-why">${esc(n.s)}</span>` : ''}<span class="lw-bill-foot"><span class="lw-party" style="--p:#64748b">${esc(n.gov)}</span>${n.cat ? `<span class="lw-tag">${esc(n.cat)}</span>` : ''}</span></a>`;
+}
+// A draft, opened: how long is left to comment, who wrote it and on what
+// authority, why (its 總說明), what it changes article by article (the new
+// text marked against today's, with the reason), and where to comment.
+async function openNotice(id) {
+  const n = state.notices.find(x => x.id === id);
+  if (!n) return;
+  const day = today();
+  const openNow = isOpen(n, day);
+  const left = daysLeft(n, day);
+  const topic = topicOf(n.t, '');
+  const [kind, tone] = NOTICE_KIND[n.kind] || NOTICE_KIND.amend;
+  const body = h('div', { class: 'lw-bud-page lw-notice-page' });
+  const close = () => location.hash.includes('notice=') && history.replaceState(null, '', '#tab=bills&f=notice');
+  sheet({ title: W('預告', 'Draft'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
+  const draw = (d = null) => {
+    const tiles = [
+      ...(openNow ? [[left === 0 ? W('今天', 'Today') : W(`${left} 天`, String(left)), left === 0 ? W('截止', 'Last day') : W('剩下', 'Days left'), left <= 7 ? 'red' : 'orange']] : []),
+      [shortDay(n.to), openNow ? W('截止', 'Closes') : W('已截止', 'Closed'), 'indigo'],
+      ...(d?.count ? [[String(d.count.c), W('則留言', 'Comments'), 'teal']] : [])
+    ];
+    const who = [n.gov || d?.gov, d?.dept].filter(Boolean).join(' · ');
+    const laws = n.laws.filter(p => state.byCode.has(p)).map(p => `<a class="lw-notice" href="#law=${esc(p)}"><b>${esc(nameOf(p))}</b><small>${W('看現行條文', 'Read the law in force')}</small></a>`).join('');
+    const why = d?.about || d?.note || '';
+    const rows = d?.rows || [];
+    const rowHtml = r => {
+      const what = !r.old ? [W('新增', 'New'), 'green'] : /^[（(]?刪除[）)]?$/.test(r.now) || !r.now ? [W('刪除', 'Deleted'), 'red'] : [W('修正', 'Changed'), 'indigo'];
+      return `<div class="lw-nrow"><div class="lw-nrow-head"><b>${esc(r.a)}</b><span class="lw-tag ${what[1]}">${esc(what[0])}</span></div><div class="lw-nrow-text">${r.old && r.now ? diffHtml(r.old, r.now) : esc(r.now || r.old)}</div>${r.why ? `<details class="lw-nrow-why"><summary>${W('為什麼', 'Why')}</summary><p>${esc(r.why)}</p></details>` : ''}</div>`;
+    };
+    const shown = 8;
+    body.innerHTML =
+      `<div class="lw-item-head" style="--t:${TOPICS[topic].color}">${topicTile(topic, 'lg')}<span class="lw-meta"><span class="lw-tag ${tone}">${esc(kind)}</span>${(d?.cat || n.cat) ? countTag(d?.cat || n.cat) : ''}</span></div>` +
+      `<h2 class="lw-item-name lw-big-name${fit(noticeParts(n)[0])}">${esc(noticeParts(n)[0])}</h2>${noticeParts(n)[1] ? `<p class="lw-notice-arts big">${esc(noticeParts(n)[1])}</p>` : ''}` +
+      `<div class="lw-stats${tiles.length === 3 ? ' three' : tiles.length === 2 ? ' two' : ''}">${tiles.map(([b, l, t]) => `<span class="lw-stat ${t}"><b>${esc(b)}</b><span>${esc(l)}</span></span>`).join('')}</div>` +
+      `<div class="lw-notice-who">${who ? `<p><b>${W('提出', 'From')}</b><span>${esc(who)}</span></p>` : ''}${d?.basis ? `<p><b>${W('依據', 'Under')}</b><span>${esc(d.basis)}</span></p>` : ''}<p><b>${W('公告', 'Posted')}</b><span>${esc(ymd(n.from))}</span></p></div>` +
+      (why ? `<section class="lw-person-sec"><h4>${W('為什麼要改', 'Why')}</h4>${n.s && d?.about ? `<p class="lw-notice-lead">${esc(n.s.replace(/…$/, ''))}${/…$/.test(n.s) ? '…' : '。'}</p>` : ''}<button type="button" class="lw-why-row lw-notice-about"><span>${esc(why)}</span></button></section>` : '') +
+      (rows.length ? `<section class="lw-person-sec"><h4>${W(`改了什麼（${rows.length} 條）`, `What changes (${rows.length})`)}</h4><p class="lw-hint-sm">${W('綠色是新增的字、紅色刪掉的字，對照現行條文。', 'Green is added, red is removed, against the text in force.')}</p><div class="lw-nrows">${rows.slice(0, shown).map(rowHtml).join('')}</div>${rows.length > shown ? `<button type="button" class="lw-more" data-nmore>${W(`再顯示 ${rows.length - shown} 條`, `${rows.length - shown} more`)}</button>` : ''}</section>` : d ? `<p class="lw-hint-sm">${W('草案條文只有掃描檔，請看原始 PDF。', 'The draft’s text is only a scan: see the PDF.')}</p>` : '<span class="q-skel lw-bud-skel"></span>') +
+      (laws ? `<section class="lw-person-sec"><h4>${W('相關法規', 'The law')}</h4><div class="lw-cites">${laws}</div></section>` : '') +
+      `<div class="lw-notice-acts">${openNow ? `<a class="q-btn lw-notice-go" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('到眾開講留言', 'Comment on join.gov.tw')}</a>` : `<a class="lw-out" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('眾開講原文', 'On join.gov.tw')}</a>`}${d?.pdf ? `<a class="lw-out" href="${esc(d.pdf)}" target="_blank" rel="noopener">${W('草案 PDF', 'Draft PDF')}</a>` : ''}${openNow && d?.email ? `<a class="lw-out" href="mailto:${esc(d.email)}?subject=${encodeURIComponent(`對「${noticeName(n)}」的意見`)}">${W('寫信給承辦人', 'Email the agency')}</a>` : ''}</div>`;
+    body.querySelector('[data-nmore]')?.addEventListener('click', e => (e.currentTarget.previousElementSibling.insertAdjacentHTML('beforeend', rows.slice(shown).map(rowHtml).join('')), e.currentTarget.remove()));
+    body.querySelector('.lw-notice-about')?.addEventListener('click', e => e.currentTarget.classList.toggle('open'));
+    body.querySelectorAll('.lw-cites a').forEach(a => a.addEventListener('click', () => body.closest('dialog')?.close()));
+  };
+  draw();
+  if (n.d) draw(await data(`bills/notice/${encodeURIComponent(id)}.json`).catch(() => ({ rows: [] })));
+  else draw({ rows: [] });
 }
 
 // A bill item: where it stands, who proposed it, what it changes (the
@@ -1852,7 +1918,7 @@ async function openItem(k) {
   const who = it.by?.length ? h('div', { class: 'lw-item-who', html: `<h4>${W('誰提的', 'Proposed by')}</h4><div class="lw-parties">${partyChips(it.by, en, 6)}</div>` }) : null;
   const why = h('div', { class: 'lw-item-why', html: `<h4>${W('為什麼要修', 'Why, as filed')}</h4><span class="q-skel" style="height:56px"></span>` });
   const changes = h('div', { class: 'lw-item-diff', html: `<h4>${W('修什麼', 'What it changes')}</h4><div class="lw-diffs"><span class="q-skel" style="height:72px"></span></div>` });
-  const line = h('details', { class: 'lw-fold' }, [h('summary', { text: W('審議過程', 'Steps so far') }), h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') })]);
+  const line = h('details', { class: 'lw-fold' }, [h('summary', { text: W('審議過程', 'Steps so far') }), h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}"${s.url.startsWith('#') ? '' : ' target="_blank" rel="noopener"'}>${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') })]);
   const versions = [...bills].sort((a, b) => (a.u < b.u ? 1 : -1));
   const vlist = h('details', { class: 'lw-fold' }, [
     h('summary', { text: W(`${bills.length} 個版本`, `${bills.length} versions`) }),
@@ -2629,7 +2695,7 @@ async function start() {
       badge();
     })
     .catch(() => {});
-  data('bills/notices.json')
+  noticesReady = data('bills/notices.json')
     .then(n => {
       state.notices = n.notices || [];
       for (const x of state.notices) for (const p of x.laws) state.noticesByLaw.set(p, [...(state.noticesByLaw.get(p) || []), x]);

@@ -3719,3 +3719,34 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
   font: 600 18px/1 var(--q-font);
   font-style: normal;
 }
+
+/* 預告: a draft's card and page — days left, why, each article changed */
+.lw-bill-day.soon { color: var(--q-red); font-weight: 700; }
+.lw-notice-why { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lw-bill.notice .lw-bill-foot { display: flex; gap: 6px; min-width: 0; overflow: hidden; }
+.lw-bill.notice .lw-bill-foot > * { flex: none; }
+.lw-stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lw-stat.red { --c: var(--q-red); }
+.lw-stat.teal { --c: var(--q-teal); }
+.lw-notice-page .lw-stat b { font-size: 20px; white-space: nowrap; overflow: hidden; }
+.lw-notice-who { display: grid; gap: 4px; margin: 8px 0 4px; }
+.lw-notice-who p { display: flex; gap: 10px; margin: 0; font: 400 15px/1.5 var(--q-font); }
+.lw-notice-who b { flex: none; width: 2.6em; color: var(--q-label-2); font-weight: 600; }
+.lw-nrows { display: grid; gap: 10px; }
+.lw-nrow { display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--q-sheet-cell, var(--q-surface)); }
+.lw-nrow-head { display: flex; align-items: center; gap: 8px; }
+.lw-nrow-head b { font: 700 15px/20px var(--q-font); }
+.lw-nrow-text { font: 400 15px/1.7 var(--q-font); white-space: pre-line; overflow-wrap: anywhere; }
+.lw-nrow-text ins { background: color-mix(in srgb, var(--q-green) 20%, transparent); color: inherit; text-decoration: none; border-radius: 3px; }
+.lw-nrow-text del { background: color-mix(in srgb, var(--q-red) 16%, transparent); color: var(--q-label-2); border-radius: 3px; }
+.lw-nrow-why summary { color: var(--q-indigo); font: 600 14px/20px var(--q-font); cursor: pointer; list-style: none; }
+.lw-nrow-why summary::-webkit-details-marker { display: none; }
+.lw-nrow-why p { margin: 6px 0 0; color: var(--q-label-2); font: 400 14px/1.6 var(--q-font); white-space: pre-line; }
+.lw-notice-acts { display: grid; gap: 8px; margin: 18px 0 8px; }
+.lw-notice-go { justify-content: center; text-decoration: none; }
+.lw-stats.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lw-notice-who b { width: auto; min-width: 2.6em; white-space: nowrap; }
+.lw-notice-lead { margin: 0 0 8px; font: 600 16px/1.6 var(--q-font); }
+.lw-notice-arts { color: var(--q-label); font: 600 14px/1.4 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lw-notice-arts.big { margin: 2px 0 12px; color: var(--q-label-2); font-size: 16px; white-space: normal; }
+.lw-notice-page .lw-stat { padding: 12px 10px; }

@@ -50,6 +50,11 @@ jobs:
           restore-keys: moj-
       - name: Build the law data
         run: node scripts/build-data.mjs
+      # 預告 opened up: each draft's record and its text from the 公報 PDF
+      # (總說明, 條文對照表), read with poppler's pdftotext.
+      - name: Read the drafts open for comment
+        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-notices.mjs
+        continue-on-error: true
       # 立法院: votes by name, each legislator's record and clips, budget bills.
       - name: Build the 立法院 votes, legislators and budgets
         run: node scripts/build-ly.mjs

@@ -5,3 +5,4 @@ node_modules/
 public/data/
 .moj-cache/
 .cons-cache/
+.rulings-store/

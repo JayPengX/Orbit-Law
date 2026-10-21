@@ -25,7 +25,7 @@ import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls }
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText, groupHits } from './lib/fulltext.mjs';
-import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch } from './lib/rulings.mjs';
+import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel, titleKey } from './lib/rulings.mjs';
 import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE } from './lib/cons.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
@@ -74,7 +74,7 @@ async function data(path) {
 const lawFile = p => data(`law/${p}.json`);
 const enFile = p => data(`en/${p}.json`);
 
-const state = { consTop: [], lawCons: {}, rulingLaws: {}, lawRulings: {}, regLaws: {}, agencyLaws: {}, agency: { to: {}, rest: [] }, deleg: { to: {}, rest: [], from: [] }, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
+const state = { consTop: [], lawCons: {}, rulingLaws: {}, lowLaws: {}, lowNames: {}, lawRulings: {}, regLaws: {}, agencyLaws: {}, agency: { to: {}, rest: [] }, deleg: { to: {}, rest: [], from: [] }, latestRulings: [], tab: 'home', rows: [], byCode: new Map(), names: new Map(), items: [], itemsByLaw: new Map(), notices: [], noticesByLaw: new Map(), changes: { items: [] }, mine: loadMine(), law: null, showEn: false, query: '', topic: '' };
 // What's followed: this phone's copy, then the Pass's (merged, written back).
 let pass = null;
 const save = () => {
@@ -218,7 +218,7 @@ function lawSub(row) {
 }
 // A law's row; the judgments citing it as a tag when nothing else is on the right.
 // In English the row is named in English (where the MOJ has it).
-const lawItem = (row, sub, extra = '', href) => lawRow(en ? [row[0], nameOf(row[0], row[1])] : row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${state.rulingLaws[row[0]]}</span>` : ''), href });
+const lawItem = (row, sub, extra = '', href) => lawRow(en ? [row[0], nameOf(row[0], row[1])] : row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] || state.lowLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${(state.rulingLaws[row[0]] || 0) + (state.lowLaws[row[0]] || 0)}</span>` : ''), href });
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const ICON_YT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033"/><path d="M10 9v6l5-3z" fill="#fff"/></svg>';
@@ -512,6 +512,11 @@ async function openLaw(p, at, find = '') {
     state.lawRulings = {};
     await Promise.race([rulingsReady, new Promise(r => setTimeout(r, 1500))]);
     if (state.rulingLaws[p]) state.lawRulings = (await Promise.race([data(`rulings/${p}.json`).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
+    // Then the other courts' (高等法院, 地方法院…), after the top courts' on each article.
+    if (state.lowLaws[p]) {
+      const low = (await Promise.race([data(`rulings/low/law/${p}.json`).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
+      for (const [k, l] of Object.entries(low)) state.lawRulings[k] = [...(state.lawRulings[k] || []), ...l];
+    }
     // 憲法法庭's rulings on it, by article ('' = the law as a whole).
     state.lawCons = (await Promise.race([consLaws().then(c => c[p] || {}).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
     state.consRows = state.lawCons && Object.keys(state.lawCons).length ? await consData().catch(() => null) : null;
@@ -634,11 +639,11 @@ function rulingDoor(law) {
   const arts = Object.entries(state.lawRulings);
   const consIds = lawConsIds();
   if (!arts.length && !consIds.length) return null;
-  const n = (state.rulingLaws[law.p] || new Set(arts.flatMap(([, l]) => l.map(x => x[0]))).size) + consIds.length;
+  const n = (state.rulingLaws[law.p] || state.lowLaws[law.p] ? (state.rulingLaws[law.p] || 0) + (state.lowLaws[law.p] || 0) : new Set(arts.flatMap(([, l]) => l.map(x => x[0]))).size) + consIds.length;
   const sorted = arts.sort((a, b) => b[1].length - a[1].length);
   return door('court', ICON_GAVEL, n, W('則判決', 'rulings'), () => {
     const cons = consIds.map(id => state.consRows?.byId.get(id)).filter(Boolean);
-    const html = (cons.length ? `<p class="lw-list-cap">${W(`憲法法庭 ${cons.length}`, `Constitutional Court ${cons.length}`)}</p>${cons.slice(0, 30).map(r => rulingRow(r)).join('')}` : '') + (sorted.length ? `<p class="lw-list-cap">${W('最高法院・最高行政法院，依條文', 'Top courts, by article')}</p>` : '') + sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${courtTile(kindOfId(l[0][0]))}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('');
+    const html = (cons.length ? `<p class="lw-list-cap">${W(`憲法法庭 ${cons.length}`, `Constitutional Court ${cons.length}`)}</p>${cons.slice(0, 30).map(r => rulingRow(r)).join('')}` : '') + (sorted.length ? `<p class="lw-list-cap">${state.lowLaws[law.p] ? W('各級法院，依條文', 'Courts, by article') : W('最高法院・最高行政法院，依條文', 'Top courts, by article')}</p>` : '') + sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${courtTile(kindOfId(l[0][0]))}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('');
     const s = sheet({ title: W(`${shortName(law.n)} · 判決`, `${nameOf(law.p, law.n)} · rulings`), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html }) });
     s.el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
@@ -895,7 +900,9 @@ const citeChip = (p, k, n) => {
 // The rulings on an article: 憲法法庭's first, then the top courts' (newest first), each read in the app.
 function rulingsSheet(label, rulings, consIds = []) {
   const cons = consIds.map(id => state.consRows?.byId.get(id)).filter(Boolean);
-  const html = (cons.length ? `<p class="lw-list-cap">${W('憲法法庭', 'Constitutional Court')}</p>${list(cons.map(r => rulingRow(r)))}` : '') + (rulings.length ? `${cons.length ? `<p class="lw-list-cap">${W('最高法院・最高行政法院', 'Top courts')}</p>` : ''}${list(rulings.map(r => rulingRow(r, { sub: [COURTS[courtOf(r[0])]?.[en ? 1 : 0], caseNo(r[0]), ymd(r[1])].filter(Boolean).join(' · ') })))}` : '');
+  const top = rulings.filter(r => courtOf(r[0])), low = rulings.filter(r => !courtOf(r[0]));
+  const rows = l => list(l.map(r => rulingRow(r, { sub: [courtLabel(r[0]), caseNo(r[0]), ymd(r[1])].filter(Boolean).join(' · ') })));
+  const html = (cons.length ? `<p class="lw-list-cap">${W('憲法法庭', 'Constitutional Court')}</p>${list(cons.map(r => rulingRow(r)))}` : '') + (top.length ? `${cons.length || low.length ? `<p class="lw-list-cap">${W('最高法院・最高行政法院', 'Top courts')}</p>` : ''}${rows(top)}` : '') + (low.length ? `<p class="lw-list-cap">${W('高等法院・地方法院', 'High and district courts')}</p>${rows(low)}` : '');
   sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings in-sheet', html }) });
 }
 
@@ -1365,18 +1372,22 @@ const consLaws = once('cons/laws.json');
 const rulingMonths = once('rulings/months.json');
 const rulingFind = once('rulings/find.json');
 const monthFile = m => data(`rulings/m/${m}.json`);
+const lowIndex = once('rulings/low/index.json');
 
 // The four doors: each court (and 釋字, the old 大法官's), its colour.
 const COURT_DOORS = [
   ['cons', W('憲法法庭', 'Const.'), 'cons'],
   ['interp', W('大法官解釋', 'Interpret.'), 'interp'],
   ['TPS', W('最高法院', 'Supreme'), 'tps'],
-  ['TPA', W('最高行政', 'Admin.'), 'tpa']
+  ['TPA', W('最高行政', 'Admin.'), 'tpa'],
+  ['low', W('各級法院', 'Lower'), 'low']
 ];
-const kindOfId = id => (id[0] === 's' && isCons(id) ? 'interp' : isCons(id) ? 'cons' : courtOf(id) === 'TPA' ? 'tpa' : 'tps');
+const kindOfId = id => (id[0] === 's' && isCons(id) ? 'interp' : isCons(id) ? 'cons' : courtOf(id) === 'TPA' ? 'tpa' : courtOf(id) ? 'tps' : 'low');
+// A judgment's court in words: 最高法院, 臺北地院, 臺灣高等法院…
+const courtLabel = id => (courtOf(id) ? COURTS[courtOf(id)]?.[en ? 1 : 0] : lowCode(id) ? lowCourtName(lowCode(id), state.lowNames) : '');
 const courtIcon = kind => (kind === 'cons' || kind === 'interp' ? MENU_ICON.court : ICON_GAVEL);
 const courtTile = (kind, size = 'sm') => `<span class="lw-ctile ${kind}${size ? ` ${size}` : ''}" aria-hidden="true">${courtIcon(kind)}</span>`;
-const courtName = kind => ({ cons: W('憲法法庭', 'Constitutional Court'), interp: W('大法官解釋', 'Interpretation'), tps: W('最高法院', 'Supreme Court'), tpa: W('最高行政法院', 'Supreme Administrative Court') })[kind];
+const courtName = kind => ({ cons: W('憲法法庭', 'Constitutional Court'), interp: W('大法官解釋', 'Interpretation'), tps: W('最高法院', 'Supreme Court'), tpa: W('最高行政法院', 'Supreme Administrative Court'), low: W('高等法院・地方法院', 'High and district courts') })[kind];
 const rulingHref = id => (isCons(id) ? `#r=${id}` : rulingUrl(id));
 // A cons row's name: its 案名, else (older 釋字 have none) its question.
 const consName = r => r[2] || r[3].replace(/[？?]$/, '');
@@ -1412,7 +1423,7 @@ function rulingCard(r) {
   const [id, d, , , cites] = r;
   const cons = isCons(id);
   const kind = kindOfId(id);
-  const label = cons ? consShort(id) : (en ? COURT_SHORT[courtOf(id)] : COURTS[courtOf(id)]?.[0]) || '';
+  const label = cons ? consShort(id) : (en ? COURT_SHORT[courtOf(id)] : '') || courtLabel(id);
   const name = cons ? consName(r) : r[2] || caseNo(id);
   return `<div class="lw-bill lw-ruling ${kind}"><span class="lw-bill-top">${courtTile(kind)}<span class="lw-bill-stage court">${esc(label)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name${fit(name)}" href="${esc(rulingHref(id))}">${esc(name)}</a><span class="lw-cites">${citeChips(cites || [], 1, 3, false)}</span></div>`;
 }
@@ -1422,7 +1433,7 @@ function rulingRow(r, { sub = '' } = {}) {
   const kind = kindOfId(id);
   const name = cons ? consName(r) : r[2] || caseNo(id);
   const [zh, eng, tone] = cons ? ['', '', ''] : caseKind(id);
-  const line = sub || [cons ? consLabel(id, en) : caseNo(id), ymd(d)].filter(Boolean).join(' · ');
+  const line = sub || [cons ? consLabel(id, en) : kind === 'low' ? `${courtLabel(id)} ${id.split(',').slice(1, 4).join('')}` : caseNo(id), kind === 'low' ? shortDay(d) : ymd(d)].filter(Boolean).join(' · ');
   return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${zh ? countTag(en ? eng : zh, tone) : ''}${esc(line)}</small></span></a>`;
 }
 const COURT_SHORT = { TPS: 'Supreme Court', TPA: 'Admin. Court', JCC: 'Const. Court' };
@@ -1433,6 +1444,10 @@ let rulingMonth = '';
 let rulingKind = '';
 let rulingTopic_ = '';
 let rulingMore = 0;
+// 各級法院: a level (high, district), a 案由 or a court picked.
+let rulingLevel = '';
+let rulingTitle = '';
+let rulingCourt = '';
 const rulingBox = search({ placeholder: W('找判決：釋字號、案號或關鍵字', 'Search rulings: number or words'), onInput: v => ((rulingQuery = v.trim()), (rulingMore = 0), drawRulingList()) });
 
 function drawRulings() {
@@ -1442,10 +1457,12 @@ function drawRulings() {
   rulingDoor_ = COURT_DOORS.some(([id]) => id === f) ? f : '';
   rulingTopic_ = TOPICS[p.get('topic')] ? p.get('topic') : '';
   if (p.has('m')) rulingMonth = p.get('m');
+  rulingTitle = p.get('t') || '';
+  rulingCourt = p.get('c') || '';
   if (p.has('q')) ((rulingQuery = p.get('q')), (rulingBox.querySelector('input').value = rulingQuery));
   rulingMore = 0;
   if (!panel.firstChild) {
-    const doors = h('div', { class: 'lw-bill-doors four', role: 'tablist' }, COURT_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${courtIcon(tone)}</span><small>${esc(label)}</small>`, onclick: () => go(rulingDoor_ === id ? 'tab=rulings' : `tab=rulings&f=${id}`, { replace: true }) })));
+    const doors = h('div', { class: 'lw-bill-doors five', role: 'tablist' }, COURT_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${courtIcon(tone)}</span><small>${esc(label)}</small>`, onclick: () => go(rulingDoor_ === id ? 'tab=rulings' : `tab=rulings&f=${id}`, { replace: true }) })));
     panel.append(headNode(W('裁判', 'Rulings')), doors, rulingBox, h('div', { id: 'ruling-list' }));
     wireTitles(panel);
     panel.addEventListener('click', e => {
@@ -1453,6 +1470,12 @@ function drawRulings() {
       if (more) return void ((rulingMore += 60), drawRulingList());
       const m = e.target.closest('[data-month]');
       if (m) return void ((rulingMonth = m.dataset.month), (rulingMore = 0), drawRulingList());
+      const lv = e.target.closest('[data-level]');
+      if (lv) return void ((rulingLevel = rulingLevel === lv.dataset.level ? '' : lv.dataset.level), (rulingMore = 0), drawRulingList());
+      const t = e.target.closest('[data-title]');
+      if (t) return void ((rulingTitle = t.dataset.title), (rulingCourt = ''), (rulingMore = 0), t.dataset.title && rulingQuery && ((rulingQuery = ''), (rulingBox.querySelector('input').value = '')), drawRulingList());
+      const c = e.target.closest('[data-court]');
+      if (c) return void ((rulingCourt = c.dataset.court), (rulingTitle = ''), (rulingMore = 0), drawRulingList());
       const k = e.target.closest('[data-kind]');
       if (k) return void ((rulingKind = rulingKind === k.dataset.kind ? '' : k.dataset.kind), (rulingMore = 0), drawRulingList());
     });
@@ -1474,8 +1497,12 @@ async function drawRulingList() {
     cons = { items: [], byId: new Map(), cited: {} };
   }
   if (run !== rulingRun) return;
-  if (rulingQuery) return void (out.innerHTML = await rulingSearchHtml(rulingQuery, cons, { door: rulingDoor_ }));
   const door = rulingDoor_;
+  if (door === 'low') {
+    const html = await lowHtml();
+    return void (run === rulingRun && (out.innerHTML = html));
+  }
+  if (rulingQuery) return void (out.innerHTML = await rulingSearchHtml(rulingQuery, cons, { door: rulingDoor_ }));
   const more = n => (n > 0 ? `<button type="button" class="q-btn block lw-more" data-rmore>${W(`再看 ${Math.min(n, 60)} 則`, `${Math.min(n, 60)} more`)}</button>` : '');
   if (door === 'cons' || door === 'interp') {
     const rows = cons.items.filter(r => (door === 'cons') === r[0].startsWith('j'));
@@ -1533,14 +1560,71 @@ async function drawRulingList() {
   const landmarks = Object.entries(cons.cited).filter(([id]) => cons.byId.has(id)).sort((a, b) => b[1].length - a[1].length).slice(0, 8).map(([id]) => cons.byId.get(id));
   const court = state.latestRulings;
   const by = c => court.filter(r => courtOf(r[0]) === c).slice(0, 4);
+  const low = (await lowIndex().catch(() => null))?.latest || [];
+  if (run !== rulingRun) return;
   if (!judgments.length && !court.length) return void (out.innerHTML = emptyRulings());
   out.innerHTML =
     section(W('憲法法庭最新判決', 'Constitutional Court, latest'), rail(judgments.map(rulingCard)), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=cons' }) +
     section(W('判決之後，立法院在修', 'Rulings 立法院 is acting on'), answered.length ? `<div class="lw-list">${answered.map(r => answeredRow(r)).join('')}</div>` : '') +
     section(W('最高法院', 'Supreme Court'), list(by('TPS').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPS' }) +
     section(W('最高行政法院', 'Admin. Court'), list(by('TPA').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPA' }) +
+    (low.length ? section(W('高等法院・地方法院', 'High and district courts'), list(low.slice(0, 4).map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=low' }) : '') +
     section(W('最常被引用的解釋', 'Most cited'), list(landmarks.slice(0, 6).map(r => rulingRow(r, { sub: W(`${consLabel(r[0])} · 後來 ${cons.cited[r[0]].length} 件引用`, `${consLabel(r[0], en)} · cited ${cons.cited[r[0]].length} times`) }))), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=interp' }) +
     section(W('依主題', 'By topic'), topicChips);
+}
+// 各級法院: how many, by level and kind; 案由 to pick (or found by the search box),
+// each court; a 案由 or a court opened: its newest judgments.
+async function lowHtml() {
+  let ix;
+  try {
+    ix = await lowIndex();
+  } catch {
+    return emptyRulings();
+  }
+  if (!ix.n) return `<div class="q-empty lw-empty-sm"><strong>${W('高等法院、地方法院的判決正在讀入', 'High and district court rulings are on their way')}</strong><p>${W('司法院的資料每天 0 點到 6 點開放，每晚讀入好幾個月，讀到的會出現在這裡。', '司法院 opens its data from midnight to 6 a.m.; each night adds months of rulings here.')}</p></div>`;
+  const wantKind = r => !rulingKind || caseKind(r[0])[0] === rulingKind;
+  const wantLevel = r => !rulingLevel || lowLevel(lowCode(r[0])) === rulingLevel;
+  const levelChips = `<div class="q-chips lw-chips">${[['high', W('高等法院', 'High courts')], ['district', W('地方法院', 'District courts')]].map(([id, label]) => `<button type="button" class="q-chip" data-level="${id}" aria-pressed="${id === rulingLevel}">${esc(label)}</button>`).join('')}${['刑事', '民事', '行政'].map(k => `<button type="button" class="q-chip" data-kind="${k}" aria-pressed="${k === rulingKind}">${esc(en ? { 刑事: 'Criminal', 民事: 'Civil', 行政: 'Admin.' }[k] : k)}</button>`).join('')}</div>`;
+  const span = ix.span?.length ? W(` · ${ymd(ix.span[0])} 起`, ` · since ${ymd(ix.span[0])}`) : '';
+  const head = `<p class="lw-low-head">${W(`<b>${ix.n.toLocaleString()}</b> 則判決 · ${ix.courts.length} 個法院${span}`, `<b>${ix.n.toLocaleString()}</b> judgments · ${ix.courts.length} courts${span}`)}</p>`;
+  const more = n => (n > 0 ? `<button type="button" class="q-btn block lw-more" data-rmore>${W(`再看 ${Math.min(n, 60)} 則`, `${Math.min(n, 60)} more`)}</button>` : '');
+  const rowsHtml = (rows, label, total = 0) => {
+    const shown = rows.filter(r => wantKind(r) && wantLevel(r));
+    return section(W(`${label} · ${(rulingKind || rulingLevel ? shown.length : Math.max(total, shown.length)).toLocaleString()} 則`, `${label} · ${(rulingKind || rulingLevel ? shown.length : Math.max(total, shown.length)).toLocaleString()}`), shown.length ? list(shown.slice(0, 60 + rulingMore).map(r => rulingRow(r))) : `<p class="lw-none">${W('這個篩選下沒有判決', 'None with these filters')}</p>`) + more(shown.length - 60 - rulingMore);
+  };
+  const back = `<div class="q-chips lw-chips"><button type="button" class="q-chip" data-title="">${W('← 全部案由與法院', '← All matters and courts')}</button></div>`;
+  if (rulingTitle) {
+    const t = ix.titles.find(x => x[0] === rulingTitle);
+    let rows = [];
+    try {
+      rows = t ? (await data(`rulings/low/t/${t[2]}.json`)).map(([jid, d, cites]) => [jid, d, rulingTitle, cites]) : [];
+    } catch {}
+    return back + levelChips + rowsHtml(rows, W(`「${rulingTitle}」`, `“${rulingTitle}”`), t?.[1]);
+  }
+  if (rulingCourt) {
+    const c = ix.courts.find(x => x[0] === rulingCourt);
+    let rows = [];
+    try {
+      rows = await data(`rulings/low/c/${rulingCourt}.json`);
+    } catch {}
+    return back + levelChips + rowsHtml(rows, c?.[1] || rulingCourt, c?.[2]);
+  }
+  const titleRow = ([t, n]) => `<button type="button" class="lw-row" data-title="${esc(t)}">${courtTile('low')}<span class="lw-row-text"><span class="lw-row-name${fit(t, 13)}">${esc(t)}</span><small>${W(`${n.toLocaleString()} 則判決`, `${n.toLocaleString()} judgments`)}</small></span></button>`;
+  if (rulingQuery) {
+    const words = rulingQuery.split(/\s+/).filter(Boolean);
+    const hits = ix.titles.filter(([t]) => words.every(w => t.includes(w))).slice(0, 40);
+    return head + (hits.length ? section(W(`符合的案由 · ${hits.length}`, `Matching matters · ${hits.length}`), list(hits.map(titleRow))) : `<div class="q-empty lw-empty-sm"><strong>${W('沒有這個案由', 'No matter like that')}</strong><p>${W('試試「詐欺」、「損害賠償」、「離婚」這類案由的字', 'Try words like 詐欺, 損害賠償 or 離婚')}</p></div>`) + `<a class="lw-out" href="https://judgment.judicial.gov.tw/FJUD/default.aspx" target="_blank" rel="noopener" data-out>${W('到司法院裁判書查詢找全文', 'Full-text search on 司法院')}</a>`;
+  }
+  const courts = ix.courts.filter(c => !rulingLevel || c[3] === rulingLevel);
+  const titleChips = `<div class="q-chips lw-chips lw-titles">${ix.titles.slice(0, 18).map(([t, n]) => `<button type="button" class="q-chip" data-title="${esc(t)}">${esc(t.length > 12 ? `${t.slice(0, 11)}…` : t)}<small>${n.toLocaleString()}</small></button>`).join('')}</div>`;
+  const latest = ix.latest.filter(r => wantKind(r) && wantLevel(r)).slice(0, 8);
+  return (
+    head +
+    levelChips +
+    section(W('常見案由', 'Common matters'), titleChips) +
+    (latest.length ? section(W('最新判決', 'Latest'), list(latest.map(r => rulingRow(r)))) : '') +
+    section(W(`法院 · ${courts.length}`, `Courts · ${courts.length}`), list(courts.map(([c, name, n]) => `<button type="button" class="lw-row" data-court="${esc(c)}">${courtTile('low')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${W(`${n.toLocaleString()} 則判決`, `${n.toLocaleString()} judgments`)}</small></span></button>`)))
+  );
 }
 const emptyRulings = () => `<div class="q-empty lw-empty-sm"><strong>${W('裁判資料讀不到', 'Rulings couldn’t be loaded')}</strong><p>${W('請連上網路再試一次。', 'Connect and try again.')}</p></div>`;
 // A ruling and the bill that answers it: the ruling's name, the bill's stage.
@@ -1573,7 +1657,12 @@ async function rulingSearchHtml(q, cons, { door = '', max = 30, quiet = false } 
     } catch {}
   }
   const rowsOf = list_ => list(list_.map(([jid, t]) => rulingRow([jid, (/,(\d{8}),/.exec(jid)?.[1] || '').replace(/^(\d{4})(\d\d)(\d\d)$/, '$1-$2-$3'), t])));
-  const html = (jumpRow ? section(W('直接打開', 'Go to'), list([rulingRow(jumpRow)])) : '') + (consHits.length ? section(W('憲法法庭', 'Constitutional Court'), list(consHits.map(r => rulingRow(r)))) : '') + (court.length ? section(W('最高法院・最高行政法院', 'Top courts'), rowsOf(court)) : '');
+  let lowTitles = [];
+  if (!door && [...q].length >= 2 && !caseQuery(q))
+    try {
+      lowTitles = (await lowIndex()).titles.filter(([t]) => hit(t)).slice(0, 6);
+    } catch {}
+  const html = (jumpRow ? section(W('直接打開', 'Go to'), list([rulingRow(jumpRow)])) : '') + (consHits.length ? section(W('憲法法庭', 'Constitutional Court'), list(consHits.map(r => rulingRow(r)))) : '') + (court.length ? section(W('最高法院・最高行政法院', 'Top courts'), rowsOf(court)) : '') + (lowTitles.length ? section(W('高等法院・地方法院，依案由', 'High and district courts, by matter'), list(lowTitles.map(([t, n]) => `<a class="lw-row" href="#tab=rulings&amp;f=low&amp;t=${esc(encodeURIComponent(t))}">${courtTile('low')}<span class="lw-row-text"><span class="lw-row-name${fit(t, 13)}">${esc(t)}</span><small>${W(`${n.toLocaleString()} 則判決`, `${n.toLocaleString()} judgments`)}</small></span></a>`))) : '');
   if (quiet) return html;
   return html || `<div class="q-empty lw-empty-sm"><strong>${W('找不到符合的裁判', 'No rulings found')}</strong><p>${W('試試釋字號（748）、案號（115台上4682）或案由的字', 'Try a number (748), a case number (115台上4682) or words in its matter')}</p></div>`;
 }
@@ -2730,12 +2819,11 @@ async function start() {
     })
     .catch(() => {});
   delegReady = Promise.all([data('deleg.json').then(r => (state.regLaws = r || {})).catch(() => {}), data('agency/counts.json').then(r => (state.agencyLaws = r || {})).catch(() => {})]);
-  rulingsReady = data('rulings/laws.json')
-    .then(r => {
-      state.rulingLaws = r;
-      if (state.tab === 'laws' && !state.law) drawResults();
-    })
-    .catch(() => {});
+  rulingsReady = Promise.all([
+    data('rulings/laws.json').then(r => (state.rulingLaws = r)).catch(() => {}),
+    data('rulings/low/laws.json').then(r => (state.lowLaws = r || {})).catch(() => {}),
+    data('rulings/low/courts.json').then(r => (state.lowNames = r || {})).catch(() => {})
+  ]).then(() => state.tab === 'laws' && !state.law && drawResults());
   const latestReady = Promise.all([
     data('rulings/latest.json').then(r => (state.latestRulings = r.rulings || [])).catch(() => {}),
     consData().then(c => (state.consTop = c.items.filter(r => r[0].startsWith('j')).slice(0, 2))).catch(() => {})

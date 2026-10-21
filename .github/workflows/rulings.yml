@@ -1,0 +1,72 @@
+# The rulings store: every court's judgments that cite a law, from 司法院's
+# monthly archives and JDoc, which open only 00:00-06:00 Taiwan time. Each
+# run reads for up to 45 minutes, saves the store to the cache, asks Pages
+# for a deploy, and starts itself again while months remain and the window
+# lasts. The store lives only in the cache, so no deploy can empty it.
+name: Rulings store
+
+on:
+  schedule:
+    - cron: '5 16 * * *'
+    - cron: '5 18 * * *'
+    - cron: '5 20 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Read outside 00:00-06:00 Taiwan time (司法院 usually refuses)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: 'rulings'
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The law names to read citations by: the live site's index, else built.
+      - name: The laws' names
+        run: |
+          mkdir -p public/data
+          curl -sfL -o public/data/index.json https://jaypengx.github.io/Orbit-Law/data/index.json && curl -sfL -o public/data/orders.json https://jaypengx.github.io/Orbit-Law/data/orders.json || node scripts/build-data.mjs
+      - name: An unpacker for the monthly archives (RAR)
+        run: command -v unrar || sudo apt-get install -y unrar || sudo apt-get install -y libarchive-tools || true
+      - uses: actions/cache/restore@v4
+        with:
+          path: .rulings-store
+          key: rulings-latest
+          restore-keys: rulings-
+      - name: Read the courts
+        id: read
+        run: |
+          node --max-old-space-size=6144 scripts/backfill-rulings.mjs --minutes 45 ${{ inputs.force && '--force 1' || '' }} | tee backfill.log
+          grep -q '^more=1' backfill.log && echo "more=1" >> "$GITHUB_OUTPUT" || true
+          grep -q 'citing a law' backfill.log && echo "read=1" >> "$GITHUB_OUTPUT" || true
+        env:
+          JDOC_USER: ${{ secrets.JDOC_USER }}
+          JDOC_PASS: ${{ secrets.JDOC_PASS }}
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('.rulings-store/done.json') != ''
+        with:
+          path: .rulings-store
+          key: rulings-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Deploy what was read
+        if: steps.read.outputs.read == '1'
+        run: gh workflow run pages.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Read on while months remain tonight
+        if: steps.read.outputs.more == '1'
+        run: gh workflow run rulings.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

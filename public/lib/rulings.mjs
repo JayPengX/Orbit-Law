@@ -125,3 +125,76 @@ export const topCourtFile = path => /\.json$/i.test(path) && /最高法院|最�
 const JID = /[A-Z]{2,6},\d{2,3},[^,\r\n"]{1,12},\d{1,7},\d{8},\d{1,3}/g;
 export const deletedIds = csv => new Set(String(csv || '').match(JID) || []);
 export const dropDeleted = (rulings, gone) => (gone.size ? rulings.filter(r => !gone.has(r[0])) : rulings);
+
+// ---- The other courts: 高等法院 (and its branches), 高等行政法院, 智慧財產及商業法院,
+// 地方法院 and their 簡易庭, 少年及家事法院. Their 判決 only (裁定 are mostly
+// procedure), out of the same monthly archives; kept by article, by 案由 and
+// by court so a phone loads only the slice it asks for.
+export const LOW_COURTS = {
+  TPH: '臺灣高等法院', TCH: '臺中高分院', TNH: '臺南高分院', KSH: '高雄高分院', HLH: '花蓮高分院', KMH: '金門高分院',
+  TPB: '臺北高等行政', TCB: '臺中高等行政', KSB: '高雄高等行政', IPC: '智財商業法院',
+  TPD: '臺北地院', SLD: '士林地院', PCD: '新北地院', ILD: '宜蘭地院', KLD: '基隆地院', TYD: '桃園地院', SCD: '新竹地院', MLD: '苗栗地院',
+  TCD: '臺中地院', CHD: '彰化地院', NTD: '南投地院', ULD: '雲林地院', CYD: '嘉義地院', TND: '臺南地院', KSD: '高雄地院', CTD: '橋頭地院',
+  HLD: '花蓮地院', TTD: '臺東地院', PTD: '屏東地院', PHD: '澎湖地院', KMD: '金門地院', LCD: '連江地院', KSY: '高雄少家法院'
+};
+export const lowCode = jid => {
+  const c = String(jid || '').split(',')[0].slice(0, 3);
+  return /^[A-Z]{3}$/.test(c) && !COURTS[c] ? c : '';
+};
+// A court's level: 高等 (and 高等行政, 智財), else 地方 (簡易庭 and 少家 with it).
+export const lowLevel = code => (/^[A-Z]{2}[HB]$/.test(code) || code === 'IPC' ? 'high' : 'district');
+// A 簡易庭's name read off its court's (TPE → 臺北地院's, by the first two letters).
+export function lowCourtName(code, names = {}) {
+  if (names[code]) return names[code];
+  if (LOW_COURTS[code]) return LOW_COURTS[code];
+  const parent = Object.keys(LOW_COURTS).find(c => c.slice(0, 2) === code.slice(0, 2) && c[2] === 'D');
+  return parent ? `${LOW_COURTS[parent]}簡易庭` : code;
+}
+// A court's own name from an archive path (…/臺灣臺北地方法院/…), short.
+export const courtFromPath = path => {
+  const seg = String(path || '').split(/[\\/]/).find(s => /(法院|簡易庭|分院)$/.test(s));
+  return seg ? seg.replace(/^臺灣/, '').replace(/地方法院$/, '地院').replace(/高等法院(.+)分院$/, '$1高分院') : '';
+};
+// A 判決 (not a 裁定, 判決 is in its heading line).
+export const isJudgment = doc => {
+  const head = String(doc?.JFULL ?? doc?.JFULLX?.JFULLCONTENT ?? '').replace(/\s+/g, '').slice(0, 60);
+  return /判決/.test(head) && !/裁定/.test(head);
+};
+// A short stable key for a 案由 (its file name).
+export function titleKey(t) {
+  let h = 0x811c9dc5;
+  for (const ch of String(t)) h = Math.imul(h ^ ch.codePointAt(0), 0x01000193) >>> 0;
+  return h.toString(36);
+}
+export const LOW_PER_ARTICLE = 20;
+export const LOW_PER_TITLE = 200;
+export const LOW_PER_COURT = 150;
+// Everything the app reads for these courts, from their kept rows (newest first):
+// per law a count and per article its newest; 案由 with counts and each one's
+// newest; each court's newest and count; the newest of all.
+export function lowViews(rows, { names = {} } = {}) {
+  const laws = {}, byLaw = {}, titles = new Map(), byTitle = {}, courts = {}, byCourt = {};
+  for (const [jid, d, t, cites] of rows) {
+    const code = lowCode(jid);
+    if (!code) continue;
+    const seen = new Set();
+    for (const c of cites) {
+      const i = c.indexOf(':');
+      const p = i < 0 ? c : c.slice(0, i), k = i < 0 ? '' : c.slice(i + 1);
+      if (!seen.has(p)) ((laws[p] = (laws[p] || 0) + 1), seen.add(p));
+      const list = ((byLaw[p] ||= {})[k] ||= []);
+      if (list.length < LOW_PER_ARTICLE) list.push([jid, d, t]);
+    }
+    const title = String(t || '').trim() || '其他';
+    titles.set(title, (titles.get(title) || 0) + 1);
+    const tl = (byTitle[title] ||= []);
+    if (tl.length < LOW_PER_TITLE) tl.push([jid, d, cites.slice(0, 4)]);
+    courts[code] = (courts[code] || 0) + 1;
+    const cl = (byCourt[code] ||= []);
+    if (cl.length < LOW_PER_COURT) cl.push([jid, d, t, cites.slice(0, 4)]);
+  }
+  const courtRows = Object.entries(courts).map(([c, n]) => [c, lowCourtName(c, names), n, lowLevel(c)]).sort((a, b) => b[2] - a[2]);
+  const titleRows = [...titles].sort((a, b) => b[1] - a[1]).map(([t, n]) => [t, n, titleKey(t)]);
+  const latest = rows.filter(r => lowCode(r[0])).slice(0, 40).map(([jid, d, t, cites]) => [jid, d, t, cites.slice(0, 4)]);
+  return { laws, byLaw, titles: titleRows, byTitle, courts: courtRows, byCourt, latest };
+}

@@ -148,6 +148,38 @@ export function vendorList(html) {
   return { total, rows };
 }
 
+// The kinds of rows the rule sites file rules under: 行政規則, and 其他 (教育部 files
+// 高級中等學校輔導學生會及其他相關自治組織運作注意事項 there).
+const VENDOR_KINDS = new Set(['行政規則', '其他']);
+
+// The listed rows (id → { id, name, date, type }) that are rules to keep: of those kinds, named like
+// one, not already a 命令 of 全國法規資料庫; one per name, the newest.
+export function vendorWant(items, known = new Set()) {
+  const byName = new Map();
+  for (const r of items.values()) {
+    if (!VENDOR_KINDS.has(r.type) || !isRuleName(r.name) || known.has(r.name)) continue;
+    if (!byName.has(r.name) || byName.get(r.name).date < r.date) byName.set(r.name, r);
+  }
+  return [...byName.values()];
+}
+
+// The categories to list this time, the longest unlisted first (never listed, then the oldest).
+// listed: { category: { at, rows } } as carried from the last deploy.
+export function staleFirst(leaves, listed = {}) {
+  return [...leaves].sort((a, b) => (listed[a]?.at || 0) - (listed[b]?.at || 0));
+}
+
+// Every row listed in the site's categories now (one per id), listed this time or carried over.
+// A category the site no longer has takes its rows with it.
+export function listedRows(leaves, listed = {}) {
+  const items = new Map();
+  for (const leaf of leaves) for (const [id, name, date, type] of listed[leaf]?.rows || []) items.set(id, { id, name, date, type });
+  return items;
+}
+
+// Keep only the rows worth carrying: [id, name, date, type] of the kinds above.
+export const listedKeep = rows => rows.filter(r => VENDOR_KINDS.has(r.type)).map(r => [r.id, r.name, r.date, r.type]);
+
 // A LawContent.aspx page → the start of its text (for the basis).
 export function vendorText(html) {
   const m = String(html).match(/id="ctl00_cp_content_divLawContent\d*"[^>]*>([\s\S]*?)<\/div>/);
@@ -155,7 +187,8 @@ export function vendorText(html) {
   return unent(m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ''));
 }
 
-export const vendorRule = (agency, base, id, name, date, text = '') => rule(`${agency}:${id}`, name, agency, date, `${base}/LawContent.aspx?id=${id}`, text);
+// (code: the site's ASCII id prefix, MOE… : ids repeat across sites, and a text file's name keeps only ASCII.)
+export const vendorRule = (code, agency, base, id, name, date, text = '') => rule(`${code}:${id}`, name, agency, date, `${base}/LawContent.aspx?id=${id}`, text);
 
 // The laws a rule says it rests on without an article (「依軍人保險條例規定」,
 // 「依據國防法第廿二條」 with an article basisOf could not read): law-level only.
@@ -170,8 +203,8 @@ export function citedLaws(text, names) {
   return [...out];
 }
 
-// Link raw rules → [id, name, agency, date, url, basis, laws], only those with
-// a law. `known`: names of regulations Orbit already has (skipped); one rule
+// Link raw rules → [id, name, agency, date, url, basis, laws], all of them: the
+// laws are empty when none is found. `known`: names of regulations Orbit already has (skipped); one rule
 // per (agency, name), newest first.
 export function linkRules(raw, laws, names, known = new Set()) {
   const seen = new Map();
@@ -186,7 +219,6 @@ export function linkRules(raw, laws, names, known = new Set()) {
     const basisLaws = [...new Set(basis.map(b => b.slice(0, b.indexOf(':'))))];
     // The laws its basis names, and the one law its name speaks of (the longest).
     const lawsOf = [...new Set([...basisLaws, ...citedLaws(r.text, names), ...nameLaws(laws, r.name).slice(0, 1)])];
-    if (!lawsOf.length) continue;
     out.push([r.id, r.name, r.agency, r.date, r.url, basis, lawsOf]);
   }
   return out.sort((a, b) => (a[3] < b[3] ? 1 : a[3] > b[3] ? -1 : a[0] < b[0] ? -1 : 1));

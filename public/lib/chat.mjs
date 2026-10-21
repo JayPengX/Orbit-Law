@@ -1,10 +1,7 @@
-// 問法律: the proxy's /law-chat finds what a question needs across this
-// site's data (every law and regulation, 行政規則, judgments and 釋字, bills,
-// legislators, votes, meetings, 政府公告, and what the reader follows) and
-// answers from that only, applied to the reader's facts, each point citing
-// an article ('p:key'), a judgment (its id) or a rule (its id). The app keeps
-// the conversation (a few turns) and shows what the answer cites as chips
-// that open it in the app.
+// 問法律: the proxy's /law-chat finds the articles for a question across
+// every law and regulation, and answers from them only, each point citing
+// one ('p:key'). The app keeps the conversation (a few turns) and shows
+// what the answer cites as chips that open the article.
 import { ASK_URL } from './ask.mjs';
 
 export const CHAT_URL = ASK_URL.replace(/law-ask$/, 'law-chat');
@@ -12,9 +9,6 @@ export const MAX_CHAT_Q = 500;
 export const MAX_TURNS = 6;
 
 const CITE = /^[A-Z]\d{7}:\d{1,4}(-\d{1,3})?$/;
-// A 司法院 judgment id (TPSV,114,台上,2031,20260514,1), a 釋字 or 憲判字 (s748, j111-10), a rule's id (教育部:FL001).
-export const JID = /^([A-Z]{3,5},\d{2,3},[^,\s]{1,12},\d{1,6},\d{8},\d{1,3}|s\d{1,4}|j\d{3}-\d{1,3})$/u;
-const RULE = /^[\p{L}\p{N}_-]{2,12}:[\p{L}\p{N}_.-]{1,40}$/u;
 const list = (x, n) => (Array.isArray(x) ? x.slice(0, n) : []);
 const str = x => (typeof x === 'string' ? x.trim() : '');
 
@@ -22,12 +16,10 @@ const str = x => (typeof x === 'string' ? x.trim() : '');
 // the right shape, and only those among the answer's own sources.
 export function cleanChat(j) {
   const sources = list(j?.sources, 20).filter(s => s && CITE.test(`${s.p}:${s.key}`)).map(s => ({ p: s.p, n: str(s.n), key: String(s.key) }));
-  const cases = list(j?.cases, 6).filter(x => x && JID.test(String(x.jid || ''))).map(x => ({ jid: String(x.jid), d: str(x.d || ''), t: str(x.t || ''), no: str(x.no || '') }));
-  const rules = list(j?.rules, 6).filter(x => x && RULE.test(String(x.id || '')) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), agency: str(x.agency || ''), d: str(x.d || ''), url: /^https:\/\//.test(x.url) ? x.url : '', text: x.text === true }));
-  const known = new Set([...sources.map(s => `${s.p}:${s.key}`), ...cases.map(x => x.jid), ...rules.map(x => x.id)]);
-  // Grounded in what isn't an article (notices, bills, legislators…): points without cites stand too.
-  const grounded = ['notices', 'bills', 'people', 'votes', 'meets', 'cases', 'rules'].some(k => Array.isArray(j?.[k]) && j[k].length > 0);
-  const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => known.has(c)) })).filter(pt => pt.text && (pt.cites.length || grounded));
+  const known = new Set(sources.map(s => `${s.p}:${s.key}`));
+  // Grounded in 政府公告 or bills (no article to cite): points without cites stand too.
+  const grounded = (Array.isArray(j?.notices) && j.notices.length > 0) || (Array.isArray(j?.bills) && j.bills.length > 0);
+  const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => CITE.test(c) && known.has(c)) })).filter(pt => pt.text && (pt.cites.length || grounded));
   const points = cited(j?.points);
   return {
     covered: j?.covered === true && (points.length > 0 || (grounded && Boolean(str(j?.answer)))),
@@ -41,32 +33,17 @@ export function cleanChat(j) {
     // 政府公告 and 立法院 bills the answer drew on (links out, or a bill sheet).
     notices: list(j?.notices, 6).filter(x => x && /^https:\/\//.test(x.url) && str(x.t)).map(x => ({ t: str(x.t), url: x.url, d: str(x.d || ''), agency: str(x.agency || '') })),
     bills: list(j?.bills, 6).filter(x => x && /^(\d+:\w+|budget:[\p{L}\p{N}]{1,60})$/u.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
-    // Judgments and 釋字, 行政規則, legislators, votes and meetings it drew on (each opens in the app).
-    cases,
-    rules,
-    people: list(j?.people, 3).filter(x => x && /^\d{1,6}$/.test(String(x.id)) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), party: str(x.party || '') })),
-    votes: list(j?.votes, 6).filter(x => x && typeof x.id === 'string' && x.id.length <= 40 && str(x.t)).map(x => ({ id: x.id, d: str(x.d || ''), t: str(x.t) })),
-    meets: list(j?.meets, 3).filter(x => x && typeof x.id === 'string' && x.id.length <= 80 && str(x.t)).map(x => ({ id: x.id, t: str(x.t), d: str(x.d || '') })),
     left: Number.isFinite(j?.left) ? j.left : null
   };
 }
 
 // The turns sent back with a follow-up: the last MAX_TURNS, text cut short.
-export const historyOf = turns => turns.slice(-MAX_TURNS).map(t => ({ role: t.role, text: String(t.text).slice(0, 1500), ...(t.cites?.length ? { cites: [...new Set(t.cites.filter(c => CITE.test(c)))].slice(0, 12) } : {}) }));
+export const historyOf = turns => turns.slice(-MAX_TURNS).map(t => ({ role: t.role, text: String(t.text).slice(0, 1500), ...(t.cites?.length ? { cites: t.cites.slice(0, 12) } : {}) }));
 
-// What the reader follows and marked (store.mjs's mine), as the proxy reads it:
-// used only when a question asks about their own (我追蹤的…).
-export const mineOf = m => ({
-  laws: Object.keys(m?.laws || {}).slice(0, 8),
-  items: Object.keys(m?.items || {}).slice(0, 8),
-  people: Object.keys(m?.people || {}).slice(0, 8),
-  marks: (m?.marks || []).map(x => `${x.p}:${x.k}`).filter(c => CITE.test(c)).slice(0, 8)
-});
-
-export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh' }, { fetcher = globalThis.fetch, headers = {} } = {}) {
+export async function chatLaw({ q, history = [], pin = [], lang = 'zh' }, { fetcher = globalThis.fetch, headers = {} } = {}) {
   let r;
   try {
-    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), lang }) });
+    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), lang }) });
   } catch {
     return { error: 'offline' };
   }
@@ -90,12 +67,11 @@ export function chatError(code, en = false) {
 }
 
 // Questions to start from (home and the ask screen).
-// (A situation to judge, a rule, a ruling, the 立法院: what it can answer.)
 export const STARTERS = [
-  ['房東扣光押金合理嗎？', 'Can my landlord keep my deposit?'],
-  ['幫朋友領包裹變詐騙，會判刑嗎？', 'I picked up scam parcels. Am I guilty?'],
-  ['天天加班沒加班費怎麼辦？', 'Daily overtime, no overtime pay'],
-  ['高中學生會能自己管經費嗎？', 'Can a student council run its own budget?'],
-  ['勞基法修法進度到哪了？', 'Where is the Labor Act amendment?'],
-  ['我追蹤的立委投了什麼票？', 'How did my legislators vote?']
+  ['房東不退押金怎麼辦？', 'My landlord won’t return my deposit'],
+  ['加班費怎麼算？', 'How is overtime pay calculated?'],
+  ['騎車闖紅燈罰多少？', 'Fine for running a red light on a scooter?'],
+  ['網購七天內可以退貨嗎？', 'Can I return an online purchase within 7 days?'],
+  ['被公司資遣有什麼補償？', 'What am I owed if I’m laid off?'],
+  ['個資外洩可以求償嗎？', 'Can I claim damages for a data leak?']
 ];

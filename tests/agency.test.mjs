@@ -75,7 +75,7 @@ test('laws cited without an article', () => {
 
 const raw = (id, name, text, date = '2022-01-01') => ({ id, name, agency: '金管會', date, url: `https://x/${id}`, text });
 
-test('link: basis articles and laws, name-only, unlinked dropped, known skipped, newest per name', () => {
+test('link: basis articles and laws, name-only, unlinked kept, known skipped, newest per name', () => {
   const rules = linkRules([
     raw('A', '證券金融事業審核要點', '一、本要點依證券交易法第十八條規定訂定之。'),
     raw('B', '大學法招生辦法', '一、為辦理招生。'),
@@ -85,11 +85,12 @@ test('link: basis articles and laws, name-only, unlinked dropped, known skipped,
     raw('F', '證券交易法第十八條作業要點', '無')
   ], laws, names, new Set(['已有的證券交易法辦法']));
   const by = Object.fromEntries(rules.map(r => [r[0], r]));
-  assert.deepEqual(Object.keys(by).sort(), ['A', 'E', 'F']);
+  assert.deepEqual(Object.keys(by).sort(), ['A', 'C', 'E', 'F']);
+  assert.deepEqual(by.C.slice(5), [[], []], 'no law found: still kept');
   assert.deepEqual(by.A.slice(5), [['G0400001:18'], ['G0400001']]);
   assert.deepEqual(by.E.slice(5), [[], ['H0030001']]);
   assert.deepEqual(by.F[5], []);
-  assert.deepEqual(rules.map(r => r[3]), ['2023-01-01', '2022-01-01', '2022-01-01'], 'newest first');
+  assert.deepEqual(rules.map(r => r[3]), ['2023-01-01', '2022-01-01', '2022-01-01', '2022-01-01'], 'newest first');
 });
 
 test('shards: by article, the rest by name, counted once', () => {
@@ -104,7 +105,7 @@ test('shards: by article, the rest by name, counted once', () => {
   assert.deepEqual(counts, { G0400001: 2, H0030001: 1 });
 });
 
-import { vendorLeaves, vendorList, vendorText, rocDate, vendorRule } from '../public/lib/agency.mjs';
+import { vendorLeaves, vendorList, vendorText, rocDate, vendorRule, textFile } from '../public/lib/agency.mjs';
 
 test('vendor: leaf categories, list rows, text', () => {
   const q = ['01', '0101', '0102', '02'].map(i => `<input name="cbCategoryID${i}" type="checkbox" id="cbCategoryID${i}" value="${i}" />`).join('');
@@ -117,8 +118,9 @@ test('vendor: leaf categories, list rows, text', () => {
   assert.deepEqual(rows.map(r => [r.id, r.name, r.date, r.type]), [['GL000650', '漁業法第四十四條作業規定', '2026-09-01', '行政規則'], ['GL000651', '某辦法', '2015-01-02', '法規命令']]);
   const c = '<div id="ctl00_cp_content_divLawContent08" class="ClearCss">一、本要點依大學法<br>\n&nbsp; &nbsp; 第一條訂定。</div>';
   assert.ok(vendorText(c).startsWith('一、本要點依大學法\n') && vendorText(c).includes('第一條訂定'));
-  const r = vendorRule('農業部', 'https://law.moa.gov.tw', 'GL1', '某要點', '2026-01-01', c);
-  assert.equal(r.id, '農業部:GL1');
+  const r = vendorRule('MOA', '農業部', 'https://law.moa.gov.tw', 'GL1', '某要點', '2026-01-01', c);
+  assert.equal(r.id, 'MOA:GL1');
+  assert.notEqual(textFile('MOA:GL1'), textFile(vendorRule('MOE', '教育部', 'https://edu.law.moe.gov.tw', 'GL1', '某要點', '2026-01-01', c).id), 'same id on two sites: two text files');
   assert.equal(r.url, 'https://law.moa.gov.tw/LawContent.aspx?id=GL1');
 });
 
@@ -127,4 +129,38 @@ test('names that hold a law name anywhere link to it', () => {
   assert.deepEqual(nameLaws(ls, '遠洋漁業條例依漁業法規定之作業規定'), ['A1']);
   assert.deepEqual(nameLaws(ls, '漁業法第四十四條作業規定'), ['A1']);
   assert.deepEqual(nameLaws(ls, '漁業署作業規定'), []);
+});
+
+import { vendorWant, staleFirst, listedRows, listedKeep } from '../public/lib/agency.mjs';
+import { searchLaws } from '../public/lib/search.mjs';
+
+const li = (id, name, type, date = '2018-08-30') => ({ id, name, date, type });
+
+test('vendor rules: 行政規則 and 其他 kept (教育部 files the 學生會 注意事項 under 其他), the rest not', () => {
+  const items = new Map([
+    ['GL001809', li('GL001809', '高級中等學校輔導學生會及其他相關自治組織運作注意事項', '其他')],
+    ['GL1', li('GL1', '某作業要點', '行政規則')],
+    ['GL2', li('GL2', '某辦法', '法規命令')],
+    ['GL3', li('GL3', '大學法', '法律')],
+    ['GL4', li('GL4', '已有的辦法', '行政規則')],
+    ['GL5', li('GL5', '某作業要點', '行政規則', '2020-01-01')],
+    ['GL6', li('GL6', '廢止某要點', '行政規則')],
+    ['GL7', li('GL7', '教育部令', '其他')]
+  ]);
+  const want = vendorWant(items, new Set(['已有的辦法']));
+  assert.deepEqual(want.map(r => r.id).sort(), ['GL001809', 'GL5'], 'one per name, the newest; no 令, 法律, 命令, known or repealed');
+});
+
+test('listing carries over: the longest unlisted category first, rows kept in between, a dropped category leaves', () => {
+  const listed = { a: { at: 300, rows: [['1', '甲要點', '2020-01-01', '行政規則']] }, b: { at: 100, rows: [['2', '乙要點', '2020-01-01', '其他']] }, gone: { at: 1, rows: [['9', '丙要點', '2020-01-01', '行政規則']] } };
+  assert.deepEqual(staleFirst(['a', 'new1', 'b', 'new2'], listed), ['new1', 'new2', 'b', 'a'], 'never listed first (site order), then the oldest');
+  assert.deepEqual([...listedRows(['a', 'b'], listed).keys()], ['1', '2'], 'categories of the site now; "gone" left with its category');
+  assert.equal(listedRows(['a', 'b'], { a: listed.a, b: { at: 5, rows: [] } }).size, 1, 'a category listed again replaces its rows');
+  assert.deepEqual(listedKeep([li('1', 'x', '行政規則'), li('2', 'y', '法律')]), [['1', 'x', '2018-08-30', '行政規則']]);
+});
+
+test('a rule is found by name in the app search, even in the middle of its name', () => {
+  const rows = [['教育部:GL001809', '高級中等學校輔導學生會及其他相關自治組織運作注意事項', '教育部', 'https://edu.law.moe.gov.tw/LawContent.aspx?id=GL001809', 1], ['教育部:GL2', '大專校院學生會辦法', '教育部', 'u']];
+  for (const q of ['高級中等學校輔導學生會及其他相關自治組織運作注意事項', '輔導學生會', '學生會']) assert.ok(searchLaws(rows, q).some(r => r[0] === '教育部:GL001809'), q);
+  assert.deepEqual(searchLaws(rows, '輔導學生會').map(r => r[0]), ['教育部:GL001809']);
 });

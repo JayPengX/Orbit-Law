@@ -3,8 +3,7 @@
 # day at 03:30 Taiwan time, after the ministry's midnight refresh. A failed
 # build deploys nothing, so the site keeps yesterday's data. Extra runs each
 # hour from 00:15 to 05:15 Taiwan time backfill court rulings from 司法院's
-# monthly archives (open only then), a few months a run; 憲法法庭's rulings
-# come from its own site on every run.
+# monthly archives (open only then), a few months a run.
 # One-time setup: Settings -> Pages -> Source: GitHub Actions.
 name: Deploy to Pages
 
@@ -58,12 +57,6 @@ jobs:
       - name: Mirror the legislators' photos
         run: (npm i --no-save --no-package-lock sharp@0.33.5 || true) && node scripts/build-photos.mjs
         continue-on-error: true
-      # The budgets' money: 主計總處's 預算表 (ws.dgbas.gov.tw leaves its certificate's issuer out).
-      - name: Read the budget books
-        run: node scripts/build-budget.mjs
-        env:
-          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
-        continue-on-error: true
       # Ministries' own 行政規則 (open data and their rule sites), linked to the
       # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
       - name: Build the ministries' rules
@@ -78,16 +71,6 @@ jobs:
         env:
           JDOC_USER: ${{ secrets.JDOC_USER }}
           JDOC_PASS: ${{ secrets.JDOC_PASS }}
-      # 憲法法庭: every 釋字 and 憲判字 from the court's own site (open all day).
-      # Each ruling read once and kept in the cache; this year's read again.
-      - uses: actions/cache@v4
-        with:
-          path: .cons-cache
-          key: cons-${{ github.run_id }}
-          restore-keys: cons-
-      - name: Build the constitutional rulings
-        run: node scripts/build-cons.mjs --minutes ${{ github.event_name == 'schedule' && 25 || 12 }}
-        continue-on-error: true
       # 政府公告 (ministries' RSS) and the hand-kept key figures, for the AI.
       - name: Build the government notices
         run: node scripts/build-news.mjs || echo "notices skipped"

@@ -184,45 +184,29 @@ export function budgetStage(bills) {
 export function budgetGroups(rows, votes = []) {
   const groups = new Map();
   for (const r of rows) {
-    let k = budgetKey(r['議案名稱']);
+    const k = budgetKey(r['議案名稱']);
     if (!k) continue;
-    // 第二預備金動支數額表: a report on last years' spending, a list of its own
-    // (it would drive the year's stage and dates otherwise).
-    if (budgetRole(r) === 'reserve') k += '預備金';
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push({ r, role: budgetRole(r), st: r['議案狀態'] || '', u: r['最新進度日期'] || r['提案日期'] || '' });
   }
   return [...groups].map(([k, list]) => {
-    const reserve = k.match(/^(\d+)預備金$/);
-    const longest = xs => [...xs].sort((a, b) => (b.r['議案流程'] || []).length - (a.r['議案流程'] || []).length)[0];
     const mains = list.filter(b => b.role === 'main');
-    // The master: the one marked 中央政府總預算流程, else the main with the
-    // longest flow, else (a budget sent in an earlier term) its 審查報告's.
-    const master = mains.find(b => b.st === '中央政府總預算流程') || longest(mains) || longest(list.filter(b => b.role === 'report')) || list[0];
-    // Its steps: the master's (less the bare 中央政府總預算流程 marker), then
-    // the 審查總報告's filing and the day it first passed 三讀.
-    const flow = (master.r['議案流程'] || []).map(f => [[].concat(f['日期'] || [])[0] || '', String(f['狀態'] || '')]).filter(f => f[1] !== '中央政府總預算流程');
-    const reports = list.filter(b => b.role === 'report');
-    const filed = reports.map(b => b.r['提案日期']).filter(Boolean).sort()[0];
-    if (filed && !reserve) flow.push([filed, '審查總報告']);
-    const passed = list.filter(b => (b.role === 'report' || b.role === 'main') && /三讀/.test(b.st)).map(b => b.u).filter(Boolean).sort()[0];
-    if (passed && !flow.some(f => /三讀/.test(f[1]))) flow.push([passed, '三讀']);
-    flow.sort((a, b) => (a[0] && b[0] && a[0] !== b[0] ? (a[0] < b[0] ? -1 : 1) : 0));
-    // Its dates: the budget's own bills' (a 勘誤表's letters don't move it).
-    const own = list.filter(b => b.role !== 'errata');
-    const days = (own.length ? own : list).flatMap(b => [b.r['提案日期'], b.u]).filter(Boolean).sort();
+    // The master: the one marked 中央政府總預算流程, else the main with the longest flow.
+    const master = mains.find(b => b.st === '中央政府總預算流程') || [...mains].sort((a, b) => (b.r['議案流程'] || []).length - (a.r['議案流程'] || []).length)[0] || list[0];
+    const flow = (master.r['議案流程'] || []).map(f => [[].concat(f['日期'] || [])[0] || '', String(f['狀態'] || '')]);
+    const days = list.flatMap(b => [b.r['提案日期'], b.u]).filter(Boolean).sort();
     const year = k.match(/^(\d+)(追加)?$/);
-    const title = reserve ? `${reserve[1]}年度第二預備金動支數額表` : year ? `${year[1]}年度中央政府總預算${year[2] ? '追加預算' : ''}案` : `${k}案`;
+    const title = year ? `${year[1]}年度中央政府總預算${year[2] ? '追加預算' : ''}案` : `${k}案`;
     const words = year ? [`${year[1]}年度`, year[2] ? '追加預算' : '總預算'] : [k.replace(/^中央政府/, '').replace(/特別預算$/, '')];
     return {
       k,
       title,
-      ...(reserve ? { stage: (list[0].st || '').replace(/\(.*$/, '') } : budgetStage(list)),
+      ...budgetStage(list),
       first: days[0] || '',
       last: days[days.length - 1] || '',
       flow,
       bills: newestFirst(list.map(b => [b.r['議案編號'], b.role, b.role === 'main' ? committeeOf(b.r) : '', b.st, b.r['提案日期'] || '', b.u, billRow(b.r)[2]]), 5),
-      votes: reserve ? [] : votes.filter(([, t]) => /預算/.test(t) && words.every(w => t.includes(w)) && (!year || Boolean(year[2]) === /追加/.test(t))).map(v => v[0])
+      votes: votes.filter(([, t]) => /預算/.test(t) && words.every(w => t.includes(w)) && (!year || Boolean(year[2]) === /追加/.test(t))).map(v => v[0])
     };
   }).sort((a, b) => (a.last < b.last ? 1 : -1));
 }

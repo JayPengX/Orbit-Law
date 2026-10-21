@@ -73,27 +73,6 @@ export function lawCounts(rulings) {
 // The newest few, with the first articles each cites (首頁's 最新判決).
 export const latestRulings = (rulings, n = 10) => rulings.slice(0, n).map(([jid, d, t, cites]) => [jid, d, t, cites.slice(0, 4)]);
 
-// For browsing in 裁判: each month's judgments ({ YYYYMM: [ruling, …] },
-// newest first), and per month how many each court gave ([[YYYYMM, TPS, TPA]]).
-// 憲法法庭's come from its own site (cons.mjs), so they're left out here.
-export function byMonth(rulings) {
-  const out = {};
-  for (const r of rulings) if (courtOf(r[0]) && courtOf(r[0]) !== 'JCC' && r[1]) (out[r[1].slice(0, 7).replace('-', '')] ||= []).push(r);
-  return out;
-}
-export const monthCounts = months => Object.keys(months).sort().reverse().map(m => [m, months[m].filter(r => courtOf(r[0]) === 'TPS').length, months[m].filter(r => courtOf(r[0]) === 'TPA').length]);
-// For finding one by its number or matter: [jid, title] for every one kept.
-export const findRows = rulings => rulings.filter(r => courtOf(r[0]) && courtOf(r[0]) !== 'JCC').map(([jid, , t]) => [jid, t]);
-// A case number typed (115台上4682, 115年度台上字第4682號, 114 判 76) → its parts.
-export function caseQuery(q) {
-  const m = /^(\d{2,3})\s*年?度?\s*([\u4e00-\u9fff]{1,6}?)\s*字?\s*第?\s*(\d{1,6})\s*號?$/.exec(String(q || '').replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xfee0)).trim());
-  return m && !/憲判/.test(m[2]) ? { y: String(Number(m[1])), w: m[2], n: String(Number(m[3])) } : null;
-}
-export const caseMatch = (jid, c) => {
-  const [, y, w, n] = String(jid).split(',');
-  return y === c.y && n === c.n && (w === c.w || w.replace(/^台/, '臺') === c.w || w.replace(/^臺/, '台') === c.w);
-};
-
 export const rulingUrl = jid => `https://judgment.judicial.gov.tw/FJUD/data.aspx?ty=JD&id=${encodeURIComponent(jid)}`;
 
 // JDoc answers only 00:00–06:00 Taiwan time.

@@ -980,12 +980,8 @@
 .lw-ref.para {
   text-decoration-style: dotted;
 }
-.lw-cons {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--lw-cons) 75%, transparent);
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 3px;
+.lw-ref.out {
+  text-decoration-style: dashed;
 }
 .lw-flash {
   animation: lw-flash 1.8s var(--q-ease, ease-out);
@@ -1463,12 +1459,6 @@ a.lw-art-chip {
 .lw-block.teal {
   --c: #0d9488;
 }
-.lw-block.purple {
-  --c: var(--q-purple, #af52de);
-}
-.lw-block.orange {
-  --c: var(--q-orange);
-}
 .lw-block h4 {
   display: flex;
   align-items: center;
@@ -1794,21 +1784,7 @@ a.lw-art-chip {
   text-overflow: ellipsis;
 }
 .lw-cite b {
-  margin-inline-end: 4px;
   font-weight: 800;
-}
-/* (A long English law name wraps inside its chip, never past the screen.) */
-.lw-points .lw-cite {
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 3px 8px;
-  line-height: 16px;
-  white-space: normal;
-}
-/* An answer's cards: one under another. */
-.lw-cards {
-  display: grid;
-  gap: 6px;
 }
 .lw-cite.more {
   background: var(--q-fill-3);
@@ -1997,12 +1973,6 @@ button.lw-row {
   background: var(--q-surface);
   color: var(--q-label);
   text-decoration: none;
-}
-button.lw-notice {
-  border: 0;
-  text-align: start;
-  font: inherit;
-  cursor: pointer;
 }
 .lw-notice b {
   font: 600 15px/20px var(--q-font);
@@ -2375,213 +2345,6 @@ button.lw-notice {
 }
 .lw-budget .lw-bill-name {
   color: var(--q-label);
-}
-/* 預算: the total and its change, a bar of what it's for, the cut. */
-.lw-bud-total {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  white-space: nowrap;
-}
-.lw-bud-total b {
-  font: 700 28px/32px var(--q-font);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-.lw-bud-total small {
-  color: var(--q-label-2);
-  font: 600 13px/1 var(--q-font);
-}
-.lw-bud-chg {
-  flex: none;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--c) 14%, transparent);
-  color: var(--c);
-  font: 700 12px/14px var(--q-font);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  --c: var(--q-label-2);
-}
-.lw-bud-total .lw-bud-chg {
-  margin-left: auto;
-}
-.lw-bud-chg.up {
-  --c: var(--q-orange);
-}
-.lw-bud-chg.down {
-  --c: var(--q-green);
-}
-.lw-bud-chg.cut {
-  --c: var(--q-red);
-}
-.lw-bud-bar {
-  display: flex;
-  gap: 2px;
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-}
-.lw-bud-bar i {
-  min-width: 2px;
-  background: var(--c);
-}
-.lw-bud-legend {
-  display: flex;
-  gap: 10px;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--q-label-2);
-  font: 600 12px/16px var(--q-font);
-  white-space: nowrap;
-}
-.lw-bud-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.lw-bud-legend i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--c);
-}
-.lw-bud-cut,
-.lw-bud-note,
-.lw-bud-steps {
-  overflow: hidden;
-  color: var(--q-label-2);
-  font: 600 13px/18px var(--q-font);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.lw-bud-cut {
-  color: var(--q-red);
-}
-.lw-bud-cut b {
-  font-variant-numeric: tabular-nums;
-}
-.lw-bud-page .lw-meta {
-  margin: 6px 0 14px;
-}
-.lw-bud-page .lw-stats.four {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.lw-bud-page .lw-stats.four .lw-stat {
-  padding: 12px;
-}
-.lw-bud-page .lw-stats.four .lw-stat b {
-  font-size: 22px;
-}
-.lw-stat.teal {
-  --c: var(--q-teal);
-}
-.lw-stat.red {
-  --c: var(--q-red);
-}
-.lw-bud-skel {
-  display: block;
-  height: 220px;
-  border-radius: 16px;
-}
-.lw-bud-page .lw-bud-bar {
-  margin: 0 0 10px;
-}
-.lw-bud-rows {
-  display: grid;
-  overflow: hidden;
-  border-radius: 16px;
-  background: var(--q-surface);
-}
-.lw-bud-row {
-  display: block;
-  min-width: 0;
-  padding: 10px 14px;
-}
-.lw-bud-row + .lw-bud-row {
-  border-top: 0.5px solid var(--q-separator, var(--q-fill-1));
-}
-details.lw-bud-row {
-  padding: 0;
-}
-details.lw-bud-row > summary {
-  display: block;
-  padding: 10px 14px;
-  list-style: none;
-  cursor: pointer;
-}
-details.lw-bud-row > summary::-webkit-details-marker {
-  display: none;
-}
-details.lw-bud-row[open] > summary {
-  background: color-mix(in srgb, var(--q-indigo) 7%, transparent);
-}
-.lw-bud-kids {
-  margin: 0 0 0 14px;
-  border-left: 2px solid color-mix(in srgb, var(--q-indigo) 30%, transparent);
-}
-.lw-bud-kids .lw-bud-row {
-  border-top: 0.5px solid var(--q-separator, var(--q-fill-1));
-}
-.lw-bud-kids > .lw-hint-sm {
-  margin: 0;
-  padding: 8px 14px 10px;
-}
-.lw-bud-line {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-.lw-bud-name {
-  flex: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  min-width: 0;
-  overflow: hidden;
-  font: 600 15px/20px var(--q-font);
-  text-wrap: balance;
-}
-.lw-bud-line {
-  align-items: flex-start;
-}
-.lw-bud-row.plan .lw-bud-name {
-  font-weight: 500;
-}
-.lw-bud-line b {
-  flex: none;
-  font: 700 15px/20px var(--q-font);
-  font-variant-numeric: tabular-nums;
-}
-.lw-bud-sub {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin-top: 6px;
-}
-.lw-bud-track {
-  flex: 1;
-  min-width: 40px;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--q-fill-2);
-}
-.lw-bud-track i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--c, var(--q-indigo));
-}
-.lw-bud-sub .lw-bud-chg {
-  padding: 2px 6px;
-  font-size: 11px;
-}
-.lw-bud-src a {
-  color: var(--q-indigo);
 }
 
 .lw-list-cap {
@@ -3463,82 +3226,3 @@ div.lw-video {
   color: #fff;
   box-shadow: none;
 }
-/* A ministry or agency row opens: a chevron that turns. */
-details.lw-bud-row > summary .lw-bud-line::after {
-  content: '';
-  flex: none;
-  align-self: center;
-  width: 7px;
-  height: 7px;
-  margin: 0 2px 0 -2px;
-  border: solid var(--q-label-3, var(--q-label-2));
-  border-width: 0 2px 2px 0;
-  transform: rotate(-45deg);
-  transition: transform 0.2s;
-}
-details.lw-bud-row[open] > summary .lw-bud-line::after {
-  transform: rotate(45deg);
-}
-
-/* ---- 裁判: each court its colour (憲法法庭 purple, 釋字 gold, 最高法院 indigo, 最高行政 teal) ---- */
-:root {
-  --lw-cons: #7c3aed;
-  --lw-interp: #a16207;
-  --lw-tps: #4f46e5;
-  --lw-tpa: #0f766e;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --lw-cons: #a78bfa;
-    --lw-interp: #eab308;
-    --lw-tps: #818cf8;
-    --lw-tpa: #2dd4bf;
-  }
-}
-:root[data-theme='dark'] {
-  --lw-cons: #a78bfa;
-  --lw-interp: #eab308;
-  --lw-tps: #818cf8;
-  --lw-tpa: #2dd4bf;
-}
-.lw-ctile {
-  --c: var(--lw-tps);
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--c) 16%, transparent);
-  color: var(--c);
-}
-.lw-ctile.sm { width: 32px; height: 32px; border-radius: 9px; }
-.lw-ctile svg { width: 18px; height: 18px; }
-.lw-ctile.cons, .lw-bdoor.cons, .lw-ruling.cons, .lw-block.cons, .lw-jd-hero.cons, .lw-strip.cons { --c: var(--lw-cons); }
-.lw-ctile.interp, .lw-bdoor.interp, .lw-ruling.interp { --c: var(--lw-interp); }
-.lw-ctile.tps, .lw-bdoor.tps, .lw-ruling.tps { --c: var(--lw-tps); }
-.lw-ctile.tpa, .lw-bdoor.tpa, .lw-ruling.tpa { --c: var(--lw-tpa); }
-.lw-ruling .lw-bill-stage.court { color: var(--c, var(--q-label)); }
-.lw-bill-doors.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.lw-rul.cons { background: color-mix(in srgb, var(--lw-cons) 18%, transparent); }
-.lw-rrow small .lw-tag { margin-right: 6px; vertical-align: 1px; }
-.lw-months .q-chip small { margin-left: 4px; color: var(--q-label-3); font-variant-numeric: tabular-nums; }
-.lw-months .q-chip[aria-pressed='true'] small { color: inherit; opacity: 0.8; }
-.lw-cons-page h4 { margin: 18px 0 8px; }
-.lw-cons-page .lw-block { margin: 12px 0 0; }
-.lw-cons-page .lw-block p { font: 16px/1.6 var(--q-font); }
-.lw-cons-main p { margin: 0 0 8px; font: 16px/1.65 var(--q-font); }
-.lw-cons-main p:last-child { margin: 0; }
-.lw-cons-reason p { margin: 0 0 12px; font: 16px/1.7 var(--q-font); }
-.lw-cons-page .lw-list { background: var(--q-sheet-cell, var(--q-surface)); border-radius: 14px; overflow: hidden; }
-.lw-find-rulings .q-section { margin-top: 0; }
-.lw-more-link { display: block; margin: 8px 0 16px; padding: 4px 4px; color: var(--q-accent); font: 600 15px/20px var(--q-font); text-decoration: none; }
-.lw-bill-court { margin-top: 8px; }
-.lw-cons-main p { display: block; overflow: visible; -webkit-line-clamp: unset; }
-.lw-cons-page .lw-block h4 { margin: 0 0 6px; }
-.lw-ruling .lw-cites { flex-wrap: nowrap; overflow: hidden; }
-.lw-ruling .lw-bill-name { -webkit-line-clamp: 3; }
-.lw-ruling .lw-cites .lw-cite { white-space: normal; line-height: 18px; padding-block: 2px; }
-.lw-ruling .lw-cites { flex-wrap: wrap; }
-.lw-doc-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.lw-rrow .lw-row-name.q-fit-wrap { white-space: normal; }

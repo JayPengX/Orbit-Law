@@ -8,10 +8,8 @@
 // Runs after build-ly.mjs. ws.dgbas.gov.tw leaves out its certificate's
 // issuer: run with NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem (pages.yml does).
 //   node scripts/build-budget.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
-import { mkdir, readFile, writeFile, readdir, rm, mkdtemp } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { inflateRawSync } from 'node:zlib';
 import { xmlRows, bookOf, yearOf, moneyOf } from '../public/lib/budget.mjs';
 import { prevJson, sleep } from './lib.mjs';
 
@@ -61,27 +59,40 @@ async function readBook(nid) {
   if (!url) throw new Error(`dataset ${nid}: no zip`);
   const r = await fetch(url, { signal: AbortSignal.timeout(120_000) });
   if (!r.ok) throw new Error(`${url} ${r.status}`);
-  const dir = await mkdtemp(join(tmpdir(), 'book-'));
-  try {
-    await writeFile(join(dir, 'book.zip'), Buffer.from(await r.arrayBuffer()));
-    execFileSync('unzip', ['-o', '-q', 'book.zip', '-d', 'x'], { cwd: dir });
-    const tables = {};
-    // (Names as bytes: some books' are in Big5.)
-    for (const raw of await readdir(join(dir, 'x'), { encoding: 'buffer' })) {
-      const f = raw.toString('utf8');
-      if (!/\.xml$/i.test(f)) continue;
-      const text = await readFile(Buffer.concat([Buffer.from(join(dir, 'x') + '/'), raw]), 'utf8');
-      const title = text.match(/<報表名稱>([^<]+)</)?.[1] || f.replace(/#U([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
-      if (/比較|分析/.test(title)) continue;
-      if (/歲出機關別預算表/.test(title)) tables.spend = xmlRows(text);
-      else if (/歲出政事別預算總表/.test(title)) tables.fn = xmlRows(text);
-      else if (/歲入來源別預算總表/.test(title)) tables.rev = xmlRows(text);
-    }
-    if (!tables.spend?.length) throw new Error(`${url}: no 歲出機關別預算表`);
-    return { url, book: bookOf(tables) };
-  } finally {
-    await rm(dir, { recursive: true, force: true });
+  const tables = {};
+  for (const [f, data] of unzip(Buffer.from(await r.arrayBuffer()))) {
+    if (!/\.xml$/i.test(f)) continue;
+    const text = data.toString('utf8');
+    const title = text.match(/<報表名稱>([^<]+)</)?.[1] || f.replace(/#U([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    if (/比較|分析/.test(title)) continue;
+    if (/歲出機關別預算表/.test(title)) tables.spend = xmlRows(text);
+    else if (/歲出政事別預算總表/.test(title)) tables.fn = xmlRows(text);
+    else if (/歲入來源別預算總表/.test(title)) tables.rev = xmlRows(text);
   }
+  if (!tables.spend?.length) throw new Error(`${url}: no 歲出機關別預算表`);
+  return { url, book: bookOf(tables) };
+}
+
+// A zip's files, read here (unzip's handling of the names differs between
+// machines): [[name, bytes]]. Names are UTF-8, or Big5 in some books.
+function unzip(buf) {
+  const files = [];
+  let end = buf.length - 22;
+  while (end >= 0 && buf.readUInt32LE(end) !== 0x06054b50) end--;
+  if (end < 0) throw new Error('not a zip');
+  let at = buf.readUInt32LE(end + 16);
+  for (let i = buf.readUInt16LE(end + 10); i > 0; i--) {
+    const flags = buf.readUInt16LE(at + 8), method = buf.readUInt16LE(at + 10), size = buf.readUInt32LE(at + 20);
+    const nameLen = buf.readUInt16LE(at + 28), extra = buf.readUInt16LE(at + 30), note = buf.readUInt16LE(at + 32), local = buf.readUInt32LE(at + 42);
+    const raw = buf.subarray(at + 46, at + 46 + nameLen);
+    let name = raw.toString('utf8');
+    if (!(flags & 0x800) && name.includes('\ufffd')) name = new TextDecoder('big5').decode(raw);
+    const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+    const body = buf.subarray(start, start + size);
+    files.push([name, method === 8 ? inflateRawSync(body) : body]);
+    at += 46 + nameLen + extra + note;
+  }
+  return files;
 }
 
 let found = {};

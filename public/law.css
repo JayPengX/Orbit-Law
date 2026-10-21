@@ -3545,3 +3545,33 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-next-sit {
   margin: -2px 0 8px;
 }
+
+/* 表決, explained: the question in plain words, the result, each party as a bar */
+.lw-vote-what { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lw-vg-what { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lw-vote-plain { margin: 6px 0 0; font: 400 16px/1.6 var(--q-font); color: var(--q-label); }
+.lw-vote-result { display: flex; align-items: baseline; gap: 10px; margin: 14px 0 8px; font: 500 15px/1.3 var(--q-font); color: var(--q-label-2); }
+.lw-vote-result b { flex: none; font: 700 20px/1.2 var(--q-font); }
+.lw-vote-result.y b { color: var(--q-green); }
+.lw-vote-result.n b { color: var(--q-red); }
+.lw-vote-result span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lw-vote-topic { margin: 0; font: 400 15px/1.55 var(--q-font); }
+.lw-vote-bill { display: grid; gap: 3px; }
+.lw-vote-bill span { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.lw-pbars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.lw-pbar { display: contents; }
+.lw-pbar .lw-party { justify-self: start; white-space: nowrap; }
+.lw-pbar-track { min-width: 0; }
+.lw-pbar-fill { display: flex; height: 14px; min-width: 6px; overflow: hidden; border-radius: 7px; background: var(--q-fill-3); }
+.lw-pbar-fill i { min-width: 3px; }
+.lw-pbar-fill i.y { background: var(--q-green); }
+.lw-pbar-fill i.n { background: var(--q-red); }
+.lw-pbar-fill i.a { background: var(--q-gray); }
+.lw-pbar-n { display: flex; gap: 4px; justify-content: flex-end; min-width: 4.5em; }
+.lw-pbar-n b { min-width: 26px; padding: 1px 5px; border-radius: 7px; text-align: center; font: 700 13px/18px var(--q-font); font-variant-numeric: tabular-nums; }
+.lw-pbar-n .y { background: color-mix(in srgb, var(--q-green) 16%, transparent); color: var(--q-green); }
+.lw-pbar-n .n { background: color-mix(in srgb, var(--q-red) 16%, transparent); color: var(--q-red); }
+.lw-pbar-n .a { background: var(--q-fill-3); color: var(--q-label-2); }
+.lw-name-vote { display: inline-flex; align-items: center; gap: 6px; padding-right: 4px; }
+.lw-name-vote .lw-vote-me { padding: 2px 7px; font-size: 11px; line-height: 14px; }
+.lw-vote-raw { margin: 16px 0 4px; color: var(--q-label-3, var(--q-label-2)); font: var(--q-t-footnote); }

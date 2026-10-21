@@ -246,3 +246,124 @@ export function personFeed(x, votes = null) {
 }
 // How many of them came after the day this device last looked.
 export const feedNew = (feed, seen) => (seen ? feed.filter(e => e.d > seen).length : 0);
+
+// What a vote was, in plain words, from its subject ("討論事項第一案 第四條
+// 台灣民眾黨黨團再修正動議", "內政委員會 保留481 國民黨黨團提案", "…全案表決"):
+// its kind, who moved it, the article, and a line for each language. `redo`
+// marks a 重付表決 (the same question voted again).
+const PARTIES = [['中國國民黨', '國民黨', 'KMT'], ['國民黨', '國民黨', 'KMT'], ['民主進步黨', '民進黨', 'DPP'], ['民進黨', '民進黨', 'DPP'], ['台灣民眾黨', '民眾黨', 'TPP'], ['民眾黨', '民眾黨', 'TPP'], ['時代力量', '時力', 'NPP']];
+const COMMITTEES = { 內政: 'Interior', 外交及國防: 'Foreign Affairs and Defense', 經濟: 'Economics', 財政: 'Finance', 教育及文化: 'Education and Culture', 交通: 'Transportation', 司法及法制: 'Judiciary', 社會福利及衛生環境: 'Social Welfare and Health' };
+const CN = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+export function cnNum(s) {
+  s = half(s);
+  if (/^\d+$/.test(s)) return Number(s);
+  let n = 0, cur = 0;
+  for (const c of s) {
+    if (c in CN) cur = CN[c];
+    else if (c === '十') (n += (cur || 1) * 10), (cur = 0);
+    else if (c === '百') (n += (cur || 1) * 100), (cur = 0);
+    else return NaN;
+  }
+  return n + cur;
+}
+export function voteWhat(subject) {
+  const s = half(subject).replace(/\s+/g, ' ');
+  const zhWho = [], enWho = [];
+  // The mover is in the last part that names one ("國民黨黨團提案第四條 台灣民眾黨黨團再修正動議第五條").
+  const named = t => PARTIES.some(([full]) => t.includes(full)) || /委員[一-鿿]{2,4}?等/.test(t);
+  const seg = s.split(' ').filter(named).at(-1) || s;
+  let rest = seg;
+  for (const [full, zh, en] of PARTIES) if (rest.includes(full)) (rest = rest.split(full).join('|'), !zhWho.includes(zh) && (zhWho.push(zh), enWho.push(en)));
+  const person = !zhWho.length && seg.match(/委員([一-鿿]{2,4}?)等/);
+  const who = zhWho.length ? { zh: `${zhWho.join('、')}黨團`, en: enWho.join(' & ') } : person ? { zh: `${person[1]}等委員`, en: `${person[1]} et al.` } : /審查會/.test(seg) ? { zh: '審查會', en: 'The committee' } : null;
+  const arts = [...s.matchAll(/第([\d一二三四五六七八九十百零〇]+)條(?:之([\d一二三四五六七八九十]+))?/g)];
+  const a = arts.at(-1);
+  const art = a ? { zh: `第${cnNum(a[1])}條${a[2] ? `之${cnNum(a[2])}` : ''}`, en: `Article ${cnNum(a[1])}${a[2] ? `-${cnNum(a[2])}` : ''}` } : null;
+  const redo = /重付表決/.test(s);
+  let kind = 'other', zh = '', en = '', short = null;
+  const reserve = s.match(/(?:(\S*?)委員會)?\s*保留\s*第?(\d+)/);
+  if (/全案/.test(s)) {
+    kind = 'whole';
+    zh = '整部法案是否通過：這一票決定它成不成為法律。';
+    en = 'Whether the whole bill passes: this vote decides if it becomes law.';
+    short = { zh: '全案表決', en: 'Final vote on the bill' };
+  } else if (/復議/.test(s)) {
+    kind = 'reconsider';
+    zh = `${who ? `${who.zh}要求` : '要求'}推翻先前已作成的決定，重新討論。`;
+    en = `${who ? `${who.en} asks` : 'A motion'} to reopen a decision already made.`;
+    short = { zh: '復議', en: 'Reconsider' };
+  } else if (reserve) {
+    kind = 'reserve';
+    const c = String(reserve[1] || '').replace(/^.*?(內政|外交及國防|經濟|財政|教育及文化|交通|司法及法制|社會福利及衛生環境)$/, '$1');
+    zh = `${c ? `${c}委員會` : '委員會'}審預算時留到院會再決定的第 ${reserve[2]} 案；這是${who ? who.zh : '委員'}的版本（刪減、凍結或附加條件）。`;
+    en = `Budget item ${reserve[2]} ${c ? `the ${COMMITTEES[c] || c} Committee` : 'committee review'} left for the floor; this is ${who ? `${who.en}’s` : 'a'} version (a cut, a freeze or a condition).`;
+    short = { zh: `預算保留第 ${reserve[2]} 案`, en: `Budget item ${reserve[2]}` };
+  } else if (/修正動議|版本|提案條文|章名/.test(s)) {
+    kind = 'amend';
+    zh = `${who ? who.zh : '委員'}提出的${art ? art.zh : '條文'}版本：通過的話，法條就照這版寫。`;
+    en = `${who ? `${who.en}’s` : 'A'} wording for ${art ? art.en : 'the text'}: if it passes, the law says this.`;
+    short = { zh: `${art ? art.zh : '條文'}・${who ? `${who.zh.replace(/黨團$/, '')}版` : '修正版'}`, en: `${art ? art.en : 'Text'} · ${who ? `${who.en} version` : 'amendment'}` };
+  } else if (/決議/.test(s)) {
+    kind = 'resolution';
+    zh = `${who ? who.zh : '委員'}提出的決議：要求政府照辦，但不改法條。`;
+    en = `${who ? `${who.en}’s` : 'A'} resolution: tells the government what to do without changing the law.`;
+    short = { zh: '決議', en: 'Resolution' };
+  } else if (/逕付二讀/.test(s)) {
+    kind = 'fast';
+    zh = '跳過委員會審查，直接進入二讀。';
+    en = 'Skip committee review and go straight to second reading.';
+    short = { zh: '逕付二讀', en: 'Skip committee' };
+  } else if (/退回/.test(s)) {
+    kind = 'back';
+    zh = '把案子退回程序委員會，先不排進議程。';
+    en = 'Send it back to the Procedure Committee instead of taking it up.';
+    short = { zh: '退回', en: 'Send back' };
+  } else if (/不予審議/.test(s)) {
+    kind = 'refuse';
+    zh = '不審議這個案子。';
+    en = 'Refuse to take it up at all.';
+    short = { zh: '不予審議', en: 'Refuse to review' };
+  } else if (/照案通過/.test(s)) {
+    kind = 'asis';
+    zh = '照原案通過。';
+    en = 'Pass it as listed.';
+    short = { zh: '照案通過', en: 'Pass as listed' };
+  } else if (/通案.*刪減/.test(s)) {
+    kind = 'reserve';
+    zh = `${who ? who.zh : '委員'}提出的通案刪減：所有機關的某類預算一律照比率刪。`;
+    en = `${who ? `${who.en}’s` : 'An'} across-the-board cut: one kind of spending cut by a set rate for every agency.`;
+    short = { zh: '通案刪減', en: 'Across-the-board cut' };
+  } else if (/三讀/.test(s) && /提議/.test(s)) {
+    kind = 'agenda';
+    zh = `${who ? who.zh : '委員'}提議接著進行三讀，當天就完成立法。`;
+    en = `${who ? who.en : 'A motion'} to go on to third reading and finish the bill that day.`;
+    short = { zh: '進行三讀', en: 'Go to third reading' };
+  } else if (/停止討論/.test(s)) {
+    kind = 'agenda';
+    zh = `${who ? who.zh : '委員'}提議停止討論，直接表決。`;
+    en = `${who ? who.en : 'A motion'} to end debate and vote.`;
+    short = { zh: '停止討論', en: 'End debate' };
+  } else if (/延長/.test(s)) {
+    kind = 'agenda';
+    zh = `${who ? who.zh : '委員'}提議延長今天的開會時間。`;
+    en = `${who ? who.en : 'A motion'} to keep the sitting going longer today.`;
+    short = { zh: '延長開會', en: 'Sit longer' };
+  } else if (/點名表決/.test(s)) {
+    kind = 'agenda';
+    zh = `${who ? who.zh : '委員'}提議改用點名表決，逐一唱名投票。`;
+    en = `${who ? who.en : 'A motion'} for a roll-call vote, each name called in turn.`;
+    short = { zh: '點名表決', en: 'Roll call' };
+  } else if (/議事錄/.test(s)) {
+    kind = 'agenda';
+    zh = '確認上次會議的紀錄（議事錄）。';
+    en = 'Approve the record of the last sitting.';
+    short = { zh: '確認議事錄', en: 'Approve the record' };
+  } else if (/議程|議事日程|增列|抽出|報告事項|討論事項|質詢事項/.test(s) && /提議/.test(s)) {
+    kind = 'agenda';
+    zh = `${who ? who.zh : '委員'}提議調整當天議程（增列、抽出或改順序）。`;
+    en = `${who ? who.en : 'A motion'} to change the day’s agenda (add, pull or reorder items).`;
+    short = { zh: '議程', en: 'Agenda' };
+  }
+  if (redo && zh) (zh = `重新表決：${zh}`), (en = `Voted again: ${en}`);
+  return { kind, who, art, redo, zh, en, short };
+}

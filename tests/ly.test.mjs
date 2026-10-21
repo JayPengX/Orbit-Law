@@ -77,3 +77,22 @@ test('budget bills grouped by budget, with a stage', () => {
   assert.equal(gs.find(x => x.k === '115').last, '2026-07-14');
   assert.equal(gs.find(x => x.k === '115預備金').title, '115年度第二預備金動支數額表');
 });
+
+test('a vote in plain words: its kind, its mover and the article', async () => {
+  const { voteWhat } = await import('../public/lib/ly.mjs');
+  const a = voteWhat('國民黨黨團提案第四條 台灣民眾黨黨團再修正動議第五條');
+  assert.equal(a.kind, 'amend');
+  assert.equal(a.who.zh, '民眾黨黨團');
+  assert.equal(a.art.zh, '第5條');
+  assert.equal(a.short.zh, '第5條・民眾黨版');
+  const r = voteWhat('內政委員會 保留481 中國國民黨黨團提案');
+  assert.equal(r.kind, 'reserve');
+  assert.match(r.zh, /內政委員會.*第 481 案.*國民黨黨團/);
+  assert.equal(voteWhat('討論事項第1案保留第161案 國民黨黨團提案').short.zh, '預算保留第 161 案');
+  assert.equal(voteWhat('住宅法部分條文修正草案 全案表決').kind, 'whole');
+  assert.equal(voteWhat('報告事項第十案 民進黨黨團提議退回').kind, 'back');
+  assert.equal(voteWhat('報告事項第三案 國民黨黨團提議逕付二讀').kind, 'fast');
+  const again = voteWhat('重付表決 原住民保留地禁伐補償條例 第六條 審查會與委員陳瑩等提案條文');
+  assert.ok(again.redo && again.kind === 'amend' && again.who.zh === '陳瑩等委員');
+  assert.equal(voteWhat('主席宣告').zh, '');
+});

@@ -30,7 +30,7 @@ import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew } from './lib/ly.mjs';
+import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billCard, lawRow, fit, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
@@ -2006,13 +2006,22 @@ async function votesOn(p, name) {
     return [];
   }
 }
-// A vote as a row: its subject, day and a tally bar (贊成 green, 反對 red, 棄權 grey).
+// A vote's name in plain words: what kind of question it was and who moved it
+// ("第5條・民眾黨版", "預算保留第 481 案 · 國民黨黨團"); its raw subject when unknown.
+function voteName(v) {
+  const w = voteWhat(v[2]);
+  if (!w.short) return v[2];
+  const who = w.who && w.kind !== 'amend' ? ` · ${en ? w.who.en : w.who.zh}` : '';
+  return `${w.redo ? W('重新表決：', 'Again: ') : ''}${en ? w.short.en : w.short.zh}${who}`;
+}
+// A vote as a row: what it was, its day and a tally bar (贊成 green, 反對 red, 棄權 grey).
 function voteRow([i, v], mark = '', named = false) {
   const [y, n, a] = [v[4].length, v[5].length, v[6].length];
   const all = Math.max(1, y + n + a);
   const pass = y > n;
   const badge = mark ? `<span class="lw-vote-me ${mark}">${{ y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain'), '-': W('未投', 'Absent') }[mark]}</span>` : '';
-  return `<button type="button" class="lw-vote" data-vote="${i}"><span class="lw-vote-top">${badge}<span class="lw-vote-t">${named && v[7]?.length && state.byCode.has(v[7][0]) ? `<b class="lw-vote-law">${esc(en ? nameOf(v[7][0]) : shortName(nameOf(v[7][0])))}</b>` : ''}${esc(v[2])}</span></span><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span><small>${esc(shortDay(v[1]))} · ${pass ? W('通過', 'Passed') : W('未通過', 'Failed')} · ${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</small></button>`;
+  const w = voteWhat(v[2]);
+  return `<button type="button" class="lw-vote" data-vote="${i}"><span class="lw-vote-top">${badge}<span class="lw-vote-t">${named && v[7]?.length && state.byCode.has(v[7][0]) ? `<b class="lw-vote-law">${esc(en ? nameOf(v[7][0]) : shortName(nameOf(v[7][0])))}</b>` : ''}${esc(voteName(v))}</span></span>${w.zh ? `<span class="lw-vote-what">${esc(en ? w.en : w.zh)}</span>` : ''}<span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span><small>${esc(shortDay(v[1]))} · ${pass ? W('通過', 'Passed') : W('未通過', 'Failed')} · ${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</small></button>`;
 }
 function voteList(list, marks = null, first = 5, named = false) {
   const box = h('div', { class: 'lw-votes' });
@@ -2028,21 +2037,53 @@ function voteList(list, marks = null, first = 5, named = false) {
   });
   return box;
 }
-// One vote: the result, each party's split, and every name by how they voted.
+// The bills a vote was on: by its laws' codes, else a tracked bill named in its subject or agenda item.
+function voteItems(v, agenda = '') {
+  const out = [];
+  for (const p of v[7] || []) {
+    const it = (state.itemsByLaw.get(p) || []).find(x => x.open || x.stage >= PASSED);
+    if (it || state.byCode.has(p)) out.push({ p, it });
+  }
+  if (!out.length) {
+    const text = `${v[2]} ${agenda}`;
+    const it = state.items.filter(x => x.n?.length >= 4 && text.includes(x.n)).sort((a, b) => b.n.length - a.n.length)[0];
+    if (it) out.push({ p: it.p, it });
+  }
+  return out;
+}
+// One vote, explained: what the question was in plain words, the bill it was
+// on and what that bill does, the result, each party as a bar, how the
+// legislators you follow voted, then every name.
 async function voteSheet(i) {
   const [d, ppl] = await Promise.all([votesData(), peopleData().catch(() => ({ people: [] }))]);
   const v = d.votes[i];
   if (!v) return;
+  const w = voteWhat(v[2]);
   const byName = new Map(ppl.people.map(x => [x.n, x]));
   const parties = new Map();
   const groups = [['y', v[4], W('贊成', 'Yes')], ['n', v[5], W('反對', 'No')], ['a', v[6], W('棄權', 'Abstain')]];
   for (const [k, ids] of groups) for (const j of ids) { const party = byName.get(d.names[j])?.party || ''; const c = parties.get(party) || { y: 0, n: 0, a: 0 }; c[k]++; parties.set(party, c); }
-  const split = [...parties].sort((a, b) => b[1].y + b[1].n + b[1].a - (a[1].y + a[1].n + a[1].a)).map(([party, c]) => `<div class="lw-split"><span class="lw-party" style="--p:${partyColor(party)}">${esc(party ? partyShort(party) : W('其他', 'Other'))}</span><span class="lw-split-n"><b class="y">${c.y}</b><b class="n">${c.n}</b>${c.a ? `<b class="a">${c.a}</b>` : ''}</span></div>`).join('');
+  const sized = [...parties].map(([p, c]) => [p, c, c.y + c.n + c.a]).sort((a, b) => b[2] - a[2]);
+  const most = Math.max(1, ...sized.map(x => x[2]));
+  const split = sized.map(([party, c, all]) => `<div class="lw-pbar"><span class="lw-party" style="--p:${partyColor(party)}">${esc(party ? partyShort(party) : W('其他', 'Other'))}</span><span class="lw-pbar-track"><span class="lw-pbar-fill" style="width:${(all / most) * 100}%">${c.y ? `<i class="y" style="flex:${c.y}"></i>` : ''}${c.n ? `<i class="n" style="flex:${c.n}"></i>` : ''}${c.a ? `<i class="a" style="flex:${c.a}"></i>` : ''}</span></span><span class="lw-pbar-n">${c.y ? `<b class="y">${c.y}</b>` : ''}${c.n ? `<b class="n">${c.n}</b>` : ''}${c.a ? `<b class="a">${c.a}</b>` : ''}</span></div>`).join('');
+  // The legislators you follow: how each voted, 未投 when they didn't.
+  const mark = { y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain'), '-': W('未投', 'Absent') };
+  const sideOf = name => { const j = d.names.indexOf(name); return j < 0 ? '-' : v[4].includes(j) ? 'y' : v[5].includes(j) ? 'n' : v[6].includes(j) ? 'a' : '-'; };
+  const mine = ppl.people.filter(x => state.mine.people?.[x.id] && (!x.from || x.from <= v[1]) && (!x.to || x.to >= v[1]));
+  const followed = mine.length ? `<h4>${W('你追蹤的立委', 'Who you follow')}</h4><div class="lw-names">${mine.map(x => { const k = sideOf(x.n); return `<button type="button" class="lw-name lw-name-vote" data-who="${esc(x.id)}" style="--p:${partyColor(x.party)}">${esc(x.n)}<span class="lw-vote-me ${k}">${mark[k]}</span></button>`; }).join('')}</div>` : '';
   const names = groups.filter(([, ids]) => ids.length).map(([k, ids, label]) => `<h4>${esc(label)} ${ids.length}</h4><div class="lw-names">${ids.map(j => { const who = byName.get(d.names[j]); return `<button type="button" class="lw-name" data-who="${esc(who?.id || '')}" style="--p:${partyColor(who?.party || '')}">${esc(d.names[j])}</button>`; }).join('')}</div>`).join('');
   const url = gazetteUrl(v[0]);
-  // The laws it was on: their bill in 立法院 when tracked, else the law itself.
-  const on = (v[7] || []).map(p => { const it = (state.itemsByLaw.get(p) || []).find(x => x.open || x.stage >= PASSED); const r = state.byCode.get(p); return r ? `<a class="lw-notice" href="${it ? `#item=${esc(it.k.replace(':', '-'))}` : `#law=${esc(p)}`}"><b>${esc(nameOf(p))}</b><small>${esc(it ? stageShort(it, en) : W('現行法規', 'Law in force'))}</small></a>` : ''; }).join('');
-  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(v[2])}</p>${on ? `<div class="lw-cites lw-vote-on">${on}</div>` : ''}${voteRow([i, v]).replace('<button type="button" class="lw-vote"', '<div class="lw-vote static"').replace(/<\/button>$/, '</div>')}<h4>${W('各黨', 'By party')}</h4><div class="lw-splits">${split}</div>${names}${url ? `<a class="lw-out" href="${esc(url)}" target="_blank" rel="noopener">${W('立法院公報', 'In the 公報')}</a>` : ''}` });
+  const agenda = String(d.agendas?.[v[3]] || '');
+  // The bill it was on and what that bill does, else its agenda item in a line.
+  const items = voteItems(v, agenda);
+  const on = items.map(({ p, it }) => `<a class="lw-notice lw-vote-bill" href="${it ? `#item=${esc(it.k.replace(':', '-'))}` : `#law=${esc(p)}`}"><b>${esc(it?.n || nameOf(p))}</b>${it?.about ? `<span>${esc(it.about)}</span>` : ''}<small>${esc(it ? stageShort(it, en) : W('現行法規', 'Law in force'))}</small></a>`).join('');
+  const bk = budgetKey(agenda || v[2]);
+  const topic = !on && agenda ? agenda.replace(/─[^─]*─/g, '').replace(/（[^）]*）|\([^)]*\)/g, '').replace(/^本院[^，]*，/, '').replace(/是否有當.*$/, '').slice(0, 120) : '';
+  const [y, n, a] = [v[4].length, v[5].length, v[6].length];
+  const all = Math.max(1, y + n + a);
+  const pass = y > n;
+  const result = `<div class="lw-vote-result ${pass ? 'y' : 'n'}"><b>${pass ? W('通過', 'Passed') : W('未通過', 'Failed')}</b><span>${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</span></div><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span>`;
+  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(voteName(v))}</p>${w.zh ? `<p class="lw-vote-plain">${esc(en ? w.en : w.zh)}</p>` : ''}${result}${on ? `<h4>${W('表決的法案', 'The bill')}</h4><div class="lw-cites lw-vote-on">${on}</div>` : bk ? `<h4>${W('表決的預算', 'The budget')}</h4><div class="lw-cites lw-vote-on"><a class="lw-notice lw-vote-bill" href="#tab=bills&f=budget&budget=${esc(encodeURIComponent(bk))}"><b>${esc(topic || bk)}</b><small>${W('看這份預算：錢花在哪、刪了多少', 'See where the money goes and what was cut')}</small></a></div>` : topic ? `<h4>${W('議案', 'On the agenda')}</h4><p class="lw-vote-topic">${esc(topic)}</p>` : ''}${followed}<h4>${W('各黨怎麼投', 'By party')}</h4><div class="lw-pbars">${split}</div>${names}<p class="lw-vote-raw">${W('議事錄原文：', 'As recorded: ')}${esc(v[2])}</p>${url ? `<a class="lw-out" href="${esc(url)}" target="_blank" rel="noopener">${W('立法院公報', 'In the 公報')}</a>` : ''}` });
   const s = sheet({ title: W(`表決 · ${shortDay(v[1])}`, `Vote · ${shortDay(v[1])}`), closeLabel: W('關閉', 'Close'), body });
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-who]');
@@ -2113,8 +2154,13 @@ function voteGroupCard(g, gi, d, agendas, partyOfName) {
   const [y, n] = [v[4].length, v[5].length];
   const label = { y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain'), m: W('分歧', 'Split') };
   const sides = partySides(v, d.names, partyOfName).map(([p, s]) => `<span class="lw-vg-side ${s}" style="--p:${partyColor(p)}"><b>${esc(partyShort(p))}</b>${label[s]}</span>`).join('');
-  const what = /全案/.test(v[2]) ? W('全案 ', 'Whole bill ') : '';
-  return `<button type="button" class="lw-vgroup" data-g="${gi}"><b class="lw-vg-t">${esc(voteGroupTitle(g, agendas).replace(/^中華民國(?=\d)/, ''))}</b>${sides ? `<span class="lw-vg-sides">${sides}</span>` : ''}<span class="lw-vg-foot"><span class="lw-tag ${y > n ? 'green' : 'red'}">${y > n ? W('通過', 'Passed') : W('未通過', 'Failed')}</span><small>${[shortDay(g.day), `${what}${W(`贊成 ${y}・反對 ${n}`, `${y} yes · ${n} no`)}`, g.list.length > 1 ? W(`${g.list.length} 次`, `${g.list.length} votes`) : ''].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join(' · ')}</small></span></button>`;
+  const w = voteWhat(v[2]);
+  const it = voteItems(v, String(agendas.get(v[3]) || ''))[0]?.it;
+  // A day of budget items: how many held-over items were voted and how they went.
+  const held = g.list.filter(([, x]) => voteWhat(x[2]).kind === 'reserve');
+  const won = held.filter(([, x]) => x[4].length > x[5].length).length;
+  const line = held.length > 1 ? W(`逐一表決 ${held.length} 個預算保留案（刪減、凍結或附加條件）：通過 ${won}、否決 ${held.length - won}`, `${held.length} held-over budget items (cuts, freezes, conditions) voted one by one: ${won} passed, ${held.length - won} failed`) : it?.about || (w.zh ? (en ? w.en : w.zh) : '');
+  return `<button type="button" class="lw-vgroup" data-g="${gi}"><b class="lw-vg-t">${esc(voteGroupTitle(g, agendas).replace(/^中華民國(?=\d)/, ''))}</b>${line ? `<span class="lw-vg-what">${esc(line)}</span>` : ''}${sides ? `<span class="lw-vg-sides">${sides}</span>` : ''}<span class="lw-vg-foot"><span class="lw-tag ${y > n ? 'green' : 'red'}">${y > n ? W('通過', 'Passed') : W('未通過', 'Failed')}</span><small>${[shortDay(g.day), W(`贊成 ${y}・反對 ${n}`, `${y} yes · ${n} no`), g.list.length > 1 ? W(`${g.list.length} 次`, `${g.list.length} votes`) : ''].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join(' · ')}</small></span></button>`;
 }
 
 // 立委: everyone in office this term, by party; search by name or 選區.

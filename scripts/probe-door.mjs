@@ -7,6 +7,7 @@ const sum = html => ({
   size: html.length,
   title: (html.match(/<title[^>]*>([^<]*)/i) || [])[1]?.trim() || '',
   categories: [...html.matchAll(/CategoryID[^"'&]{0,4}["'=]?(\d+)/gi)].length,
+  ids: [...new Set([...html.matchAll(/id="cbCategoryID(\w+)"/g)].map(m => m[1]))].slice(0, 80).join(' '),
   marks: [...new Set([...html.matchAll(/(?:id|name)="([^"]*Categ[^"]*)"/gi)].map(m => m[1]))].slice(0, 6),
   sample: (html.match(/[^\n]{0,120}Categor[^\n]{0,200}/i) || [''])[0].slice(0, 320)
 });

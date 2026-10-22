@@ -7,6 +7,9 @@ on:
       urls:
         description: Pages, space separated
         required: true
+      certs:
+        description: Hosts whose certificate chain to show, space separated
+        required: false
 
 permissions:
   contents: read
@@ -26,3 +29,8 @@ jobs:
         env:
           URLS: ${{ inputs.urls }}
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+      - name: Certificate chains
+        if: inputs.certs != ''
+        run: for h in $CERTS; do echo "== $h"; openssl s_client -connect "$h:443" -servername "$h" -showcerts </dev/null 2>&1 | grep -E '^ *[0-9]+ s:|^ +i:|Verify return|verify error' ; done
+        env:
+          CERTS: ${{ inputs.certs }}

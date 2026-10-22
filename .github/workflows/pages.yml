@@ -13,9 +13,14 @@ on:
   schedule:
     - cron: '30 19 * * *'
   workflow_dispatch:
+    inputs:
+      local_from_run:
+        description: Build the cities' rules on this earlier run's deploy (its github-pages artifact) instead of the live site
+        required: false
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -74,14 +79,22 @@ jobs:
         continue-on-error: true
       # Cities' 自治條例, 自治規則 and 行政規則 (臺北市, 新北市, 高雄市, 臺中市, 新竹市, 金門縣),
       # whole text, linked to the laws they rest on. Same budget, same carrying over.
+      # A deploy whose cities' data was lost is built on from an earlier run's copy, by hand.
+      - uses: actions/download-artifact@v4
+        if: inputs.local_from_run != ''
+        with:
+          name: github-pages
+          run-id: ${{ inputs.local_from_run }}
+          github-token: ${{ github.token }}
+          path: .local-prev
+      - if: inputs.local_from_run != ''
+        run: tar -xf .local-prev/artifact.tar -C .local-prev ./data/local && ls .local-prev/data/local | head
       - name: Build the cities' rules
-        run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
+        run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }} ${{ inputs.local_from_run != '' && '--prev .local-prev/data/' || '' }}
         continue-on-error: true
         # The counties that serve only Taiwan are read through the proxy with this key.
         env:
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
-          # 基隆市's server omits TWCA's public intermediate; it chains to a root Node already trusts.
-          NODE_EXTRA_CA_CERTS: scripts/certs/twca-secure-ssl.pem
       # Court rulings: made from the rulings store that rulings.yml fills each
       # night (司法院 opens only 00:00-06:00 Taiwan time), restored from the cache.
       - uses: actions/cache/restore@v4

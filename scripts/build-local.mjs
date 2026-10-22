@@ -29,13 +29,14 @@ const tooLate = () => Date.now() > DEADLINE;
 //  one page at a time ({ id, name, date, type }); read(id): { text, date } of a rule; url(id): its page.
 // A site that serves only Taiwan is read through the proxy's /law-page with the build's key
 // (LAW_BUILD_KEY; without it, tried directly), fetched there from Taiwan.
+const TWCA_SSL = await readFile(new URL('certs/twca-secure-ssl.pem', import.meta.url), 'utf8');
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
 const door = url => [`${DOOR}?v=1&u=${encodeURIComponent(url)}`, { 'X-Build-Key': KEY }];
 // base: the site's root, or a few to try (the first whose 法規 list reads is kept).
-const platform = (code, city, base, { twOnly = false } = {}) => {
+const platform = (code, city, base, { twOnly = false, ca = null } = {}) => {
   const via = twOnly && KEY ? door : null;
-  const get1 = (url, o) => get(url, { ...o, via });
+  const get1 = (url, o) => get(url, { ...o, via, ca });
   if (!Array.isArray(base)) return platformSite(code, city, base, get1);
   let site = platformSite(code, city, base[0], get1);
   return {
@@ -113,9 +114,9 @@ const SITES = [
   platform('TTT', '臺東縣', 'https://law.taitung.gov.tw', { twOnly: true }),
   platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw/glrsout', { twOnly: true }),
   platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
-  // 基隆市's server leaves out its certificate's intermediate (TWCA Secure SSL): read directly, with that
-  // public intermediate added to Node's trust (NODE_EXTRA_CA_CERTS=scripts/certs/twca-secure-ssl.pem, pages.yml).
-  platform('KEE', '基隆市', 'https://exlaw.klcg.gov.tw'),
+  // 基隆市's server leaves out its certificate's intermediate (TWCA Secure SSL, public, under a root Node
+  // trusts): read directly, that intermediate trusted for this site alone.
+  platform('KEE', '基隆市', 'https://exlaw.klcg.gov.tw', { ca: TWCA_SSL }),
   platform('HSQ', '新竹縣', 'https://hclaw.hsinchu.gov.tw/law', { twOnly: true }),
   platform('NAN', '南投縣', 'https://glrs.nantou.gov.tw/glrsout', { twOnly: true }),
   platform('CYI', '嘉義市', 'https://law.chiayi.gov.tw'),

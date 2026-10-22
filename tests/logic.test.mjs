@@ -503,7 +503,7 @@ test('rulings: a count per law (each judgment once), the newest few for home', (
 });
 
 test('rulings: monthly archives, newest first, only months still to read', async () => {
-  const { archiveMonths, pendingMonths, topCourtFile } = await import('../public/lib/rulings.mjs');
+  const { archiveMonths, pendingMonths } = await import('../public/lib/rulings.mjs');
   const list = archiveMonths([
     { title: 'Delete-Infor裁判書', filesets: [{ fileSetId: 70692, resourceFormat: 'CSV' }] },
     { title: '202605裁判書--(20260916Update)', filesets: [{ fileSetId: 70689, resourceFormat: 'RAR' }] },
@@ -512,10 +512,6 @@ test('rulings: monthly archives, newest first, only months still to read', async
   ]);
   assert.deepEqual(list.map(m => m.month), ['202607', '202605', '202001']);
   assert.deepEqual(pendingMonths(list, ['202607'], new Date('2026-10-18')).map(m => m.id), [70689]);
-  assert.ok(topCourtFile('202607/最高法院民事/TPSV,115,台上,1172,20260924,1.json'));
-  assert.ok(topCourtFile('最高行政法院/x.json'));
-  assert.ok(!topCourtFile('臺灣高等法院民事/x.json'));
-  assert.ok(!topCourtFile('最高法院民事/readme.txt'));
 });
 
 test('授權: a regulation rests on the articles its enabling sentence names, and laws list them back', async () => {

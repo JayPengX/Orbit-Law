@@ -5,7 +5,7 @@ import { linkText, paragraphs } from './refs.mjs';
 import { consLinks } from './cons.mjs';
 import { STAGES, STAGES_EN, PROMULGATED, stageOf, openRound } from './bills.mjs';
 import { headingDepth, ymd } from './search.mjs';
-import { noticeBefore, noticeUrl } from './notices.mjs';
+import { noticeBefore } from './notices.mjs';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 

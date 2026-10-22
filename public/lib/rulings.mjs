@@ -117,8 +117,6 @@ export function pendingMonths(months, done = [], now = new Date(), days = KEEP_D
   const have = new Set(done);
   return months.filter(m => !have.has(m.month) && m.month >= cutoff);
 }
-// An archive entry worth reading: a top court's judgment file.
-export const topCourtFile = path => /\.json$/i.test(path) && /最高法院|最高行政法院|憲法法庭/.test(path);
 
 // 司法院's Delete-Infor list (rulings taken down, e.g. sealed later): every
 // JID in it, however the CSV lays its columns out.

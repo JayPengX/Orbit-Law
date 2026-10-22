@@ -3274,6 +3274,7 @@ div.lw-jd-point {
   font: var(--q-t-subhead, 400 14px/19px var(--q-font));
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  text-wrap: balance;
 }
 .lw-meet-text small {
   color: var(--q-label-3);

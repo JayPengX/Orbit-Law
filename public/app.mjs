@@ -2730,13 +2730,15 @@ async function openMeet(id, d = '') {
   // Today's video: the channel IVOD itself streams this meeting on (never a guess by room).
   const r = a.live && st === 'live' ? liveOf(a.live, m, sx) : null;
   const IVOD_LIVE = 'https://ivod.ly.gov.tw/Live';
+  // When it rose, in IVOD's word (散會(12:27)).
+  const rose = st === 'done' && a.live ? (String(liveOf(a.live, m, sx)?.status || '').match(/散會\((\d{1,2}:\d{2})\)/) || [])[1] || '' : '';
   if (r?.ch && st === 'live') {
     const v = h('video', { class: 'lw-video', controls: '', playsinline: '', autoplay: '', muted: '' });
     v.muted = true;
     body.push(v, h('p', { class: 'lw-hint-sm', text: W('立法院 IVOD 直播（這場會議的頻道）。點影片開聲音。', '立法院 IVOD live, this meeting’s own channel. Tap for sound.') }));
     playHls(v, liveHls(r.ch)).catch(() => v.replaceWith(h('a', { class: 'q-btn block', href: IVOD_LIVE, target: '_blank', rel: 'noopener', text: W('到立法院 IVOD 看直播', 'Watch on 立法院 IVOD') })));
   } else if (['live', 'sched', 'break', 'later', 'done'].includes(st)) {
-    const why = st === 'sched' ? W(`排在 ${hm(x.from)}–${hm(x.to)}，但立法院 IVOD 現在沒有在播這場，可能已經散會或暫停。`, `Set for ${hm(x.from)}–${hm(x.to)}, but 立法院 IVOD isn’t streaming it now; it may have risen or paused.`) : st === 'later' ? W(`${hm(x.from)} 開始，開會後這裡就能看直播。`, `Starts ${hm(x.from)}; the live video shows here once it begins.`) : st === 'break' ? W('休息中，回來開會後這裡會接著播。', 'On a break; the video resumes here.') : st === 'done' ? W('今天的會開完了，影片整理好後會在 IVOD。', 'Over for today; the video goes up on IVOD.') : W('立法院還沒說這場在哪個頻道播，可先到 IVOD 看。', '立法院 hasn’t listed this meeting’s channel yet; try IVOD.');
+    const why = st === 'sched' ? W('IVOD 現在沒有播這場', 'IVOD isn’t streaming it now') : st === 'later' ? W(`${hm(x.from)} 開始，開會後這裡就能看直播。`, `Starts ${hm(x.from)}; the live video shows here once it begins.`) : st === 'break' ? W('休息中，回來開會後這裡會接著播。', 'On a break; the video resumes here.') : st === 'done' ? W(`${rose ? `${rose} ` : ''}散會 · 影片稍後上 IVOD`, `${rose ? `Rose ${rose}` : 'Over'} · video on IVOD later`) : W('立法院還沒說這場在哪個頻道播，可先到 IVOD 看。', '立法院 hasn’t listed this meeting’s channel yet; try IVOD.');
     body.push(h('div', { class: 'lw-video-wait', html: `<p>${esc(why)}</p>${st === 'live' || st === 'sched' ? `<a class="q-btn block" href="${IVOD_LIVE}" target="_blank" rel="noopener">${W('到立法院 IVOD 看直播', 'Watch on 立法院 IVOD')}</a>` : ''}` }));
   }
   body.push(h('div', { class: 'lw-meet-head', html: `<div class="lw-meta">${kindTag(m.kind)}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : ''}</div><h2>${esc(m.title)}</h2><p>${esc([meetDay(x.d), x.from && `${hm(x.from)}–${hm(x.to)}`, x.place].filter(Boolean).join(' · '))}</p>` }));

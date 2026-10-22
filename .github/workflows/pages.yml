@@ -98,9 +98,18 @@ jobs:
         continue-on-error: true
       # Ministries' own 行政規則 (open data and their rule sites), linked to the
       # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
+      # The last build's ministries' and cities' rules (texts and all), kept in the cache: read from
+      # there, not fetched file by file from Pages (which answers thousands of reads with 429).
+      - uses: actions/cache@v4
+        with:
+          path: .prev-data
+          key: prev-data-${{ github.run_id }}
+          restore-keys: prev-data-
       - name: Build the ministries' rules
         run: node scripts/build-agency.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
         continue-on-error: true
+        env:
+          PREV_DIR: .prev-data/
       # Cities' 自治條例, 自治規則 and 行政規則 (臺北市, 新北市, 高雄市, 臺中市, 新竹市, 金門縣),
       # whole text, linked to the laws they rest on. Same budget, same carrying over.
       # A deploy whose cities' data was lost is built on from an earlier run's copy, by hand.
@@ -119,6 +128,15 @@ jobs:
         # The counties that serve only Taiwan are read through the proxy with this key.
         env:
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+          PREV_DIR: .prev-data/
+      # This build's copy for the next one (the cache saves it when the job ends well); a step that
+      # wrote nothing keeps the last copy of its part.
+      - name: Keep the ministries' and cities' rules for the next build
+        run: |
+          for d in agency local; do
+            if [ -s "public/data/$d/all.json" ]; then rm -rf ".prev-data/$d" && mkdir -p .prev-data && cp -r "public/data/$d" ".prev-data/$d"; fi
+          done
+          du -sh .prev-data/* || true
       # Court rulings: made from the rulings store that rulings.yml fills each
       # night (司法院 opens only 00:00-06:00 Taiwan time), restored from the cache.
       - uses: actions/cache/restore@v4

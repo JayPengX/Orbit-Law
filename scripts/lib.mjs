@@ -8,22 +8,32 @@ const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // The last deploy's data/<path> as JSON, or null (`--prev ''` builds from nothing; `--prev dir/`
-// reads an unpacked deploy). A copy the site has but that can't be read is tried three times, then said.
+// reads an unpacked deploy). PREV_DIR (the workflow's cached copy of the last build's agency/ and
+// local/) is read first: Pages answers thousands of quick reads with 429, which once lost most texts.
+// A copy the site has but that can't be read is tried a few times (longer after a 429), then said.
+const PREV_DIR = process.env.PREV_DIR || '';
+const fromDir = (dir, path) => readFile(dir + path, 'utf8').then(JSON.parse, () => null);
 export async function prevJson(path) {
   if (!PREV) return null;
-  if (!/^https?:/.test(PREV)) return readFile(PREV + path, 'utf8').then(JSON.parse, () => null);
+  if (!/^https?:/.test(PREV)) return fromDir(PREV, path);
+  if (PREV_DIR) {
+    const got = await fromDir(PREV_DIR, path);
+    if (got) return got;
+  }
   for (let i = 1; ; i++) {
+    let wait = 2000 * i;
     try {
       const r = await fetch(PREV + path, { signal: AbortSignal.timeout(60_000) });
       if (r.status === 404) return null;
+      if (r.status === 429) wait = 15_000 * i;
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.json();
     } catch (e) {
-      if (i >= 3) {
+      if (i >= 4) {
         console.warn(`last deploy's ${path}: ${e.cause?.code || e.message}`);
         return null;
       }
-      await sleep(2000 * i);
+      await sleep(wait);
     }
   }
 }

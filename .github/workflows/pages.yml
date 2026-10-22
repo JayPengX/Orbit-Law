@@ -38,12 +38,14 @@ jobs:
         id: wait
         env:
           GH_TOKEN: ${{ github.token }}
+          RESTORE: ${{ inputs.local_from_run }}
         run: |
           api() { gh api "repos/$GITHUB_REPOSITORY/$1" --jq "$2" 2>/dev/null; }
           wf=$(api "actions/runs/$GITHUB_RUN_ID" .workflow_id) || wf=
           while [ -n "$wf" ]; do
             runs=$(api "actions/workflows/$wf/runs?branch=$GITHUB_REF_NAME&per_page=30" "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID) | {n: .run_number, done: (.status == \"completed\")}]") || runs='[]'
-            if [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER)] | length" <<<"$runs")" != 0 ]; then
+            # A restore (local_from_run) always builds: a newer run would build on the copy it restores.
+            if [ -z "$RESTORE" ] && [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER)] | length" <<<"$runs")" != 0 ]; then
               echo "A newer run deploys instead."; echo go=false >> "$GITHUB_OUTPUT"; exit 0
             fi
             [ "$(jq "[.[] | select(.n < $GITHUB_RUN_NUMBER and (.done | not))] | length" <<<"$runs")" = 0 ] && break

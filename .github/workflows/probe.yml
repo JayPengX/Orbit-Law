@@ -29,8 +29,9 @@ jobs:
         env:
           URLS: ${{ inputs.urls }}
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+      # A host that shows no chain is the answer, not a failed run (no mail).
       - name: Certificate chains
         if: inputs.certs != ''
-        run: for h in $CERTS; do echo "== $h"; openssl s_client -connect "$h:443" -servername "$h" -showcerts </dev/null 2>&1 | grep -E '^ *[0-9]+ s:|^ +i:|Verify return|verify error' ; done
+        run: for h in $CERTS; do echo "== $h"; openssl s_client -connect "$h:443" -servername "$h" -showcerts </dev/null 2>&1 | grep -E '^ *[0-9]+ s:|^ +i:|Verify return|verify error' || echo "(no answer)"; done
         env:
           CERTS: ${{ inputs.certs }}

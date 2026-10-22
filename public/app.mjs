@@ -12,7 +12,7 @@
 // it, a ruling the articles and bills it touches, a bill the rulings on
 // what it changes.
 
-import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic, updateChecked } from '#kit/quadra.mjs';
+import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { W, en } from '#kit/lang.mjs';
@@ -46,13 +46,11 @@ document.documentElement.lang = en ? 'en' : 'zh-Hant';
 // ---- Quadra Pass: the Home Screen gate, the sign-in, the account button -----------------
 
 const q = quadraSession('law', { lang: en ? 'en' : 'zh' });
-// boot.js's first look at version.json, waited for under the loading screen:
-// a newer deploy is loaded before anything shows (boot.js reloads only while
-// the app hasn't said it started), never shown and then swapped.
-const booted = updateChecked().then(ok => {
-  if (ok) window.__fxStarted = true;
-  return ok;
-});
+// The app starts at once, beside boot.js's first look at version.json (a
+// round trip every opening: on a phone's slow link it held every screen,
+// kept copies too). A newer deploy found while the loading screen is still
+// up is loaded then (boot.js reloads only behind it); found after, the watch.
+window.__fxStarted = true;
 const gated = installGate('law');
 topActions(q);
 // The AI routes count per Pass: each call carries this app's session.
@@ -2893,11 +2891,9 @@ async function signIn() {
 // An update found later (back from the background) reloads the page: the
 // loading screen covers it meanwhile, so nothing is tapped on the old one.
 addEventListener('beforeunload', () => $('loading')?.removeAttribute('hidden'));
-if (!gated)
-  booted.then(ok => {
-    if (!ok) return;
-    start();
-    signIn();
-    keepOffline();
-  });
+if (!gated) {
+  start();
+  signIn();
+  keepOffline();
+}
 watchUpdates({ current: BUILD, key: 'orbitLaw', cachePrefix: 'orbit-law-' });

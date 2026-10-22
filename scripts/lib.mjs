@@ -28,7 +28,7 @@ export function getter(ua) {
       lastAt[host] = Date.now();
       try {
         const r = await fetch(via ? to : encodeURI(to), { headers: { 'User-Agent': ua, ...extra }, signal: AbortSignal.timeout(timeout) });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}${via ? ` (site ${(await r.json().catch(() => ({}))).status ?? '?'})` : ''}`);
         return (via ? (await r.json()).html || '' : await r.text()).replace(/^﻿/, '');
       } catch (e) {
         err = e;

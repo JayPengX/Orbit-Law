@@ -1,0 +1,28 @@
+# Probe: what the proxy's door sees at the pages given (scripts/probe-door.mjs), by hand.
+name: Probe the door
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: Pages, space separated
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/probe-door.mjs $URLS
+        env:
+          URLS: ${{ inputs.urls }}
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}

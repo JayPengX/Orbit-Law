@@ -110,6 +110,7 @@ import { vendorLeaves, vendorList, vendorText, rocDate, vendorRule, textFile } f
 test('vendor: leaf categories, list rows, text', () => {
   const q = ['01', '0101', '0102', '02'].map(i => `<input name="cbCategoryID${i}" type="checkbox" id="cbCategoryID${i}" value="${i}" />`).join('');
   assert.deepEqual(vendorLeaves(q), ['0101', '0102', '02']);
+  assert.deepEqual(vendorLeaves('<input id="cbCategoryIDA000" value="A000"><input id="cbCategoryIDA100" value="A100">'), ['A000', 'A100']);
   assert.equal(rocDate('115.09.01'), '2026-09-01');
   const row = (n, d, id, name, t) => `<tr><td class="aCenter" width="1%">${n}.</td><td class="aCenter" width="6%">${d}</td><td class="aCenter"><i class="x"></i><a id="a" href="LawContent.aspx?id=${id}">${name}</a></td><td class="aCenter" width="10%">${t}</td></tr>`;
   const html = `<h3><i></i>畜牧目 - 畜牧行政：50\n 筆 </h3>${row(1, '115.09.01', 'GL000650', '漁業法第四十四條作業規定', '行政規則')}${row(2, '104.01.02', 'GL000651', '某辦法', '法規命令')}`;

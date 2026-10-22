@@ -125,7 +125,9 @@ export function nameLaws(laws, name) {
 
 // Leaf category ids of LawQuery.aspx: those that are not the prefix of another.
 export function vendorLeaves(html) {
-  const ids = [...new Set([...String(html).matchAll(/id="cbCategoryID(\d+)" value="\1"/g)].map(m => m[1]))];
+  const ids = [...new Set([...String(html).matchAll(/id="cbCategoryID(\w+)" value="\1"/g)].map(m => m[1]))];
+  // Lettered ids (新竹縣's A000, A100) don't nest by prefix: every category is read, rows kept once by id.
+  if (ids.some(a => /\D/.test(a))) return ids;
   return ids.filter(a => !ids.some(b => b !== a && b.startsWith(a)));
 }
 

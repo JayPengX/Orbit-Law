@@ -13,7 +13,7 @@
 // what it changes.
 
 import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
-import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe } from '#kit/ui.mjs';
+import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
@@ -202,8 +202,9 @@ async function route() {
 
 // ---- Shared pieces ----------------------------------------------------------------------
 
-const section = (title, body, { more = '', moreHref = '', cls = '' } = {}) =>
-  body ? `<section class="q-section lw-sec${cls ? ` ${cls}` : ''}"><div class="q-section-head"><h2>${esc(title)}</h2>${more ? `<a href="${esc(moreHref)}">${esc(more)}</a>` : ''}</div>${body}</section>` : '';
+const section = (title, body, { more = '', moreHref = '', cls = '' } = {}) => (body ? sectionHtml(title, body, { more, moreHref, cls: `lw-sec${cls ? ` ${cls}` : ''}` }) : '');
+// An empty note with no picture (it sits in a list or a search's results); cls '': the full-size one.
+const emptyNote = (title, body = '', cls = 'lw-empty-sm') => emptyHtml({ icon: '', title, body, cls });
 const list = rows => (rows.length ? `<div class="lw-list">${rows.join('')}</div>` : '');
 const rail = cards => (cards.length ? `<div class="lw-rail">${cards.join('')}</div>` : '');
 const grid = cards => (cards.length ? `<div class="lw-grid">${cards.join('')}</div>` : '');
@@ -459,7 +460,7 @@ async function findAll(q, out) {
   const box = $('find-arts');
   if (!box) return;
   if (!groups.length) {
-    box.innerHTML = !laws.length && !regs.length && !bills.length && !ruleHits ? `<div class="q-empty lw-empty-sm"><strong>${W('沒有法規或條文提到這個', 'Nothing found')}</strong><p>${W('換個說法，或直接用白話問', 'Try other words, or just ask')}</p></div>` : '';
+    box.innerHTML = !laws.length && !regs.length && !bills.length && !ruleHits ? emptyNote(W('沒有法規或條文提到這個', 'Nothing found'), W('換個說法，或直接用白話問', 'Try other words, or just ask')) : '';
     return;
   }
   const top = groups.slice(0, 4);
@@ -499,7 +500,7 @@ async function openLaw(p, at, find = '') {
     try {
       law = await lawFile(p);
     } catch {
-      panel.innerHTML = `<div class="q-empty"><strong>${W('這個法規打不開', 'This law can’t be opened')}</strong><p>${W('請稍後再試。', 'Try again later.')}</p></div>`;
+      panel.innerHTML = emptyNote(W('這個法規打不開', 'This law can’t be opened'), W('請稍後再試。', 'Try again later.'), '');
       return;
     }
     // The bills on this law mark its articles: waited for briefly (kept by the phone after the first time).
@@ -1579,7 +1580,7 @@ async function lowHtml() {
   } catch {
     return emptyRulings();
   }
-  if (!ix.n) return `<div class="q-empty lw-empty-sm"><strong>${W('高等法院、地方法院的判決正在讀入', 'High and district court rulings are on their way')}</strong><p>${W('司法院的資料每天 0 點到 6 點開放，每晚讀入好幾個月，讀到的會出現在這裡。', '司法院 opens its data from midnight to 6 a.m.; each night adds months of rulings here.')}</p></div>`;
+  if (!ix.n) return emptyNote(W('高等法院、地方法院的判決正在讀入', 'High and district court rulings are on their way'), W('司法院的資料每天 0 點到 6 點開放，每晚讀入好幾個月，讀到的會出現在這裡。', '司法院 opens its data from midnight to 6 a.m.; each night adds months of rulings here.'));
   const wantKind = r => !rulingKind || caseKind(r[0])[0] === rulingKind;
   const wantLevel = r => !rulingLevel || lowLevel(lowCode(r[0])) === rulingLevel;
   const levelChips = `<div class="q-chips lw-chips">${[['high', W('高等法院', 'High courts')], ['district', W('地方法院', 'District courts')]].map(([id, label]) => `<button type="button" class="q-chip" data-level="${id}" aria-pressed="${id === rulingLevel}">${esc(label)}</button>`).join('')}${['刑事', '民事', '行政'].map(k => `<button type="button" class="q-chip" data-kind="${k}" aria-pressed="${k === rulingKind}">${esc(en ? { 刑事: 'Criminal', 民事: 'Civil', 行政: 'Admin.' }[k] : k)}</button>`).join('')}</div>`;
@@ -1611,7 +1612,7 @@ async function lowHtml() {
   if (rulingQuery) {
     const words = rulingQuery.split(/\s+/).filter(Boolean);
     const hits = ix.titles.filter(([t]) => words.every(w => t.includes(w))).slice(0, 40);
-    return head + (hits.length ? section(W(`符合的案由 · ${hits.length}`, `Matching matters · ${hits.length}`), list(hits.map(titleRow))) : `<div class="q-empty lw-empty-sm"><strong>${W('沒有這個案由', 'No matter like that')}</strong><p>${W('試試「詐欺」、「損害賠償」、「離婚」這類案由的字', 'Try words like 詐欺, 損害賠償 or 離婚')}</p></div>`) + `<a class="lw-out" href="https://judgment.judicial.gov.tw/FJUD/default.aspx" target="_blank" rel="noopener" data-out>${W('到司法院裁判書查詢找全文', 'Full-text search on 司法院')}</a>`;
+    return head + (hits.length ? section(W(`符合的案由 · ${hits.length}`, `Matching matters · ${hits.length}`), list(hits.map(titleRow))) : emptyNote(W('沒有這個案由', 'No matter like that'), W('試試「詐欺」、「損害賠償」、「離婚」這類案由的字', 'Try words like 詐欺, 損害賠償 or 離婚'))) + `<a class="lw-out" href="https://judgment.judicial.gov.tw/FJUD/default.aspx" target="_blank" rel="noopener" data-out>${W('到司法院裁判書查詢找全文', 'Full-text search on 司法院')}</a>`;
   }
   const courts = ix.courts.filter(c => !rulingLevel || c[3] === rulingLevel);
   const titleChips = `<div class="q-chips lw-chips lw-titles">${ix.titles.slice(0, 18).map(([t, n]) => `<button type="button" class="q-chip" data-title="${esc(t)}">${esc(t.length > 12 ? `${t.slice(0, 11)}…` : t)}<small>${n.toLocaleString()}</small></button>`).join('')}</div>`;
@@ -1624,7 +1625,7 @@ async function lowHtml() {
     section(W(`法院 · ${courts.length}`, `Courts · ${courts.length}`), list(courts.map(([c, name, n]) => `<button type="button" class="lw-row" data-court="${esc(c)}">${courtTile('low')}<span class="lw-row-text"><span class="lw-row-name">${esc(name)}</span><small>${W(`${n.toLocaleString()} 則判決`, `${n.toLocaleString()} judgments`)}</small></span></button>`)))
   );
 }
-const emptyRulings = () => `<div class="q-empty lw-empty-sm"><strong>${W('裁判資料讀不到', 'Rulings couldn’t be loaded')}</strong><p>${W('請連上網路再試一次。', 'Connect and try again.')}</p></div>`;
+const emptyRulings = () => emptyNote(W('裁判資料讀不到', 'Rulings couldn’t be loaded'), W('請連上網路再試一次。', 'Connect and try again.'));
 // A ruling and the bill that answers it: the ruling's name, the bill's stage.
 function answeredRow(r) {
   const it = state.items.find(x => x.k === r[6][0]);
@@ -1662,7 +1663,7 @@ async function rulingSearchHtml(q, cons, { door = '', max = 30, quiet = false } 
     } catch {}
   const html = (jumpRow ? section(W('直接打開', 'Go to'), list([rulingRow(jumpRow)])) : '') + (consHits.length ? section(W('憲法法庭', 'Constitutional Court'), list(consHits.map(r => rulingRow(r)))) : '') + (court.length ? section(W('最高法院・最高行政法院', 'Top courts'), rowsOf(court)) : '') + (lowTitles.length ? section(W('高等法院・地方法院，依案由', 'High and district courts, by matter'), list(lowTitles.map(([t, n]) => `<a class="lw-row" href="#tab=rulings&amp;f=low&amp;t=${esc(encodeURIComponent(t))}">${courtTile('low')}<span class="lw-row-text"><span class="lw-row-name${fit(t, 13)}">${esc(t)}</span><small>${W(`${n.toLocaleString()} 則判決`, `${n.toLocaleString()} judgments`)}</small></span></a>`))) : '');
   if (quiet) return html;
-  return html || `<div class="q-empty lw-empty-sm"><strong>${W('找不到符合的裁判', 'No rulings found')}</strong><p>${W('試試釋字號（748）、案號（115台上4682）或案由的字', 'Try a number (748), a case number (115台上4682) or words in its matter')}</p></div>`;
+  return html || emptyNote(W('找不到符合的裁判', 'No rulings found'), W('試試釋字號（748）、案號（115台上4682）或案由的字', 'Try a number (748), a case number (115台上4682) or words in its matter'));
 }
 
 // A bill's rulings: those that named it (it answers them), 憲法法庭's on the
@@ -1867,7 +1868,7 @@ function drawBillList() {
   else if (billFilter === 'moving') items = items.filter(LIVE);
   else if (billFilter === 'talks') items = items.filter(it => LIVE(it) && it.stage >= 3);
   else if (billFilter === 'passed') items = items.filter(it => it.stage >= PASSED);
-  if (!items.length) return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的法案', 'No bills match')}</strong></div>`);
+  if (!items.length) return void (out.innerHTML = emptyNote(W('沒有符合的法案', 'No bills match')));
   // Grouped by the step reached, furthest first; held and withdrawn last.
   const groups = new Map();
   for (const it of [...items].sort((a, b) => (a.u < b.u ? 1 : -1))) {
@@ -1912,7 +1913,7 @@ function noticeList() {
   }
   const open = rows.filter(n => isOpen(n, day)).sort((a, b) => (a.to < b.to ? -1 : 1)), closed = rows.filter(n => !isOpen(n, day));
   const html = section(W(`開放意見中 ${open.length}`, `Open for comment ${open.length}`), grid(open.map(n => noticeCard(n, day)))) + section(W('已截止', 'Closed'), grid(closed.slice(0, 60).map(n => noticeCard(n, day))));
-  return html || `<div class="q-empty lw-empty-sm"><strong>${billQuery ? W('沒有符合的預告', 'No drafts match') : W('目前沒有預告中的修法', 'No drafts open for comment')}</strong></div>`;
+  return html || emptyNote(billQuery ? W('沒有符合的預告', 'No drafts match') : W('目前沒有預告中的修法', 'No drafts open for comment'));
 }
 const NOTICE_KIND = { amend: [W('修正草案', 'Amendment'), 'indigo'], new: [W('新訂草案', 'New rule'), 'green'], repeal: [W('廢止草案', 'Repeal'), 'red'] };
 // A draft's title without 預告 and its full stop: 「產業創新條例」第四十三條 修正.
@@ -2309,7 +2310,7 @@ async function votesList(out) {
   try {
     d = await votesData();
   } catch {
-    return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('表決資料讀不到，請稍後再試', 'Couldn’t load the votes')}</strong></div>`);
+    return void (out.innerHTML = emptyNote(W('表決資料讀不到，請稍後再試', 'Couldn’t load the votes')));
   }
   if (billFilter !== 'votes') return;
   const words = billQuery ? expand(billQuery) : [];
@@ -2380,7 +2381,7 @@ async function peopleList(out) {
   try {
     ppl = (await peopleData()).people;
   } catch {
-    return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('立委資料讀不到，請稍後再試', 'Couldn’t load the legislators')}</strong></div>`);
+    return void (out.innerHTML = emptyNote(W('立委資料讀不到，請稍後再試', 'Couldn’t load the legislators')));
   }
   const q = billQuery;
   const words = q ? expand(q).map(w => w.toLowerCase()) : [];
@@ -2396,7 +2397,7 @@ async function peopleList(out) {
     (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people">${followed.map(card).join('')}</div></section>` : '') +
     [...byParty].sort((a, b) => b[1].length - a[1].length).map(([party, xs]) => `<section class="q-section lw-sec"><div class="q-section-head"><h2><span class="lw-party" style="--p:${partyColor(party)}">${esc(partyShort(party))}</span></h2><span class="lw-count">${xs.length}</span></div><div class="lw-people">${xs.map(card).join('')}</div></section>`).join('') +
     (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people">${left.map(card).join('')}</div></section>` : '') ||
-    `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的立委', 'No one matches')}</strong></div>`;
+    emptyNote(W('沒有符合的立委', 'No one matches'));
 }
 const shortArea = a => String(a || '').replace('全國不分區及僑居國外國民', W('不分區', 'At-large')).replace(/選舉區$/, W('選區', ''));
 // A mirrored headshot (scripts/build-photos.mjs) at the size it's drawn; an unmirrored one from ly.gov.tw.
@@ -2530,7 +2531,7 @@ async function budgetList(out) {
   try {
     b = await budgetData();
   } catch {
-    return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('預算資料讀不到，請稍後再試', 'Couldn’t load the budgets')}</strong></div>`);
+    return void (out.innerHTML = emptyNote(W('預算資料讀不到，請稍後再試', 'Couldn’t load the budgets')));
   }
   if (billFilter !== 'budget') return;
   const href = x => `#tab=bills&amp;f=budget&amp;budget=${encodeURIComponent(x.k)}`;
@@ -2546,7 +2547,7 @@ async function budgetList(out) {
   };
   const q = billQuery;
   const shown = b.budgets.filter(x => !q || x.title.includes(q) || x.k.includes(q) || budgetName(x).toLowerCase().includes(q.toLowerCase()) || x.money?.top.some(t => t[0].includes(q)) || x.money?.cuts?.some(t => t[0].includes(q)));
-  if (!shown.length) return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('沒有符合的預算', 'No budget matches')}</strong></div>`);
+  if (!shown.length) return void (out.innerHTML = emptyNote(W('沒有符合的預算', 'No budget matches')));
   // The 總預算 in 立法院 now: the newest year's.
   const cur = !q && shown.filter(x => budgetKind(x.k) === 'year').sort((a, c) => Number(c.k) - Number(a.k))[0];
   const hero = cur
@@ -2684,7 +2685,7 @@ async function agendaList(out) {
   try {
     a = await agendaData();
   } catch {
-    return void (out.innerHTML = `<div class="q-empty lw-empty-sm"><strong>${W('議程讀不到，請稍後再試', 'Couldn’t load the agenda')}</strong></div>`);
+    return void (out.innerHTML = emptyNote(W('議程讀不到，請稍後再試', 'Couldn’t load the agenda')));
   }
   if (billFilter !== 'agenda') return;
   const { day } = twNow();
@@ -2693,7 +2694,7 @@ async function agendaList(out) {
   const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
   const row = x => meetRow(x, a.live);
   const days = [...new Set(all.map(x => x.d))].sort();
-  const none = `<div class="q-empty lw-empty-sm"><strong>${W(words.length ? '議程裡沒有符合的會議' : '接下來還沒有排會議', words.length ? 'Nothing on the agenda matches' : 'No meetings scheduled yet')}</strong></div>`;
+  const none = emptyNote(W(words.length ? '議程裡沒有符合的會議' : '接下來還沒有排會議', words.length ? 'Nothing on the agenda matches' : 'No meetings scheduled yet'));
   agendaDays = words.length ? [] : days;
   if (words.length || !days.length) {
     const html = days.map(d => section(meetDay(d), `<div class="lw-meets">${all.filter(x => x.d === d).map(row).join('')}</div>`)).join('');
@@ -2802,7 +2803,7 @@ async function start() {
     state.byCode = new Map(index.laws.map(r => [r[0], r]));
     state.names = nameMap(index.laws);
   } catch {
-    $('panel-home').innerHTML = `<div class="q-empty"><strong>${W('法規資料讀不到', 'The laws couldn’t be loaded')}</strong><p>${W('請連上網路再打開一次。', 'Connect and open again.')}</p></div>`;
+    $('panel-home').innerHTML = emptyNote(W('法規資料讀不到', 'The laws couldn’t be loaded'), W('請連上網路再打開一次。', 'Connect and open again.'), '');
   }
   const redraw = () => {
     if (state.tab === 'home') drawHome();

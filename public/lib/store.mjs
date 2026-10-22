@@ -58,7 +58,7 @@ export function newCount(mine, items, changes) {
   return lawsChanged(mine, changes).length + (items || []).filter(it => mine.items[it.k] && it.u > mine.items[it.k]).length;
 }
 
-// On the Quadra Pass (its orbit-law payload): what's followed, the
+// On the Orbit Pass (its orbit-law payload): what's followed, the
 // bookmarks and the recent laws, so another phone signed in has them too.
 // The newer copy (by `t`, the last save) decides what's in or out; the
 // days last looked at are the later of the two for what both follow.

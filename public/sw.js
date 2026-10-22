@@ -5,7 +5,7 @@
 // with the old file for a while after a deploy).
 // Every law and bill file once opened (data/): the kept copy at once,
 // refreshed behind it, since the data changes once a day.
-self.QUADRA_SW = {
+self.ORBIT_SW = {
   cache: 'orbit-law-v1',
   title: 'Orbit Law',
   route: (request, url) => (request.mode !== 'navigate' && url.pathname.includes('/data/') ? 'pageFirst' : null)

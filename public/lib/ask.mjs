@@ -10,7 +10,7 @@ export const ASK_URL = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-ask
 export const MAX_Q = 300;
 
 // A Worker call signed with the Orbit Law session (qt), sent as text/plain
-// (no preflight); a 401 is asked once more with a new token. `s`: quadraSession.
+// (no preflight); a 401 is asked once more with a new token. `s`: orbitSession.
 export function passFetch(s, fetcher = globalThis.fetch) {
   const token = renew => (s?.ensureToken ? s.ensureToken({ renew }).catch(() => s.token || '') : Promise.resolve(''));
   return async (url, init = {}) => {
@@ -67,7 +67,7 @@ export function askError(code, en = false) {
     cap: ['今天的解釋次數用完了，明天再來', 'You’ve used today’s explanations; try tomorrow'],
     busy: ['問得太快了，稍等一下再試', 'Too many at once; try again in a moment'],
     offline: ['沒有網路連線', 'No connection'],
-    pass: ['請先登入 Quadra Pass', 'Sign in to Quadra Pass first'],
+    pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     bill: ['這個版本沒有對照表可以解釋', 'This version has no table to explain'],
     diff: ['這次修法的舊條文讀不到', 'The old text isn’t available'],
     origin: ['這個網址不能使用解釋', 'Not available here']

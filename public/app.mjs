@@ -1,6 +1,6 @@
 // Orbit Law: Taiwan's laws to read, with every reference a link, the bills
 // in 立法院 that will change them, and 問法律, questions answered from the
-// articles themselves. Behind Quadra Pass like every Quadra/Orbit app (on a
+// articles themselves. Behind Orbit Pass like every Orbit app (on a
 // phone, from the Home Screen); the laws and bills are public data built
 // each day onto this site (scripts/build-data.mjs), so reading costs
 // nothing and works offline once opened. What's followed rides on the Pass.
@@ -12,7 +12,7 @@
 // it, a ruling the articles and bills it touches, a bill the rulings on
 // what it changes.
 
-import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/quadra.mjs';
+import { orbitSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/orbit.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { W, en } from '#kit/lang.mjs';
@@ -43,9 +43,9 @@ const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
 document.documentElement.lang = en ? 'en' : 'zh-Hant';
 
-// ---- Quadra Pass: the Home Screen gate, the sign-in, the account button -----------------
+// ---- Orbit Pass: the Home Screen gate, the sign-in, the account button -----------------
 
-const q = quadraSession('law', { lang: en ? 'en' : 'zh' });
+const q = orbitSession('law', { lang: en ? 'en' : 'zh' });
 // The app starts at once, beside boot.js's first look at version.json (a
 // round trip every opening: on a phone's slow link it held every screen,
 // kept copies too). A newer deploy found while the loading screen is still
@@ -973,7 +973,7 @@ async function openPage(u, label = '') {
     const host = new URL(j.url || u).hostname.replace(/^www\./, '');
     body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.title || label)}</h3><small>${esc([r.date && shortDay(r.date), host].filter(Boolean).join(' · '))}</small></header>${blocksHtml(r.blocks)}${r.files.length ? `<h4>${W('附件', 'Attachments')}</h4><div class="lw-list in-sheet">${r.files.map(f => `<a class="lw-row" href="${esc(f.url)}" target="_blank" rel="noopener"><span class="lw-file">${esc(fileKind(f.url))}</span><span class="lw-row-text"><span class="lw-row-name">${esc(f.name)}</span></span></a>`).join('')}</div>` : ''}<p class="lw-page-src">${W('內容取自', 'From')} ${esc(host)}</p>`;
   } catch (e) {
-    const why = e.code === 'cap' ? W('今天讀太多頁了，明天再試', 'Daily reading limit reached; try tomorrow') : e.code === 'pass' || e.code === 401 ? W('請先登入 Quadra Pass', 'Sign in with Quadra Pass first') : e.code === 'empty' ? W('這一頁讀不出內容', 'This page has nothing the app can read') : W('現在讀不到這一頁，請稍後再試', 'Couldn’t load this page; try again later');
+    const why = e.code === 'cap' ? W('今天讀太多頁了，明天再試', 'Daily reading limit reached; try tomorrow') : e.code === 'pass' || e.code === 401 ? W('請先登入 Orbit Pass', 'Sign in with Orbit Pass first') : e.code === 'empty' ? W('這一頁讀不出內容', 'This page has nothing the app can read') : W('現在讀不到這一頁，請稍後再試', 'Couldn’t load this page; try again later');
     body.innerHTML = `<p class="lw-none">${why}</p>${fallback}`;
   }
 }

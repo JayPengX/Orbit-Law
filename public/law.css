@@ -1,10 +1,10 @@
-/* Orbit Law: the kit's frame (quadra.css: tokens, sections, chips, sheets)
+/* Orbit Law: the kit's frame (orbit.css: tokens, sections, chips, sheets)
    plus the app's own pieces on an 8px rhythm: topic tiles, bill cards with
    their bar, law rows, the reader's type, 問法律's answers. Light and dark
    both come from the kit's tokens. */
 
 .lw-panel {
-  /* The kit's column: the phone's 16 px in, the iPad's whole width (quadra.css .q-col). */
+  /* The kit's column: the phone's 16 px in, the iPad's whole width (orbit.css .q-col). */
   --q-margin: var(--q-gutter, 16px);
   max-width: var(--q-col, 640px);
   margin: 0 auto;

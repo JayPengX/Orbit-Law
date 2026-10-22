@@ -126,7 +126,7 @@ export function stageText(o, en = false) {
 export function chatError(code, en = false) {
   const t = {
     soon: ['問法律即將開放，先用條文旁的「白話解釋」', 'Ask is coming soon; meanwhile use Explain on any article'],
-    pass: ['請先登入 Quadra Pass', 'Sign in to Quadra Pass first'],
+    pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     cap: ['今天的提問次數用完了，明天再來', 'You’ve used today’s questions; try tomorrow'],
     busy: ['問得太快了，稍等一下再試', 'Too many at once; try again in a moment'],
     offline: ['沒有網路連線', 'No connection']

@@ -3,7 +3,7 @@
 Taiwan's law on three sides that link to each other: the laws to read
 (法規), with every reference a link; the courts' rulings on them (裁判:
 憲法法庭's every 釋字 and 憲判字, the top courts' judgments); and the bills in
-立法院 that will change them (立法), stage by stage. Behind the Quadra Pass
+立法院 that will change them (立法), stage by stage. Behind the Orbit Pass
 like every Orbit app; the data is public, built onto this site once a day,
 and works offline once opened. Tabs: 首頁 (one search, 問法律) · 法規 · 裁判 ·
 立法 · 我的.

@@ -64,7 +64,7 @@ Live: https://jaypengx.github.io/Orbit-Law/
   (等委員會審, 政黨協商中, 已通過), and 法案怎麼變成法律 (`STEP_HELP`) opens from
   the funnel and a bill's bar. A card's line under the name is the newest
   version's purpose (`aboutOf`, the 案由's 為… clause), also searched.
-- **議程** (`lib/agenda.mjs`): 立法院's meetings from the API's `/meets`
+- **議程** (`lib/agenda.mjs`): a day's sittings at a time on the family's strip of days (the kit's dayBar, swiped too; a search lists every day's). 立法院's meetings from the API's `/meets`
   (`ly/agenda.json`, three days back on; today's read again in the app, its
   發言名單 filling in on the day). The live video is IVOD's own stream for
   that meeting: `scripts/live-ly.mjs`, run by `live.yml` every 90 seconds in

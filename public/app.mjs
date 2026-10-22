@@ -13,7 +13,7 @@
 // what it changes.
 
 import { quadraSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic, updateChecked } from '#kit/quadra.mjs';
-import { h, sheet, search, toast, wireNavTitles } from '#kit/ui.mjs';
+import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
@@ -1780,6 +1780,11 @@ function drawBills() {
     const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id)) })));
     // The stage chips sit above 這週 so a tap never moves them.
     panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-list' }));
+    // 議程's days: a swipe across the list for the day either side.
+    daySwipe($('bill-list'), dir => {
+      const d = billFilter === 'agenda' && billStep < 0 && dayStep(agendaDays, agendaDay, dir);
+      return Boolean(d && (pickAgendaDay(d), true));
+    });
     wireTitles(panel);
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
@@ -2669,8 +2674,14 @@ const meetRow = (x, live = null) => {
   return `<a class="lw-meet${st === 'live' ? ' live' : st === 'done' ? ' done' : ''}" href="#meet=${esc(encodeURIComponent(x.m.id))}&amp;d=${esc(x.d)}"><span class="lw-meet-time"><b>${esc(hm(x.from) || '–')}</b><small>${esc(hm(x.to))}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(roomShort(x.m))}</b>${roomShort(x.m) !== kindLabel(x.m.kind) && st !== 'live' && st !== 'break' ? kindTag(x.m.kind) : ''}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : st === 'break' ? countTag(W('休息中', 'On a break'), 'orange') : ''}</span><span class="lw-meet-what">${esc(meetWhat(x.m))}</span>${items ? `<small>${esc(W(`${items} 個法案`, `${items} bill${items === 1 ? '' : 's'}`))}</small>` : ''}</span></a>`;
 };
 
+// 議程: a day's sittings at a time on the family's strip of days (the days
+// with any, 📅 among them; a swipe across the page for the next), today's
+// on now first. Searched: every day's that match, each under its day.
+let agendaDay = null;
+let agendaDays = [];
+const agendaRec = {};
 async function agendaList(out) {
-  out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
+  if (!out.querySelector('.lw-meets')) out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
   let a;
   try {
     a = await agendaData();
@@ -2683,11 +2694,23 @@ async function agendaList(out) {
   const all = sittings(a.meets).filter(x => x.d >= day && (!words.length || words.some(w => `${x.m.room}${x.m.title}${x.m.why}`.includes(w))));
   const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
   const row = x => meetRow(x, a.live);
-  const days = [...new Set(all.map(x => x.d))];
-  const html =
-    (live.length && !words.length ? section(W('現在開會中', 'Meeting now'), `<div class="lw-meets">${live.map(row).join('')}</div>`) : '') +
-    days.map(d => section(meetDay(d), `<div class="lw-meets">${all.filter(x => x.d === d && !(live.includes(x) && !words.length)).map(row).join('')}</div>`)).join('');
-  out.innerHTML = html.replace(/<section[^>]*>(?:(?!<\/section>).)*<div class="lw-meets"><\/div><\/section>/gs, '') || `<div class="q-empty lw-empty-sm"><strong>${W(words.length ? '議程裡沒有符合的會議' : '接下來還沒有排會議', words.length ? 'Nothing on the agenda matches' : 'No meetings scheduled yet')}</strong></div>`;
+  const days = [...new Set(all.map(x => x.d))].sort();
+  const none = `<div class="q-empty lw-empty-sm"><strong>${W(words.length ? '議程裡沒有符合的會議' : '接下來還沒有排會議', words.length ? 'Nothing on the agenda matches' : 'No meetings scheduled yet')}</strong></div>`;
+  agendaDays = words.length ? [] : days;
+  if (words.length || !days.length) {
+    const html = days.map(d => section(meetDay(d), `<div class="lw-meets">${all.filter(x => x.d === d).map(row).join('')}</div>`)).join('');
+    return void (out.innerHTML = html || none);
+  }
+  if (!days.includes(agendaDay)) agendaDay = days[0];
+  const rest = all.filter(x => x.d === agendaDay && !live.includes(x));
+  const now = agendaDay === day && live.length;
+  out.innerHTML = now ? section(W('現在開會中', 'Meeting now'), `<div class="lw-meets">${live.map(row).join('')}</div>`) + (rest.length ? section(W('稍後', 'Later'), `<div class="lw-meets">${rest.map(row).join('')}</div>`) : '') : `<div class="lw-meets">${rest.map(row).join('')}</div>`;
+  out.prepend(dayBar(agendaRec, { days, current: agendaDay, today: day, follow: true, onPick: pickAgendaDay }));
+}
+function pickAgendaDay(d) {
+  agendaDay = d;
+  const out = $('bill-list');
+  if (out && billFilter === 'agenda') agendaList(out);
 }
 
 // One meeting: today's live video (國會頻道), what's on it with each bill's

@@ -68,10 +68,12 @@ Live: https://jaypengx.github.io/Orbit-Law/
   (`ly/agenda.json`, three days back on; today's read again in the app, its
   發言名單 filling in on the day). The live video is IVOD's own stream for
   that meeting: `scripts/live-ly.mjs`, run by `live.yml` every 90 seconds in
-  sitting hours, reads IVOD's live list and each live meeting's channel and
+  sitting hours (each run starts the next, since GitHub's schedule alone
+  is late or skipped; `live.json` rewritten at least every 10 minutes), reads IVOD's live list and each live meeting's channel and
   writes `live.json` to the `live` branch (read from raw.githubusercontent);
   the app plays `ly-live<ch>`'s HLS. Nothing is matched by room name: a
-  meeting IVOD doesn't list as streaming shows its state, not a video.
+  meeting IVOD doesn't list as streaming shows its state, not a video, and
+  is never 直播中 on its scheduled hours alone (`meetState`'s `sched`).
   (國會頻道's YouTube room streams were tried first and showed other
   meetings; IVOD's own pages can't be framed.) A meeting shows its bills' cards, the
   speakers signed up, and the clips of who has spoken (the API's `/ivods`,

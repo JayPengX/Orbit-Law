@@ -3337,7 +3337,8 @@ div.lw-video {
   gap: 8px;
   margin-top: 12px;
 }
-.lw-meet-links > .q-btn.block {
+.lw-meet-links > .q-btn.block,
+.lw-video-wait > .q-btn.block {
   box-sizing: border-box;
   width: 100%;
   margin: 0;

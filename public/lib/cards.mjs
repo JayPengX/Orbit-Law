@@ -123,12 +123,15 @@ export const fit = (name, short = 11) => (/^[^a-z]*$/i.test(name) && String(name
 
 // A bill item as a card: topic tile, the law, the bar, its stage and day,
 // who proposed it, how many versions and articles (a rail's narrow card: the
-// first of those). `topic`: its topic id.
-export function billCard(it, { topic = 'gov', en = false, now, wide = false } = {}) {
+// first of those). `topic`: its topic id. `on`: the meeting day it's shown
+// under (a meeting's sheet), which its day reads instead of its own.
+export function billCard(it, { topic = 'gov', en = false, now, wide = false, on = '' } = {}) {
+  const today = new Date((now || new Date()).getTime() + 8 * 3600e3).toISOString().slice(0, 10);
+  const day = on ? (on === today ? (en ? 'On today' : '今天議程') : en ? `On ${shortDay(on, now)}` : `${shortDay(on, now)} 議程`) : dayOf(it.u, en, now);
   const arts = Object.keys(it.arts || {}).length;
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean).slice(0, wide ? 2 : 1);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
-<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(dayOf(it.u, en, now))}</span></span>
+<span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(day)}</span></span>
 <span class="lw-bill-name${fit(it.n)}">${esc(String(it.n).replace(/^中華民國(?!\d)/, ''))}</span>
 ${it.about && !en ? `<span class="lw-bill-about">${esc(it.about)}</span>` : ''}
 ${progress(it, en)}

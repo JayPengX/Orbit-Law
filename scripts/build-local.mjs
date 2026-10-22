@@ -113,7 +113,9 @@ const SITES = [
   platform('TTT', '臺東縣', 'https://law.taitung.gov.tw', { twOnly: true }),
   platform('HUA', '花蓮縣', 'https://glrs.hl.gov.tw/glrsout', { twOnly: true }),
   platform('LNN', '連江縣', 'https://law.matsu.gov.tw'),
-  platform('KEE', '基隆市', 'https://exlaw.klcg.gov.tw', { twOnly: true }),
+  // 基隆市's server leaves out its certificate's intermediate (TWCA Secure SSL): read directly, with that
+  // public intermediate added to Node's trust (NODE_EXTRA_CA_CERTS=scripts/certs/twca-secure-ssl.pem, pages.yml).
+  platform('KEE', '基隆市', 'https://exlaw.klcg.gov.tw'),
   platform('HSQ', '新竹縣', 'https://hclaw.hsinchu.gov.tw/law', { twOnly: true }),
   platform('NAN', '南投縣', 'https://glrs.nantou.gov.tw/glrsout', { twOnly: true }),
   platform('CYI', '嘉義市', 'https://law.chiayi.gov.tw'),

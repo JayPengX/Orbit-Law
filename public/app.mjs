@@ -268,7 +268,7 @@ function drawHome() {
     (recent.length ? '' : section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '')) +
     `<div id="home-live"></div>` +
     section(W('立法院這週', 'In 立法院 this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
-    section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws', cls: 'lw-half' }) +
+    section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
     section(W('為你推薦', 'For you'), covers(picks)) +
     // 裁判: 憲法法庭's two newest, then the top courts' newest.
     section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }) +
@@ -296,7 +296,7 @@ function drawHome() {
     .then(d => {
       const el = $('home-news');
       const rows = (d.news || []).slice(0, 4);
-      if (el && rows.length) el.outerHTML = section(W('政府公告', 'Government notices'), `<div class="lw-list">${rows.map(([day, gov, t, url]) => `<a class="lw-row" href="${esc(url)}">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(t)}</span><small>${esc(`${gov} · ${shortDay(day)}`)}</small></span></a>`).join('')}</div>`, { cls: 'lw-half' });
+      if (el && rows.length) el.outerHTML = section(W('政府公告', 'Government notices'), `<div class="lw-list">${rows.map(([day, gov, t, url]) => `<a class="lw-row" href="${esc(url)}">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(t)}</span><small>${esc(`${gov} · ${shortDay(day)}`)}</small></span></a>`).join('')}</div>`);
     })
     .catch(() => {});
 }

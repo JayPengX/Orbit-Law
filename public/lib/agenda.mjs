@@ -84,10 +84,19 @@ const pad = n => String(n).padStart(2, '0');
 // In its hours without fresh word that it streams: 'sched' (on the
 // schedule, IVOD not showing it). 休息 only inside its hours; 散會, a break
 // that 繼續開會 another day, or anything past its hours, is over for the day.
-export function meetState(s, room = null, now = new Date(), fresh = true) {
+// 'off': called off for the day, by IVOD's word (取消, 停會, 延期) or by a
+// day off where 立法院 sits (`off`, kit dayOffOn for 臺北市 work: {from}, a
+// stop from an hour drops the sittings starting at or after it). Only IVOD
+// saying it is 進行中 overrides a day off (立法院 can sit anyway); a
+// channel alone never does, since IVOD lists a channel before a sitting starts.
+export function meetState(s, room = null, now = new Date(), fresh = true, off = null) {
   const st = sittingState(s, now);
-  if (st === 'past' || st === 'ahead') return st;
-  const t = String(room?.status || '');
+  if (st === 'past') return st;
+  const t = String(st === 'ahead' ? '' : room?.status || '');
+  if (/取消|停會|延期|改期|停開/.test(t)) return 'off';
+  if (off && (!off.from || !s.from || s.from >= off.from) && !(fresh && /進行中/.test(t))) return 'off';
+  if (st === 'ahead') return st;
+  if (room && fresh && /尚未開始/.test(t)) return st === 'live' ? 'sched' : st;
   const later = t.match(/(\d+)月(\d+)日繼續/);
   if (room && (/結束|散會/.test(t) || (later && `${pad(later[1])}-${pad(later[2])}` !== s.d.slice(5)))) return 'done';
   if (!room || !fresh) return st === 'live' ? 'sched' : st;

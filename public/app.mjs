@@ -15,6 +15,7 @@
 import { orbitSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/orbit.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
+import { dayOffOn, loadDayOff } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
@@ -282,13 +283,17 @@ function drawHome() {
       const el = $('home-live');
       if (!el) return;
       if (live.length) return void (el.outerHTML = section(W('立法院開會中', 'In session now'), `<div class="lw-meets">${live.map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' }));
-      // Today's meetings all over: say so, with the next day that has any.
+      // Today's meetings all over or called off: say so, with the next day that has any.
       const { day } = twNow();
       const today = all.filter(x => x.d === day);
-      const next = all.find(x => x.d > day);
-      if (!today.length || today.some(x => liveState(x, a.live) !== 'done') || !next) return;
+      const states = today.map(x => liveState(x, a.live));
+      const next = all.find(x => x.d > day && liveState(x, a.live) !== 'off');
+      if (!today.length || states.some(st => !['done', 'off'].includes(st))) return;
+      const off = states.every(st => st === 'off');
+      const why = off ? lyDayOff(day) ? W('颱風停止上班，立法院今天停會。', 'Typhoon day off in Taipei: 立法院 isn’t sitting today.') : W('今天的會議取消了。', 'Today’s meetings are called off.') : '';
+      if (!next) return void (off && (el.outerHTML = section(W('今日停會', 'No sitting today'), `<p class="lw-hint-sm lw-next-sit">${esc(why)}</p>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' })));
       const nextDay = all.filter(x => x.d === next.d);
-      el.outerHTML = section(W('今日已散會', 'Done for today'), `<p class="lw-hint-sm lw-next-sit">${esc(W(`下次開會：${meetDay(next.d)}，${nextDay.length} 場`, `Next: ${meetDay(next.d)}, ${nextDay.length} meeting${nextDay.length === 1 ? '' : 's'}`))}</p><div class="lw-meets">${nextDay.slice(0, 3).map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' });
+      el.outerHTML = section(off ? W('今日停會', 'No sitting today') : W('今日已散會', 'Done for today'), `${why ? `<p class="lw-hint-sm lw-next-sit">${esc(why)}</p>` : ''}<p class="lw-hint-sm lw-next-sit">${esc(W(`下次開會：${meetDay(next.d)}，${nextDay.length} 場`, `Next: ${meetDay(next.d)}, ${nextDay.length} meeting${nextDay.length === 1 ? '' : 's'}`))}</p><div class="lw-meets">${nextDay.slice(0, 3).map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' });
     })
     .catch(() => {});
   // 政府公告: the ministries' latest notices (they open in the reader).
@@ -2620,7 +2625,7 @@ const LIVE_URL = 'https://raw.githubusercontent.com/JayPengX/Orbit-Law/live/live
 const liveData = () => fetch(`${LIVE_URL}?t=${Math.floor(Date.now() / 60e3)}`, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
 const agendaData = () =>
   (lyAgenda ||= (async () => {
-    const [a, live] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), liveData()]);
+    const [a, live] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), liveData(), loadDayOff(LY_PLACE)]);
     a.live = live;
     try {
       const r = await fetch(`https://v2.ly.govapi.tw/meets?${new URLSearchParams({ 日期: twNow().day, limit: '50' })}`, { signal: AbortSignal.timeout(8000) });
@@ -2665,12 +2670,20 @@ const meetItems = m => {
   return state.items.filter(it => !it.dropped && it.term && (laws.has(it.law) || m.why.includes(`「${it.n}`))).sort((a, b) => (a.u < b.u ? 1 : -1));
 };
 
-// A sitting's state, IVOD's word first when it has one for today: live only while it streams ('sched': in its hours, not streaming).
-const liveState = (x, live) => meetState(x, live ? liveOf(live, x.m, x) : null, new Date(), Boolean(live?.fresh));
+// A sitting's state, IVOD's word first when it has one for today: live only while it streams ('sched': in its hours, not streaming;
+// 'off': a typhoon day off in 臺北市, where 立法院 sits, or IVOD saying it's called off).
+const LY_PLACE = { county: '臺北市' };
+const lyDayOff = d => dayOffOn(d, LY_PLACE, 'work');
+const liveState = (x, live) => meetState(x, live ? liveOf(live, x.m, x) : null, new Date(), Boolean(live?.fresh), lyDayOff(x.d));
+// Why a sitting is off, in a tag: 颱風停會 on a day off, else IVOD's own word.
+const offTag = (x, live) => {
+  const t = String((live && liveOf(live, x.m, x)?.status) || '');
+  return lyDayOff(x.d) && !/取消|延期|改期/.test(t) ? W('颱風停會', 'Typhoon: no sitting') : /延期|改期/.test(t) ? W('延期', 'Postponed') : W('取消', 'Called off');
+};
 const meetRow = (x, live = null) => {
   const st = liveState(x, live);
   const items = meetItems(x.m).length;
-  return `<a class="lw-meet${st === 'live' ? ' live' : st === 'done' ? ' done' : ''}" href="#meet=${esc(encodeURIComponent(x.m.id))}&amp;d=${esc(x.d)}"><span class="lw-meet-time"><b>${esc(hm(x.from) || '–')}</b><small>${esc(hm(x.to))}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(roomShort(x.m))}</b>${roomShort(x.m) !== kindLabel(x.m.kind) && !['live', 'break', 'done'].includes(st) ? kindTag(x.m.kind) : ''}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : st === 'break' ? countTag(W('休息中', 'On a break'), 'orange') : st === 'done' ? countTag(W('已散會', 'Risen'), '') : ''}</span><span class="lw-meet-what">${esc(meetWhat(x.m))}</span>${items ? `<small>${esc(W(`${items} 個法案`, `${items} bill${items === 1 ? '' : 's'}`))}</small>` : ''}</span></a>`;
+  return `<a class="lw-meet${st === 'live' ? ' live' : st === 'done' ? ' done' : st === 'off' ? ' off' : ''}" href="#meet=${esc(encodeURIComponent(x.m.id))}&amp;d=${esc(x.d)}"><span class="lw-meet-time"><b>${esc(hm(x.from) || '–')}</b><small>${esc(hm(x.to))}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(roomShort(x.m))}</b>${roomShort(x.m) !== kindLabel(x.m.kind) && !['live', 'break', 'done', 'off'].includes(st) ? kindTag(x.m.kind) : ''}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : st === 'break' ? countTag(W('休息中', 'On a break'), 'orange') : st === 'done' ? countTag(W('已散會', 'Risen'), '') : st === 'off' ? countTag(offTag(x, live), 'red') : ''}</span><span class="lw-meet-what">${esc(meetWhat(x.m))}</span>${items ? `<small>${esc(W(`${items} 個法案`, `${items} bill${items === 1 ? '' : 's'}`))}</small>` : ''}</span></a>`;
 };
 
 // 議程: a day's sittings at a time on the family's strip of days (the days
@@ -2737,8 +2750,8 @@ async function openMeet(id, d = '') {
     v.muted = true;
     body.push(v, h('p', { class: 'lw-hint-sm', text: W('立法院 IVOD 直播（這場會議的頻道）。點影片開聲音。', '立法院 IVOD live, this meeting’s own channel. Tap for sound.') }));
     playHls(v, liveHls(r.ch)).catch(() => v.replaceWith(h('a', { class: 'q-btn block', href: IVOD_LIVE, target: '_blank', rel: 'noopener', text: W('到立法院 IVOD 看直播', 'Watch on 立法院 IVOD') })));
-  } else if (['live', 'sched', 'break', 'later', 'done'].includes(st)) {
-    const why = st === 'sched' ? W('IVOD 現在沒有播這場', 'IVOD isn’t streaming it now') : st === 'later' ? W(`${hm(x.from)} 開始，開會後這裡就能看直播。`, `Starts ${hm(x.from)}; the live video shows here once it begins.`) : st === 'break' ? W('休息中，回來開會後這裡會接著播。', 'On a break; the video resumes here.') : st === 'done' ? W(`${rose ? `${rose} ` : ''}散會 · 影片稍後上 IVOD`, `${rose ? `Rose ${rose}` : 'Over'} · video on IVOD later`) : W('立法院還沒說這場在哪個頻道播，可先到 IVOD 看。', '立法院 hasn’t listed this meeting’s channel yet; try IVOD.');
+  } else if (['live', 'sched', 'break', 'later', 'done', 'off'].includes(st)) {
+    const why = st === 'off' ? (lyDayOff(x.d) && offTag(sx, a.live) === W('颱風停會', 'Typhoon: no sitting') ? W('颱風停止上班，立法院這天停會，沒有直播。', 'Typhoon day off in Taipei: no sitting, so no live video.') : W(`這場會議${offTag(sx, a.live)}了，沒有直播。`, `${offTag(sx, a.live)}: no live video.`)) : st === 'sched' ? W('IVOD 現在沒有播這場', 'IVOD isn’t streaming it now') : st === 'later' ? W(`${hm(x.from)} 開始，開會後這裡就能看直播。`, `Starts ${hm(x.from)}; the live video shows here once it begins.`) : st === 'break' ? W('休息中，回來開會後這裡會接著播。', 'On a break; the video resumes here.') : st === 'done' ? W(`${rose ? `${rose} ` : ''}散會 · 影片稍後上 IVOD`, `${rose ? `Rose ${rose}` : 'Over'} · video on IVOD later`) : W('立法院還沒說這場在哪個頻道播，可先到 IVOD 看。', '立法院 hasn’t listed this meeting’s channel yet; try IVOD.');
     body.push(h('div', { class: 'lw-video-wait', html: `<p>${esc(why)}</p>${st === 'live' || st === 'sched' ? `<a class="q-btn block" href="${IVOD_LIVE}" target="_blank" rel="noopener">${W('到立法院 IVOD 看直播', 'Watch on 立法院 IVOD')}</a>` : ''}` }));
   }
   body.push(h('div', { class: 'lw-meet-head', html: `<div class="lw-meta">${kindTag(m.kind)}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : ''}</div><h2>${esc(m.title)}</h2><p>${esc([meetDay(x.d), x.from && `${hm(x.from)}–${hm(x.to)}`, x.place].filter(Boolean).join(' · '))}</p>` }));
@@ -2755,7 +2768,7 @@ async function openMeet(id, d = '') {
   // Who has spoken: 立法院's clips of the day for this meeting, newest first (they appear as each speech ends).
   const spoke = h('div', { class: 'lw-person-sec' });
   body.push(spoke);
-  if (st !== 'ahead' && st !== 'later')
+  if (!['ahead', 'later', 'off'].includes(st))
     fetch(`https://v2.ly.govapi.tw/ivods?${new URLSearchParams({ 日期: x.d, 影片種類: 'Clip', limit: '300' })}`, { signal: AbortSignal.timeout(8000) })
       .then(r => (r.ok ? r.json() : { ivods: [] }))
       .then(async r => {
@@ -2767,7 +2780,7 @@ async function openMeet(id, d = '') {
       })
       .catch(() => {});
   if (m.why) body.push(h('details', { class: 'lw-fold' }, [h('summary', { text: W('會議事由', 'What’s on it, as listed') }), h('p', { class: 'lw-meet-why', text: m.why })]));
-  const links = [x.ppg && `<a class="q-btn block" href="${esc(x.ppg)}" target="_blank" rel="noopener">${W('立法院議事網', '立法院 page')}</a>`, ...(st === 'ahead' || st === 'later' ? [] : m.videos).slice(0, 2).map((v, i) => `<a class="q-btn block" href="${esc(v)}" target="_blank" rel="noopener">${W(`會議影片 ${m.videos.length > 1 ? i + 1 : ''}（IVOD）`, `Meeting video ${m.videos.length > 1 ? i + 1 : ''} (IVOD)`)}</a>`)].filter(Boolean).join('');
+  const links = [x.ppg && `<a class="q-btn block" href="${esc(x.ppg)}" target="_blank" rel="noopener">${W('立法院議事網', '立法院 page')}</a>`, ...(['ahead', 'later', 'off'].includes(st) ? [] : m.videos).slice(0, 2).map((v, i) => `<a class="q-btn block" href="${esc(v)}" target="_blank" rel="noopener">${W(`會議影片 ${m.videos.length > 1 ? i + 1 : ''}（IVOD）`, `Meeting video ${m.videos.length > 1 ? i + 1 : ''} (IVOD)`)}</a>`)].filter(Boolean).join('');
   if (links) body.push(h('div', { class: 'lw-meet-links', html: links }));
   sheet({ title: roomShort(m), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body, onClose: () => location.hash.startsWith('#meet=') && history.replaceState(null, '', '#tab=bills&f=agenda') });
 }

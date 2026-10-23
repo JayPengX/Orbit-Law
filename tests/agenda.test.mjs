@@ -24,3 +24,21 @@ test('a meeting’s state: IVOD’s word inside its hours, over after them', () 
   assert.equal(meetState(s, null, at('08:00')), 'later');
   assert.equal(meetState(s, null, at('21:50')), 'done');
 });
+
+test('a day off or a called-off sitting is never live', () => {
+  const ch = { status: '會議尚未開始', ch: 1 };
+  assert.equal(meetState(s, ch, at('16:35')), 'sched', 'a channel before it starts is not a stream');
+  assert.equal(meetState(s, ch, at('08:30')), 'later');
+  const off = { from: null };
+  assert.equal(meetState(s, ch, at('16:35'), true, off), 'off', 'typhoon day off: not live, not 開會中');
+  assert.equal(meetState(s, { status: '逐條討論', ch: 3 }, at('10:00'), true, off), 'off', 'a channel alone never beats a day off');
+  assert.equal(meetState(s, null, at('08:00'), true, off), 'off');
+  assert.equal(meetState(s, { status: '進行中', ch: 1 }, at('10:00'), true, off), 'live', '立法院 sitting anyway, in IVOD’s word');
+  assert.equal(meetState(s, { status: '進行中', ch: 1 }, at('10:00'), false, off), 'off', 'old word never beats a day off');
+  assert.equal(meetState(s, null, at('10:00'), true, { from: '12:00' }), 'sched', 'a stop from noon leaves a 09:00 sitting');
+  assert.equal(meetState({ ...s, from: '14:30' }, null, at('10:00'), true, { from: '12:00' }), 'off');
+  assert.equal(meetState(s, { status: '會議取消' }, at('10:00')), 'off');
+  assert.equal(meetState(s, { status: '延期' }, at('10:00'), false), 'off');
+  assert.equal(meetState({ ...s, d: '2026-10-22' }, null, at('10:00'), true, off), 'off', 'tomorrow already called off');
+  assert.equal(meetState({ ...s, d: '2026-10-22' }, null, at('10:00')), 'ahead');
+});

@@ -3222,7 +3222,8 @@ div.lw-jd-point {
 .lw-meet + .lw-meet {
   border-top: var(--q-hairline, 0.5px) solid var(--q-sep);
 }
-.lw-meet.done {
+.lw-meet.done,
+.lw-meet.off {
   opacity: 0.55;
 }
 .lw-meet-time {

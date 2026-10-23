@@ -12,6 +12,7 @@
 // it, a ruling the articles and bills it touches, a bill the rulings on
 // what it changes.
 
+import * as kit from '#kit/orbit.mjs';
 import { orbitSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/orbit.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
@@ -47,6 +48,8 @@ document.documentElement.lang = en ? 'en' : 'zh-Hant';
 // ---- Orbit Pass: the Home Screen gate, the sign-in, the account button -----------------
 
 const q = orbitSession('law', { lang: en ? 'en' : 'zh' });
+// Each question answered, one more toward the 十個問題 milestone.
+const asked = () => kit.milestone?.(q, 'law');
 // The app starts at once, beside boot.js's first look at version.json (a
 // round trip every opening: on a phone's slow link it held every screen,
 // kept copies too). A newer deploy found while the loading screen is still
@@ -874,6 +877,7 @@ function explain(law, ks) {
     out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}<div class="lw-typing"><i></i><i></i><i></i></div></div>`;
     const r = await askLaw({ p: law.p, arts: ks, q, lang: en ? 'en' : 'zh' }, ai);
     if (r.error) return void (out.innerHTML = `<div class="lw-answer"><p class="lw-none">${esc(askError(r.error, en))}</p></div>`);
+    if (q) asked();
     const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(c => citeChip(law.p, c, '')).join('')}</li>`).join('');
     out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}${r.covered ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}<ul class="lw-points">${points}</ul>` : `<p>${esc(r.answer || (one ? W('這一條沒有規定這件事。', 'This article doesn’t cover that.') : W('這幾條沒有規定這件事。', 'These articles don’t cover that.')))}</p>`}</div>`;
   }
@@ -1357,6 +1361,7 @@ async function ask(text) {
   };
   const r = await chatLaw({ q: text, history, pin, mine: mineOf(state.mine), lang: en ? 'en' : 'zh' }, { fetcher: ai, onStage });
   chat.turns[chat.turns.length - 1] = r.error ? { role: 'model', error: r.error } : { role: 'model', r };
+  if (!r.error) asked();
   chat.busy = false;
   keepChat();
   drawChat();

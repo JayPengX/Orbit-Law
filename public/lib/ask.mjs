@@ -1,4 +1,4 @@
-// 白話解釋: the proxy's /law-ask (Shared-Proxy) reads the articles itself
+// 白話解釋: the proxy's /law-ask (Orbit-Core) reads the articles itself
 // from this site and answers only from them, every point citing an article
 // it was given. Asked only on a tap; the same question on the same law
 // version is answered from its cache, free. Behind the Pass: each call

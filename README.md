@@ -42,7 +42,7 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 | Data | Built at deploy by Node scripts into static JSON (about 60 MB, never in git): 全國法規資料庫, the g0v 立法院 API, 司法院, 憲法法庭, 主計總處, ministries' and cities' rule sites, join.gov.tw (PDFs read with poppler's `pdftotext`) |
 | Live | IVOD's live list read every 90 seconds in sitting hours by a GitHub Actions job |
 | AI | `/law-chat` and `/law-ask` on the Orbit proxy (Cloudflare Workers) with Gemini, grounded in this site's own files |
-| Shared | Look and Orbit Pass from the kit in [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy) |
+| Shared | Look and Orbit Pass from the kit in [Orbit-Core](https://github.com/JayPengX/Orbit-Core) |
 | Tests | `node --test` (logic only) |
 
 ## How it works
@@ -84,10 +84,10 @@ MAP.md                   how it works
 
 ## Getting started
 
-The app loads the shared kit from a sibling folder, so clone this repo next to [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy):
+The app loads the shared kit from a sibling folder, so clone this repo next to [Orbit-Core](https://github.com/JayPengX/Orbit-Core):
 
 ```bash
-git clone https://github.com/JayPengX/Shared-Proxy.git
+git clone https://github.com/JayPengX/Orbit-Core.git
 git clone https://github.com/JayPengX/Orbit-Law.git
 cd Orbit-Law
 ```
@@ -95,19 +95,19 @@ cd Orbit-Law
 Requirements: Node.js 22 or newer. There is nothing to install: no framework, no `node_modules`.
 
 ```bash
-npm test   # links ../Shared-Proxy/kit as .kit, then runs node --test
+npm test   # links ../Orbit-Core/kit as .kit, then runs node --test
 ```
 
 See it on a phone-sized screen, signed in with a made-up wallet and real data (needs Playwright):
 
 ```bash
 # a screenshot, saved in /tmp/orbit-preview
-node ../Shared-Proxy/tools/preview.mjs law --live --width 375
+node ../Orbit-Core/tools/preview.mjs law --live --width 375
 # serve it, then open http://localhost:8123/Orbit-Law/
-node ../Shared-Proxy/tools/preview.mjs law --live --serve --port 8123
+node ../Orbit-Core/tools/preview.mjs law --live --serve --port 8123
 ```
 
-`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Shared-Proxy/tools/README.md](https://github.com/JayPengX/Shared-Proxy/blob/main/tools/README.md).
+`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Orbit-Core/tools/README.md](https://github.com/JayPengX/Orbit-Core/blob/main/tools/README.md).
 
 Real data locally (writes about 60 MB into `public/data/`, never committed):
 
@@ -132,6 +132,6 @@ Push to `main`. GitHub Actions runs the tests, builds the data, stamps every fil
 | [Orbit Beats](https://github.com/JayPengX/Orbit-Beats) | Endless music and your own beats |
 | [Orbit Law](https://github.com/JayPengX/Orbit-Law) | Laws, rulings and bills, linked |
 | [Orbit Money](https://github.com/JayPengX/Orbit-Money) | Your own books |
-| [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy) | The kit, the Orbit Pass and the Workers behind them all |
+| [Orbit-Core](https://github.com/JayPengX/Orbit-Core) | The kit, the Orbit Pass and the Workers behind them all |
 
 How it was all built, in pictures and numbers: [jaypengx.com/showcase](https://jaypengx.com/showcase/).

@@ -118,7 +118,7 @@ Live: https://jaypengx.com/law/
   bill, 質詢 and whole-bill vote; what came since they were last opened counts
   on the tab.
 - **問法律** (`lib/chat.mjs`, `chats.mjs`, `find.mjs`): the proxy's live
-  `/law-chat` (Shared-Proxy `law-chat.js`, `law-ground.js`, `law-more.js`)
+  `/law-chat` (Orbit-Core `law-chat.js`, `law-ground.js`, `law-more.js`)
   finds what a question needs in this site's data: articles of every law
   and regulation, similar judgments and 釋字 (their 主文 and reasons read),
   行政規則, bills, budgets, legislators, votes, meetings, 政府公告, and the
@@ -180,4 +180,4 @@ Live: https://jaypengx.com/law/
 - `npm test` (logic only), `node scripts/build-data.mjs --prev ''` for
   real data locally (about 60 MB in `public/data/`; the other builds
   follow it).
-- `npm start`, or `node ../Shared-Proxy/tools/preview.mjs law --width 375`.
+- `npm start`, or `node ../Orbit-Core/tools/preview.mjs law --width 375`.

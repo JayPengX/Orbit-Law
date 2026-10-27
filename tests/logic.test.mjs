@@ -688,6 +688,13 @@ test('問法律 streamed: each step heard, then the answer with its verdict, fac
   assert.deepEqual(r.facts, [{ k: '時效', v: '2 年' }]);
   assert.deepEqual(r.timeline, [{ d: '2026-01-10', t: '三讀' }]);
   assert.match(stageText({ stage: 'found', arts: 4 }), /找到 4 條/);
+  // (What it's really looking at: a legislator's record, a budget, not 找條文 all along.)
+  assert.equal(stageText({ stage: 'find' }), '理解問題，找相關資料…');
+  assert.equal(stageText({ stage: 'found', arts: 2, look: ['people'] }), '找到 2 條條文，查立委的提案與表決…');
+  assert.equal(stageText({ stage: 'found', arts: 0, look: ['budget', 'bills'] }), '查預算進度和立法院進度…');
+  assert.equal(stageText({ stage: 'write', arts: 3, people: ['林思銘'], votes: 6 }), '依林思銘的紀錄和3 條條文撰寫回答…');
+  assert.equal(stageText({ stage: 'write' }), '撰寫回答中…');
+  assert.equal(stageText({ stage: 'found', arts: 3, look: ['cases'] }, true), '3 articles found; checking rulings and rules…');
   const cap = await chatLaw({ q: 'x' }, { fetcher: async () => ({ status: 200, headers: new Headers({ 'content-type': 'application/x-ndjson' }), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"stage":"find"}\n{"status":429,"error":"cap","left":0}\n')); c.close(); } }) }) });
   assert.equal(cap.error, 'cap');
 });
@@ -716,4 +723,40 @@ test('a search also tries 台/臺, a law’s short name and everyday words', asy
   assert.ok(expand('台北').includes('臺北'));
   assert.ok(expand('勞基法').includes('勞動基準法'));
   assert.ok(expand('食安').includes('食品安全'));
+});
+
+test('問法律\'s city: picked, else the family places\' counties; sent with a question', async () => {
+  const { citiesOf, readCity, saveCity, chatLaw } = await import('../public/lib/chat.mjs');
+  const m = new Map();
+  const store = { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v) };
+  assert.equal(readCity(store), null);
+  assert.deepEqual(citiesOf(null, [{ county: '台北市', town: '大安區' }, { lat: 25, lon: 121 }, null, { county: '新北市' }]), ['臺北市', '新北市']);
+  saveCity('臺南市', store);
+  assert.equal(readCity(store), '臺南市');
+  assert.deepEqual(citiesOf(readCity(store), [{ county: '臺北市' }]), ['臺南市']);
+  saveCity('', store);
+  assert.deepEqual(citiesOf(readCity(store), [{ county: '臺北市' }]), []);
+  let sent;
+  await chatLaw({ q: 'x', city: ['臺南市'] }, { fetcher: async (u, o) => ((sent = JSON.parse(o.body)), { status: 500, headers: new Headers(), json: async () => ({}) }) });
+  assert.deepEqual(sent.city, ['臺南市']);
+});
+
+test('a rule\'s text as its points, broken lines joined; laws it names linked', async () => {
+  const { ruleBlocks, ruleHtml, linkedHtml } = await import('../public/lib/view.mjs');
+  const t = '一、教育部為協助高級中等學校落實高級中等教育法第\n\n　　五十三條規定，特訂定本注意事項。\n\n二、用詞定義如下：\n\n　(一)學生會：以全校學生選舉產生之\n\n　　　會長所成立。\n三、學校應輔導。\n　　前項人員得支領鐘點費。';
+  assert.deepEqual(ruleBlocks(t).map(b => [b.k, b.no, b.t]), [
+    ['item', '一、', '教育部為協助高級中等學校落實高級中等教育法第五十三條規定，特訂定本注意事項。'],
+    ['item', '二、', '用詞定義如下：'],
+    ['sub', '（一）', '學生會：以全校學生選舉產生之會長所成立。'],
+    ['item', '三、', '學校應輔導。'],
+    ['item more', '', '前項人員得支領鐘點費。']
+  ]);
+  assert.deepEqual(ruleBlocks('第 1 條\n本自治條例依地方制度法訂定之。').map(b => [b.k, b.no, b.t]), [['art', '第1條', '本自治條例依地方制度法訂定之。']]);
+  const names = new Map([['刑法', 'C0000001'], ['道路交通管理處罰條例', 'K0040012']]);
+  const html = linkedHtml('（道路交通管理處罰條例第五十五條及第五十六條）拖吊；依第三條辦理', names);
+  assert.match(html, /href="#law=K0040012&amp;a=55"/);
+  assert.match(html, /href="#law=K0040012&amp;a=56"/);
+  assert.doesNotMatch(html, /a=3"/);
+  assert.match(linkedHtml('釋字第748號解釋', names), /href="#r=s748"/);
+  assert.match(ruleHtml('一、依刑法第二百十八條。', names), /<p class="lw-rule item"><b>一、<\/b><span>依<a class="lw-ref"/);
 });

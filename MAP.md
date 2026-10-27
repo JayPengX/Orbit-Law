@@ -125,7 +125,13 @@ Live: https://orbit.jaypengx.com/law/
   reader's own follows (sent only with a question about them). Flash then
   applies it to the reader's facts (who is likely right, penalties,
   remedies, next steps), each point citing an article, a judgment or a
-  rule; each opens in the app. Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  rule; each opens in the app. Under an answer only the judgments and
+  rules it cites; a city's 地方法規 only for the reader's city (問法律's
+  地方法規 row, else the county of the family's shared places) or one the
+  question names. 司法院's judgment pages serve only Taiwan: the proxy reads
+  them through its Taiwan relay. Rulings and rules read with every law they
+  name a link (`view.mjs` linkedHtml, ruleHtml: a rule's 一、（一） as
+  points). Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,

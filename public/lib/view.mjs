@@ -36,6 +36,42 @@ export function articleHtml([, k, text], ctx = {}) {
 // A plain run: text, with any 大法官解釋 or 憲法法庭判決 a link to it in 裁判.
 export const plainHtml = s => (/釋字|憲判/.test(s) ? consLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-cons" href="#r=${esc(x.id)}">${esc(x.t)}</a>`)).join('') : esc(s));
 
+// Text that isn't an article (a ruling's holding and reasons, a rule): every
+// article it names by its law (刑法第二百十八條, 道路交通管理處罰條例第五十五條及
+// 第五十六條) a link, and any 釋字 too; a bare 第X條 (whose law the text
+// doesn't say) stays plain. (Jay 2026-10-27: the rulings read as plain text.)
+export const linkedHtml = (text, names = new Map()) =>
+  /條/.test(text) ? linkText(String(text ?? ''), { names }).map(r => (typeof r === 'string' ? plainHtml(r) : r.law && r.from ? refHtml(r) : esc(r.t))).join('') : plainHtml(String(text ?? ''));
+
+// A rule's text (行政規則, 地方法規) as its points: 一、 a point, （一） a
+// sub-point, 第X條 an article; a line the source broke mid-sentence (it
+// doesn't end in 。：；) joined back to the one before. → [{ k: 'item' |
+// 'sub' | 'art' | 'p', no, t }]
+const POINT = /^([一二三四五六七八九十百]+)[、．.]\s*/;
+const SUB = /^[（(]\s*([一二三四五六七八九十百]+|\d+)\s*[）)]\s*/;
+const ART = /^(第\s*[一二三四五六七八九十百千0-9]+\s*條(?:之[一二三四五六七八九十0-9]+)?)\s*/;
+const NUM = /^(\d{1,2})[、．.]\s*(?=\D)/;
+export function ruleBlocks(text) {
+  const out = [];
+  for (const raw of String(text ?? '').replace(/\r/g, '').split('\n')) {
+    const line = raw.replace(/^[\s　]+|[\s　]+$/g, '');
+    if (!line) continue;
+    let m;
+    const last = out.at(-1);
+    if ((m = line.match(ART))) out.push({ k: 'art', no: m[1].replace(/\s+/g, ''), t: line.slice(m[0].length) });
+    else if ((m = line.match(POINT))) out.push({ k: 'item', no: `${m[1]}、`, t: line.slice(m[0].length) });
+    else if ((m = line.match(SUB))) out.push({ k: 'sub', no: `（${m[1]}）`, t: line.slice(m[0].length) });
+    else if ((m = line.match(NUM))) out.push({ k: 'sub', no: `${m[1]}.`, t: line.slice(m[0].length) });
+    else if (last && !/[。：:；;」]$/.test(last.t)) last.t += line;
+    else out.push({ k: last && last.k !== 'p' ? `${last.k.split(' ')[0]} more` : 'p', no: '', t: line });
+  }
+  return out;
+}
+export const ruleHtml = (text, names) =>
+  ruleBlocks(text)
+    .map(b => (b.k === 'art' ? `<h5 class="lw-rule-art">${esc(b.no)}</h5>${b.t ? `<p class="lw-rule p">${linkedHtml(b.t, names)}</p>` : ''}` : `<p class="lw-rule ${b.k}">${b.no ? `<b>${esc(b.no)}</b>` : ''}<span>${linkedHtml(b.t, names)}</span></p>`))
+    .join('');
+
 // A reference: to an article (its law or this one), or to a 項 of the
 // article it sits in.
 export function refHtml(r, p, at) {

@@ -16,14 +16,14 @@ import * as kit from '#kit/orbit.mjs';
 import { orbitSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/orbit.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
-import { dayOffOn, loadDayOff } from '#kit/dayoff.mjs';
+import { dayOffOn, loadDayOff, placeOf } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
-import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml } from './lib/view.mjs';
+import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
@@ -40,7 +40,7 @@ import { topicTile, topicName, progress, stageShort, partyChips, shortDay, billC
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
-import { chatLaw, chatError, stageText, STARTERS, MAX_CHAT_Q, mineOf } from './lib/chat.mjs';
+import { chatLaw, chatError, stageText, STARTERS, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
@@ -904,7 +904,8 @@ function aiBox(label, run) {
 const citeChip = (p, k, n) => {
   const ks = [].concat(k);
   const label = en ? `Art. ${ks.join(', ')}` : `第${ks.join('、')}條`;
-  return `<a class="lw-ref lw-cite" href="#law=${esc(p)}&amp;a=${esc(ks[0])}" data-law="${esc(p)}" data-from="${esc(ks[0])}" data-to="${esc(ks[0])}" data-para="0">${n ? `<b>${esc(en ? nameOf(p, n) : shortName(n))}</b> ` : ''}${esc(label)}</a>`;
+  // (The name and the article apart: a long name is cut short with …, the article never.)
+  return `<a class="lw-ref lw-cite" href="#law=${esc(p)}&amp;a=${esc(ks[0])}" data-law="${esc(p)}" data-from="${esc(ks[0])}" data-to="${esc(ks[0])}" data-para="0">${n ? `<b>${esc(en ? nameOf(p, n) : shortName(n))}</b>` : ''}<span>${esc(label)}</span></a>`;
 };
 
 // The rulings on an article: 憲法法庭's first, then the top courts' (newest first), each read in the app.
@@ -1004,11 +1005,11 @@ async function openJudgment(u, label = '') {
     const point = x => {
       const t = x.text.replace(/^[一二三四五六七八九十百]+、/, '');
       const [first, ...rest] = t.split('\n');
-      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${[first.length > 90 ? first : '', ...rest].filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('')}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${esc(first)}</span></div>`;
+      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${[first.length > 90 ? first : '', ...rest].filter(Boolean).map(p => `<p>${linkedHtml(p, state.names)}</p>`).join('')}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${linkedHtml(first, state.names)}</span></div>`;
     };
     body.innerHTML =
       `<header class="lw-page-head"><h3>${esc(label || r.title)}</h3><small>${esc([r.title, r.no, r.date && shortDay(r.date)].filter(Boolean).join(' · '))}</small></header>` +
-      `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}<p>${esc(r.main.join(' '))}</p></div>` +
+      `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}<p>${linkedHtml(r.main.join(' '), state.names)}</p></div>` +
       (who.length ? `<p class="lw-jd-who">${who.map(esc).join('<br>')}</p>` : '') +
       (r.reasons.length ? `<h4>${W(`理由（${r.reasons.length} 點）`, `Reasons (${r.reasons.length})`)}</h4><div class="lw-jd-points">${r.reasons.map(point).join('')}</div>` : '') +
       (r.judges.length ? `<p class="lw-page-src">${esc(W(`法官 ${r.judges.join('、')}`, `Judges ${r.judges.join(', ')}`))}</p>` : '') +
@@ -1033,7 +1034,8 @@ async function openRuleText(path, label) {
   try {
     const [dir, file] = path.split('/');
     const r = await fetch(`./data/${dir}/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
-    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><p class="lw-page-pre">${esc(r.t.replace(/\r/g, '').replace(/\n{3,}/g, '\n\n'))}</p>`;
+    // Its points as points, every law it names a link, then its page (Jay 2026-10-27: it read as one plain block).
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><div class="lw-rule-text">${ruleHtml(r.t, state.names)}</div>${/^https:\/\//.test(r.url || '') ? `<a class="lw-out" href="${esc(r.url)}" target="_blank" rel="noopener" data-out>${W('到原網站看', 'Open the original site')}</a>` : ''}`;
   } catch {
     body.innerHTML = `<p class="lw-none">${W('讀不到這個規定', 'Couldn’t load this rule')}</p>`;
   }
@@ -1241,6 +1243,25 @@ function chatHistory() {
   });
 }
 
+// The reader's city for 地方法規 (a city's rules bind only who lives there):
+// picked here, else the county of the places the family apps share.
+const myCities = () => citiesOf(readCity(), ['home', 'work', 'school'].map(placeOf));
+const CITY_EN = { 臺北市: 'Taipei', 新北市: 'New Taipei', 桃園市: 'Taoyuan', 臺中市: 'Taichung', 臺南市: 'Tainan', 高雄市: 'Kaohsiung', 基隆市: 'Keelung', 新竹市: 'Hsinchu City', 嘉義市: 'Chiayi City', 新竹縣: 'Hsinchu County', 苗栗縣: 'Miaoli', 彰化縣: 'Changhua', 南投縣: 'Nantou', 雲林縣: 'Yunlin', 嘉義縣: 'Chiayi County', 屏東縣: 'Pingtung', 宜蘭縣: 'Yilan', 花蓮縣: 'Hualien', 臺東縣: 'Taitung', 澎湖縣: 'Penghu', 金門縣: 'Kinmen', 連江縣: 'Matsu' };
+const cityEn = c => CITY_EN[c] || c;
+function citySheet() {
+  const now = myCities()[0] || '';
+  const row = (c, label) => `<button type="button" class="lw-row lw-city-row${c === now ? ' on' : ''}" data-city="${esc(c)}"><span class="lw-row-text"><span class="lw-row-name">${esc(label)}</span></span>${c === now ? '<i aria-hidden="true">✓</i>' : ''}</button>`;
+  const body = h('div', { html: `<p class="lw-sheet-lede">${W('問法律只查你住的縣市的地方法規（自治條例、規則）。問到別的縣市時，會查你問的那裡。', 'Ask looks only at the local rules of where you live; name another city in a question to ask about it.')}</p><div class="lw-list in-sheet">${CITIES.map(c => row(c, en ? cityEn(c) : c)).join('')}${row('', W('不查地方法規', 'No local rules'))}</div>` });
+  const s = sheet({ title: W('你住的縣市', 'Where you live'), closeLabel: W('關閉', 'Close'), body });
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-city]');
+    if (!b) return;
+    saveCity(b.dataset.city);
+    s.close();
+    drawChat();
+  });
+}
+
 function askWith(law, ks) {
   chat.pin = { p: law.p, n: law.n, arts: ks.slice(0, 8) };
   go('tab=ask');
@@ -1261,6 +1282,7 @@ function drawAsk() {
       ask(v);
     });
     input.addEventListener('keydown', e => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), form.requestSubmit()));
+    dockComposer(form, input);
     const tools = h('div', { class: 'lw-ask-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('對話紀錄', 'Chats'), html: MENU_ICON.history, onclick: () => chatHistory() }),
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('新對話', 'New chat'), html: MENU_ICON.edit, onclick: () => newChat() })
@@ -1272,12 +1294,34 @@ function drawAsk() {
       if (b) ask(b.dataset.ask);
       if (e.target.closest('.lw-pin-x')) ((chat.pin = null), drawPin());
       if (e.target.closest('.lw-new')) newChat();
+      if (e.target.closest('.lw-city')) citySheet();
       const v = e.target.closest('[data-vote-id]');
       if (v) votesData().then(d => voteSheet(d.votes.findIndex(x => x[0] === v.dataset.voteId)), () => {});
     });
   }
   drawPin();
   drawChat();
+}
+
+// While its field is typed in, the composer sits on the keys: its foot at
+// the visible part's foot (visualViewport), whether iOS shrank the page or
+// slid it up (offsetTop) under the keys.
+function dockComposer(form, input) {
+  const vv = globalThis.visualViewport;
+  if (!vv) return;
+  let frame = 0;
+  const place = () => {
+    frame = 0;
+    const on = document.activeElement === input;
+    const gap = Math.round(innerHeight - vv.height - vv.offsetTop);
+    form.classList.toggle('lw-on-keys', on && gap > 60);
+    if (on) form.style.setProperty('--lw-keys', `${Math.max(8, gap + 8)}px`);
+  };
+  const soon = () => (frame ||= requestAnimationFrame(place));
+  vv.addEventListener('resize', soon);
+  vv.addEventListener('scroll', soon);
+  input.addEventListener('focus', () => (soon(), setTimeout(soon, 300)));
+  input.addEventListener('blur', () => setTimeout(soon, 60));
 }
 
 function drawPin() {
@@ -1291,7 +1335,8 @@ function drawChat() {
   const out = $('chat');
   if (!out) return;
   if (!chat.turns.length) {
-    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><div class="lw-starters col">${STARTERS.map(([zh, e]) => `<button type="button" class="lw-starter" data-ask="${esc(W(zh, e))}">${esc(W(zh, e))}</button>`).join('')}</div><p class="lw-ask-note">${W('AI 依法規與判決回答，不是法律意見。', 'AI, from the laws and rulings found. Not legal advice.')}</p></div>`;
+    const city = myCities()[0];
+    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><div class="lw-starters col">${STARTERS.map(([zh, e]) => `<button type="button" class="lw-starter" data-ask="${esc(W(zh, e))}">${esc(W(zh, e))}</button>`).join('')}</div><button type="button" class="lw-city"><span>${W('地方法規', 'Local rules')}</span><b>${esc(city ? (en ? cityEn(city) : city) : readCity() === '' ? W('不查', 'None') : W('選你住的縣市', 'Pick your city'))}</b><i aria-hidden="true">›</i></button><p class="lw-ask-note">${W('AI 依法規與判決回答，不是法律意見。', 'AI, from the laws and rulings found. Not legal advice.')}</p></div>`;
     return;
   }
   out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);
@@ -1305,7 +1350,7 @@ function turnHtml(t) {
   const name = new Map(r.sources.map(s => [`${s.p}:${s.key}`, s.n]));
   const cases = new Map((r.cases || []).map(c => [c.jid, c]));
   const rules = new Map((r.rules || []).map(x => [x.id, x]));
-  const chips = cites => cites.map(c => (cases.has(c) ? caseChip(cases.get(c)) : rules.has(c) ? ruleLink(rules.get(c), 'lw-ref lw-cite', `<b>${esc(rules.get(c).agency || W('規定', 'Rule'))}</b> ${W('規定', 'rule')}`) : citeChip(...c.split(':'), name.get(c)))).join('');
+  const chips = cites => cites.map(c => (cases.has(c) ? caseChip(cases.get(c)) : rules.has(c) ? ruleLink(rules.get(c), 'lw-ref lw-cite', `<b>${esc(rules.get(c).agency || W('規定', 'Rule'))}</b><span>${W('規定', 'rule')}</span>`) : citeChip(...c.split(':'), name.get(c)))).join('');
   const card = (href, title, sub, extra = '') => `<a class="lw-notice" href="${esc(href)}"${extra}><b>${esc(title)}</b><small>${esc(sub)}</small></a>`;
   const block = (cls, icon, title, inner) => `<div class="lw-block ${cls}"><h4><i>${icon}</i>${esc(title)}</h4>${inner}</div>`;
   // At a glance first: the verdict, the key facts as tiles, then the why and, for progress, the steps.
@@ -1319,7 +1364,8 @@ function turnHtml(t) {
     r.agency ? block('blue', MENU_ICON.gov, W('找哪個機關', 'Who to contact'), `<p>${esc(r.agency)}</p>`) : '',
     r.next.length ? block('green', MENU_ICON.steps, W('下一步', 'Next steps'), `<ol class="lw-steps">${r.next.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`) : '',
     r.notices?.length ? block('teal', MENU_ICON.gov, W('政府公告', 'Government notices'), `<div class="lw-cards">${r.notices.map(x => `<a class="lw-notice" href="${esc(x.url)}" target="_blank" rel="noopener"><b>${esc(x.t)}</b><small>${esc([x.agency, x.d].filter(Boolean).join(' · '))}</small></a>`).join('')}</div>`) : '',
-    r.bills?.length ? block('indigo', MENU_ICON.steps, W('立法院進度', 'In the Legislative Yuan'), `<div class="lw-cards">${r.bills.slice(0, 3).map(b => `<a class="lw-notice" href="${b.k.startsWith('budget:') ? `#tab=bills&amp;f=budget&amp;budget=${encodeURIComponent(b.k.slice(7))}` : `#item=${esc(b.k.replace(':', '-'))}`}"><b>${esc(b.n)}</b><small>${esc(b.k.startsWith('budget:') ? W('預算審議', 'Budget') : stageShort({ stage: b.stage }, en))}</small></a>`).join('')}${r.bills.length > 3 ? `<a class="lw-more-link" href="#tab=bills">${W(`更多 ${r.bills.length - 3} 件`, `${r.bills.length - 3} more`)}</a>` : ''}</div>`) : '',
+    // (Every one a tap away, a budget first: never behind 更多 N 件, which led to the list, not to it. Jay 2026-10-27.)
+    r.bills?.length ? block('indigo', MENU_ICON.steps, W('立法院進度', 'In the Legislative Yuan'), `<div class="lw-cards">${[...r.bills].sort((a, b) => b.k.startsWith('budget:') - a.k.startsWith('budget:')).map(b => `<a class="lw-notice${b.k.startsWith('budget:') ? ' lw-budget-card' : ''}" href="${b.k.startsWith('budget:') ? `#tab=bills&amp;f=budget&amp;budget=${encodeURIComponent(b.k.slice(7))}` : `#item=${esc(b.k.replace(':', '-'))}`}"><b>${esc(b.n)}</b><small>${esc(b.k.startsWith('budget:') ? [W('預算', 'Budget'), b.d].filter(Boolean).join(' · ') : stageShort({ stage: b.stage }, en))}</small></a>`).join('')}</div>`) : '',
     r.cases?.length ? block('purple', MENU_ICON.court, W('類似判決', 'Similar rulings'), `<div class="lw-cards">${r.cases.map(c => ((court, no) => card(caseHref(c.jid), no || court || c.jid, [no ? court : '', c.t, c.d && shortDay(c.d)].filter(Boolean).join(' · ')))(...(c.no || '').split(' '))).join('')}</div>`) : '',
     r.rules?.length ? block('orange', MENU_ICON.gov, W('行政規則', 'Agency rules'), `<div class="lw-cards">${r.rules.map(x => ruleLink(x, 'lw-notice', `<b>${esc(x.n)}</b><small>${esc([x.agency, x.d && shortDay(x.d)].filter(Boolean).join(' · '))}</small>`)).join('')}</div>`) : '',
     r.people?.length ? block('teal', DOOR_ICON.people, W('立委', 'Legislators'), `<div class="lw-cards">${r.people.map(x => card(`#who=${x.id}`, x.n, x.party)).join('')}</div>`) : '',
@@ -1337,7 +1383,7 @@ const caseHref = jid => `#r=${encodeURIComponent(jid)}`;
 const caseChip = c => {
   const [, y, w, n] = c.jid.split(',');
   const label = c.jid.startsWith('s') ? W(`釋字${c.jid.slice(1)}`, `J.Y. ${c.jid.slice(1)}`) : c.jid.startsWith('j') ? W(`${c.jid.slice(1).replace('-', '憲判')}`, `${c.jid.slice(1)} TCC`) : `${y}${w}${n}`;
-  return `<a class="lw-ref lw-cite" href="${esc(caseHref(c.jid))}"><b>${W('判決', 'Ruling')}</b> ${esc(label)}</a>`;
+  return `<a class="lw-ref lw-cite" href="${esc(caseHref(c.jid))}"><b>${W('判決', 'Ruling')}</b><span>${esc(label)}</span></a>`;
 };
 // A rule: its text kept on this site, else the ministry's page (read in the app), else just its name.
 const ruleLink = (x, cls, inner) => (x.text || x.url ? `<a class="${cls}" href="${esc(x.url || '#')}"${x.text ? ` data-text="${esc(`${x.dir}/${textFile(x.id)}`)}"` : ''}>${inner}</a>` : `<span class="${cls}">${inner}</span>`);
@@ -1361,7 +1407,7 @@ async function ask(text) {
     const el = [...document.querySelectorAll('#chat .lw-stage')].pop();
     if (el) el.textContent = stageText(o, en);
   };
-  const r = await chatLaw({ q: text, history, pin, mine: mineOf(state.mine), lang: en ? 'en' : 'zh' }, { fetcher: ai, onStage });
+  const r = await chatLaw({ q: text, history, pin, mine: mineOf(state.mine), lang: en ? 'en' : 'zh', city: myCities() }, { fetcher: ai, onStage });
   chat.turns[chat.turns.length - 1] = r.error ? { role: 'model', error: r.error } : { role: 'model', r };
   if (!r.error) asked();
   chat.busy = false;
@@ -1722,7 +1768,7 @@ async function openCons(id) {
   const named = (it.bills || []).map(k => state.items.find(x => x.k === k)).filter(Boolean);
   const onArts = state.items.filter(x => !named.includes(x) && !x.dropped && x.open && x.stage < PROMULGATED && it.cites.some(c => { const [p, k] = c.split(':'); return x.p === p && (!k || x.arts?.[k]); })).slice(0, 4);
   const billRows = items => `<div class="lw-list">${items.map(x => `<a class="lw-row" href="#item=${esc(x.k.replace(':', '-'))}">${topicTile(itemTopic(x), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(x.n)}">${esc(x.n)}</span><small>${esc([stageShort(x, en), x.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`;
-  const paras = ps => ps.map(p => `<p>${plainHtml(p)}</p>`).join('');
+  const paras = ps => ps.map(p => `<p>${linkedHtml(p, state.names)}</p>`).join('');
   const verdict = consVerdict(it.main.join(''));
   body.innerHTML =
     `<header class="lw-page-head"><h3 class="lw-big-name q-fit-wrap${nameSize(it.n || '')}">${esc(it.n || consLabel(id, en))}</h3><small>${esc([courtName(kind), it.label, it.d && ymd(it.d)].filter(Boolean).join(' · '))}</small></header>` +

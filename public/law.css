@@ -1764,13 +1764,27 @@ a.lw-art-chip {
   margin-inline-end: 4px;
   font-weight: 600;
 }
-/* (A long English law name wraps inside its chip, never past the screen.) */
+/* A chip in an answer stays one line: a long name (違反道路交通管理事件統一裁罰
+   基準及處理細則) is cut short with …, the article (第16條) never; it wrapped
+   into a two-line pill before (Jay 2026-10-27). */
 .lw-points .lw-cite {
   max-width: 100%;
   box-sizing: border-box;
-  padding: 3px 8px;
+  gap: 4px;
+  padding: 3px 9px;
   line-height: 16px;
-  white-space: normal;
+  vertical-align: 0;
+}
+.lw-points .lw-cite b {
+  /* (Capped by the screen, not the line: an unbreakable chip would widen the whole answer.) */
+  max-width: calc(var(--q-vw, 100vw) - 170px);
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lw-points .lw-cite span {
+  flex: none;
 }
 /* An answer's cards: one under another. */
 .lw-cards {
@@ -3724,3 +3738,107 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-notice-arts { color: var(--q-label); font: 600 14px/1.4 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .lw-notice-arts.big { margin: 2px 0 12px; color: var(--q-label-2); font-size: 16px; white-space: normal; }
 .lw-notice-page .lw-stat { padding: 12px 10px; }
+
+/* 問法律's city for 地方法規: one row under the starters, and its sheet. */
+.lw-city {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--q-r-cell);
+  background: transparent;
+  color: var(--q-label-2);
+  font: 500 15px/20px var(--q-font);
+  cursor: pointer;
+}
+.lw-city b {
+  margin-inline-start: auto;
+  color: var(--q-accent);
+  font-weight: 600;
+}
+.lw-city i {
+  color: var(--q-label-3, var(--q-label-2));
+  font: 600 18px/1 var(--q-font);
+  font-style: normal;
+}
+.lw-sheet-lede {
+  margin: 0 0 12px;
+  color: var(--q-label-2);
+  font: 15px/22px var(--q-font);
+}
+.lw-city-row i {
+  color: var(--q-accent);
+  font: 600 17px/1 var(--q-font);
+  font-style: normal;
+}
+.lw-city-row.on .lw-row-name {
+  color: var(--q-accent);
+  font-weight: 600;
+}
+
+/* A rule's text as its points: 一、 a point, （一） under it, 第X條 a heading;
+   every law it names a link. */
+.lw-rule-text {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--q-r-cell);
+  background: var(--q-sheet-cell, var(--q-surface));
+}
+.lw-rule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  font: 400 16px/1.65 var(--q-font);
+}
+.lw-rule b {
+  color: var(--q-accent);
+  font-weight: 600;
+}
+.lw-rule.sub {
+  padding-inline-start: 1.6em;
+}
+.lw-rule.sub b {
+  color: var(--q-label-2);
+}
+.lw-rule.p,
+.lw-rule.item.more,
+.lw-rule.sub.more {
+  grid-template-columns: minmax(0, 1fr);
+}
+.lw-rule.item.more {
+  padding-inline-start: 2em;
+}
+.lw-rule.sub.more {
+  padding-inline-start: 3.6em;
+}
+.lw-rule-art {
+  margin: 8px 0 -4px;
+  color: var(--q-accent);
+  font: 600 15px/20px var(--q-font);
+}
+.lw-rule-art:first-child {
+  margin-top: 0;
+}
+.lw-rule-text + .lw-out {
+  margin-top: 12px;
+}
+.lw-cons-main p,
+.lw-cons-reason p,
+.lw-jd-point p {
+  text-align: justify;
+}
+
+/* The composer right on the keys, where the keys really start (app.mjs
+   dockComposer: the visible part's foot, iOS's slide of the page counted;
+   the kit's --q-kb alone left it ~80px up with the slide, Jay 2026-10-27). */
+html body .lw-composer.lw-on-keys {
+  bottom: var(--lw-keys, 8px) !important;
+}

@@ -44,7 +44,7 @@ export function cleanChat(j) {
     sources,
     // 政府公告 and 立法院 bills the answer drew on (links out, or a bill sheet).
     notices: list(j?.notices, 6).filter(x => x && /^https:\/\//.test(x.url) && str(x.t)).map(x => ({ t: str(x.t), url: x.url, d: str(x.d || ''), agency: str(x.agency || '') })),
-    bills: list(j?.bills, 6).filter(x => x && /^(\d+:\w+|budget:[\p{L}\p{N}]{1,60})$/u.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0 })),
+    bills: list(j?.bills, 6).filter(x => x && /^(\d+:\w+|budget:[\p{L}\p{N}]{1,60})$/u.test(String(x.k || ''))).map(x => ({ k: String(x.k), n: str(x.n), stage: Number(x.stage) || 0, ...(str(x.d || '') ? { d: str(x.d).slice(0, 20) } : {}) })),
     // Judgments and 釋字, 行政規則, legislators, votes and meetings it drew on (each opens in the app).
     cases,
     rules,
@@ -70,10 +70,10 @@ export const mineOf = m => ({
 // Streamed: the proxy sends a line as each step starts ({ stage: 'find' |
 // 'found' | 'write' }), heard by onStage, then the answer's line with its
 // status. A plain JSON answer (an error, an older proxy) reads the same.
-export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh' }, { fetcher = globalThis.fetch, headers = {}, onStage = () => {} } = {}) {
+export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh', city = [] }, { fetcher = globalThis.fetch, headers = {}, onStage = () => {} } = {}) {
   let r;
   try {
-    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), lang, stream: true }) });
+    r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), ...(city.length ? { city: city.slice(0, 3) } : {}), lang, stream: true }) });
   } catch {
     // (No connection only when the phone says so: a slow or failed answer from the server isn't the person's internet.)
     return { error: globalThis.navigator?.onLine === false ? 'offline' : 'failed' };
@@ -116,11 +116,66 @@ async function readLines(body, each) {
   return last;
 }
 
-// What the waiting bubble says at each step.
+// What the waiting bubble says at each step: what it is really looking at
+// (Jay 2026-10-27: it said 找條文 all along while it read a legislator's
+// record or a budget). found.look: what comes after the articles; write:
+// what the answer rests on.
+const LOOK = {
+  budget: ['預算進度', 'the budget'],
+  bills: ['立法院進度', 'the bills'],
+  news: ['政府公告', 'government notices'],
+  people: ['立委的提案與表決', 'the legislator’s record'],
+  ly: ['立法院的資料', 'the Legislative Yuan’s records'],
+  cases: ['判決與規定', 'rulings and rules']
+};
+const joinZh = l => (l.length > 1 ? `${l.slice(0, -1).join('、')}和${l.at(-1)}` : l[0] || '');
+const joinEn = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} and ${l.at(-1)}` : l[0] || '');
 export function stageText(o, en = false) {
-  if (o?.stage === 'found') return o.arts ? (en ? `Found ${o.arts} articles; checking rulings…` : `找到 ${o.arts} 條條文，查判決與規定…`) : en ? 'Checking rulings and rules…' : '查判決與規定…';
-  if (o?.stage === 'write') return en ? 'Writing the answer…' : '撰寫回答中…';
-  return en ? 'Finding the laws…' : '找條文中…';
+  if (o?.stage === 'found') {
+    const look = (Array.isArray(o.look) ? o.look : ['cases']).filter(k => LOOK[k]).map(k => LOOK[k][en ? 1 : 0]);
+    if (en) return `${o.arts ? `${o.arts} articles found; ` : ''}checking ${joinEn(look) || 'more'}…`;
+    return `${o.arts ? `找到 ${o.arts} 條條文，` : ''}查${joinZh(look) || '相關資料'}…`;
+  }
+  if (o?.stage === 'write') {
+    const people = Array.isArray(o.people) ? o.people.slice(0, 2) : [];
+    const what = [
+      o.budgets ? [`預算`, 'the budget'] : null,
+      people.length ? [`${people.join('、')}的紀錄`, `${people.join(' and ')}’s record`] : null,
+      o.bills ? [`${o.bills} 件法案`, `${o.bills} bills`] : null,
+      o.arts ? [`${o.arts} 條條文`, `${o.arts} articles`] : null,
+      o.cases ? [`${o.cases} 件判決`, `${o.cases} rulings`] : null,
+      o.rules ? [`${o.rules} 個規定`, `${o.rules} rules`] : null
+    ].filter(Boolean).slice(0, 3);
+    if (!what.length) return en ? 'Writing the answer…' : '撰寫回答中…';
+    return en ? `Writing from ${joinEn(what.map(x => x[1]))}…` : `依${joinZh(what.map(x => x[0]))}撰寫回答…`;
+  }
+  return en ? 'Working out where to look…' : '理解問題，找相關資料…';
+}
+
+// The reader's city (their 地方法規 only, since a city's rules bind only who
+// lives there): the one they picked in 問法律 (localStorage 'law.city'; ''
+// = none), else the counties of their places the family apps share (home,
+// work, school: the kit's dayoff.mjs).
+export const CITIES = ['臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市', '基隆市', '新竹市', '嘉義市', '新竹縣', '苗栗縣', '彰化縣', '南投縣', '雲林縣', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'];
+const CITY_KEY = 'law.city';
+export function readCity(store = globalThis.localStorage) {
+  try {
+    const v = store?.getItem(CITY_KEY);
+    return v == null ? null : CITIES.includes(v) ? v : '';
+  } catch {
+    return null;
+  }
+}
+export function saveCity(city, store = globalThis.localStorage) {
+  try {
+    store?.setItem(CITY_KEY, CITIES.includes(city) ? city : '');
+  } catch {}
+}
+// The cities sent with a question: the picked one, else the places' counties (at most 3).
+export function citiesOf(picked, places = []) {
+  if (picked != null) return picked ? [picked] : [];
+  const tai = s => String(s || '').replace(/台/g, '臺');
+  return [...new Set(places.map(p => tai(p?.county)).filter(c => CITIES.includes(c)))].slice(0, 3);
 }
 
 export function chatError(code, en = false) {

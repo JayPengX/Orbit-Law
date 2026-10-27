@@ -27,12 +27,6 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
   <img src="docs/screenshots/law-6.webp" width="30%" alt="Landmark interpretations">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/law-4.webp" width="30%" alt="Bills, stage by stage">
-  <img src="docs/screenshots/law-5.webp" width="30%" alt="Every law in one place">
-  <img src="docs/screenshots/law-6.webp" width="30%" alt="Landmark interpretations">
-</p>
-
 ## Features
 
 - **法規 Laws:** every law and regulation from 全國法規資料庫, in Chinese and English, with every reference a link (第X條之Y, ranges, 前條, 前項, another law's name; about 99% of 28k references land on a real article).

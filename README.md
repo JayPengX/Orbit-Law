@@ -16,9 +16,9 @@
 Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [jaypengx.com](https://jaypengx.com/).
 
 <p align="center">
-  <img src="docs/screenshots/law-1.webp" width="240" alt="Home">
-  <img src="docs/screenshots/law-2.webp" width="240" alt="A law, linked">
-  <img src="docs/screenshots/law-4.webp" width="240" alt="Bills">
+  <img src="docs/screenshots/law-1.webp" width="30%" alt="Home">
+  <img src="docs/screenshots/law-2.webp" width="30%" alt="A law, linked">
+  <img src="docs/screenshots/law-4.webp" width="30%" alt="Bills">
 </p>
 
 ## Features

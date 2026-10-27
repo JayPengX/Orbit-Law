@@ -6,7 +6,10 @@
 //   mode 'bill': what a bill's 對照表 changes; mode 'diff': what the latest
 //   amendment changed (data/diff/<p>.json).
 
-export const ASK_URL = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-ask';
+import * as kit from '#kit/orbit.mjs';
+
+// (api.<domain> on the family's own domain: the kit's API, kit/domain.mjs.)
+export const ASK_URL = `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-ask`;
 export const MAX_Q = 300;
 
 // A Worker call signed with the Orbit Law session (qt), sent as text/plain

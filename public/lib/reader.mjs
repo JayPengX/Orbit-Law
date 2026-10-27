@@ -5,7 +5,10 @@
 // turns it into plain blocks the app draws in its own style.
 //   readPage(html, url) → { title, date, blocks: [{ k: 'h'|'p'|'li'|'table'|'pre', t | rows }], files: [{ name, url }] }
 
-export const PAGE_URL = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
+import * as kit from '#kit/orbit.mjs';
+
+// (api.<domain> on the family's own domain: the kit's API, kit/domain.mjs.)
+export const PAGE_URL = `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-page`;
 export const pageUrl = u => `${PAGE_URL}?u=${encodeURIComponent(u)}`;
 
 // Pages the proxy will fetch (the app keeps a plain link for anything else).

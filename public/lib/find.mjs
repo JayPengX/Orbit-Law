@@ -98,3 +98,21 @@ export const QUICK = {
   tech: ['個資', '網路', '電信'],
   gov: ['公務員', '選舉', '公投', '請願']
 };
+// The quick searches' names in English (the search itself stays in Chinese: the laws are).
+export const QUICK_EN = {
+  學生會: 'Student council', 押金: 'Deposits', 加班費: 'Overtime pay', 車禍: 'Car accidents', 網購退貨: 'Online returns', 遺產: 'Inheritance',
+  資遣費: 'Severance pay', 特休: 'Annual leave', 產假: 'Maternity leave', 最低工資: 'Minimum wage', 勞保: 'Labour insurance',
+  健保: 'Health insurance', 病歷: 'Medical records', 醫療糾紛: 'Medical disputes', 藥品: 'Medicines', 傳染病: 'Infectious diseases',
+  長照: 'Long-term care', 身心障礙: 'Disability', 低收入戶: 'Low-income households', 兒童: 'Children', 家暴: 'Domestic violence',
+  霸凌: 'Bullying', 學費: 'Tuition', 教師: 'Teachers', 學生申訴: 'Student appeals',
+  公司: 'Companies', 商標: 'Trademarks', 消費者: 'Consumers', 定型化契約: 'Standard contracts',
+  所得稅: 'Income tax', 房屋稅: 'House tax', 遺產稅: 'Estate tax', 信用卡: 'Credit cards', 保險: 'Insurance',
+  酒駕: 'Drunk driving', 罰單: 'Traffic tickets', 肇事逃逸: 'Hit and run', 駕照: 'Driving licences',
+  噪音: 'Noise', 空氣污染: 'Air pollution', 垃圾: 'Waste', 再生能源: 'Renewable energy',
+  農地: 'Farmland', 食品: 'Food', 動物保護: 'Animal welfare',
+  詐騙: 'Fraud', 離婚: 'Divorce', 監護權: 'Custody', 個資: 'Personal data',
+  租屋: 'Renting', 房東: 'Landlords', 戶籍: 'Household registration', 都市更新: 'Urban renewal',
+  兵役: 'Military service', 替代役: 'Alternative service', 後備軍人: 'Reservists',
+  網路: 'Internet', 電信: 'Telecoms',
+  公務員: 'Civil servants', 選舉: 'Elections', 公投: 'Referendums', 請願: 'Petitions'
+};

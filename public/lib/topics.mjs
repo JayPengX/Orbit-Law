@@ -15,7 +15,7 @@ export const TOPICS = {
   farm: { zh: '農業', en: 'Farming', color: '#84cc16', icon: '<path d="M12 20V9"/><path d="M12 13c-3 0-5-2-5-5 3 0 5 2 5 5zM12 11c0-3 2-5 5-5 0 3-2 5-5 5zM12 17c-2.5 0-4.5-1.6-4.5-4 2.5 0 4.5 1.6 4.5 4zM12 15c0-2.4 2-4 4.5-4 0 2.4-2 4-4.5 4z"/>' },
   justice: { zh: '司法法務', en: 'Justice', color: '#64748b', icon: '<path d="M12 4v16M8 20h8M5 7h14"/><path d="M5 7 3 12a2.5 2.5 0 0 0 4 0zM19 7l-2 5a2.5 2.5 0 0 0 4 0z"/>' },
   home: { zh: '內政土地', en: 'Housing & land', color: '#d97706', icon: '<path d="m4 11 8-6 8 6"/><path d="M6 10v9h12v-9M10 19v-5h4v5"/>' },
-  defense: { zh: '國防外交', en: 'Defence & foreign', color: '#0ea5e9', icon: '<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>' },
+  defense: { zh: '國防外交', en: 'Defence', color: '#0ea5e9', icon: '<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>' },
   tech: { zh: '數位通訊', en: 'Digital', color: '#06b6d4', icon: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>' },
   gov: { zh: '政府組織', en: 'Government', color: '#8b5cf6', icon: '<path d="M4 20h16M5 17h14M6 17V10M10 17V10M14 17V10M18 17V10M3.5 10h17L12 4z"/>' }
 };

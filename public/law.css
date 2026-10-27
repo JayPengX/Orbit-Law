@@ -458,25 +458,7 @@ html.q-kb #panel-ask {
 }
 
 /* ---- 首頁 ---- */
-.lw-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  padding: 16px;
-  border-radius: 22px;
-  background: radial-gradient(120% 140% at 100% 0%, rgba(167, 139, 250, 0.55), transparent 60%), linear-gradient(135deg, #312e81, #4f46e5);
-  color: #fff;
-  text-decoration: none;
-  box-shadow: var(--q-shadow);
-}
-.lw-hero-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 700 13px/1 var(--q-font);
-  letter-spacing: 0.04em;
-  opacity: 0.9;
-}
+/* (The ask card is the kit's hero, .q-hero-card: its colour, corners and eyebrow.) */
 .lw-hero-top svg {
   width: 16px;
   height: 16px;
@@ -1710,7 +1692,7 @@ a.lw-art-chip {
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  background: var(--q-accent);
   color: #fff;
   font: 600 14px/1 var(--q-font);
   cursor: pointer;
@@ -2844,7 +2826,7 @@ details.lw-bud-row[open] > summary {
   margin: 8px 0 24px;
   padding: 14px 16px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #3b2f8f, #5b4fd6);
+  background: color-mix(in srgb, var(--q-accent) 86%, #0b1020);
   color: #fff;
   text-decoration: none;
 }

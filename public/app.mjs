@@ -251,7 +251,7 @@ const LIVE = it => !it.dropped && !it.held && it.open && it.stage >= 1 && it.sta
 function drawHome() {
   const panel = $('panel-home');
   const starters = STARTERS.map(([zh, e]) => `<a class="lw-starter" href="#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}">${esc(W(zh, e))}</a>`).join('');
-  const hero = `<a class="lw-hero" href="#tab=ask"><span class="lw-hero-top">${ICON_SPARK}<span>${W('問法律', 'Ask the law')}</span></span><strong>${W('遇到法律問題？用白話問', 'A legal question? Ask in plain words')}</strong><span class="lw-hero-box"><span>${W('輸入你遇到的事', 'Type what happened')}</span><i>${ICON_SEND}</i></span></a><div class="lw-starters rail">${starters}</div>`;
+  const hero = `<a class="q-hero-card lw-hero" href="#tab=ask"><span class="q-hc-eyebrow lw-hero-top">${ICON_SPARK}<span>${W('問法律', 'Ask the law')}</span></span><strong>${W('遇到法律問題？用白話問', 'A legal question? Ask in plain words')}</strong><span class="lw-hero-box"><span>${W('輸入你遇到的事', 'Type what happened')}</span><i>${ICON_SEND}</i></span></a><div class="lw-starters rail">${starters}</div>`;
 
   // 立法院: the latest day anything moved, and the bills that moved last.
   const items = state.items.filter(it => !it.dropped && it.u);

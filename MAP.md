@@ -8,7 +8,7 @@ like every Orbit app; the data is public, built onto this site once a day,
 and works offline once opened. Tabs: 首頁 (one search, 問法律) · 法規 · 裁判 ·
 立法 · 我的.
 
-Live: https://jaypengx.com/law/
+Live: https://orbit.jaypengx.com/law/
 
 ## How it works
 

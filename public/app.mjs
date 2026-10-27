@@ -244,6 +244,7 @@ function changeText(c, brief = false) {
 // 新 on an amendment from the last two weeks; older ones in the list go untagged.
 const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>';
 const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
 
 // ---- 首頁 ---------------------------------------------------------------------------------
@@ -1336,7 +1337,13 @@ function drawChat() {
   if (!out) return;
   if (!chat.turns.length) {
     const city = myCities()[0];
-    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><div class="lw-starters col">${STARTERS.map(([zh, e]) => `<button type="button" class="lw-starter" data-ask="${esc(W(zh, e))}">${esc(W(zh, e))}</button>`).join('')}</div><button type="button" class="lw-city"><span>${W('地方法規', 'Local rules')}</span><b>${esc(city ? (en ? cityEn(city) : city) : readCity() === '' ? W('不查', 'None') : W('選你住的縣市', 'Pick your city'))}</b><i aria-hidden="true">›</i></button><p class="lw-ask-note">${W('AI 依法規與判決回答，不是法律意見。', 'AI, from the laws and rulings found. Not legal advice.')}</p></div>`;
+    // One grouped list of questions to start from (each with its topic's tile), then the 地方法規 setting
+    // as its own row with what it means under it, then the note (Jay 2026-10-27: grey slabs and a loose row read "so ugly").
+    const cityName = city ? (en ? cityEn(city) : city) : readCity() === '' ? W('不查', 'None') : W('未設定', 'Not set');
+    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><p>${W('會引用條文、判決和立法院的資料回答', 'Answered from the laws, rulings and the Legislative Yuan, cited')}</p></div>` +
+      `<p class="lw-list-cap lw-ask-cap">${W('試試這樣問', 'Try asking')}</p><div class="lw-list lw-ask-list">${STARTERS.map(([zh, e, topic]) => `<button type="button" class="lw-row" data-ask="${esc(W(zh, e))}">${topicTile(topic, 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(W(zh, e))}</span></span>${CHEVRON}</button>`).join('')}</div>` +
+      `<div class="lw-list lw-ask-list lw-city-list"><button type="button" class="lw-row lw-city">${topicTile('home', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${W('地方法規', 'Local rules')}</span></span><b class="lw-row-val${city ? '' : ' off'}">${esc(cityName)}</b>${CHEVRON}</button></div>` +
+      `<p class="lw-ask-foot">${W('只查你住的縣市的自治條例與規則。AI 依法規與判決回答，不是法律意見。', 'Only your own city’s local rules are searched. AI answers from the laws and rulings; not legal advice.')}</p>`;
     return;
   }
   out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);

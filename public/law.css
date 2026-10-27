@@ -3739,33 +3739,52 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-notice-arts.big { margin: 2px 0 12px; color: var(--q-label-2); font-size: 16px; white-space: normal; }
 .lw-notice-page .lw-stat { padding: 12px 10px; }
 
-/* 問法律's city for 地方法規: one row under the starters, and its sheet. */
-.lw-city {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  max-width: 420px;
-  box-sizing: border-box;
-  min-height: 44px;
-  margin-top: 4px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--q-r-cell);
-  background: transparent;
+/* 問法律's start: the orb and its line, one list of questions (a tile each),
+   the 地方法規 row in a list of its own, the note under it. */
+.lw-ask-empty {
+  gap: 4px;
+  padding: 0 8px 16px;
+}
+.lw-ask-empty .lw-orb {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+}
+.lw-ask-empty .lw-orb svg {
+  width: 28px;
+  height: 28px;
+}
+.lw-ask-cap {
+  padding: 0 16px 6px;
+}
+.lw-ask-list .lw-row {
+  min-height: 48px;
+  padding-block: 6px;
+}
+.lw-ask-list .lw-row-name {
+  font: 500 16px/21px var(--q-font);
+  white-space: normal;
+}
+.lw-city-list {
+  margin-top: 16px;
+}
+.lw-row-val {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
   color: var(--q-label-2);
-  font: 500 15px/20px var(--q-font);
-  cursor: pointer;
+  font: 400 16px/21px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.lw-city b {
-  margin-inline-start: auto;
+.lw-row-val.off {
   color: var(--q-accent);
-  font-weight: 600;
 }
-.lw-city i {
-  color: var(--q-label-3, var(--q-label-2));
-  font: 600 18px/1 var(--q-font);
-  font-style: normal;
+.lw-ask-foot {
+  margin: 0;
+  padding: 8px 16px 0;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
 }
 .lw-sheet-lede {
   margin: 0 0 12px;

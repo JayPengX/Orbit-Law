@@ -1443,7 +1443,7 @@ function rulingRow(r, { sub = '' } = {}) {
   const name = cons ? consName(r) : r[2] || caseNo(id);
   const [zh, eng, tone] = cons ? ['', '', ''] : caseKind(id);
   const line = sub || [cons ? consLabel(id, en) : kind === 'low' ? `${courtLabel(id)} ${id.split(',').slice(1, 4).join('')}` : caseNo(id), kind === 'low' ? shortDay(d) : ymd(d)].filter(Boolean).join(' · ');
-  return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${zh ? countTag(en ? eng : zh, tone) : ''}${esc(line)}</small></span></a>`;
+  return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${esc(zh ? `${en ? eng : zh} · ${line}` : line)}</small></span></a>`;
 }
 const COURT_SHORT = { TPS: 'Supreme Court', TPA: 'Admin. Court', JCC: 'Const. Court' };
 

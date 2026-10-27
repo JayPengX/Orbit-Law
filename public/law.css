@@ -1683,7 +1683,7 @@ a.lw-art-chip {
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  background: var(--q-accent);
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
   color: #fff;
   font: 600 14px/1 var(--q-font);
   cursor: pointer;
@@ -2812,7 +2812,7 @@ details.lw-bud-row[open] > summary {
   margin: 8px 0 24px;
   padding: 14px 16px;
   border-radius: var(--q-r-card);
-  background: color-mix(in srgb, var(--q-accent) 86%, #0b1020);
+  background: linear-gradient(135deg, #3b2f8f, #5b4fd6);
   color: #fff;
   text-decoration: none;
 }
@@ -3061,7 +3061,7 @@ details.lw-bud-row[open] > summary {
   padding: 12px 10px;
   overflow: hidden;
   border-radius: 6px 12px 12px 6px;
-  background: color-mix(in srgb, var(--t) 86%, #000);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--t) 78%, #fff), var(--t) 55%, color-mix(in srgb, var(--t) 70%, #000));
   color: #fff;
 }
 .lw-cover-art svg { width: 26px; height: 26px; opacity: 0.9; }

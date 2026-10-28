@@ -2970,6 +2970,6 @@ addEventListener('beforeunload', () => $('loading')?.removeAttribute('hidden'));
 if (!gated) {
   start();
   signIn();
-  keepOffline();
 }
+keepOffline();
 watchUpdates({ current: BUILD, key: 'orbitLaw', cachePrefix: 'orbit-law-' });

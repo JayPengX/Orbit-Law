@@ -20,7 +20,7 @@ import { dayOffOn, loadDayOff, placeOf } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
 import { searchLaws, parseJump, exactLaw, ymd, relatedLaws } from './lib/search.mjs';
-import { expand, rankArticles, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
+import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml } from './lib/view.mjs';
@@ -28,7 +28,7 @@ import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
-import { searchText, groupHits } from './lib/fulltext.mjs';
+import { searchText } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel } from './lib/rulings.mjs';
 import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE } from './lib/cons.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
@@ -474,15 +474,19 @@ async function findAll(q, out) {
       })
       .catch(() => {});
   if ([...q].length < 2 || jumpTo) return;
-  // The articles: each term's hits, best laws first, then each one's best articles.
+  // The articles: what the question is about, as ideas each found in its
+  // own words (網購退貨: 通訊交易 and 解除契約, lib/find.mjs concepts), the
+  // laws whose articles hold the most of them, then the best said (BM25).
   let groups = [];
+  let ideas = [terms];
+  let stats = {};
   try {
-    const seen = new Map();
-    for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 30)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
-    groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && g.row !== exact && keep(g.row));
-    // Laws before 子法, everyday laws first, then most hits.
-    const common = r => !COMMON.includes(r[1]);
-    groups.sort((a, b) => (a.row[2] === '命令') - (b.row[2] === '命令') || common(a.row) - common(b.row) || b.arts.length - a.arts.length);
+    const union = async ws => [...new Set((await Promise.all(ws.map(w => searchText(w, n => data(`text/${n}.json`))))).flat())];
+    const whole = await union(terms);
+    ideas = concepts(q, whole.length);
+    const hits = ideas.length === 1 && ideas[0].join() === terms.join() ? [whole] : await Promise.all(ideas.map(union));
+    stats = { df: hits.map(h => h.length), N: state.rows.reduce((n, r) => n + (Number(r[7]) || 0), 0) };
+    groups = lawGroups(hits, state.rows, { common: COMMON }).filter(g => g.row !== exact && keep(g.row));
   } catch {}
   if (run !== findRun) return;
   const box = $('find-arts');
@@ -491,18 +495,23 @@ async function findAll(q, out) {
     box.innerHTML = !exact && !laws.length && !regs.length && !bills.length && !ruleHits ? emptyNote(W('沒有法規或條文提到這個', 'Nothing found'), W('換個說法，或直接用白話問', 'Try other words, or just ask')) : '';
     return;
   }
-  const top = groups.slice(0, 4);
-  const files = await Promise.all(top.map(g => lawFile(g.row[0]).catch(() => null)));
+  // (The likeliest six read, the four that say it best shown.)
+  const read = groups.slice(0, 6);
+  const files = await Promise.all(read.map(g => lawFile(g.row[0]).catch(() => null)));
+  const ranked = orderLaws(read.map((g, i) => ({ ...g, file: files[i] })), ideas, { ...stats, common: COMMON });
+  const top = ranked.slice(0, 4);
   const delegs = await Promise.all(top.map(g => (state.regLaws[g.row[0]] ? data(`deleg/${g.row[0]}.json`).catch(() => null) : null)));
   if (run !== findRun || !document.body.contains(box)) return;
+  const words = [...new Set(ideas.flat())];
   const cards = [];
   top.forEach((g, i) => {
-    for (const a of rankArticles(files[i], g.arts, terms).slice(0, i ? 2 : 4)) {
+    for (const a of g.arts.slice(0, i ? 2 : 4)) {
       const subs = (delegs[i]?.to?.[a.key] || []).slice(0, 2);
-      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b class="q-fit-wrap">${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, terms)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
+      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b class="q-fit-wrap">${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, words)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
     }
   });
-  const rest = groups.slice(4, 10).map(g => lawItem(g.row, W(`${g.arts.length} 條提到`, `${g.arts.length} articles mention it`), '', `#law=${g.row[0]}&find=${encodeURIComponent(terms[0])}`));
+  const shown = new Set(top.map(g => g.law));
+  const rest = [...ranked, ...groups.slice(6)].filter(g => !shown.has(g.law)).slice(0, 6).map(g => lawItem(g.row, W(`${g.hits} 條提到`, `${g.hits} articles mention it`), '', `#law=${g.row[0]}&find=${encodeURIComponent(terms[0])}`));
   box.innerHTML = cards.length ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${cards.join('')}</div>`) + (rest.length ? section(W('也提到的法規', 'Also mentioned in'), list(rest)) : '') : '';
 }
 // A 子法's parent law, by name, for its line under the name.

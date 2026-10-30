@@ -233,7 +233,7 @@ test('bills: the articles a title names, counted over the open round', () => {
   assert.deepEqual(foldBills([a, b])[0].arts, { 2: 2, 3: 1 });
 });
 
-import { bigrams, bucketOf, buildIndex, searchText, groupHits, PER_LAW } from '../public/lib/fulltext.mjs';
+import { bigrams, bucketOf, buildIndex, searchText, PER_LAW } from '../public/lib/fulltext.mjs';
 test('全文檢索: bigram buckets find articles holding every pair of the words', async () => {
   assert.deepEqual([...bigrams('損害，賠償')], ['損害', '賠償']);
   const laws = [{ a: [['C', '', '章'], ['A', '1', '負損害賠償責任'], ['A', '2', '損害']] }, { a: [['A', '1', '賠償損害之方法']] }];
@@ -242,7 +242,6 @@ test('全文檢索: bigram buckets find articles holding every pair of the words
   assert.deepEqual(await searchText('損害賠償', bucket), [0], 'only the article with all three pairs');
   assert.deepEqual(await searchText('損害', bucket), [0, 1, PER_LAW]);
   assert.deepEqual(await searchText('！', bucket), []);
-  assert.deepEqual(groupHits([0, 1, PER_LAW]), [{ law: 0, arts: [0, 1] }, { law: 1, arts: [0] }]);
   assert.ok(bucketOf('損害') >= 0 && bucketOf('損害') < 2048);
 });
 
@@ -763,4 +762,21 @@ test('a rule\'s text as its points, broken lines joined; laws it names linked', 
   assert.doesNotMatch(html, /a=3"/);
   assert.match(linkedHtml('釋字第748號解釋', names), /href="#r=s748"/);
   assert.match(ruleHtml('一、依刑法第二百十八條。', names), /<p class="lw-rule item"><b>一、<\/b><span>依<a class="lw-ref"/);
+});
+
+test('找法: a question as ideas, the laws holding most of them first, the best-said article first', async () => {
+  const { concepts, lawGroups, orderLaws } = await import('../public/lib/find.mjs');
+  assert.deepEqual(concepts('網購退貨'), [['網購', '通訊交易'], ['退貨', '解除契約']]);
+  assert.deepEqual(concepts('老闆不發薪水怎麼辦'), [['老闆', '雇主'], ['薪水', '工資']]);
+  // Said whole in the laws (遺產稅): one idea, not 遺產 and a stray 稅.
+  assert.equal(concepts('遺產稅', 40).length, 1);
+  const rows = [['L1', '消費者保護法', '法律'], ['L2', '某某辦法', '命令']];
+  // Law 0's article 1 holds both ideas; law 1's article 0 one.
+  const hits = [[1, 2048], [1, 3]];
+  const groups = lawGroups(hits, rows);
+  assert.equal(groups[0].law, 0);
+  assert.deepEqual(groups[0].arts.find(a => a.i === 1).has, 2);
+  const file = { a: [['A', '1', '通則'], ['A', '19', '通訊交易之消費者，得於七日內解除契約。'], ['A', '2', '解除契約'], ['A', '3', '通訊交易']] };
+  const ranked = orderLaws([{ ...groups[0], file }], concepts('網購退貨'), { df: [2, 2], N: 100 });
+  assert.equal(ranked[0].arts[0].key, '19');
 });

@@ -9,7 +9,7 @@ const SAME = [
   ['學生會', '學生自治組織', '學生自治'],
   ['租屋', '租賃', '承租'],
   ['長照', '長期照顧'],
-  ['押金', '押租金', '擔保金'],
+  ['押金', '押租金'],
   ['房東', '出租人'],
   ['房客', '承租人'],
   ['加班', '延長工作時間'],
@@ -35,8 +35,48 @@ const SAME = [
   ['遺產', '繼承'],
   ['小孩', '子女'],
   ['監護權', '親權'],
-  ['個資', '個人資料']
+  ['個資', '個人資料'],
+  ['特休', '特別休假'],
+  ['工時', '工作時間'],
+  ['職災', '職業災害'],
+  ['薪水', '工資'],
+  ['薪資', '工資'],
+  ['開除', '終止勞動契約', '解僱'],
+  ['正當防衛', '現在不法之侵害'],
+  ['緊急避難', '緊急危難'],
+  ['借錢', '消費借貸', '借貸'],
+  ['結婚年齡', '不得結婚'],
+  ['偷拍', '竊錄', '攝錄'],
+  ['超速', '最高時速'],
+  ['告訴期間', '告訴乃論'],
+  ['消滅時效', '不行使而消滅'],
+  ['妨害名譽', '公然侮辱', '誹謗'],
+  ['誹謗', '散布於眾'],
+  ['傷害', '傷害人之身體'],
+  ['詐騙', '詐術'],
+  ['遺產', '遺產繼承人'],
+  ['監護權', '權利義務之行使或負擔'],
+  ['肇事', '交通事故'],
+  ['闖紅燈', '紅燈'],
+  ['安全帽', '安全帽'],
+  ['違停', '停車'],
+  ['醉', '酒精濃度'],
+  ['房租', '租金'],
+  ['打人', '傷害人之身體'],
+  ['偷東西', '竊取'],
+  ['小偷', '竊取'],
+  ['欠錢', '債務'],
+  ['被騙', '詐術'],
+  ['分手', '離婚'],
+  ['小孩', '未成年子女'],
+  ['監視器', '攝錄'],
+  ['工作', '勞工'],
+  ['上班', '工作時間'],
+  ['裁員', '資遣'],
+  ['罰錢', '罰鍰']
 ];
+// Words that ask, not say (怎麼辦, 可以嗎): left out of what's searched.
+const FILLER = /怎麼辦|怎麼|可以嗎|可以|是否|多少|幾天|幾歲|如何|什麼|嗎|呢|吧|的|了|被|我|要|會|不|沒有|有/g;
 
 // The query, then the law books' words for it (none twice).
 // Also: 台 and 臺 both ways (臺北 is 台北), and a law's short name for its
@@ -54,16 +94,66 @@ export function expand(q) {
 
 const count = (text, w) => (w ? String(text).split(w).length - 1 : 0);
 
-// A law's hit articles, best first: how often they say the words.
-// law: { a: [[kind, key, text]] }; idx: the hit articles' places (articles only).
-export function rankArticles(law, idx, terms) {
-  const arts = (law?.a || []).filter(a => a[0] === 'A');
+// What a question is about, as separate ideas, each with the law books'
+// words for it: 網購退貨 is 網購 (通訊交易) and 退貨 (解除契約), found in
+// one article though never side by side. [[word, its law words…], …]; a
+// question with no everyday word in it, or one the laws say as it is
+// (`whole`: how many articles hold it whole; 遺產稅), is one idea (expand's words).
+export function concepts(q, whole = 0) {
+  const t = String(q || '').trim();
+  if (whole >= 3) return [expand(t)];
+  const groups = SAME.flatMap(g => g.map(w => [w, g])).sort((a, b) => b[0].length - a[0].length);
+  let rest = t;
+  const out = [];
+  for (const [w, g] of groups)
+    if (rest.includes(w)) {
+      rest = rest.replace(w, ' ');
+      const ws = [w, ...g.filter(x => x !== w)];
+      const same = out.find(c => c.includes(w));
+      if (!same) out.push(ws);
+    }
+  if (!out.length) return [expand(t)];
+  for (const left of rest.replace(FILLER, ' ').split(/\s+/)) if ([...left].length >= 2) out.push(expand(left));
+  return out;
+}
+
+// How well an article says the ideas (BM25: each idea's count, eased off
+// and weighed against the article's length, rarer ideas counting more);
+// an article in a chapter named for an idea (第九章 緩刑) counts more.
+// `df`: how many articles hold each idea; `N`: articles in all.
+const K1 = 1.2;
+const AVG_LEN = 120;
+export function articleScore(text, chapter, ideas, { df = [], N = 100_000 } = {}) {
+  const len = [...String(text)].length;
+  let score = 0;
+  let has = 0;
+  ideas.forEach((ws, i) => {
+    const tf = Math.max(0, ...ws.map((w, j) => count(text, w) * (j ? 0.9 : 1)));
+    const idf = Math.log(1 + N / Math.max(1, df[i] || 1));
+    if (tf) has++;
+    score += (idf * (tf * (K1 + 1))) / (tf + K1 * (0.25 + (0.75 * len) / AVG_LEN));
+    if (chapter && ws.some(w => chapter.includes(w))) score += idf;
+  });
+  return { score, has };
+}
+
+// A law's hit articles, best first: those with more of the ideas, then the
+// best said. law: { a: [[kind, key, text]] }; idx: the hit articles' places
+// (articles only); `ideas`: concepts() (or plain words, one idea each).
+export function rankArticles(law, idx, ideas, stats = {}) {
+  const list = ideas.map(x => [].concat(x));
+  const arts = [];
+  let chapter = '';
+  for (const a of law?.a || []) {
+    if (a[0] === 'C') chapter = String(a[2] || a[1] || '');
+    else if (a[0] === 'A') arts.push([a[1], a[2], chapter]);
+  }
   return idx
     .map(i => arts[i])
     .filter(Boolean)
-    .map(([, key, text]) => ({ key, text, score: terms.reduce((s, w, j) => s + count(text, w) * (j ? 0.8 : 1), 0) }))
+    .map(([key, text, ch]) => ({ key, text, ...articleScore(text, ch, list, stats) }))
     .filter(a => a.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.has - a.has || b.score - a.score);
 }
 
 // The part of an article around the first word found, the words marked.
@@ -116,3 +206,47 @@ export const QUICK_EN = {
   網路: 'Internet', 電信: 'Telecoms',
   公務員: 'Civil servants', 選舉: 'Elections', 公投: 'Referendums', 請願: 'Petitions'
 };
+
+// The articles found for each idea (search ids: law place × PER_LAW +
+// article), by law: [{ law, row, arts: [{ i, has }], has, hits }], the laws
+// with an article holding the most ideas first, then laws before their
+// 子法, everyday laws, most hits. `rows`: the index's rows in order.
+export function lawGroups(hits, rows, { common = [], per = 2048 } = {}) {
+  const by = new Map();
+  hits.forEach(ids => {
+    const seen = new Set();
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      by.set(id, (by.get(id) || 0) + 1);
+    }
+  });
+  const laws = new Map();
+  for (const [id, has] of by) {
+    const li = Math.floor(id / per);
+    if (!rows[li]) continue;
+    if (!laws.has(li)) laws.set(li, { law: li, row: rows[li], arts: [], has: 0, hits: 0 });
+    const g = laws.get(li);
+    g.arts.push({ i: id % per, has });
+    g.has = Math.max(g.has, has);
+    g.hits++;
+  }
+  const everyday = r => (common.includes(r[1]) ? 0 : 1);
+  return [...laws.values()].sort((a, b) => b.has - a.has || (a.row[2] === '命令') - (b.row[2] === '命令') || everyday(a.row) - everyday(b.row) || b.hits - a.hits);
+}
+
+// The candidate laws, their files read, in the order to show: the one whose
+// best article says it best first (an everyday law, and a law over a 子法, a
+// little ahead), each with its articles ranked: [{ ...group, arts: [article] }].
+export const W = { has: 3, common: 1.5, order: 0.7, hits: 0.3 };
+export function orderLaws(groups, ideas, { df, N, common = [] } = {}) {
+  return groups
+    .map(g => {
+      const arts = rankArticles(g.file, g.arts.map(a => a.i), ideas, { df, N });
+      const best = arts[0];
+      const times = (common.includes(g.row[1]) ? W.common : 1) * (g.row[2] === '命令' ? W.order : 1);
+      return { ...g, arts, rank: best ? (best.has * W.has + best.score) * times + W.hits * Math.log(1 + g.hits) : -1 };
+    })
+    .filter(g => g.arts.length)
+    .sort((a, b) => b.rank - a.rank);
+}

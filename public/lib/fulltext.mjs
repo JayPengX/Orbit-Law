@@ -65,14 +65,3 @@ export async function searchText(query, bucket) {
   }
   return hits;
 }
-
-// Hits grouped by law, most hits first: [{ law: index position, arts: [ordinal] }].
-export function groupHits(ids, limit = 40) {
-  const by = new Map();
-  for (const id of ids) {
-    const li = Math.floor(id / PER_LAW);
-    if (!by.has(li)) by.set(li, []);
-    by.get(li).push(id % PER_LAW);
-  }
-  return [...by.entries()].map(([law, arts]) => ({ law, arts })).sort((a, b) => b.arts.length - a.arts.length).slice(0, limit);
-}

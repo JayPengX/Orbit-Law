@@ -36,8 +36,8 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 - **議程 and live video:** the day's sittings, the speakers, clips of who has spoken, and IVOD's live stream of a meeting in session.
 - **The three sides link:** an article shows its rulings and the bills open on it; a ruling the articles it rules on; a bill the rulings that named it.
 - **Also:** ministries' 行政規則, every city's 地方法規, 政府公告 and 預告, budgets, legislators and their votes.
-- **問法律:** ask a question in plain words; the answer cites the articles, judgments and rules it rests on, each opening in the app.
-- **One search** across names, short names, article numbers and full text; works offline once opened.
+- **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app. A question is split into its ideas, each in the law's own words, so the right article is found far more often.
+- **One search** across names, short names, article numbers and full text; a law named outright (預算法, 刑法) comes first with its first article; works offline once opened.
 
 ## Tech stack
 

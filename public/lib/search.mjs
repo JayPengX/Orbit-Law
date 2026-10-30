@@ -34,6 +34,22 @@ export function searchLaws(rows, query, limit = 50) {
   return scored.slice(0, limit).map(x => x[2]);
 }
 
+// The law a query names outright (預算法, 刑法 → 中華民國刑法, 憲法 → 中華民國憲法),
+// in force, or null: shown on its own above the articles that only cite it.
+export function exactLaw(rows, query) {
+  const q = tidy(query);
+  if (!q) return null;
+  const names = [q, SHORT_NAMES[q], `中華民國${q}`];
+  let best = null;
+  for (const r of rows) {
+    const i = names.indexOf(r[1]);
+    if (i < 0 || r[5]) continue;
+    const s = i + (r[2] === '命令' ? 3 : 0);
+    if (!best || s < best[0]) best = [s, r];
+  }
+  return best && best[1];
+}
+
 // '民法184', '刑法第十條之一', '勞基法 24-1' → { row, key } (the law the name
 // finds best, the article key), or null.
 export function parseJump(rows, query) {

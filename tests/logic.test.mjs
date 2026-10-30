@@ -5,7 +5,7 @@ import { artKey, pcodeOf, compactLaw, diffLaws, historyChange, mergeChanges, ind
 import { cnNumber, linkText, paragraphs, nameMap } from '../public/lib/refs.mjs';
 import { stageOf, compactBill, billStage, foldBills, lawOfTitle, mergeBills, articlesOfTitle, PASSED, PROMULGATED } from '../public/lib/bills.mjs';
 import { timeline, articleHtml, articlesBetween, contents, freshMarks, lawHtml } from '../public/lib/view.mjs';
-import { searchLaws, parseJump, headingDepth } from '../public/lib/search.mjs';
+import { searchLaws, parseJump, headingDepth, exactLaw } from '../public/lib/search.mjs';
 import { loadMine, toggleFollow, lawsChanged, toggleMark, isMarked, addRecent } from '../public/lib/store.mjs';
 
 const law = (p, n, arts, m = '20260101') => ({ p, n, m, a: arts.map(([k, t]) => ['A', k, t]) });
@@ -161,6 +161,10 @@ test('search: names, short names, characters in order, jumps to an article', () 
   assert.equal(parseJump(rows, '刑法第十條之一').key, '10-1');
   assert.equal(parseJump(rows, '民訴 24-1').key, '24-1');
   assert.equal(parseJump(rows, '民法'), null);
+  assert.equal(exactLaw(rows, '民法')[0], 'B1', 'a law named outright');
+  assert.equal(exactLaw(rows, ' 刑法 ')[0], 'C1', 'a short name');
+  assert.equal(exactLaw(rows, '民事'), null, 'part of a name is not the law');
+  assert.equal(exactLaw(rows, '民事舊法'), null, 'not a repealed one');
   assert.equal(headingDepth('第 一 編 總則'), 0);
   assert.equal(headingDepth('   第 三 節 意思表示'), 2);
 });

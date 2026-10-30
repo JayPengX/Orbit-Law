@@ -19,7 +19,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { dayOffOn, loadDayOff, placeOf } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr, SHORT_NAMES as SHORT } from './lib/refs.mjs';
-import { searchLaws, parseJump, ymd, relatedLaws } from './lib/search.mjs';
+import { searchLaws, parseJump, exactLaw, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, rankArticles, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
@@ -409,8 +409,10 @@ async function findAll(q, out) {
   const named = [];
   for (const t of terms) for (const r of searchLaws(state.rows, t, 30)) if (!named.includes(r)) named.push(r);
   const keep = r => !state.topic || rowTopic(r) === state.topic;
+  // A law named outright (預算法, 刑法): the law itself on top, the articles that cite it under it.
+  const exact = jumpTo ? null : exactLaw(state.rows, q);
   // By name: whole-word matches only (a scattered-letter match is noise next to real hits).
-  const close = named.filter(r => keep(r) && terms.some(t => r[1].includes(t) || r[1] === SHORT[t]));
+  const close = named.filter(r => r !== exact && keep(r) && terms.some(t => r[1].includes(t) || r[1] === SHORT[t]));
   const laws = close.filter(r => r[2] !== '命令').slice(0, 6);
   const regs = close.filter(r => r[2] === '命令').slice(0, 6);
   // Bills by their law's name, then by what they're for (their purpose line).
@@ -424,7 +426,21 @@ async function findAll(q, out) {
     `<div id="find-rules"></div><div id="find-local"></div>` +
     (bills.length ? section(W('立法院審議中', 'In the Legislative Yuan'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-rulings"></div><div id="find-people"></div>`;
-  out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
+  const hero = exact && `<a class="lw-find-card lw-find-hero" href="#law=${esc(exact[0])}" style="--t:${TOPICS[rowTopic(exact)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(exact))}<span class="lw-find-hero-name"><b class="q-fit-wrap">${esc(en ? nameOf(exact[0], exact[1]) : exact[1])}</b><small id="find-hero-sub">${esc(lawSub(exact))}</small></span></span><p id="find-hero-text" class="q-skel"></p><span class="lw-find-open">${W('讀全文', 'Read the full text')}<svg viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>`;
+  out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + (hero ? `<section class="q-section lw-sec">${hero}</section>` : '') + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
+  // The named law's own words: its first article (what it's for) and how many articles it has.
+  if (exact)
+    lawFile(exact[0])
+      .then(f => {
+        const arts = (f?.a || []).filter(a => a[0] === 'A');
+        const text = $('find-hero-text'), sub = $('find-hero-sub');
+        if (run !== findRun || !text) return;
+        text.classList.remove('q-skel');
+        if (arts[0]) text.textContent = String(arts[0][2]).replace(/\s+/g, ' ');
+        else text.remove();
+        if (sub && arts.length) sub.textContent = [W(`${arts.length} 條`, `${arts.length} articles`), lawSub(exact)].filter(Boolean).join(' · ');
+      })
+      .catch(() => $('find-hero-text')?.remove());
   // 裁判 by number or words: the few best, the rest in 裁判.
   if ([...q].length >= 2 || consJump(q))
     consData()
@@ -462,7 +478,7 @@ async function findAll(q, out) {
   try {
     const seen = new Map();
     for (const t of terms) for (const g of groupHits(await searchText(t, n => data(`text/${n}.json`)), 30)) seen.set(g.law, [...new Set([...(seen.get(g.law) || []), ...g.arts])]);
-    groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && keep(g.row));
+    groups = [...seen].map(([law, arts]) => ({ law, arts, row: state.rows[law] })).filter(g => g.row && g.row !== exact && keep(g.row));
     // Laws before 子法, everyday laws first, then most hits.
     const common = r => !COMMON.includes(r[1]);
     groups.sort((a, b) => (a.row[2] === '命令') - (b.row[2] === '命令') || common(a.row) - common(b.row) || b.arts.length - a.arts.length);
@@ -471,7 +487,7 @@ async function findAll(q, out) {
   const box = $('find-arts');
   if (!box) return;
   if (!groups.length) {
-    box.innerHTML = !laws.length && !regs.length && !bills.length && !ruleHits ? emptyNote(W('沒有法規或條文提到這個', 'Nothing found'), W('換個說法，或直接用白話問', 'Try other words, or just ask')) : '';
+    box.innerHTML = !exact && !laws.length && !regs.length && !bills.length && !ruleHits ? emptyNote(W('沒有法規或條文提到這個', 'Nothing found'), W('換個說法，或直接用白話問', 'Try other words, or just ask')) : '';
     return;
   }
   const top = groups.slice(0, 4);
@@ -486,7 +502,7 @@ async function findAll(q, out) {
     }
   });
   const rest = groups.slice(4, 10).map(g => lawItem(g.row, W(`${g.arts.length} 條提到`, `${g.arts.length} articles mention it`), '', `#law=${g.row[0]}&find=${encodeURIComponent(terms[0])}`));
-  box.innerHTML = cards.length ? section(W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${cards.join('')}</div>`) + (rest.length ? section(W('也提到的法規', 'Also mentioned in'), list(rest)) : '') : '';
+  box.innerHTML = cards.length ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${cards.join('')}</div>`) + (rest.length ? section(W('也提到的法規', 'Also mentioned in'), list(rest)) : '') : '';
 }
 // A 子法's parent law, by name, for its line under the name.
 const parentName = r => {

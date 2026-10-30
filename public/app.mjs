@@ -204,8 +204,6 @@ async function route() {
     showTab('home');
     drawHome();
   }
-  // Each screen opens with the tab bar's labels showing.
-  document.documentElement.classList.remove('q-tabs-small');
 }
 
 // ---- Shared pieces ----------------------------------------------------------------------
@@ -810,8 +808,6 @@ function focusArticle(k, para = 0) {
   place();
   requestAnimationFrame(() => requestAnimationFrame(place));
   setTimeout(place, 250);
-  // (The jump scrolled the page: the tab bar keeps its labels all the same.)
-  setTimeout(() => document.documentElement.classList.remove('q-tabs-small'), 400);
   flash(para ? el.querySelector(`[data-para="${para}"]`) || el : el);
 }
 function flash(el) {

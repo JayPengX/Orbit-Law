@@ -136,6 +136,7 @@ export function stageText(o, en = false) {
     if (en) return `${o.arts ? `${o.arts} articles found; ` : ''}checking ${joinEn(look) || 'more'}…`;
     return `${o.arts ? `找到 ${o.arts} 條條文，` : ''}查${joinZh(look) || '相關資料'}…`;
   }
+  if (o?.stage === 'draft') return en ? 'Adding the reasons and sources…' : '整理理由與依據…';
   if (o?.stage === 'write') {
     const people = Array.isArray(o.people) ? o.people.slice(0, 2) : [];
     const what = [

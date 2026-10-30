@@ -114,6 +114,7 @@ const nameOf = (p, fallback = '') => { const r = state.byCode.get(p); return (en
 
 // ---- Tabs ------------------------------------------------------------------------------
 
+const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
 const TABS = ['home', 'laws', 'rulings', 'bills', 'mine', 'ask'];
 const tabs = tabBar({
   tabs: [
@@ -123,6 +124,8 @@ const tabs = tabBar({
     { id: 'bills', label: W('立法', 'Bills'), icon: 'live' },
     { id: 'mine', label: W('我的', 'Mine'), icon: 'star' }
   ],
+  // 問法律: a place of its own, the round button beside the bar (lit while it's open).
+  action: { id: 'ask', icon: ICON_SPARK, label: W('問法律', 'Ask the law'), onTap: () => (state.tab === 'ask' ? scrollTo({ top: 0, behavior: 'smooth' }) : go('tab=ask')) },
   // The app keeps the address itself (#law=…, #item=…).
   hash: () => null,
   onSelect: (id, { again } = {}) => {
@@ -134,8 +137,7 @@ const tabs = tabBar({
 
 function showTab(id) {
   state.tab = id;
-  // 問法律 opens from 首頁 (its card and the searches), so 首頁 stays lit.
-  tabs.select(id === 'ask' ? 'home' : id);
+  tabs.select(id);
   for (const t of TABS) $(`panel-${t}`).hidden = t !== id;
 }
 // A page's large title (and a line over it).
@@ -245,7 +247,6 @@ function changeText(c, brief = false) {
 const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>';
-const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
 
 // ---- 首頁 ---------------------------------------------------------------------------------
 
@@ -1365,9 +1366,12 @@ function drawChat() {
   out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);
 }
 
+// The verdict and the answer while they're still being written (the proxy streams them).
+const draftHtml = d => (d?.verdict ? `<p class="lw-verdict q-fit-wrap">${esc(d.verdict)}</p>${d.answer ? `<p class="lw-why">${esc(d.answer)}</p>` : ''}` : '');
+
 function turnHtml(t) {
   if (t.role === 'user') return `<div class="lw-msg me"><p>${esc(t.text)}</p></div>`;
-  if (t.wait) return `<div class="lw-msg ai"><div class="lw-typing"><i></i><i></i><i></i></div><small class="lw-srcs lw-stage">${esc(stageText(t.stage, en))}</small></div>`;
+  if (t.wait) return `<div class="lw-msg ai"><div class="lw-draft">${draftHtml(t.draft)}</div><div class="lw-typing"><i></i><i></i><i></i></div><small class="lw-srcs lw-stage">${esc(stageText(t.stage, en))}</small></div>`;
   if (t.error) return `<div class="lw-msg ai"><p class="lw-none">${esc(chatError(t.error, en))}</p></div>`;
   const r = t.r;
   const name = new Map(r.sources.map(s => [`${s.p}:${s.key}`, s.n]));
@@ -1426,9 +1430,13 @@ async function ask(text) {
   const wait = chat.turns[chat.turns.length - 1];
   // Each step as it starts, in the waiting bubble (no redraw).
   const onStage = o => {
-    wait.stage = o;
+    if (o.stage === 'draft') {
+      wait.draft = o;
+      const d = [...document.querySelectorAll('#chat .lw-draft')].pop();
+      if (d) d.innerHTML = draftHtml(o);
+    } else wait.stage = o;
     const el = [...document.querySelectorAll('#chat .lw-stage')].pop();
-    if (el) el.textContent = stageText(o, en);
+    if (el) el.textContent = stageText(wait.draft ? { stage: 'draft' } : o, en);
   };
   const r = await chatLaw({ q: text, history, pin, mine: mineOf(state.mine), lang: en ? 'en' : 'zh', city: myCities() }, { fetcher: ai, onStage });
   chat.turns[chat.turns.length - 1] = r.error ? { role: 'model', error: r.error } : { role: 'model', r };

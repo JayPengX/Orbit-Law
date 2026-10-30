@@ -3903,3 +3903,11 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 html body .lw-composer.lw-on-keys {
   bottom: var(--lw-keys, 8px) !important;
 }
+
+/* 問法律's own button beside the tab bar: the spark, filled. */
+.q-tab-action svg {
+  fill: currentColor;
+  stroke: none;
+  width: 27px;
+  height: 27px;
+}

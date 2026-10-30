@@ -5,8 +5,8 @@ Taiwan's law on three sides that link to each other: the laws to read
 憲法法庭's every 釋字 and 憲判字, the top courts' judgments); and the bills in
 立法院 that will change them (立法), stage by stage. Behind the Orbit Pass
 like every Orbit app; the data is public, built onto this site once a day,
-and works offline once opened. Tabs: 首頁 (one search, 問法律) · 法規 · 裁判 ·
-立法 · 我的.
+and works offline once opened. Tabs: 首頁 (one search) · 法規 · 裁判 ·
+立法 · 我的, and 問法律 on its own round button beside them.
 
 Live: https://orbit.jaypengx.com/law/
 
@@ -131,7 +131,9 @@ Live: https://orbit.jaypengx.com/law/
   question names. 司法院's judgment pages serve only Taiwan: the proxy reads
   them through its Taiwan relay. Rulings and rules read with every law they
   name a link (`view.mjs` linkedHtml, ruleHtml: a rule's 一、（一） as
-  points). Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  points). The verdict and the answer show as Gemini writes them (the
+  proxy streams them as `draft` lines), the points and links when it's done.
+  Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,

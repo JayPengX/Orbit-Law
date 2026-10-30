@@ -17,24 +17,41 @@ permissions:
   contents: write
   actions: write
 
-concurrency:
-  group: 'live'
-  cancel-in-progress: true
-
+# No concurrency group: cancel-in-progress cancelled the watching run every
+# time the hourly schedule fired, and each cancelled run mailed Jay. One
+# watcher at a time is kept by the first step instead: a run that finds an
+# earlier one still going after a few minutes (the one that started this
+# run ends seconds after dispatching it) ends at once, green.
 jobs:
   watch:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
+      - name: One watcher at a time
+        id: alone
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 12); do
+            older=$(gh api "repos/${{ github.repository }}/actions/workflows/live.yml/runs?status=in_progress&per_page=50" \
+              -q '[.workflow_runs[] | select(.id < ${{ github.run_id }})] | length' || echo 0)
+            if [ "${older:-0}" = 0 ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 15
+          done
+          echo "An earlier run is watching; this one ends here."
+          echo "go=false" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+        if: steps.alone.outputs.go == 'true'
         with:
           sparse-checkout: |
             scripts
             public/lib
       - uses: actions/setup-node@v4
+        if: steps.alone.outputs.go == 'true'
         with:
           node-version: 22
       - name: Watch IVOD's live list
+        if: steps.alone.outputs.go == 'true'
         run: |
           mkdir -p .live
           git fetch -q origin live && git show origin/live:live.json > .live/live.json || true
@@ -55,6 +72,7 @@ jobs:
             sleep 90
           done
       - name: Keep watching (the next run)
+        if: steps.alone.outputs.go == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

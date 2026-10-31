@@ -163,6 +163,15 @@ Live: https://orbit.jaypengx.com/law/
 - **Finding** (`lib/search.mjs`, `fulltext.mjs`, `topics.mjs`): names, short
   names and article jumps; 全文檢索 by bigram buckets built at deploy; every
   law sorted into a topic.
+- **Search order** (`rankLaws`, `likelyLaw`; Jay 2026-10-31): a law's name
+  comes before articles that mention it. The name, a short name or the start
+  of one (勞基 → 勞動基準法, 憲法增 → 中華民國憲法增修條文), the name's start
+  (中華民國 left off), inside it, then its characters near the start (性平);
+  ties go 憲法 · 法律 · 命令, then laws with a short name. The law a search can
+  only mean is the card on top, the laws whose names hold it under it (名稱相近的法律),
+  then 其他法規提到它. `ALIASES` adds everyday names to `SHORT_NAMES` for search
+  only. `tests/search.test.mjs`: 38 queries on the real index's names
+  (`tests/fixtures/law-names.json`).
 
 ## Files
 

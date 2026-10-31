@@ -169,7 +169,8 @@ Live: https://orbit.jaypengx.com/law/
   (中華民國 left off), inside it, then its characters near the start (性平);
   ties go 憲法 · 法律 · 命令, then laws with a short name. The law a search can
   only mean is the card on top, the laws whose names hold it under it (名稱相近的法律),
-  then 其他法規提到它. `ALIASES` adds everyday names to `SHORT_NAMES` for search
+  then 子法, 行政規則 and 地方法規 by name, then 其他法規提到它. Everyday words apart in
+  a name count (`ideas`: 高中服儀 → 高級中等學校訂定學生服裝儀容規定之原則). `ALIASES` adds everyday names to `SHORT_NAMES` for search
   only. `tests/search.test.mjs`: 38 queries on the real index's names
   (`tests/fixtures/law-names.json`).
 

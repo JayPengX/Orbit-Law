@@ -75,3 +75,29 @@ test('search: one character finds names but means no one law', () => {
   assert.equal(likelyLaw(rows, '憲'), null);
   assert.ok(rankLaws(rows, '憲').length > 1);
 });
+
+// 行政規則 by part of a name, or by everyday words for it (Jay 2026-10-31: only the
+// whole name found 高級中等學校訂定學生服裝儀容規定之原則).
+import { expand, concepts } from '../public/lib/find.mjs';
+test('search: a 行政規則 by part of its name, or everyday words apart in it', () => {
+  const rules = [
+    ['MOE:1', '高級中等學校訂定學生服裝儀容規定之原則', '教育部', '', 1],
+    ['MOE:2', '國民中學訂定學生服裝儀容規定之原則', '教育部', '', 1],
+    ['MOE:3', '國民小學訂定學生服裝儀容規定之原則', '教育部', '', 1],
+    ['MOE:4', '高級中等學校輔導學生會及其他相關自治組織運作注意事項', '教育部', '', 1],
+    ['MOST:1', '科技部辦公場所服裝儀容規範原則', '國科會', '', 1]
+  ];
+  // As 找法 does: each of the search's words, and its ideas apart.
+  const find = q => {
+    const hit = [];
+    for (const t of expand(q)) for (const [s, r] of rankLaws(rules, t, 30, { ideas: concepts(q) })) if (s < 4 && !hit.includes(r)) hit.push(r);
+    return hit.map(r => r[0]);
+  };
+  assert.ok(find('服裝儀容').includes('MOE:1'));
+  assert.ok(find('學生服裝儀容').includes('MOE:1'));
+  assert.ok(find('服儀').includes('MOE:1'));
+  assert.deepEqual(find('高中服儀'), ['MOE:1']);
+  assert.deepEqual(find('高中服裝儀容'), ['MOE:1']);
+  assert.deepEqual(find('國中制服'), ['MOE:2']);
+  assert.deepEqual(find('高中學生會'), ['MOE:4']);
+});

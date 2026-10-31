@@ -7,6 +7,10 @@ import { SHORT_NAMES } from './refs.mjs';
 // Everyday words → the words in the law books (each group searched together).
 const SAME = [
   ['學生會', '學生自治組織', '學生自治'],
+  ['高中', '高級中等學校'],
+  ['國中', '國民中學'],
+  ['國小', '國民小學'],
+  ['服儀', '服裝儀容', '制服'],
   ['租屋', '租賃', '承租'],
   ['長照', '長期照顧'],
   ['押金', '押租金'],

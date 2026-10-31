@@ -430,8 +430,14 @@ async function findAll(q, out) {
   // By name, best first (lib/search.mjs rankLaws): the name, a short name or
   // its start, the name's start, inside it; never characters scattered
   // through a name, which are noise next to real hits.
-  const named = [];
-  for (const t of terms) for (const [s, r] of rankLaws(state.rows, t, 30)) if (s < 4 && !named.includes(r)) named.push(r);
+  // (Words apart in a name count too, each in its everyday or law words: 高中服儀.)
+  const nameIdeas = { ideas: concepts(q) };
+  const byName = (rows, n) => {
+    const hit = [];
+    for (const t of terms) for (const [s, r] of rankLaws(rows, t, n, nameIdeas)) if (s < 4 && !hit.includes(r)) hit.push(r);
+    return hit;
+  };
+  const named = byName(state.rows, 30);
   const keep = r => !state.topic || rowTopic(r) === state.topic;
   // The law the search names or can only mean (預算法, 刑法, 勞基, 憲法增): the law itself on top, the articles that cite it under it.
   const exact = jumpTo ? null : likelyLaw(state.rows, q);
@@ -446,10 +452,13 @@ async function findAll(q, out) {
   const jumpRow = jumpTo && lawRow([jumpTo.row[0], `${jumpTo.row[1]} ${artLabel(jumpTo.key, en)}`], { topic: rowTopic(jumpTo.row), sub: W('直接打開這一條', 'Open this article'), href: `#law=${jumpTo.row[0]}&a=${jumpTo.key}` });
   const ask = `<a class="lw-find-ask" href="#tab=ask&amp;q=${encodeURIComponent(q)}">${MENU_ICON.ask || ''}<span><b>${W(`用白話問「${esc(q)}」`, `Ask about “${esc(quickName(q))}”`)}</b><small>${W('問法律會引用條文回答', 'Answered from the articles, cited')}</small></span></a>`;
   let ruleHits = 0;
-  const lawBlock = laws.length ? section(exact ? W('名稱相近的法律', 'Laws with similar names') : W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '';
-  const nameBlocks = () =>
+  const lawLaws = laws.length ? section(exact ? W('名稱相近的法律', 'Laws with similar names') : W('法律', 'Laws'), list(laws.map(r => lawItem(r)))) : '';
+  // Names before the articles that only mention them: 子法, then 行政規則 and 地方法規 (filled as they load).
+  const lawBlock =
+    lawLaws +
     (regs.length ? section(W('子法（辦法、規則）', 'Regulations'), list(regs.map(r => lawItem(r, parentName(r))))) : '') +
-    `<div id="find-rules"></div><div id="find-local"></div>` +
+    `<div id="find-rules"></div><div id="find-local"></div>`;
+  const nameBlocks = () =>
     (bills.length ? section(W('立法院審議中', 'In the Legislative Yuan'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-rulings"></div><div id="find-people"></div>`;
   const hero = exact && `<a class="lw-find-card lw-find-hero" href="#law=${esc(exact[0])}" style="--t:${TOPICS[rowTopic(exact)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(exact))}<span class="lw-find-hero-name"><b class="q-fit-wrap">${esc(en ? nameOf(exact[0], exact[1]) : exact[1])}</b><small id="find-hero-sub">${esc(lawSub(exact))}</small></span></span><p id="find-hero-text" class="q-skel"></p><span class="lw-find-open">${W('讀全文', 'Read the full text')}<svg viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>`;
@@ -478,15 +487,14 @@ async function findAll(q, out) {
       .catch(() => {});
   // 行政規則 by name (a ministry's 要點 or 注意事項 has no law of its own to open), and the cities' 地方法規.
   if ([...q].length >= 2 && !state.topic)
-    for (const [dir, slot, title] of [['agency', 'find-rules', W('行政規則（要點、注意事項）', 'Agency rules')], ['local', 'find-local', W('地方法規（自治條例、自治規則）', 'City rules')]])
+    for (const [dir, slot, title] of [['agency', 'find-rules', W('行政規則（要點、注意事項）', 'Agency rules')], ['local', 'find-local', W('地方法規（自治條例、規則）', 'City rules')]])
       ruleList(dir).then(rows => {
         const el = $(slot);
         if (run !== findRun || !el) return;
-        const hit = [];
-        for (const t of terms) for (const r of searchLaws(rows, t, 30)) if (!hit.includes(r) && r[1].includes(t)) hit.push(r);
+        const hit = byName(rows, 30);
         if (!hit.length) return;
         ruleHits += hit.length;
-        el.outerHTML = section(title, list(hit.slice(0, 8).map(r => agencyRow(r, '', dir))));
+        el.outerHTML = section(title, list(hit.slice(0, 6).map(r => agencyRow(r, '', dir))));
         $('find-arts')?.querySelector('.q-empty')?.remove();
       });
   // 立委 by name or 選區: straight to their page.

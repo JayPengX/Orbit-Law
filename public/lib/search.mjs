@@ -65,8 +65,12 @@ const POPULAR = new Set(Object.values(ALIASES));
 //   (中華民國 left off: 憲法 → 憲法增修條文) · 3 in the name · 4 its characters
 //   in order, near the start 3.5 (性平 → 性別平等教育法), anywhere 4.
 // Then laws in force, 憲法 · 法律 · 命令, the ones with a short name, shorter.
+// `ideas` (find.mjs concepts: [[高中, 高級中等學校], [服儀, 服裝儀容]]): a name
+// holding every idea in any of its words is 3.3 (高中服儀 → 高級中等學校訂定
+// 學生服裝儀容規定之原則).
 // rows: the index's [p, n, l, c, m, abandoned, en, …]. → [[score, row], …] best first.
-export function rankLaws(rows, query, limit = 50) {
+export function rankLaws(rows, query, limit = 50, { ideas } = {}) {
+  const all = ideas && ideas.length > 1 ? ideas : null;
   const q = tidy(query);
   if (!q) return [];
   const full = ALIASES[q];
@@ -80,6 +84,7 @@ export function rankLaws(rows, query, limit = 50) {
     let s = n === q ? 0 : n === full || n === `中華民國${q}` ? 1 : partOf.has(n) ? partOf.get(n) : core(n).startsWith(q) || n.startsWith(q) ? 2 : n.includes(q) ? 3 : two && subseq(q, n) ? (tight(q, core(n)) ? 3.5 : 4) : -1;
     // An English name (index [6]), words in any case: 'civil code', 'labor'.
     if (s < 0 && typeof r[6] === 'string' && /[a-z]/i.test(q)) s = enMatch(r[6], query);
+    if ((s < 0 || s > 3.3) && all && all.every(ws => ws.some(w => n.includes(w)))) s = 3.3;
     if (s < 0) continue;
     const order = s + (r[5] ? 10 : 0) + (LEVEL[r[2]] ?? 0.3) - (POPULAR.has(n) ? 0.2 : 0);
     scored.push([order, core(n).length, s, r]);

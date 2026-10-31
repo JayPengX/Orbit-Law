@@ -34,7 +34,7 @@ import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
+import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
@@ -2725,7 +2725,20 @@ function voteGroupCard(g, gi, d, agendas, partyOfName) {
   return `<button type="button" class="lw-vgroup" data-g="${gi}"><b class="lw-vg-t">${esc(voteGroupTitle(g, agendas).replace(/^中華民國(?=\d)/, ''))}</b>${line ? `<span class="lw-vg-what">${esc(line)}</span>` : ''}${sides ? `<span class="lw-vg-sides">${sides}</span>` : ''}<span class="lw-vg-foot"><span class="lw-tag ${y > n ? 'green' : 'red'}">${y > n ? W('通過', 'Passed') : W('未通過', 'Failed')}</span><small>${[shortDay(g.day), W(`贊成 ${y}・反對 ${n}`, `${y} yes · ${n} no`), g.list.length > 1 ? W(`${g.list.length} 次`, `${g.list.length} votes`) : ''].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join(' · ')}</small></span></button>`;
 }
 
-// 立委: everyone in office this term, by party; search by name or 選區.
+// 立委: everyone in office this term, by 縣市 (north to south, then the
+// islands, 原住民 and 不分區) or by party; search by name, 選區 or party.
+let peopleBy = 'area';
+const COUNTIES = ['基隆市', '臺北市', '新北市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'];
+const COUNTY_EN = { 基隆市: 'Keelung', 臺北市: 'Taipei', 新北市: 'New Taipei', 桃園市: 'Taoyuan', 新竹市: 'Hsinchu City', 新竹縣: 'Hsinchu County', 苗栗縣: 'Miaoli', 臺中市: 'Taichung', 彰化縣: 'Changhua', 南投縣: 'Nantou', 雲林縣: 'Yunlin', 嘉義市: 'Chiayi City', 嘉義縣: 'Chiayi County', 臺南市: 'Tainan', 高雄市: 'Kaohsiung', 屏東縣: 'Pingtung', 宜蘭縣: 'Yilan', 花蓮縣: 'Hualien', 臺東縣: 'Taitung', 澎湖縣: 'Penghu', 金門縣: 'Kinmen', 連江縣: 'Lienchiang' };
+// A seat's group: [order, zh, en]; and its number inside (第3選舉區 → 3).
+const seatGroup = a => {
+  const c = COUNTIES.findIndex(k => String(a).startsWith(k));
+  if (c >= 0) return [c, COUNTIES[c], COUNTY_EN[COUNTIES[c]]];
+  if (/原住民/.test(a)) return [30, '原住民', 'Indigenous'];
+  if (/不分區/.test(a)) return [40, '不分區', 'At-large'];
+  return [50, W('其他', 'Other'), 'Other'];
+};
+const seatNo = a => Number(String(a).match(/第(\d+)選舉區/)?.[1] || (/山地/.test(a) ? 2 : /平地/.test(a) ? 1 : 0));
 async function peopleList(out) {
   out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(4)}</div>`;
   let ppl;
@@ -2736,20 +2749,47 @@ async function peopleList(out) {
   }
   const q = billQuery;
   const words = q ? expand(q).map(w => w.toLowerCase()) : [];
-  const hit = x => words.some(w => x.n.includes(w) || x.area.includes(w) || x.party.includes(w) || partyOf(x.party).zh.includes(w) || partyOf(x.party).en.toLowerCase().includes(w));
+  const hit = x => words.some(w => x.n.includes(w) || x.area.includes(w) || x.party.includes(w) || partyOf(x.party).zh.includes(w) || partyOf(x.party).en.toLowerCase().includes(w) || seatGroup(x.area)[2].toLowerCase().includes(w));
   // A search finds those who left this term too (by name); the list shows those in office.
   const now = ppl.filter(x => !x.to && (!q || hit(x)));
   const left = q ? ppl.filter(x => x.to && x.n.includes(q)) : [];
   const followed = now.filter(x => state.mine.people?.[x.id]);
-  const byParty = new Map();
-  for (const x of now) byParty.set(x.party, [...(byParty.get(x.party) || []), x]);
-  const card = x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(shortArea(x.area))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
-  out.innerHTML =
-    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people">${followed.map(card).join('')}</div></section>` : '') +
-    [...byParty].sort((a, b) => b[1].length - a[1].length).map(([party, xs]) => `<section class="q-section lw-sec"><div class="q-section-head"><h2><span class="lw-party" style="--p:${partyColor(party)}">${esc(partyShort(party))}</span></h2><span class="lw-count">${xs.length}</span></div><div class="lw-people">${xs.map(card).join('')}</div></section>`).join('') +
-    (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people">${left.map(card).join('')}</div></section>` : '') ||
-    emptyNote(W('沒有符合的立委', 'No one matches'));
+  const byArea = peopleBy === 'area';
+  // By 縣市: each card says its party and 選區; by party: its 選區.
+  const seat = a => (/第(\d+)選舉區/.test(a) ? W(`第${seatNo(a)}選區`, `District ${seatNo(a)}`) : /山地原住民/.test(a) ? W('山地', 'Highland') : /平地原住民/.test(a) ? W('平地', 'Lowland') : '');
+  const sub = (x, full) => (full ? `${partyShort(x.party)} · ${shortArea(x.area)}` : byArea ? [partyShort(x.party), bloc(x) !== x.party ? W(`${partyShort(bloc(x))}團`, `${partyShort(bloc(x))} caucus`) : '', seat(x.area)].filter(Boolean).join(' · ') : shortArea(x.area));
+  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
+  const groups = new Map();
+  for (const x of now) {
+    const g = byArea ? seatGroup(x.area) : [0, x.party];
+    const k = g[1];
+    if (!groups.has(k)) groups.set(k, { g, xs: [] });
+    groups.get(k).xs.push(x);
+  }
+  const order = byArea ? [...groups.values()].sort((a, b) => a.g[0] - b.g[0]) : [...groups.values()].sort((a, b) => b.xs.length - a.xs.length);
+  // Inside a 縣市: by 選區; 不分區: by party, then the list's order.
+  for (const o of order) if (byArea) o.xs.sort((a, b) => (o.g[0] === 40 ? partyRank(a.party) - partyRank(b.party) : seatNo(a.area) - seatNo(b.area)));
+  const head = o => (byArea ? `<h2>${esc(W(o.g[1], o.g[2]))}</h2>` : `<h2><span class="lw-party" style="--p:${partyColor(o.g[1])}">${esc(partyShort(o.g[1]))}</span></h2>`);
+  const toggle = `<div class="q-chips lw-chips lw-people-by" role="tablist">${[['area', W('依縣市', 'By place')], ['party', W('依政黨', 'By party')]].map(([id, label]) => `<button type="button" class="q-chip" role="tab" data-by="${id}" aria-selected="${id === peopleBy}" aria-pressed="${id === peopleBy}">${label}</button>`).join('')}</div>`;
+  const list =
+    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people">${followed.map(x => card(x, true)).join('')}</div></section>` : '') +
+    order.map(o => `<section class="q-section lw-sec"><div class="q-section-head">${head(o)}<span class="lw-count">${o.xs.length}</span></div><div class="lw-people">${o.xs.map(card).join('')}</div></section>`).join('') +
+    (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people">${left.map(x => card(x, true)).join('')}</div></section>` : '');
+  out.innerHTML = list ? (now.length > 1 ? toggle : '') + list : emptyNote(W('沒有符合的立委', 'No one matches'));
+  out.querySelectorAll('[data-by]').forEach(b => b.addEventListener('click', () => peopleBy !== b.dataset.by && ((peopleBy = b.dataset.by), haptic(), peopleList(out))));
 }
+// The parties in seat order (most seats first), for 不分區.
+const PARTY_RANK = ['中國國民黨', '民主進步黨', '台灣民眾黨'];
+const partyRank = p => (PARTY_RANK.includes(p) ? PARTY_RANK.indexOf(p) : 9);
+// The bloc a legislator votes in: the 黨團 they joined (an independent in the
+// 國民黨 caucus), else their party.
+const bloc = p => (p.caucus && p.caucus !== INDEPENDENT ? p.caucus : p.party);
+const alignLine = al => {
+  const p = esc(partyShort(al.bloc)), n = `<b>${pctText(al)}%</b>`;
+  if (al.how === 'caucus') return W(`${n} 跟所屬${p}團多數一致`, `${n} with the ${p} caucus’s majority (sits in it)`);
+  if (al.how === 'closest') return W(`${n} 跟${p}多數一致（最接近的政黨）`, `${n} with ${p}’s majority (the party closest to them)`);
+  return W(`${n} 跟${p}多數一致`, `${n} with ${p}’s majority`);
+};
 const shortArea = a => String(a || '').replace('全國不分區及僑居國外國民', W('不分區', 'At-large')).replace(/選舉區$/, W('選區', ''));
 // A mirrored headshot (scripts/build-photos.mjs) at the size it's drawn; an unmirrored one from ly.gov.tw.
 const photoSrc = (photo, big) => (/^https?:/.test(photo) ? photo : `${photo}.${big ? 192 : 96}.webp`);
@@ -2768,7 +2808,7 @@ async function openPerson(id) {
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
   const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];
-  const head = h('div', { class: 'lw-person-head', html: `${personPhoto({ ...x, photo: x.photo || row.photo }, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span><span class="lw-tag">${esc(shortArea(x.area))}</span>${x.to ? `<span class="lw-tag red">${W('已離職', 'Left office')}</span>` : ''}</div></div>` });
+  const head = h('div', { class: 'lw-person-head', html: `${personPhoto({ ...x, photo: x.photo || row.photo }, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span>${bloc(row) !== x.party ? `<span class="lw-party" style="--p:${partyColor(bloc(row))}">${esc(W(`${partyShort(bloc(row))}團`, `${partyShort(bloc(row))} caucus`))}</span>` : ''}<span class="lw-tag">${esc(shortArea(x.area))}</span>${x.to ? `<span class="lw-tag red">${W('已離職', 'Left office')}</span>` : ''}</div></div>` });
   const tiles = h('div', { class: 'lw-stats four', html: stats.map(([l, n, tone]) => `<span class="lw-stat ${tone}"><b>${typeof n === 'number' ? n.toLocaleString() : n}</b><span>${esc(l)}</span></span>`).join('') });
   const clips = h('div', { class: 'lw-person-sec' });
   if (x.clips?.length) {
@@ -2786,24 +2826,14 @@ async function openPerson(id) {
     const mine = personVotes(d, x.n, { from: x.from, to: x.to }).filter(([, m]) => m !== '-');
     if (!mine.length) return;
     const marks = new Map(mine);
-    // How often they vote with their own party's majority (y/n votes only).
-    const partyOfName = new Map(ppl.people.map(p => [p.n, p.party]));
-    let same = 0, cast = 0;
-    for (const [j, m] of mine) {
-      if (m !== 'y' && m !== 'n') continue;
-      const v = d.votes[j];
-      const side = k => v[k].filter(i => partyOfName.get(d.names[i]) === x.party).length;
-      const [py, pn] = [side(4), side(5)];
-      if (py === pn) continue;
-      cast++;
-      if ((py > pn ? 'y' : 'n') === m) same++;
-    }
-    const pct = same === cast ? '100' : String(Math.floor((same / Math.max(1, cast)) * 1000) / 10);
+    // How often they vote with their party's majority; an independent, with
+    // the caucus they joined, else with the party they side with most.
+    const al = alignment(d, { ...x, caucus: row.caucus || x.caucus }, mine, new Map(ppl.people.map(p => [p.n, bloc(p)])));
     const whole = mine.filter(([j]) => /全案/.test(d.votes[j][2]));
     const all = h('button', { type: 'button', class: 'lw-more', text: W(`看全部 ${mine.length} 筆表決`, `All ${mine.length} votes`), onclick: () => all.replaceWith(voteList(mine.map(([j]) => [j, d.votes[j]]), marks)) });
     votes.replaceChildren(
       h('h4', { text: W(`表決紀錄（${mine.length}）`, `Votes (${mine.length})`) }),
-      ...(cast >= 10 ? [h('p', { class: 'lw-person-line', html: W(`<b>${pct}%</b> 跟${esc(partyShort(x.party))}多數一致`, `<b>${pct}%</b> with ${esc(partyShort(x.party))}’s majority`) })] : []),
+      ...(al && al.cast >= 10 ? [h('p', { class: 'lw-person-line', html: alignLine(al) })] : []),
       ...(whole.length ? [h('p', { class: 'lw-vg-h', text: W(`法案全案表決 ${whole.length}`, `Final votes on bills: ${whole.length}`) }), voteList(whole.map(([j]) => [j, d.votes[j]]), marks, 5, true), all] : [voteList(mine.map(([j]) => [j, d.votes[j]]), marks)])
     );
   }).catch(() => {});

@@ -96,3 +96,23 @@ test('a vote in plain words: its kind, its mover and the article', async () => {
   assert.ok(again.redo && again.kind === 'amend' && again.who.zh === '陳瑩等委員');
   assert.equal(voteWhat('主席宣告').zh, '');
 });
+
+test('alignment: a member with their party, an independent with the caucus they joined, else the party closest', async () => {
+  const { alignment, pctText } = await import('../public/lib/ly.mjs');
+  // names: 0 藍1, 1 藍2, 2 藍3, 3 綠1, 4 綠2, 5 綠3, 6 獨 (無黨籍)
+  const names = ['藍1', '藍2', '藍3', '綠1', '綠2', '綠3', '獨'];
+  const party = new Map([['藍1', '中國國民黨'], ['藍2', '中國國民黨'], ['藍3', '中國國民黨'], ['綠1', '民主進步黨'], ['綠2', '民主進步黨'], ['綠3', '民主進步黨'], ['獨', '無黨籍']]);
+  const votes = [
+    ['a', '2026-01-01', '', '', [0, 1, 2, 6], [3, 4, 5], [], []],
+    ['b', '2026-01-02', '', '', [3, 4, 5], [0, 1, 2, 6], [], []],
+    ['c', '2026-01-03', '', '', [0, 1, 2, 3, 4, 5], [6], [], []]
+  ];
+  const data = { names, votes };
+  const mine = [[0, 'y'], [1, 'n'], [2, 'n']];
+  const caucus = alignment(data, { n: '獨', party: '無黨籍', caucus: '中國國民黨' }, mine, new Map([...party, ['獨', '中國國民黨']]));
+  assert.deepEqual([caucus.how, caucus.bloc, caucus.cast, pctText(caucus)], ['caucus', '中國國民黨', 3, '66.6']);
+  const closest = alignment(data, { n: '獨', party: '無黨籍' }, mine, party);
+  assert.deepEqual([closest.how, closest.bloc], ['closest', '中國國民黨']);
+  const member = alignment(data, { n: '綠1', party: '民主進步黨' }, [[0, 'n'], [1, 'y'], [2, 'y']], party);
+  assert.deepEqual([member.how, pctText(member)], ['party', '100']);
+});

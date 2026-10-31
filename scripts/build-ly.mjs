@@ -86,7 +86,7 @@ try {
 let roster = null, votes = null, meets = null, agendas = null, gazettes = null, bills = null, clips = null, budget = null;
 if (term) {
   const T = { 屆: term };
-  roster = await step('legislators', () => all('legislators', 'legislators', T, ['委員姓名', '黨籍', '選區名稱', '照片位址', '歷屆立法委員編號', '到職日', '是否離職', '離職日期'], { limit: 300 }));
+  roster = await step('legislators', () => all('legislators', 'legislators', T, ['委員姓名', '黨籍', '黨團', '選區名稱', '照片位址', '歷屆立法委員編號', '到職日', '是否離職', '離職日期'], { limit: 300 }));
   votes = await step('votes', () => all('votes', 'votes', T, ['表決代碼', '會議代碼', '公報文件代碼', '表決時間', '表決議題', '贊成', '反對', '棄權', 'agenda_id']));
   meets = await step('meets', () => all('meets', 'meets', T, ['會議代碼', '會議種類', '日期', '會議資料.出席委員'], { bySession: true }));
   agendas = await step('agendas', () => all('gazette_agendas', 'gazetteagendas', T, ['公報議程編號', '會議日期', '案由'], { limit: 2000 }));
@@ -157,7 +157,10 @@ const people = roster ? await step('people build', async () => {
     const id = r['歷屆立法委員編號'] || `n${hash(k)}`;
     const mine = newestFirst((proposed.get(k) || []).map(billRow));
     const myClips = newestFirst((clipsOf.get(k) || []).map(clipRow), 0);
-    const base = { n, id, party: r['黨籍'] || '', area: r['選區名稱'] || '', from: day(r['到職日']), to: r['是否離職'] === '是' ? day(r['離職日期']) : '' };
+    const party = r['黨籍'] || '';
+    // The 黨團 they sit in, when not their party's (an independent in the 國民黨 caucus).
+    const caucus = r['黨團'] && r['黨團'] !== party ? { caucus: r['黨團'] } : {};
+    const base = { n, id, party, ...caucus, area: r['選區名稱'] || '', from: day(r['到職日']), to: r['是否離職'] === '是' ? day(r['離職日期']) : '' };
     const person = { ...base, term, built, bills: mine.slice(0, 200), cosign: cosigns.get(k) || 0, clips: myClips.slice(0, 200), attend: meets ? { meets: attended.get(k) || 0, plenary: [plenary.get(k) || 0, plenaryTotal] } : null };
     // A part that failed today: the last deploy's.
     if (!bills || !clips || !meets) {

@@ -367,3 +367,36 @@ export function voteWhat(subject) {
   if (redo && zh) (zh = `重新表決：${zh}`), (en = `Voted again: ${en}`);
   return { kind, who, art, redo, zh, en, short };
 }
+
+// How often a legislator votes with a bloc's majority (y/n votes only; ties
+// and their own vote left out of the majority). `mine`: personVotes' rows;
+// `blocOf`: Map name → the bloc they vote in (the 黨團 they joined, else their
+// party). A party member is set against their party; an independent who joined
+// a caucus against that caucus; one who joined none against the party they
+// side with most. → { bloc, how: 'party' | 'caucus' | 'closest', pct, cast } or null.
+export const INDEPENDENT = '無黨籍';
+export function alignment(data, x, mine, blocOf) {
+  const self = data.names.findIndex(n => nameKey(n) === nameKey(x.n));
+  const score = bloc => {
+    let same = 0, cast = 0;
+    for (const [j, m] of mine) {
+      if (m !== 'y' && m !== 'n') continue;
+      const v = data.votes[j];
+      const side = k => v[k].filter(i => i !== self && blocOf.get(data.names[i]) === bloc).length;
+      const [py, pn] = [side(4), side(5)];
+      if (py === pn) continue;
+      cast++;
+      if ((py > pn ? 'y' : 'n') === m) same++;
+    }
+    return { bloc, pct: cast ? same / cast : 0, cast };
+  };
+  if (x.party && x.party !== INDEPENDENT) return { ...score(x.party), how: 'party' };
+  if (x.caucus && x.caucus !== INDEPENDENT) return { ...score(x.caucus), how: 'caucus' };
+  // The parties with a caucus of their own (3 or more members voting).
+  const size = new Map();
+  for (const b of blocOf.values()) if (b && b !== INDEPENDENT) size.set(b, (size.get(b) || 0) + 1);
+  const best = [...size].filter(([, n]) => n >= 3).map(([b]) => score(b)).filter(s => s.cast).sort((a, b) => b.pct - a.pct)[0];
+  return best ? { ...best, how: 'closest' } : null;
+}
+// A share as the page shows it: 100 only when every vote agreed, else one decimal, rounded down.
+export const pctText = s => (s.pct >= 1 ? '100' : String(Math.floor(s.pct * 1000) / 10));

@@ -863,7 +863,7 @@ html.q-kb #panel-ask::after {
 .lw-over-row .lw-chev {
   width: 7px;
   height: 12px;
-  color: var(--q-label-3, var(--q-label-2));
+  color: var(--q-label-2);
 }
 .lw-over-row .lw-prog {
   grid-column: 2 / -1;
@@ -1978,39 +1978,152 @@ button.lw-row {
   gap: 8px;
   padding-bottom: 16px;
 }
+/* 對話紀錄: 新對話 on top, a search past a few chats, the chats by day in
+   grouped cards (title, what it came to, when · how many), the count and
+   全部刪除 at the foot. */
 .lw-chat-list {
   padding: 0 0 calc(16px + env(safe-area-inset-bottom));
 }
+.lw-chat-new {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--q-r-card);
+  background: var(--q-sheet-cell, var(--q-surface));
+  color: var(--q-indigo);
+  font: 600 16px/1.3 var(--q-font);
+  text-align: left;
+}
+.lw-chat-new i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: #fff;
+}
+.lw-chat-new i svg {
+  width: 17px;
+  height: 17px;
+}
+.lw-chat-find {
+  margin-top: 12px;
+}
+.lw-chat-new[hidden],
+.lw-chat-find[hidden],
+.lw-chat-foot[hidden] {
+  display: none;
+}
+.lw-chat-head {
+  margin: 24px 16px 8px;
+}
+.lw-chat-group {
+  overflow: hidden;
+  border-radius: var(--q-r-card);
+  background: var(--q-sheet-cell, var(--q-surface));
+}
 .lw-chat-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
   align-items: center;
-  border-radius: var(--q-r-cell);
 }
-.lw-chat-row + .lw-chat-row {
-  margin-top: 2px;
+.lw-chat-row + .lw-chat-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  border-top: var(--q-hairline, 0.5px) solid var(--q-sep);
 }
 .lw-chat-row.on {
-  background: color-mix(in srgb, var(--q-indigo) 10%, transparent);
+  background: color-mix(in srgb, var(--q-indigo) 9%, transparent);
 }
 .lw-chat-open {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
-  padding: 12px;
+  padding: 12px 4px 12px 16px;
   border: 0;
   background: none;
   color: var(--q-label);
   text-align: left;
   font: inherit;
 }
-.lw-chat-open .lw-row-name {
+.lw-chat-t {
   display: -webkit-box;
   overflow: hidden;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   font: 600 16px/22px var(--q-font);
-  white-space: normal;
+}
+.lw-chat-gist {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--q-label-2);
+  font: 15px/20px var(--q-font);
+}
+.lw-chat-open small {
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.lw-chat-open small b {
+  color: var(--q-indigo);
+  font-weight: 600;
+}
+.lw-chat-more {
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  margin-top: 4px;
+  border: 0;
+  background: none;
+  color: var(--q-label-2);
+}
+.lw-chat-more svg {
+  width: 20px;
+  height: 20px;
+}
+.lw-chat-none {
+  padding: 24px 16px;
+  text-align: center;
+}
+.lw-chat-groups .q-empty {
+  padding-top: 32px;
+}
+.lw-chat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 16px 0;
+}
+.lw-chat-foot small {
+  min-width: 0;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.lw-chat-clear {
+  flex: none;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-red);
+  font: 600 15px/20px var(--q-font);
+}
+.lw-menu-row.warn {
+  color: var(--q-red);
+}
+.lw-menu-row.warn i {
+  background: var(--q-red);
 }
 /* Rename, in the chat's menu: the name in a field, then 改名. */
 .lw-rename {
@@ -2054,30 +2167,6 @@ button.lw-row {
   background: var(--q-indigo);
   color: #fff;
   font: 600 15px/1 var(--q-font);
-}
-.lw-chat-open small {
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-}
-.lw-chat-more {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  background: none;
-  color: var(--q-label-2);
-}
-.lw-chat-more svg {
-  width: 20px;
-  height: 20px;
-}
-.lw-chat-clear {
-  display: block;
-  margin: 16px auto 0;
-  padding: 8px 16px;
-  border: 0;
-  background: none;
-  color: var(--q-red);
-  font: 600 15px/20px var(--q-font);
 }
 
 /* Lists of regulations: long names wrap to two lines, not cut. */
@@ -4271,7 +4360,7 @@ a.lw-x-rel {
 .lw-x-rel .lw-chev {
   width: 7px;
   height: 12px;
-  color: var(--q-label-3, var(--q-label-2));
+  color: var(--q-label-2);
 }
 .lw-x-qa:not(:empty) {
   margin-top: 24px;

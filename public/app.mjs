@@ -43,7 +43,7 @@ import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { chatLaw, chatError, stageText, STARTERS, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { parseHistory } from './lib/history.mjs';
-import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
+import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId, chatGroups, chatGist, chatMatches, questionsIn } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -1421,43 +1421,100 @@ function openChat(id) {
   requestAnimationFrame(() => [...document.querySelectorAll('#chat .lw-msg.me')].pop()?.scrollIntoView({ block: 'start' }));
 }
 
-// 對話紀錄: the saved chats; a tap continues one, … renames or deletes it.
+// 對話紀錄: the saved chats by day (今天, 昨天, 過去 7 天, then months),
+// each its title, what it came to and how many questions; a search once
+// there are a few. A tap continues one; … continues, renames or deletes it
+// (a delete can be undone from the toast). 刪除全部 asks in the kit's
+// dialog, never the browser's.
 function chatHistory() {
-  const when = u => { const d = new Date(u); return d.toDateString() === new Date().toDateString() ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : `${d.getMonth() + 1}/${d.getDate()}`; };
-  const rows = () =>
-    chats.length
-      ? chats.map(c => `<div class="lw-chat-row${c.id === chat.id ? ' on' : ''}"><button type="button" class="lw-chat-open" data-id="${esc(c.id)}"><span class="lw-row-name">${esc(c.t)}</span><small>${esc(when(c.u))} · ${esc(((n) => W(`${n} 個問題`, `${n} question${n > 1 ? 's' : ''}`))(c.turns.filter(t => t.role === 'user').length))}</small></button><button type="button" class="lw-chat-more" data-more="${esc(c.id)}" aria-label="${W('更多', 'More')}">${ICON.more}</button></div>`).join('') + `<button type="button" class="lw-chat-clear">${W('刪除全部對話', 'Delete all chats')}</button>`
-      : `<p class="lw-none">${W('還沒有對話。問的問題會存在這支手機上。', 'No chats yet. Your questions are kept on this phone.')}</p>`;
-  const body = h('div', { class: 'lw-chat-list', html: rows() });
-  const s = sheet({ title: W('對話紀錄', 'Chats'), closeLabel: W('關閉', 'Close'), body });
-  body.addEventListener('click', e => {
+  const pad = n => String(n).padStart(2, '0');
+  const MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const groupName = k => {
+    if (k === 'today') return W('今天', 'Today');
+    if (k === 'yesterday') return W('昨天', 'Yesterday');
+    if (k === 'week') return W('過去 7 天', 'Previous 7 days');
+    const [y, m] = k.split('-').map(Number);
+    const mine = y === new Date().getFullYear();
+    return en ? `${MON_EN[m - 1]}${mine ? '' : ` ${y}`}` : `${mine ? '' : `${y} 年 `}${m} 月`;
+  };
+  const when = (u, k) => {
+    const d = new Date(u);
+    if (k === 'today' || k === 'yesterday') return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (k === 'week') return en ? d.toLocaleDateString('en', { weekday: 'short' }) : `週${'日一二三四五六'[d.getDay()]}`;
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+  let q = '';
+  const row = (c, k) => {
+    const n = questionsIn(c);
+    const gist = chatGist(c);
+    const now = c.id === chat.id && chat.turns.length > 0;
+    return `<div class="lw-chat-row${now ? ' on' : ''}"><button type="button" class="lw-chat-open" data-id="${esc(c.id)}"><span class="lw-chat-t">${esc(c.t)}</span>${gist ? `<span class="lw-chat-gist">${esc(gist)}</span>` : ''}<small>${now ? `<b>${W('目前的對話', 'Open now')}</b> · ` : ''}${esc(when(c.u, k))} · ${esc(W(`${n} 個問題`, `${n} question${n > 1 ? 's' : ''}`))}</small></button><button type="button" class="lw-chat-more" data-more="${esc(c.id)}" aria-label="${W('更多', 'More')}">${ICON.more}</button></div>`;
+  };
+  const listHtml = () => {
+    if (!chats.length) return emptyHtml({ icon: 'history', tint: '#4f46e5', title: W('還沒有對話', 'No chats yet'), body: W('問過的問題會存在這支手機上，隨時回來接著問。', 'What you ask is kept on this phone, ready to pick up again.'), action: { label: W('問一個問題', 'Ask a question'), tap: 'ask' } });
+    const shown = chats.filter(c => chatMatches(c, q));
+    if (!shown.length) return `<p class="lw-none lw-chat-none">${W(`沒有對話提到「${esc(q.trim())}」`, `No chat mentions “${esc(q.trim())}”`)}</p>`;
+    return chatGroups(shown).map(g => `<h3 class="q-list-head lw-chat-head">${esc(groupName(g.key))}</h3><div class="lw-chat-group">${g.chats.map(c => row(c, g.key)).join('')}</div>`).join('');
+  };
+  const list = h('div', { class: 'lw-chat-groups', html: listHtml() });
+  const foot = h('div', { class: 'lw-chat-foot' });
+  const drawFoot = () => {
+    foot.hidden = !chats.length;
+    foot.innerHTML = `<small>${W(`${chats.length} 個對話，只存在這支手機上`, `${chats.length} chat${chats.length > 1 ? 's' : ''}, kept only on this phone`)}</small><button type="button" class="lw-chat-clear">${W('全部刪除', 'Delete all')}</button>`;
+  };
+  const find = search({ placeholder: W('搜尋對話', 'Search chats'), onInput: v => ((q = v), (list.innerHTML = listHtml())) });
+  find.classList.add('lw-chat-find');
+  const redraw = () => {
+    startNew.hidden = !chats.length;
+    find.hidden = chats.length < 5;
+    if (find.hidden) q = '';
+    list.innerHTML = listHtml();
+    drawFoot();
+  };
+  const startNew = h('button', { type: 'button', class: 'lw-chat-new', html: `<i>${MENU_ICON.edit}</i><span>${W('新對話', 'New chat')}</span>` });
+  const body = h('div', { class: 'lw-chat-list' }, [startNew, find, list, foot]);
+  redraw();
+  const s = sheet({ title: W('對話紀錄', 'Chats'), closeLabel: W('關閉', 'Close'), cls: 'lw-chats-sheet', body });
+  const toComposer = () => {
+    s.close();
+    requestAnimationFrame(() => $('panel-ask')?.querySelector('.lw-ask-q')?.focus());
+  };
+  const drop = c => {
+    const before = chats;
+    chats = saveChats(dropChat(chats, c.id));
+    if (c.id === chat.id) newChat();
+    redraw();
+    toast(W('已刪除對話', 'Chat deleted'), { ms: 5000, action: { label: W('復原', 'Undo'), onTap: () => ((chats = saveChats(before)), s.el.isConnected && redraw()) } });
+  };
+  body.addEventListener('click', async e => {
+    if (e.target.closest('.lw-chat-new')) return void (newChat(), toComposer());
+    if (e.target.closest('[data-tap="ask"]')) return void toComposer();
     const o = e.target.closest('.lw-chat-open');
     if (o) return void (s.close(), openChat(o.dataset.id));
     const m = e.target.closest('.lw-chat-more');
     if (m) {
       const c = chats.find(x => x.id === m.dataset.more);
+      if (!c) return;
       const menu = sheet({ title: c.t, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-menu' }, [
         h('button', { class: 'lw-menu-row ask', type: 'button', html: `<i>${MENU_ICON.ask}</i><span>${W('繼續這個對話', 'Continue')}</span>`, onclick: () => (menu.close(), s.close(), openChat(c.id)) }),
         h('form', { class: 'lw-rename', onsubmit: e => {
           e.preventDefault();
           chats = saveChats(renameChat(chats, c.id, e.currentTarget.elements.t.value));
-          body.innerHTML = rows();
+          redraw();
           menu.close();
         } }, [h('i', { html: MENU_ICON.edit }), h('input', { name: 't', value: c.t, maxlength: '60', enterkeyhint: 'done', 'aria-label': W('對話名稱', 'Chat name') }), h('button', { type: 'submit', text: W('改名', 'Rename') })]),
-        h('button', { class: 'lw-menu-row warn', type: 'button', html: `<i>${MENU_ICON.trash}</i><span>${W('刪除', 'Delete')}</span>`, onclick: () => {
-          chats = saveChats(dropChat(chats, c.id));
-          if (c.id === chat.id) newChat();
-          body.innerHTML = rows();
-          menu.close();
-          toast(W('已刪除', 'Deleted'));
-        } })
+        h('button', { class: 'lw-menu-row warn', type: 'button', html: `<i>${MENU_ICON.trash}</i><span>${W('刪除', 'Delete')}</span>`, onclick: () => (menu.close(), drop(c)) })
       ]) });
       return;
     }
-    if (e.target.closest('.lw-chat-clear') && confirm(W('刪除這支手機上的全部對話？', 'Delete every chat on this phone?'))) {
+    if (e.target.closest('.lw-chat-clear')) {
+      const n = chats.length;
+      const yes = await kit.ask({ icon: 'trash', tint: 'var(--q-red)', danger: true, title: W(`刪除全部 ${n} 個對話？`, `Delete all ${n} chats?`), body: W('這支手機上的對話紀錄會全部清掉，無法復原。', 'Every chat on this phone goes, and can’t be brought back.'), ok: W('全部刪除', 'Delete all'), cancel: W('取消', 'Cancel') });
+      if (!yes) return;
       chats = saveChats([]);
       newChat();
-      body.innerHTML = rows();
+      redraw();
+      toast(W('已刪除全部對話', 'All chats deleted'));
     }
   });
 }

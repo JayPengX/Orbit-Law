@@ -789,3 +789,28 @@ test('找法: a question as ideas, the laws holding most of them first, the best
   const ranked = orderLaws([{ ...groups[0], file }], concepts('網購退貨'), { df: [2, 2], N: 100 });
   assert.equal(ranked[0].arts[0].key, '19');
 });
+
+test('對話紀錄: chats grouped by day, a gist line, search over questions and verdicts', async () => {
+  const { chatGroups, chatGist, chatMatches, questionsIn } = await import('../public/lib/chats.mjs');
+  const now = new Date(2026, 9, 31, 12, 0).getTime();
+  const at = (d, h = 9) => new Date(2026, 9, 31 - d, h).getTime();
+  const c = (id, u, turns = []) => ({ id, t: id, u, turns });
+  const groups = chatGroups([c('old', new Date(2026, 8, 3).getTime()), c('a', at(0, 1)), c('b', at(1)), c('c', at(3)), c('d', at(12))], now);
+  assert.deepEqual(groups.map(g => [g.key, g.chats.map(x => x.id)]), [['today', ['a']], ['yesterday', ['b']], ['week', ['c']], ['2026-10', ['d']], ['2026-09', ['old']]]);
+  const chat = c('房東', 1, [{ role: 'user', text: '房東不退押金' }, { role: 'model', r: { verdict: '', answer: '可以要求退還。必要時提告。' } }, { role: 'user', text: '要寄存證信函嗎' }, { role: 'model', r: { verdict: '建議先寄', answer: '' } }]);
+  assert.equal(chatGist(chat), '建議先寄');
+  assert.equal(chatGist({ turns: [{ role: 'model', r: { answer: '可以要求退還。必要時提告。' } }] }), '可以要求退還。');
+  assert.equal(questionsIn(chat), 2);
+  assert.ok(chatMatches(chat, '存證'));
+  assert.ok(chatMatches(chat, '先寄 押金'));
+  assert.ok(!chatMatches(chat, '機車'));
+});
+
+test('no browser popups: confirm, alert and prompt are the kit’s dialogs (Jay 2026-10-31)', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = ['public/app.mjs', ...readdirSync(new URL('../public/lib/', import.meta.url)).map(f => `public/lib/${f}`)].filter(f => f.endsWith('.mjs'));
+  for (const f of files) {
+    const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
+    assert.ok(!/(?<![\w.$])(window\.)?(confirm|alert|prompt)\(/.test(src), `${f} calls a browser popup`);
+  }
+});

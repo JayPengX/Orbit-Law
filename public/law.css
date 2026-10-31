@@ -21,7 +21,7 @@ html.q-kb #panel-ask {
   content: '';
   position: fixed;
   z-index: 19;
-  left: 50%;
+  left: var(--q-mid, 50%);
   bottom: 0;
   width: var(--q-vw, 100vw);
   height: calc(var(--q-nav, 0px) + 64px);
@@ -1645,7 +1645,7 @@ a.lw-art-chip {
 /* The box: fixed over the page's foot, above the tab bar. */
 .lw-composer {
   position: fixed;
-  left: 50%;
+  left: var(--q-mid, 50%);
   bottom: calc(var(--q-nav, 0px) + 16px);
   z-index: 20;
   box-sizing: border-box;
@@ -2465,6 +2465,13 @@ button.lw-notice {
   font: var(--q-t-footnote);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* A card's party and district: on two lines where a phone's half is too narrow (無黨籍 · 國民黨團 · 第1選區). */
+.lw-people .lw-person-text small {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .lw-photo {
   position: relative;
@@ -4574,4 +4581,209 @@ a.lw-h-art {
 }
 .lw-cons-reason .lw-fold-body .lw-rule {
   margin: 0;
+}
+
+/* ---- Every screen, either way up (the kit's DESIGN §10, Jay 2026-10-31) ----
+   A phone upright is the phone's one column. With room for two (a phone on
+   its side, a tablet, a computer) the page grows to 1180 and each tab lays
+   its sections out side by side (app.mjs cols()), each column laid out as
+   on a phone; long lists flow into columns, cards into a grid. 問法律 (a
+   conversation) and a law's text keep a reading width; on a computer the
+   law's card and 目錄 stand beside its text. */
+:root.q-wide {
+  --q-page-max: 1180px;
+}
+:root.q-wide[data-lw-tab='ask'],
+:root.q-wide:not(.q-w3)[data-lw-law] {
+  --q-page-max: 760px;
+}
+/* In a column: nothing reaches past its edges (rails and chips bleed only on a phone). */
+.lw-col {
+  --q-margin: 0px;
+  min-width: 0;
+}
+.lw-col > :first-child,
+.lw-col > :first-child > .q-section:first-child {
+  margin-top: 0;
+}
+.lw-cols {
+  margin-top: var(--q-s-5, 24px);
+}
+/* Chips in a column wrap; what scrolls sideways fades at the column's edge. */
+.lw-col .q-chips {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.lw-col :is(.lw-covers, .lw-starters.rail) {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 24px);
+  mask-image: linear-gradient(to left, transparent, #000 24px);
+}
+/* Card rails on a wide page: whole cards, as many as fit, never a half one at the end. */
+:root.q-wide .lw-sec {
+  container-type: inline-size;
+}
+:root.q-wide .lw-rail {
+  --n: 1.2;
+  grid-auto-columns: calc((100cqw - (var(--n) - 1) * 8px) / var(--n));
+  margin-inline: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
+}
+@container (min-width: 540px) {
+  :root.q-wide .lw-rail { --n: 2; }
+}
+@container (min-width: 820px) {
+  :root.q-wide .lw-rail { --n: 3; }
+}
+@container (min-width: 1100px) {
+  :root.q-wide .lw-rail { --n: 4; }
+}
+/* A long list across the page (not in a column or a sheet): its rows in two
+   columns (three on a computer), read left to right, a hairline between. */
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(2)::before {
+  display: none;
+}
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(2n) {
+  box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(3)::before {
+  display: none;
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(n) {
+  box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(3n + 1) {
+  box-shadow: none;
+}
+/* 立法 and 裁判: the doors and the search side by side across the top. */
+:root.q-wide :is(#panel-bills, #panel-rulings) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--q-s-5, 24px);
+  align-items: center;
+}
+:root.q-wide :is(#panel-bills, #panel-rulings) > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+:root.q-wide :is(#panel-bills, #panel-rulings) > .lw-bill-doors {
+  grid-column: 1;
+}
+:root.q-wide :is(#panel-bills, #panel-rulings) > .q-search {
+  grid-column: 2;
+  margin-block: 4px 12px;
+}
+/* A law on a computer: the card and the 目錄 beside the text, kept in view. */
+.lw-side-toc {
+  display: none;
+}
+:root.q-w3 .lw-law-page {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 760px);
+  justify-content: center;
+  gap: 0 40px;
+  align-items: start;
+}
+:root.q-w3 .lw-law-side {
+  position: sticky;
+  top: 68px;
+  display: grid;
+  gap: var(--q-s-4, 16px);
+  max-height: calc(100dvh - 84px);
+  margin-top: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+:root.q-w3 .lw-law-side::-webkit-scrollbar {
+  display: none;
+}
+:root.q-w3 .lw-law-side .lw-over-card {
+  margin: 0;
+}
+:root.q-w3 .lw-side-toc {
+  display: grid;
+  padding: 8px 0;
+  border-radius: var(--q-r-card);
+  background: var(--q-surface);
+}
+.lw-side-toc h3 {
+  margin: 4px 16px 6px;
+  color: var(--q-label-2);
+  font: 600 13px/18px var(--q-font);
+}
+.lw-side-toc button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 16px;
+  border: 0;
+  background: none;
+  color: var(--q-label);
+  font: 500 14px/19px var(--q-font);
+  text-align: left;
+  cursor: pointer;
+}
+.lw-side-toc button.d1 {
+  padding-left: 30px;
+  color: var(--q-label-2);
+  font-size: 13px;
+}
+.lw-side-toc button:hover {
+  background: var(--q-fill-4, var(--q-fill-3));
+}
+.lw-side-toc button.on {
+  color: var(--q-indigo);
+}
+.lw-side-toc small {
+  color: var(--q-label-3);
+  font: 400 12px/16px var(--q-font);
+  white-space: nowrap;
+}
+/* A phone on its side: 問法律's welcome without its badge, so the questions show above the box. */
+@media (max-height: 520px) {
+  .lw-ask-empty .lw-orb {
+    display: none;
+  }
+}
+/* 表決's vote cards and 預告's drafts: a grid of phone-wide cards on a wide page. */
+:root.q-wide .lw-vgroups {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+}
+/* 議程: a busy day's meetings in two columns, read left to right in time order. */
+:root.q-wide .lw-meets:has(> :nth-child(3)):not(.lw-col .lw-meets, dialog .lw-meets) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+:root.q-wide .lw-meets:has(> :nth-child(3)):not(.lw-col .lw-meets, dialog .lw-meets) > :nth-child(2) {
+  border-top: 0;
+}
+:root.q-wide .lw-meets:has(> :nth-child(3)):not(.lw-col .lw-meets, dialog .lw-meets) > :nth-child(2n) {
+  box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
+}
+/* (A list's odd row out runs across, so the card has no hole.) */
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(odd),
+:root.q-wide .lw-meets:has(> :nth-child(3)):not(.lw-col .lw-meets, dialog .lw-meets) > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(odd) {
+  grid-column: auto;
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(3n + 1) {
+  grid-column: 1 / -1;
+}
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(3n + 2) {
+  grid-column: span 2;
+}
+/* 政府公告: a headline whole, however narrow the column. */
+.lw-news .lw-row-name {
+  display: block;
 }

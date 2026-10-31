@@ -46,6 +46,33 @@ import { parseHistory } from './lib/history.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId, chatGroups, chatGist, chatMatches, questionsIn } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
+
+// ---- Every screen (the kit's DESIGN §10): one column on a phone; on a
+// wider page a tab's sections side by side, each laid out as on a phone.
+// cols() takes the sections in the phone's order, each with the column it
+// sits in when there are two (and three, where the tab lays out three).
+let screen = kit.screenFit?.() || { wide: false, w3: false };
+const nCols = (most = 2) => Math.min(most, screen.w3 ? 3 : screen.wide ? 2 : 1);
+function cols(parts, most = 2) {
+  const n = nCols(most);
+  const shown = parts.filter(p => p[0]);
+  if (n === 1) return shown.map(p => p[0]).join('');
+  const out = Array.from({ length: n }, () => []);
+  for (const [html, two, three = two] of shown) out[n === 3 ? three : two].push(html);
+  // A column left empty (nothing followed there yet): the sections share them in turn.
+  if (out.some(c => !c.length)) shown.forEach(([html], i) => (i < n ? (out[i] = [html]) : out[i % n].push(html)));
+  return `<div class="q-cols${n === 3 ? ' q-cols-3' : ''} lw-cols">${out.map(c => `<div class="lw-col">${c.join('')}</div>`).join('')}</div>`;
+}
+// The screen turned or resized past a column: the tab laid out again.
+kit.onScreen?.(now => {
+  const was = [nCols(2), nCols(3)].join();
+  screen = now;
+  if ([nCols(2), nCols(3)].join() === was) return;
+  if (state.tab === 'home') drawHome();
+  if (state.tab === 'laws' && !state.law) drawResults();
+  if (state.tab === 'rulings') drawRulingList();
+  if (state.tab === 'mine') drawMine();
+});
 const BUILD = document.querySelector('meta[name="build-version"]')?.content || 'dev';
 document.documentElement.lang = en ? 'en' : 'zh-Hant';
 
@@ -139,6 +166,7 @@ const tabs = tabBar({
 
 function showTab(id) {
   state.tab = id;
+  document.documentElement.dataset.lwTab = id;
   tabs.select(id);
   for (const t of TABS) $(`panel-${t}`).hidden = t !== id;
 }
@@ -160,6 +188,7 @@ addEventListener('popstate', route);
 
 async function route() {
   const p = new URLSearchParams(location.hash.slice(1));
+  document.documentElement.toggleAttribute('data-lw-law', p.has('law'));
   document.querySelector('dialog[open]')?.close();
   const tab = p.get('tab');
   if (p.get('law')) {
@@ -267,21 +296,25 @@ function drawHome() {
   const picks = recommend(recent);
 
   // One search, the ask card, then calm shelves of what's new.
+  // (Wide: the ask card heads the left column, what's new the right.)
+  const topics = section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
   panel.innerHTML =
     pageHead('') +
     `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、判決、法案或生活問題', 'Search laws, rulings, bills')}</span></a>` +
-    hero +
-    section(W('繼續閱讀', 'Continue reading'), resumeRows() || covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
-    // A first visit starts from everyday life; a returning one from what they read.
-    (recent.length ? '' : section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '')) +
-    `<div id="home-live"></div>` +
-    section(W('立法院這週', 'In the Legislative Yuan this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }) +
-    section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }) +
-    section(W('為你推薦', 'For you'), covers(picks)) +
-    // 裁判: 憲法法庭's two newest, then the top courts' newest.
-    section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }) +
-    `<div id="home-news"></div>` +
-    (recent.length ? section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '') : '');
+    cols([
+      [`<div class="lw-hero-wrap">${hero}</div>`, 0],
+      [section(W('繼續閱讀', 'Continue reading'), resumeRows() || covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }), 0],
+      // A first visit starts from everyday life; a returning one from what they read.
+      [recent.length ? '' : topics, 0],
+      [`<div id="home-live"></div>`, 1],
+      [section(W('立法院這週', 'In the Legislative Yuan this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
+      [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],
+      [section(W('為你推薦', 'For you'), covers(picks)), 1],
+      // 裁判: 憲法法庭's two newest, then the top courts' newest.
+      [section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }), 1],
+      [`<div id="home-news"></div>`, 0],
+      [recent.length ? topics : '', 1]
+    ]);
   // 立法院 meeting now: its rooms, each opening the live video.
   agendaData()
     .then(a => {
@@ -308,7 +341,7 @@ function drawHome() {
     .then(d => {
       const el = $('home-news');
       const rows = (d.news || []).slice(0, 4);
-      if (el && rows.length) el.outerHTML = section(W('政府公告', 'Government notices'), `<div class="lw-list">${rows.map(([day, gov, t, url]) => `<a class="lw-row" href="${esc(url)}">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(t)}</span><small>${esc(`${gov} · ${shortDay(day)}`)}</small></span></a>`).join('')}</div>`);
+      if (el && rows.length) el.outerHTML = section(W('政府公告', 'Government notices'), `<div class="lw-list lw-news">${rows.map(([day, gov, t, url]) => `<a class="lw-row" href="${esc(url)}">${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${esc(t)}</span><small>${esc(`${gov} · ${shortDay(day)}`)}</small></span></a>`).join('')}</div>`);
     })
     .catch(() => {});
 }
@@ -408,9 +441,14 @@ function drawResults() {
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 8);
   out.innerHTML =
     quick +
-    section(W('依生活情境找', 'By life situation'), topicGrid()) +
-    section(W('常用', 'Common'), list(COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawItem(r)))) +
-    section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))));
+    cols(
+      [
+        [section(W('依生活情境找', 'By life situation'), topicGrid()), 0, 0],
+        [section(W('常用', 'Common'), list(COMMON.map(n => state.rows.find(r => r[1] === n)).filter(Boolean).map(r => lawItem(r)))), 1, 1],
+        [section(W('最近修法', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c))))), 0, 2]
+      ],
+      3
+    );
 }
 
 // 找法: one search, answered in the order people need it. The law it names
@@ -462,7 +500,9 @@ async function findAll(q, out) {
     (bills.length ? section(W('立法院審議中', 'In the Legislative Yuan'), `<div class="lw-list">${bills.map(it => `<a class="lw-row" href="#item=${esc(it.k.replace(':', '-'))}">${topicTile(topicFor(it.p, it.n), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(it.n)}">${esc(it.n)}</span><small>${esc([stageShort(it, en), it.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`) : '') +
     `<div id="find-rulings"></div><div id="find-people"></div>`;
   const hero = exact && `<a class="lw-find-card lw-find-hero" href="#law=${esc(exact[0])}" style="--t:${TOPICS[rowTopic(exact)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(exact))}<span class="lw-find-hero-name"><b class="q-fit-wrap">${esc(en ? nameOf(exact[0], exact[1]) : exact[1])}</b><small id="find-hero-sub">${esc(lawSub(exact))}</small></span></span><p id="find-hero-text" class="q-skel"></p><span class="lw-find-open">${W('讀全文', 'Read the full text')}<svg viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>`;
-  out.innerHTML = (jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + (hero ? `<section class="q-section lw-sec">${hero}</section>` : '') + lawBlock + `<div id="find-arts">${[...q].length >= 2 && !jumpTo ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : ''}</div>` + nameBlocks() + ask;
+  // (Wide: the names on the left, the articles that say it on the right.)
+  const arts = [...q].length >= 2 && !jumpTo ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : '';
+  out.innerHTML = cols([[(jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + (hero ? `<section class="q-section lw-sec">${hero}</section>` : '') + lawBlock, 0], [`<div id="find-arts">${arts}</div>`, arts ? 1 : 0], [nameBlocks() + ask, 0]]);
   // The named law's own words: its first article (what it's for) and how many articles it has.
   if (exact)
     lawFile(exact[0])
@@ -503,7 +543,7 @@ async function findAll(q, out) {
       .then(ppl => {
         const hit = ppl.people.filter(x => !x.to && (x.n.includes(q) || x.area.includes(q))).slice(0, 4);
         const el = $('find-people');
-        if (run === findRun && el && hit.length) el.outerHTML = section(W('立委', 'Legislators'), `<div class="lw-people">${hit.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a>`).join('')}</div>`);
+        if (run === findRun && el && hit.length) el.outerHTML = section(W('立委', 'Legislators'), `<div class="lw-people">${hit.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a>`).join('')}</div>`);
       })
       .catch(() => {});
   if ([...q].length < 2 || jumpTo) return;
@@ -690,7 +730,10 @@ async function drawLaw() {
     const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
     (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-regs" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
   }
-  panel.replaceChildren(head, find, over, ...[fw, body].filter(Boolean));
+  // Beside the text on a computer: the card and the law's 目錄, kept in view
+  // (a phone opens the 目錄 from its door). The text stays a reading width.
+  const side = h('aside', { class: 'lw-law-side' }, [over, sideContents(law)].filter(Boolean));
+  panel.replaceChildren(head, find, h('div', { class: 'lw-law-page' }, [side, h('div', { class: 'lw-law-main' }, [fw, body].filter(Boolean))]));
   box.hidden = true;
   // The bar's name only once the card's has scrolled away (as iOS's large titles).
   titleWatch?.disconnect();
@@ -906,6 +949,42 @@ function showContents(law) {
     s.close();
     scrollToHeading(b.dataset.id);
   });
+}
+
+// The 目錄 beside the text (a wide screen): chapters, a tap away, the one being read marked.
+function sideContents(law) {
+  const all = contents(law).filter(c => c.depth <= 1);
+  if (all.length < 2) return null;
+  const nav = h('nav', { class: 'lw-side-toc', 'aria-label': W('目錄', 'Contents'), html: `<h3>${W('目錄', 'Contents')}</h3>${all.map(c => `<button type="button" class="d${c.depth}" data-id="${c.id}"><span>${esc(c.title)}</span>${c.first ? `<small>${esc(artLabel(c.first, en))}</small>` : ''}</button>`).join('')}` });
+  nav.addEventListener('click', e => {
+    const b = e.target.closest('button[data-id]');
+    if (b) scrollToHeading(b.dataset.id);
+  });
+  // The chapter at the top of the text marked, and kept in the list's view.
+  let frame = 0;
+  const mark = () => {
+    frame = 0;
+    if (!nav.isConnected) return removeEventListener('scroll', soon);
+    if (!nav.offsetParent) return;
+    const y = (document.querySelector('.lw-bar')?.offsetHeight || 0) + 24;
+    let on = null;
+    for (const b of nav.querySelectorAll('button[data-id]')) {
+      const el = document.getElementById(b.dataset.id);
+      if (el && el.getBoundingClientRect().top <= y) on = b;
+    }
+    const was = nav.querySelector('button.on');
+    if (was === on) return;
+    was?.classList.remove('on');
+    if (!on) return;
+    on.classList.add('on');
+    const side = nav.parentElement;
+    const top = on.offsetTop;
+    if (top < side.scrollTop || top + on.offsetHeight > side.scrollTop + side.clientHeight) side.scrollTop = top - side.clientHeight / 2;
+  };
+  const soon = () => (frame ||= requestAnimationFrame(mark));
+  addEventListener('scroll', soon, { passive: true });
+  setTimeout(soon, 300);
+  return nav;
 }
 
 function lawMenu(law, row) {
@@ -1910,14 +1989,16 @@ async function drawRulingList() {
   const low = (await lowIndex().catch(() => null))?.latest || [];
   if (run !== rulingRun) return;
   if (!judgments.length && !court.length) return void (out.innerHTML = emptyRulings());
-  out.innerHTML =
-    section(W('憲法法庭最新判決', 'Constitutional Court, latest'), rail(judgments.map(rulingCard)), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=cons' }) +
-    section(W('判決之後，立法院在修', 'Rulings the Legislative Yuan is acting on'), answered.length ? `<div class="lw-list">${answered.map(r => answeredRow(r)).join('')}</div>` : '') +
-    section(W('最高法院', 'Supreme Court'), list(by('TPS').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPS' }) +
-    section(W('最高行政法院', 'Admin. Court'), list(by('TPA').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPA' }) +
-    (low.length ? section(W('高等法院・地方法院', 'High and district courts'), list(low.slice(0, 4).map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=low' }) : '') +
-    section(W('最常被引用的解釋', 'Most cited'), list(landmarks.slice(0, 6).map(r => rulingRow(r, { sub: W(`${consLabel(r[0])} · 後來 ${cons.cited[r[0]].length} 件引用`, `${consLabel(r[0], en)} · cited ${cons.cited[r[0]].length} times`) }))), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=interp' }) +
-    section(W('依主題', 'By topic'), topicChips);
+  // (Wide: 憲法法庭 and what came of it on the left, the courts on the right.)
+  out.innerHTML = cols([
+    [section(W('憲法法庭最新判決', 'Constitutional Court, latest'), rail(judgments.map(rulingCard)), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=cons' }), 0],
+    [section(W('判決之後，立法院在修', 'Rulings the Legislative Yuan is acting on'), answered.length ? `<div class="lw-list">${answered.map(r => answeredRow(r)).join('')}</div>` : ''), 0],
+    [section(W('最高法院', 'Supreme Court'), list(by('TPS').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPS' }), 1],
+    [section(W('最高行政法院', 'Admin. Court'), list(by('TPA').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPA' }), 1],
+    [low.length ? section(W('高等法院・地方法院', 'High and district courts'), list(low.slice(0, 4).map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=low' }) : '', 1],
+    [section(W('最常被引用的解釋', 'Most cited'), list(landmarks.slice(0, 6).map(r => rulingRow(r, { sub: W(`${consLabel(r[0])} · 後來 ${cons.cited[r[0]].length} 件引用`, `${consLabel(r[0], en)} · cited ${cons.cited[r[0]].length} times`) }))), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=interp' }), 0],
+    [section(W('依主題', 'By topic'), topicChips.replace('q-chips lw-chips', 'q-chips lw-chips q-balance')), 1]
+  ]);
 }
 // 各級法院: how many, by level and kind; 案由 to pick (or found by the search box),
 // each court; a 案由 or a court opened: its newest judgments.
@@ -2489,13 +2570,15 @@ function drawMine() {
   const laws = Object.keys(m.laws).map(p => state.byCode.get(p)).filter(Boolean);
   const marks = m.marks.map(x => ({ ...x, row: state.byCode.get(x.p) })).filter(x => x.row);
   const news = changedLaws.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), countTag(W('新', 'New'), 'green')));
-  const html =
-    section(W('自上次查看後的變動', 'New since you last looked'), (moved.length ? grid(moved.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)) +
-    section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))) +
-    section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))) +
-    section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))) +
-    section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))) +
-    (Object.keys(m.people || {}).length ? `<div id="mine-people"></div>` : '');
+  // (Wide: bills on the left, laws and legislators on the right.)
+  const html = cols([
+    [section(W('自上次查看後的變動', 'New since you last looked'), (moved.length ? grid(moved.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)), 0],
+    [section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))), 0],
+    [section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))), 1],
+    [section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))), 1],
+    [section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))), 1],
+    [Object.keys(m.people || {}).length ? `<div id="mine-people"></div>` : '', 1]
+  ]);
   // Only recent laws so far: say what ☆ adds, under them.
   const nothingFollowed = !items.length && !laws.length && !marks.length && !news.length && !Object.keys(m.people || {}).length;
   const hint = `<div class="lw-mine-hint"><span class="lw-orb star sm">${ICON.star}</span><div><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('按 ☆，修法和審議進度會出現在這裡', 'Tap ☆: amendments and progress show here')}</p></div></div>`;
@@ -2758,7 +2841,7 @@ async function peopleList(out) {
   // By 縣市: each card says its party and 選區; by party: its 選區.
   const seat = a => (/第(\d+)選舉區/.test(a) ? W(`第${seatNo(a)}選區`, `District ${seatNo(a)}`) : /山地原住民/.test(a) ? W('山地', 'Highland') : /平地原住民/.test(a) ? W('平地', 'Lowland') : '');
   const sub = (x, full) => (full ? `${partyShort(x.party)} · ${shortArea(x.area)}` : byArea ? [partyShort(x.party), bloc(x) !== x.party ? W(`${partyShort(bloc(x))}團`, `${partyShort(bloc(x))} caucus`) : '', seat(x.area)].filter(Boolean).join(' · ') : shortArea(x.area));
-  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
+  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
   const groups = new Map();
   for (const x of now) {
     const g = byArea ? seatGroup(x.area) : [0, x.party];

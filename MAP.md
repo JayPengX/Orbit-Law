@@ -40,6 +40,13 @@ Live: https://orbit.jaypengx.com/law/
 
 ## Decisions in force
 
+- **Every screen** (kit DESIGN §10): a phone upright is one column; with room
+  for two (a phone on its side, a tablet, a computer) the page grows to 1180
+  and each tab lays its sections side by side (`cols()` in `app.mjs`, the
+  phone's order kept within each column), long lists run in two or three
+  columns, cards in a grid. 問法律 and a law's text keep a reading width; on a
+  computer a law's card and its 目錄 stand beside the text.
+
 - **Links** (`lib/refs.mjs`, one rule for every screen): 第X條(之Y), ranges
   (至), lists (、), 前條/前N條, 前項/第N項, and another law's name before 第X條
   (index names plus `SHORT_NAMES`). A name we don't know right before 第X條

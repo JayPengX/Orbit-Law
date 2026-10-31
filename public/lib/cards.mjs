@@ -87,7 +87,7 @@ export function shortDay(d, now = new Date()) {
 const NEXT = ['提案', '一讀，交給委員會', '委員會審查', '委員會審查完畢', '政黨協商', '院會二讀、三讀表決', '三讀通過', '總統公布'];
 const NEXT_EN = ['Filing', '1st reading, to committee', 'Committee review', 'Committee finishing review', 'Party talks', 'Floor votes (2nd and 3rd reading)', 'Passing', 'Promulgation'];
 // The day it last moved; a day still ahead is the meeting it is set for (排入院會 dates the agenda).
-const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10) ? (en ? `set ${shortDay(d, now)}` : `${shortDay(d, now)} 排定`) : shortDay(d, now));
+export const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10) ? (en ? `set ${shortDay(d, now)}` : `${shortDay(d, now)} 排定`) : shortDay(d, now));
 // Where an item stands, in words, from its versions' own steps: the latest
 // step (a day ahead is the meeting it's set for), the step it waits for,
 // how many versions are still open, and an earlier round's 三讀.

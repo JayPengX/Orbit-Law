@@ -15,6 +15,23 @@
 html.q-kb #panel-ask {
   padding-bottom: 120px;
 }
+/* Behind the box and the tab bar, the page's own colour: an answer scrolling
+   under them showed through the gap between the two (Jay 2026-10-31). */
+#panel-ask::after {
+  content: '';
+  position: fixed;
+  z-index: 19;
+  left: 50%;
+  bottom: 0;
+  width: var(--q-vw, 100vw);
+  height: calc(var(--q-nav, 0px) + 64px);
+  transform: translateX(-50%);
+  background: linear-gradient(to top, var(--q-page) calc(100% - 28px), transparent);
+  pointer-events: none;
+}
+html.q-kb #panel-ask::after {
+  content: none;
+}
 .lw-head {
   padding: 8px 0 16px;
 }

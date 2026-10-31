@@ -160,6 +160,16 @@ Live: https://orbit.jaypengx.com/law/
   copy; `local/all.json`'s `sources` says each one's count and error (the
   cloud box reached 臺北, 新北, 高雄, 臺中, 新竹市, 金門, 苗栗, 彰化, 連江,
   嘉義市; the rest are tried from the deploy's runner).
+- **Plain text read as its structure** (`view.mjs` textBlocks/proseHtml; Jay
+  2026-10-31): every text the sources hand us as a blob (rules, a ruling's
+  主文 and 理由, a judgment's points, a bill's 案由/說明/立法說明, a draft's
+  總說明, a meeting's 事由, a government page's text) is drawn by one function:
+  壹、 and short 一、 lines are headings, 一、（一）1.（1） points hung by depth,
+  points run together on one line split where the numbers follow on (never
+  inside 「」), wrapped lines joined, 【N】 a quiet number. Diffs
+  (`cards.mjs` diffBlocks: 修了什麼, 對照表, 預告) read as the article: a line a 項,
+  款 and 目 hung, each 款's number kept. An article's 目 hangs under its 款;
+  施行日期's wrapped lines are joined, its article numbers links.
 - **Finding** (`lib/search.mjs`, `fulltext.mjs`, `topics.mjs`): names, short
   names and article jumps; 全文檢索 by bigram buckets built at deploy; every
   law sorted into a topic.

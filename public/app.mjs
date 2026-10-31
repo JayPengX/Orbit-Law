@@ -23,7 +23,7 @@ import { searchLaws, rankLaws, parseJump, likelyLaw, ymd, relatedLaws } from './
 import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
-import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml } from './lib/view.mjs';
+import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
@@ -36,7 +36,7 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween } from './lib/budget.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffHtml, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -913,7 +913,7 @@ function lawMenu(law, row) {
   if (contents(law).length) rows.push([W('目錄', 'Contents'), () => showContents(law)]);
   if (row[6] || state.showEn) rows.push([state.showEn ? '中文條文' : 'English text', () => ((state.showEn = !state.showEn), drawLaw())]);
   if (law.h) rows.push([W('沿革', 'History'), () => historySheet(law)]);
-  if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff)]);
+  if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff, law)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W(`立法院第 ${it.term} 屆`, `Legislative Yuan, term ${it.term}`)} · ${stageShort(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
   for (const r of relatedLaws(state.rows, row)) rows.push([r[1], () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
   const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
@@ -923,7 +923,7 @@ function lawMenu(law, row) {
 const ACT_TONE = { 制定: 'green', 訂定: 'green', 增訂: 'green', 修正: 'indigo', 刪除: 'red', 廢止: 'red' };
 function historySheet(law) {
   const events = parseHistory(law.h).reverse();
-  if (!events.length) return textSheet(W('沿革', 'History'), law.h);
+  if (!events.length) return textSheet(W('沿革', 'History'), law.h, law);
   const has = new Set(law.a.filter(a => a[0] === 'A').map(a => a[1]));
   const art = a => {
     const k = a.split('～')[0];
@@ -950,8 +950,9 @@ function historySheet(law) {
     if (b) b.outerHTML = JSON.parse(b.dataset.more).map(art).join('');
   });
 }
-function textSheet(title, text) {
-  sheet({ title, closeLabel: W('關閉', 'Close'), body: h('pre', { class: 'lw-pre', text }) });
+// The ministry's notes (施行日期) as numbered points, the lines it wrapped joined.
+function textSheet(title, text, law) {
+  sheet({ title, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-notes', html: notesHtml(law, text) }) });
 }
 
 // 修了什麼: the latest amendment, article by article, the changed words marked.
@@ -977,7 +978,7 @@ async function diffSheet(law, change) {
         .map(k => {
           const [was, now] = d?.arts?.[k] || [null, law.a.find(a => a[0] === 'A' && a[1] === k)?.[2] || null];
           const kind = !was ? ['新增', 'New', 'green'] : !now || /^[（(]刪除[）)]$/.test(now.trim()) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo'];
-          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(artLabel(k, en))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${!was ? `<ins>${esc(now)}</ins>` : !now ? `<del>${esc(was)}</del>` : diffHtml(was, now)}</p></article>`;
+          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(artLabel(k, en))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${diffBlocks(was || null, now || null)}</div></article>`;
         })
         .join('') + (d ? '' : `<p class="lw-none">${W('舊條文這次讀不到，先列出修正後的條文', 'The old text isn’t here; the articles as they are now')}</p>`)
     : `<p class="lw-none">${change.whole ? W('整部法律都是這次的條文，直接讀全文', 'The whole law is this version: read it in full') : W('這次修正沒有條文變動', 'No articles changed')}</p>`;
@@ -1167,8 +1168,8 @@ function blocksHtml(blocks) {
     if (b.k === 'li') { list += `<li>${esc(b.t)}</li>`; continue; }
     flush();
     if (b.k === 'h') out += `<h4>${esc(b.t)}</h4>`;
-    else if (b.k === 'p') out += `<p>${esc(b.t)}</p>`;
-    else if (b.k === 'pre') out += `<p class="lw-page-pre">${esc(b.t)}</p>`;
+    else if (b.k === 'p') out += proseHtml(b.t, state.names);
+    else if (b.k === 'pre') out += `<div class="lw-page-pre">${proseHtml(b.t, state.names)}</div>`;
     else if (b.k === 'table') out += `<div class="lw-page-table"><table>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
     else if (b.k === 'img') out += `<figure>${b.href && readable(b.href) ? `<a href="${esc(b.href)}" target="_blank" rel="noopener">` : ''}<img src="${esc(b.src)}" alt="${esc(b.alt)}" loading="lazy" referrerpolicy="no-referrer">${b.href && readable(b.href) ? '</a>' : ''}${b.alt ? `<figcaption>${esc(b.alt)}</figcaption>` : ''}</figure>`;
     else if (b.k === 'link') out += `<a class="lw-page-link" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.t)}</a>`;
@@ -1221,12 +1222,12 @@ async function openJudgment(u, label = '') {
     const point = x => {
       const t = x.text.replace(/^[一二三四五六七八九十百]+、/, '');
       const [first, ...rest] = t.split('\n');
-      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${[first.length > 90 ? first : '', ...rest].filter(Boolean).map(p => `<p>${linkedHtml(p, state.names)}</p>`).join('')}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${linkedHtml(first, state.names)}</span></div>`;
+      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${proseHtml([first.length > 90 ? first : '', ...rest].filter(Boolean).join('\n'), state.names)}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${linkedHtml(first, state.names)}</span></div>`;
     };
     body.innerHTML =
       `<header class="lw-page-head"><h3>${esc(label || r.title)}</h3><small>${esc([r.title, r.no, r.date && shortDay(r.date)].filter(Boolean).join(' · '))}</small></header>` +
       (jid ? rulingAiBtn(jid, r.no || label || r.title) : '') +
-      `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}<p>${linkedHtml(r.main.join(' '), state.names)}</p></div>` +
+      `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}${proseHtml(r.main.join('\n'), state.names)}</div>` +
       (who.length ? `<p class="lw-jd-who">${who.map(esc).join('<br>')}</p>` : '') +
       (r.reasons.length ? `<h4>${W(`理由（${r.reasons.length} 點）`, `Reasons (${r.reasons.length})`)}</h4><div class="lw-jd-points">${r.reasons.map(point).join('')}</div>` : '') +
       (r.judges.length ? `<p class="lw-page-src">${esc(W(`法官 ${r.judges.join('、')}`, `Judges ${r.judges.join(', ')}`))}</p>` : '') +
@@ -1313,7 +1314,7 @@ async function openBillById(id) {
     if (!b) throw new Error('none');
     const flow = (b['議案流程'] || []).map(f => `<li class="done"><b>${esc(String(f['狀態'] || '').replace(/\s*[（(].*$/, ''))}</b><span>${esc(ymd([].concat(f['日期'] || [])[0] || ''))}</span></li>`).join('');
     const who = [...(b['提案人'] || [])];
-    body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4><p>${esc(b['案由'])}</p>` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary><p>${esc(b['說明'])}</p></details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4>${proseHtml(b['案由'], state.names)}` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary>${proseHtml(b['說明'], state.names)}</details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
     compareBill({ id }, body.querySelector('.lw-diffs'), { first: 3 });
   } catch {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這個法案', 'Couldn’t load this bill')}</p>`;
@@ -2058,7 +2059,7 @@ async function openCons(id) {
   const named = (it.bills || []).map(k => state.items.find(x => x.k === k)).filter(Boolean);
   const onArts = state.items.filter(x => !named.includes(x) && !x.dropped && x.open && x.stage < PROMULGATED && it.cites.some(c => { const [p, k] = c.split(':'); return x.p === p && (!k || x.arts?.[k]); })).slice(0, 4);
   const billRows = items => `<div class="lw-list">${items.map(x => `<a class="lw-row" href="#item=${esc(x.k.replace(':', '-'))}">${topicTile(itemTopic(x), 'sm')}<span class="lw-row-text"><span class="lw-row-name${fit(x.n)}">${esc(x.n)}</span><small>${esc([stageShort(x, en), x.about].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>`;
-  const paras = ps => ps.map(p => `<p>${linkedHtml(p, state.names)}</p>`).join('');
+  const paras = ps => proseHtml(ps.join('\n'), state.names);
   const verdict = consVerdict(it.main.join(''));
   body.innerHTML =
     `<header class="lw-page-head"><h3 class="lw-big-name q-fit-wrap${nameSize(it.n || '')}">${esc(it.n || consLabel(id, en))}</h3><small>${esc([courtName(kind), it.label, it.d && ymd(it.d)].filter(Boolean).join(' · '))}</small></header>` +
@@ -2311,7 +2312,7 @@ async function openNotice(id) {
     const rows = d?.rows || [];
     const rowHtml = r => {
       const what = !r.old ? [W('新增', 'New'), 'green'] : /^[（(]?刪除[）)]?$/.test(r.now) || !r.now ? [W('刪除', 'Deleted'), 'red'] : [W('修正', 'Changed'), 'indigo'];
-      return `<div class="lw-nrow"><div class="lw-nrow-head"><b>${esc(r.a)}</b><span class="lw-tag ${what[1]}">${esc(what[0])}</span></div><div class="lw-nrow-text">${r.old && r.now ? diffHtml(r.old, r.now) : esc(r.now || r.old)}</div>${r.why ? `<details class="lw-nrow-why"><summary>${W('為什麼', 'Why')}</summary><p>${esc(r.why)}</p></details>` : ''}</div>`;
+      return `<div class="lw-nrow"><div class="lw-nrow-head"><b>${esc(r.a)}</b><span class="lw-tag ${what[1]}">${esc(what[0])}</span></div><div class="lw-nrow-text lw-dtext">${r.old && r.now ? diffBlocks(r.old, r.now) : diffBlocks(null, r.now || r.old)}</div>${r.why ? `<details class="lw-nrow-why"><summary>${W('為什麼', 'Why')}</summary>${proseHtml(r.why, state.names)}</details>` : ''}</div>`;
     };
     const shown = 8;
     body.innerHTML =
@@ -2319,7 +2320,7 @@ async function openNotice(id) {
       `<h2 class="lw-item-name lw-big-name${fit(noticeParts(n)[0])}">${esc(noticeParts(n)[0])}</h2>${noticeParts(n)[1] ? `<p class="lw-notice-arts big">${esc(noticeParts(n)[1])}</p>` : ''}` +
       `<div class="lw-stats${tiles.length === 3 ? ' three' : tiles.length === 2 ? ' two' : ''}">${tiles.map(([b, l, t]) => `<span class="lw-stat ${t}"><b>${esc(b)}</b><span>${esc(l)}</span></span>`).join('')}</div>` +
       `<div class="lw-notice-who">${who ? `<p><b>${W('提出', 'From')}</b><span>${esc(who)}</span></p>` : ''}${d?.basis ? `<p><b>${W('依據', 'Under')}</b><span>${esc(d.basis)}</span></p>` : ''}<p><b>${W('公告', 'Posted')}</b><span>${esc(ymd(n.from))}</span></p></div>` +
-      (why ? `<section class="lw-person-sec"><h4>${W('為什麼要改', 'Why')}</h4>${n.s && d?.about ? `<p class="lw-notice-lead">${esc(n.s.replace(/…$/, ''))}${/…$/.test(n.s) ? '…' : '。'}</p>` : ''}<button type="button" class="lw-why-row lw-notice-about"><span>${esc(why)}</span></button></section>` : '') +
+      (why ? `<section class="lw-person-sec"><h4>${W('為什麼要改', 'Why')}</h4>${n.s && d?.about ? `<p class="lw-notice-lead">${esc(n.s.replace(/…$/, ''))}${/…$/.test(n.s) ? '…' : '。'}</p>` : ''}<button type="button" class="lw-why-row lw-notice-about">${proseHtml(why, state.names)}</button></section>` : '') +
       (rows.length ? `<section class="lw-person-sec"><h4>${W(`改了什麼（${rows.length} 條）`, `What changes (${rows.length})`)}</h4><p class="lw-hint-sm">${W('綠色是新增的字、紅色刪掉的字，對照現行條文。', 'Green is added, red is removed, against the text in force.')}</p><div class="lw-nrows">${rows.slice(0, shown).map(rowHtml).join('')}</div>${rows.length > shown ? `<button type="button" class="lw-more" data-nmore>${W(`再顯示 ${rows.length - shown} 條`, `${rows.length - shown} more`)}</button>` : ''}</section>` : d ? `<p class="lw-hint-sm">${W('草案條文只有掃描檔，請看原始 PDF。', 'The draft’s text is only a scan: see the PDF.')}</p>` : '<span class="q-skel lw-bud-skel"></span>') +
       (laws ? `<section class="lw-person-sec"><h4>${W('相關法規', 'The law')}</h4><div class="lw-cites">${laws}</div></section>` : '') +
       `<div class="lw-notice-acts">${openNow ? `<a class="q-btn lw-notice-go" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('到眾開講留言', 'Comment on join.gov.tw')}</a>` : `<a class="lw-out" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('眾開講原文', 'On join.gov.tw')}</a>`}${d?.pdf ? `<a class="lw-out" href="${esc(d.pdf)}" target="_blank" rel="noopener">${W('草案 PDF', 'Draft PDF')}</a>` : ''}${openNow && d?.email ? `<a class="lw-out" href="mailto:${esc(d.email)}?subject=${encodeURIComponent(`對「${noticeName(n)}」的意見`)}">${W('寫信給承辦人', 'Email the agency')}</a>` : ''}</div>`;
@@ -2450,8 +2451,8 @@ async function compareBill(b, out, { first = 60 } = {}) {
     };
     const card = (row, i) => {
       const { now, old, art, kind } = look(row);
-      const text = kind[0] === '修正' ? diffHtml(old, now) : kind[0] === '增訂' ? `<ins>${esc(now)}</ins>` : `<del>${esc(old)}</del>`;
-      return `<article class="lw-diff" data-i="${i}"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><p>${text}</p>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary><p>${esc(row['說明'])}</p></details>` : ''}</article>`;
+      const text = kind[0] === '修正' ? diffBlocks(old, now) : kind[0] === '增訂' ? diffBlocks(null, now) : diffBlocks(old, null);
+      return `<article class="lw-diff" data-i="${i}"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${text}</div>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary>${proseHtml(row['說明'], state.names)}</details>` : ''}</article>`;
     };
     const rest = rows.length > first ? `<button type="button" class="lw-more">${W(`看全部 ${Math.min(60, rows.length)} 條`, `All ${Math.min(60, rows.length)} articles`)}</button>` : '';
     // At a glance: how many articles it touches and how, each one a tap away.
@@ -3124,7 +3125,7 @@ async function openMeet(id, d = '') {
         spoke.innerHTML = `<h4>${W(`已發言（${mine.length}）`, `Spoken so far (${mine.length})`)}</h4><div class="lw-clips">${mine.slice(0, 40).map(v => { const p = by.get(v['委員名稱']); return `<div class="lw-clip"><a class="lw-clip-main" href="${esc(v.IVOD_URL || ivodUrl(v.IVOD_ID))}" target="_blank" rel="noopener"><span class="lw-clip-play">${ICON_PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(v['委員名稱'] || '')}${p ? ` <span class="lw-party" style="--p:${partyColor(p.party)}">${esc(partyShort(p.party))}</span>` : ''}</span><small>${esc([hm(String(v['開始時間'] || '').slice(11, 16)), v['影片長度'] ? `${Math.max(1, Math.round(v['影片長度'] / 60))} ${W('分鐘', 'min')}` : ''].filter(Boolean).join(' · '))}</small></span></a>${p ? `<a class="lw-clip-yt" href="#who=${esc(p.id)}" aria-label="${W('立委', 'Legislator')}">${DOOR_ICON.people}</a>` : ''}</div>`; }).join('')}</div>`;
       })
       .catch(() => {});
-  if (m.why) body.push(h('details', { class: 'lw-fold' }, [h('summary', { text: W('會議事由', 'What’s on it, as listed') }), h('p', { class: 'lw-meet-why', text: m.why })]));
+  if (m.why) body.push(h('details', { class: 'lw-fold' }, [h('summary', { text: W('會議事由', 'What’s on it, as listed') }), h('div', { class: 'lw-meet-why', html: proseHtml(m.why, state.names) })]));
   const links = [x.ppg && `<a class="q-btn block" href="${esc(x.ppg)}" target="_blank" rel="noopener">${W('立法院議事網', 'Legislative Yuan page')}</a>`, ...(['ahead', 'later', 'off'].includes(st) ? [] : m.videos).slice(0, 2).map((v, i) => `<a class="q-btn block" href="${esc(v)}" target="_blank" rel="noopener">${W(`會議影片 ${m.videos.length > 1 ? i + 1 : ''}（IVOD）`, `Meeting video ${m.videos.length > 1 ? i + 1 : ''} (IVOD)`)}</a>`)].filter(Boolean).join('');
   if (links) body.push(h('div', { class: 'lw-meet-links', html: links }));
   sheet({ title: roomShort(m), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body, onClose: () => location.hash.startsWith('#meet=') && history.replaceState(null, '', '#tab=bills&f=agenda') });

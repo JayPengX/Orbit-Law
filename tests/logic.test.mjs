@@ -59,6 +59,7 @@ test('links: 前條, 前N條, 前項 and 第N項 inside the law', () => {
 
 test('paragraphs: 款 and 目 stay inside their 項', () => {
   assert.deepEqual(paragraphs('甲如下：\n一、乙。\n二、丙。\n（一）丁。\n前項之規定。'), [['甲如下：', '一、乙。', '二、丙。', '（一）丁。'], ['前項之規定。']]);
+  assert.deepEqual(paragraphs('甲：\n十六、乙。\n      丙。\n丁。'), [['甲：', '十六、乙。', '      丙。'], ['丁。']]);
 });
 
 test('修法追蹤: what an amendment changed, kept for a while, one entry per version', () => {
@@ -394,7 +395,7 @@ test('sponsors: 行政院, a caucus, a legislator by party', () => {
   assert.equal(sponsorOf('本院委員王某等3人', parties), '');
 });
 
-import { stepOf, stageShort, progress, partyChips, billCard, funnel, billFunnel, diffWords, diffHtml, shortDay as cardDay } from '../public/lib/cards.mjs';
+import { stepOf, stageShort, progress, partyChips, billCard, funnel, billFunnel, diffWords, diffBlocks, shortDay as cardDay } from '../public/lib/cards.mjs';
 import { topicOf } from '../public/lib/topics.mjs';
 test('cards: six steps, short stages, party chips, a bill card, the funnel', () => {
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(stepOf), [0, 1, 2, 3, 3, 3, 4, 5]);
@@ -424,8 +425,16 @@ test('before/after: the changed characters marked, long sameness shortened', () 
   const d = diffWords('雇主應給付工資二萬元。', '雇主應給付工資三萬元。');
   assert.deepEqual(d, [{ t: '雇主應給付工資', op: '=' }, { t: '二', op: '-' }, { t: '三', op: '+' }, { t: '萬元。', op: '=' }]);
   assert.equal(diffWords('', '新增條文').map(x => x.op).join(), '+');
-  const html = diffHtml('甲'.repeat(200) + '乙', '甲'.repeat(200) + '丙', { keep: 10 });
+  const html = diffBlocks('甲'.repeat(200) + '乙', '甲'.repeat(200) + '丙', { keep: 10 });
   assert.match(html, /…<\/span>甲{10}<del>乙<\/del><ins>丙<\/ins>/);
+  // As the article reads: 第X條 dropped, 款 and 目 hung, every 款 number kept
+  // though its line didn't change.
+  const was = '第十條之一　有下列情形之一者：\n\n一、未成年或逾七十歲。\n\n二、' + '乙'.repeat(150) + '\n\n三、受監護宣告。\n（一）丙';
+  const lines = diffBlocks(was, was.replace('或逾七十歲', '').replace('丙', '丁')).match(/<p class="lw-dl[^"]*">.*?<\/p>/g);
+  assert.deepEqual(lines.map(l => l.match(/class="([^"]*)"/)[1]), ['lw-dl', 'lw-dl k', 'lw-dl k', 'lw-dl k', 'lw-dl m']);
+  assert.match(lines[1], /一、未成年<del>或逾七十歲<\/del>。/);
+  assert.match(lines[2], /^<p class="lw-dl k">二、乙+<span class="lw-gap">/);
+  assert.equal(diffBlocks(null, '新條文\n一、甲'), '<p class="lw-dl"><ins>新條文</ins></p><p class="lw-dl k"><ins>一、甲</ins></p>');
 });
 
 import { cleanChat, historyOf, chatLaw, mineOf } from '../public/lib/chat.mjs';
@@ -770,7 +779,46 @@ test('a rule\'s text as its points, broken lines joined; laws it names linked', 
   assert.match(html, /href="#law=K0040012&amp;a=56"/);
   assert.doesNotMatch(html, /a=3"/);
   assert.match(linkedHtml('釋字第748號解釋', names), /href="#r=s748"/);
-  assert.match(ruleHtml('一、依刑法第二百十八條。', names), /<p class="lw-rule item"><b>一、<\/b><span>依<a class="lw-ref"/);
+  assert.match(ruleHtml('一、依刑法第二百十八條。', names), /<p class="lw-rule item d0"><b>一、<\/b><span>依<a class="lw-ref"/);
+});
+
+test('plain text as its structure: points run together split, headings, the court\'s 【N】', async () => {
+  const { textBlocks } = await import('../public/lib/view.mjs');
+  const brief = b => [b.k, b.no, b.t, b.d, b.head || false, b.pn || ''];
+  // One line holding every point (財政部's rules come so), 1. and （1） under them.
+  assert.deepEqual(textBlocks('一、為處理驗放，特訂定本要點。二、依下列規定：（一）在港船舶：1.輸出人申報。2.加油用船如下：（1）業者所有。（2）承攬廠商所有。（二）其他。三、附則。').map(brief), [
+    ['item', '一、', '為處理驗放，特訂定本要點。', 0, false, ''],
+    ['item', '二、', '依下列規定：', 0, false, ''],
+    ['sub', '（一）', '在港船舶：', 1, false, ''],
+    ['num', '1.', '輸出人申報。', 2, false, ''],
+    ['num', '2.', '加油用船如下：', 2, false, ''],
+    ['par', '（1）', '業者所有。', 3, false, ''],
+    ['par', '（2）', '承攬廠商所有。', 3, false, ''],
+    ['sub', '（二）', '其他。', 1, false, ''],
+    ['item', '三、', '附則。', 0, false, '']
+  ]);
+  // Never inside a quote, never a lone number that doesn't run on.
+  assert.equal(textBlocks('規定：「有下列情形之一者：一、未成年。二、受監護。」與憲法無違。').length, 1);
+  assert.equal(textBlocks('其第三款。二、三級品不在此限。').length, 1);
+  // 憲法法庭's reasons: 壹、 and short 一、 lines are headings, the text under them plain.
+  assert.deepEqual(textBlocks('壹、聲請人陳述要旨【1】\n聲請人主張：一、甲違憲。二、乙違憲。【2】\n貳、受理要件之審查【3】\n一、系爭規定部分【4】\n經核應予受理。【5】').map(brief), [
+    ['top', '壹、', '聲請人陳述要旨', 0, true, '1'],
+    ['p', '', '聲請人主張：', 0, false, ''],
+    ['item', '一、', '甲違憲。', 1, false, ''],
+    ['item', '二、', '乙違憲。', 1, false, '2'],
+    ['top', '貳、', '受理要件之審查', 0, true, '3'],
+    ['item', '一、', '系爭規定部分', 1, true, '4'],
+    ['p', '', '經核應予受理。', 0, false, '5']
+  ]);
+  // Short points in a list stay points; a lead-in line between two runs is plain.
+  assert.deepEqual(textBlocks('有下列情形之一者：\n一、未成年\n二、受監護宣告\n法務部略稱：\n一、甲。').map(b => [b.k, b.head || false]), [['p', false], ['item', false], ['item', false], ['p', false], ['item', false]]);
+});
+
+test('施行日期: wrapped lines joined, article numbers linked', async () => {
+  const { noteEntries, noteArtsHtml } = await import('../public/lib/view.mjs');
+  assert.deepEqual(noteEntries('1.八十八年增訂之第 166-1  條條文施行日期，由行政院會\n  同司法院另定之。'), [{ no: 1, t: '八十八年增訂之第166-1條條文施行日期，由行政院會同司法院另定之。' }]);
+  const html = noteArtsHtml('修正公布第32～36、99、979-1條', 'B0000001', new Set(['32', '36', '979-1']));
+  assert.match(html, /data-from="32" data-to="36" data-para="0">32～36<\/a>、99、<a [^>]*data-from="979-1"/);
 });
 
 test('找法: a question as ideas, the laws holding most of them first, the best-said article first', async () => {

@@ -1063,6 +1063,12 @@ html.q-kb #panel-ask::after {
   padding-left: 1.6em;
   text-indent: -1.6em;
 }
+.lw-item.sub {
+  padding-left: 3.2em;
+}
+.lw-item.more {
+  text-indent: 0;
+}
 .lw-ref {
   color: inherit;
   text-decoration: underline;
@@ -1135,12 +1141,11 @@ html.q-kb #panel-ask::after {
   padding-left: 32px;
   color: var(--q-label-2);
 }
-.lw-pre {
-  margin: 0;
+/* 施行日期 (view.mjs notesHtml): numbered points, article numbers linked. */
+.lw-notes {
   padding: 0 0 24px;
-  white-space: pre-wrap;
-  font: 15px/1.7 var(--q-font);
   color: var(--q-label);
+  font: 15px/1.7 var(--q-font);
 }
 
 /* ---- Article menu ---- */
@@ -3560,7 +3565,6 @@ div.lw-video {
   font: var(--q-t-subhead, 400 14px/19px var(--q-font));
 }
 .lw-meet-why {
-  white-space: pre-line;
   color: var(--q-label-2);
   font: var(--q-t-subhead, 400 14px/20px var(--q-font));
 }
@@ -4056,8 +4060,10 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
   font-weight: 600;
 }
 
-/* A rule's text as its points: 一、 a point, （一） under it, 第X條 a heading;
-   every law it names a link. */
+/* Plain text read as its structure (view.mjs textBlocks): 一、 a point,
+   （一） 1. （1） hung under it by depth, a short numbered line a heading,
+   【N】 a quiet number; every law it names a link. The context's own p rule
+   gives the size. .lw-rule-text: a rule's whole text, on a card. */
 .lw-rule-text {
   display: grid;
   gap: 10px;
@@ -4065,33 +4071,57 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
   border-radius: var(--q-r-cell);
   background: var(--q-sheet-cell, var(--q-surface));
 }
+.lw-prose {
+  display: grid;
+  gap: 8px;
+}
+.lw-rule-text .lw-prose {
+  gap: 10px;
+}
 .lw-rule {
+  font: 400 16px/1.65 var(--q-font);
+}
+.lw-prose .lw-rule {
+  --d: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 2px;
   margin: 0;
-  font: 400 16px/1.65 var(--q-font);
+  padding-inline-start: calc(var(--d) * 1.4em);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
+.lw-prose .d1 { --d: 1; }
+.lw-prose .d2 { --d: 2; }
+.lw-prose .d3 { --d: 3; }
+.lw-prose .d4 { --d: 4; }
 .lw-rule b {
   color: var(--q-accent);
   font-weight: 600;
 }
-.lw-rule.sub {
-  padding-inline-start: 1.6em;
-}
-.lw-rule.sub b {
+.lw-rule:not(.d0) b {
   color: var(--q-label-2);
 }
-.lw-rule.p,
-.lw-rule.item.more,
-.lw-rule.sub.more {
+.lw-prose .lw-rule.p,
+.lw-prose .lw-rule[class*=' more'] {
   grid-template-columns: minmax(0, 1fr);
 }
-.lw-rule.item.more {
-  padding-inline-start: 2em;
+.lw-prose .lw-rule[class*=' more'] {
+  padding-inline-start: calc(var(--d) * 1.4em + 2em);
 }
-.lw-rule.sub.more {
-  padding-inline-start: 3.6em;
+.lw-rule-h {
+  margin: 6px 0 -2px;
+  color: var(--q-label);
+  font: 600 16px/1.45 var(--q-font);
+}
+.lw-rule-h:first-child {
+  margin-top: 0;
+}
+.lw-pn {
+  color: var(--q-label-3);
+  font: 500 11px/1 var(--q-font);
+  font-variant-numeric: tabular-nums;
+  vertical-align: 0.15em;
 }
 .lw-rule-art {
   margin: 8px 0 -4px;
@@ -4485,4 +4515,63 @@ a.lw-h-art {
   height: 100%;
   border-radius: 2px;
   background: var(--q-accent);
+}
+/* A diff as the article reads (cards.mjs diffBlocks): a line a 項, 款 and 目 hung. */
+.lw-dtext {
+  display: grid;
+  gap: 4px;
+}
+.lw-dtext .lw-dl {
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.lw-dl.k,
+.lw-dl.m {
+  padding-left: 1.6em;
+  text-indent: -1.6em;
+}
+.lw-dl.m {
+  padding-left: 3.2em;
+}
+.lw-dl.c {
+  padding-left: 1.6em;
+}
+/* The structured text inside a sponsor's or a draft's 3-line card, a fold, a meeting. */
+.lw-why-row .lw-prose {
+  max-height: calc(3 * 1.6em);
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.lw-why-row.open .lw-prose {
+  max-height: none;
+}
+.lw-why-row .lw-prose span {
+  display: inline;
+  font-size: inherit;
+  -webkit-line-clamp: unset;
+}
+.lw-why-row .lw-rule,
+.lw-meet-why .lw-rule {
+  font: inherit;
+}
+.lw-fold > .lw-prose,
+.lw-why > .lw-prose,
+.lw-nrow-why > .lw-prose {
+  margin-top: 8px;
+}
+.lw-nrow-why .lw-rule {
+  color: var(--q-label-2);
+  font: 400 14px/1.6 var(--q-font);
+}
+.lw-jd-point .lw-prose {
+  margin: 8px 0 0 32px;
+}
+.lw-cons-main .lw-prose,
+.lw-cons-reason .lw-prose {
+  gap: 10px;
+}
+.lw-cons-reason .lw-fold-body .lw-rule {
+  margin: 0;
 }

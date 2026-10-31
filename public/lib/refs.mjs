@@ -98,12 +98,13 @@ export function linkText(text, { names = new Map(), maxName = 40, keys = [], at 
   return out;
 }
 
-// An article's 項: its lines, less the 款 (一、) and 目 (（一）) inside them.
+// An article's 項: its lines, less the 款 (一、) and 目 (（一）) inside them,
+// and the indented lines that carry on a 款 (所得稅法 §4 十六).
 export function paragraphs(text) {
   const out = [];
   for (const line of String(text).split('\n')) {
     if (!line.trim()) continue;
-    if (out.length && /^\s*([一二三四五六七八九十]+、|（[一二三四五六七八九十]+）|\([一二三四五六七八九十]+\))/.test(line)) out[out.length - 1].push(line);
+    if (out.length && /^([\s　]+\S|\s*([一二三四五六七八九十]+、|（[一二三四五六七八九十]+）|\([一二三四五六七八九十]+\)))/.test(line)) out[out.length - 1].push(line);
     else out.push([line]);
   }
   return out;

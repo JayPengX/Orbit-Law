@@ -199,13 +199,44 @@ export function diffWords(a = '', b = '') {
   return out;
 }
 
-// The diff as HTML: unchanged runs longer than `keep` shortened to their ends.
-export function diffHtml(a, b, { keep = 60 } = {}) {
-  return diffWords(a, b)
-    .map(({ t, op }) => {
-      if (op === '-') return `<del>${esc(t)}</del>`;
-      if (op === '+') return `<ins>${esc(t)}</ins>`;
-      return t.length > keep * 2 ? `${esc(t.slice(0, keep))}<span class="lw-gap">…</span>${esc(t.slice(-keep))}` : esc(t);
+// The diff as the article reads: one line a 項, 款 (一、) and 目 (（一）)
+// hung under it, the leading 第X條 (the card says it) and blank lines gone.
+// `a` null: all new; `b` null: all removed.
+const ART_HEAD = /^[\s　]*第\s*[一二三四五六七八九十百零〇\d]+\s*條(?:之[一二三四五六七八九十\d]+)?[\s　]+/;
+export function diffBlocks(a, b, { keep = 60 } = {}) {
+  const tidy = s => (s == null ? '' : String(s).replace(/\r/g, '').replace(ART_HEAD, '').replace(/\n[\s　]*(?=\n)/g, '').replace(/^\n+|\n+$/g, ''));
+  const x = tidy(a), y = tidy(b);
+  const segs = a == null ? [{ t: y, op: '+' }] : b == null ? [{ t: x, op: '-' }] : diffWords(x, y);
+  const lines = [[]];
+  const put = (t, op) =>
+    t.split('\n').forEach((part, i) => {
+      if (i) lines.push([]);
+      if (part) lines.at(-1).push({ t: part, op });
+    });
+  // Unchanged text shortened line by line, so every 款 keeps its number: a
+  // whole line to its start, the rest of a changed line to `keep` either side.
+  const cut = (t, from, to) => (t.length > keep * 2 ? [t.slice(0, from ? keep : 0), t.slice(to ? -keep : t.length)] : [t]);
+  segs.forEach(({ t, op }, si) => {
+    if (op !== '=') return put(t, op);
+    t.split('\n').forEach((part, i, all) => {
+      if (i) lines.push([]);
+      const whole = (i > 0 || si === 0) && (i < all.length - 1 || si === segs.length - 1);
+      const kept = whole ? (part.length > 40 ? [part.slice(0, 24), ''] : [part]) : cut(part, i === 0, i === all.length - 1);
+      kept.forEach((k, j) => {
+        if (j) lines.at(-1).push({ gap: true });
+        if (k) lines.at(-1).push({ t: k, op });
+      });
+    });
+  });
+  return lines
+    .filter(l => l.some(p => p.gap || p.t.trim()))
+    .map(l => {
+      const lead = l[0].t || '';
+      const plain = l.map(p => p.t || '').join('').replace(/^[\s　]+/, '');
+      const cls = /^[一二三四五六七八九十百]+、/.test(plain) ? ' k' : /^[（(][一二三四五六七八九十百]+[）)]/.test(plain) ? ' m' : /^[\s　]/.test(lead) ? ' c' : '';
+      if (l[0].t) l[0] = { ...l[0], t: l[0].t.replace(/^[\s　]+/, '') };
+      const html = l.map(p => (p.gap ? '<span class="lw-gap">…</span>' : p.op === '-' ? `<del>${esc(p.t)}</del>` : p.op === '+' ? `<ins>${esc(p.t)}</ins>` : esc(p.t))).join('');
+      return `<p class="lw-dl${cls}">${html}</p>`;
     })
     .join('');
 }

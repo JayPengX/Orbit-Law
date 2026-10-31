@@ -46,6 +46,8 @@ import { parseHistory } from './lib/history.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId, chatGroups, chatGist, chatMatches, questionsIn } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
+// Chinese with no English (a case number, a bill's name), marked as such in English.
+const zhIn = t => (en && /[\u4e00-\u9fff]/.test(t) ? `<span lang="zh-Hant">${esc(t)}</span>` : esc(t));
 
 // ---- Every screen (the kit's DESIGN §10): one column on a phone; on a
 // wider page a tab's sections side by side, each laid out as on a phone.
@@ -307,7 +309,7 @@ function drawHome() {
       // A first visit starts from everyday life; a returning one from what they read.
       [recent.length ? '' : topics, 0],
       [`<div id="home-live"></div>`, 1],
-      [section(W('立法院這週', 'In the Legislative Yuan this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
+      [section(W('立法院這週', 'Legislature this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
       [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],
       [section(W('為你推薦', 'For you'), covers(picks)), 1],
       // 裁判: 憲法法庭's two newest, then the top courts' newest.
@@ -1203,7 +1205,7 @@ const citeChip = (p, k, n) => {
 function rulingsSheet(label, rulings, consIds = []) {
   const cons = consIds.map(id => state.consRows?.byId.get(id)).filter(Boolean);
   const top = rulings.filter(r => courtOf(r[0])), low = rulings.filter(r => !courtOf(r[0]));
-  const rows = l => list(l.map(r => rulingRow(r, { sub: [courtLabel(r[0]), caseNo(r[0]), ymd(r[1])].filter(Boolean).join(' · ') })));
+  const rows = l => list(l.map(r => rulingRow(r, { subHtml: [courtLabel(r[0]) && esc(courtLabel(r[0])), zhIn(caseNo(r[0])), esc(ymd(r[1]))].filter(Boolean).join(' · ') })));
   const html = (cons.length ? `<p class="lw-list-cap">${W('憲法法庭', 'Constitutional Court')}</p>${list(cons.map(r => rulingRow(r)))}` : '') + (top.length ? `${cons.length || low.length ? `<p class="lw-list-cap">${W('最高法院・最高行政法院', 'Top courts')}</p>` : ''}${rows(top)}` : '') + (low.length ? `<p class="lw-list-cap">${W('高等法院・地方法院', 'High and district courts')}</p>${rows(low)}` : '');
   sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings in-sheet', html }) });
 }
@@ -1853,14 +1855,16 @@ function rulingCard(r) {
   const name = cons ? consName(r) : r[2] || caseNo(id);
   return `<div class="lw-bill lw-ruling ${kind}"><span class="lw-bill-top">${courtTile(kind)}<span class="lw-bill-stage court">${esc(label)}</span><span class="lw-bill-day">${esc(shortDay(d))}</span></span><a class="lw-bill-name${fit(name)}" href="${esc(rulingHref(id))}">${esc(name)}</a><span class="lw-cites">${citeChips(cites || [], 1, 3, false)}</span></div>`;
 }
-function rulingRow(r, { sub = '' } = {}) {
+function rulingRow(r, { sub = '', subHtml = '' } = {}) {
   const [id, d] = r;
   const cons = isCons(id);
   const kind = kindOfId(id);
   const name = cons ? consName(r) : r[2] || caseNo(id);
   const [zh, eng, tone] = cons ? ['', '', ''] : caseKind(id);
-  const line = sub || [cons ? consLabel(id, en) : kind === 'low' ? `${courtLabel(id)} ${id.split(',').slice(1, 4).join('')}` : caseNo(id), kind === 'low' ? shortDay(d) : ymd(d)].filter(Boolean).join(' · ');
-  return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${esc(zh ? `${en ? eng : zh} · ${line}` : line)}</small></span></a>`;
+  // (A court's case number has no English: marked as Chinese inside an English line.)
+  const no = cons ? esc(consLabel(id, en)) : zhIn(kind === 'low' ? `${courtLabel(id)} ${id.split(',').slice(1, 4).join('')}` : caseNo(id));
+  const line = subHtml || (sub ? esc(sub) : [no, esc(kind === 'low' ? shortDay(d) : ymd(d))].filter(Boolean).join(' · '));
+  return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${zh ? `${esc(en ? eng : zh)} · ${line}` : line}</small></span></a>`;
 }
 const COURT_SHORT = { TPS: 'Supreme Court', TPA: 'Admin. Court', JCC: 'Const. Court' };
 
@@ -1992,7 +1996,7 @@ async function drawRulingList() {
   // (Wide: 憲法法庭 and what came of it on the left, the courts on the right.)
   out.innerHTML = cols([
     [section(W('憲法法庭最新判決', 'Constitutional Court, latest'), rail(judgments.map(rulingCard)), { more: W('全部', 'All'), moreHref: '#tab=rulings&f=cons' }), 0],
-    [section(W('判決之後，立法院在修', 'Rulings the Legislative Yuan is acting on'), answered.length ? `<div class="lw-list">${answered.map(r => answeredRow(r)).join('')}</div>` : ''), 0],
+    [section(W('判決之後，立法院在修', 'Rulings now in bills'), answered.length ? `<div class="lw-list">${answered.map(r => answeredRow(r)).join('')}</div>` : ''), 0],
     [section(W('最高法院', 'Supreme Court'), list(by('TPS').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPS' }), 1],
     [section(W('最高行政法院', 'Admin. Court'), list(by('TPA').map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=TPA' }), 1],
     [low.length ? section(W('高等法院・地方法院', 'High and district courts'), list(low.slice(0, 4).map(r => rulingRow(r))), { more: W('更多', 'More'), moreHref: '#tab=rulings&f=low' }) : '', 1],
@@ -2058,7 +2062,7 @@ const emptyRulings = () => emptyNote(W('裁判資料讀不到', 'Rulings couldn�
 // A ruling and the bill that answers it: the ruling's name, the bill's stage.
 function answeredRow(r) {
   const it = state.items.find(x => x.k === r[6][0]);
-  return `<a class="lw-row lw-rrow" href="#r=${esc(r[0])}">${courtTile(kindOfId(r[0]))}<span class="lw-row-text"><span class="lw-row-name${fit(consName(r), 13)}">${esc(consName(r))}</span><small>${esc(consLabel(r[0], en))}${it ? ` → ${esc(shortName(it.n))} · ${esc(stageShort(it, en))}` : ''}</small></span></a>`;
+  return `<a class="lw-row lw-rrow" href="#r=${esc(r[0])}">${courtTile(kindOfId(r[0]))}<span class="lw-row-text"><span class="lw-row-name${fit(consName(r), 13)}">${esc(consName(r))}</span><small>${esc(consLabel(r[0], en))}${it ? ` → ${en && it.p && state.byCode.get(it.p)?.[6] ? esc(nameOf(it.p)) : zhIn(shortName(it.n))} · ${esc(stageShort(it, en))}` : ''}</small></span></a>`;
 }
 
 // Finding a ruling: its number (釋字 748, 111憲判8, 115台上4682), else its words.

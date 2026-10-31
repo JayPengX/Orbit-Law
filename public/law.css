@@ -3686,9 +3686,8 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-cons-page h4 { margin: 18px 0 8px; }
 .lw-cons-page .lw-block { margin: 12px 0 0; }
 .lw-cons-page .lw-block p { font: 16px/1.6 var(--q-font); }
-.lw-cons-main p { margin: 0 0 8px; font: 16px/1.65 var(--q-font); }
+.lw-cons-main p { margin: 0 0 8px; }
 .lw-cons-main p:last-child { margin: 0; }
-.lw-cons-reason p { margin: 0 0 12px; font: 16px/1.7 var(--q-font); }
 .lw-cons-page .lw-list { background: var(--q-sheet-cell, var(--q-surface)); border-radius: 14px; overflow: hidden; }
 .lw-find-rulings .q-section { margin-top: 0; }
 .lw-more-link { display: block; margin: 8px 0 16px; padding: 4px 4px; color: var(--q-accent); font: 600 15px/20px var(--q-font); text-decoration: none; }
@@ -4016,10 +4015,91 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-rule-text + .lw-out {
   margin-top: 12px;
 }
+/* A ruling reads like the rest of the app (Jay 2026-10-31: "text pushing
+   to the side"): set from the start, never justified (justified Chinese
+   spread its characters apart), and the reasons inside their card's padding. */
 .lw-cons-main p,
 .lw-cons-reason p,
 .lw-jd-point p {
-  text-align: justify;
+  text-align: start;
+  letter-spacing: normal;
+}
+.lw-cons-reason .lw-fold-body {
+  padding: 0 16px 16px;
+}
+.lw-cons-reason .lw-fold-body p {
+  margin: 0 0 12px;
+  color: var(--q-label);
+  font: 15px/1.75 var(--q-font);
+  overflow-wrap: anywhere;
+}
+.lw-cons-reason .lw-fold-body p:last-child {
+  margin: 0;
+}
+.lw-cons-main p {
+  font: 16px/1.7 var(--q-font);
+}
+
+/* A ruling's AI: the button across the page under its name, and in its
+   sheet each reason's paragraph chip opening the ruling's own words. */
+.lw-ai-btn.lw-ruling-ai {
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 12px 0 4px;
+  padding: 0 16px;
+  border-radius: var(--q-r-cell, 12px);
+  font-size: 15px;
+  line-height: 1.25;
+  text-align: center;
+}
+.lw-ai-btn.lw-ruling-ai span {
+  min-width: 0;
+}
+.lw-who p {
+  margin: 0;
+  font: 15px/1.6 var(--q-font);
+}
+.lw-held p {
+  margin: 0;
+  font: 16px/1.6 var(--q-font);
+}
+.lw-held h4,
+.lw-ai-h {
+  margin: 4px 0 0;
+  color: var(--q-label-2);
+  font: 600 13px/18px var(--q-font);
+}
+.lw-held h4 {
+  margin: 0 0 4px;
+}
+.lw-points .lw-cite.lw-para {
+  border: 0;
+  color: var(--q-indigo);
+  font: 600 13px/16px var(--q-font);
+  cursor: pointer;
+}
+.lw-points .lw-cite.lw-para[aria-expanded='true'] {
+  background: var(--q-indigo);
+  color: #fff;
+}
+.lw-quote {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--lw-cons, var(--q-indigo));
+  border-radius: 0 10px 10px 0;
+  background: var(--q-sheet-cell, var(--q-surface));
+  color: var(--q-label);
+  font: 14px/1.7 var(--q-font);
+  overflow-wrap: anywhere;
+}
+.lw-quote small {
+  display: block;
+  margin: 0 0 2px;
+  color: var(--q-label-2);
+  font: 600 12px/16px var(--q-font);
 }
 
 /* The composer right on the keys, where the keys really start (app.mjs

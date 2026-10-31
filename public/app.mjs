@@ -27,7 +27,7 @@ import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabe
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
-import { askLaw, askBill, askDiff, askError, passFetch, MAX_Q } from './lib/ask.mjs';
+import { askLaw, askBill, askDiff, askRuling, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel } from './lib/rulings.mjs';
 import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE } from './lib/cons.mjs';
@@ -1034,6 +1034,61 @@ function explain(law, ks) {
   }
 }
 
+// A ruling's AI (like an article's 白話解釋): what it decided, why, who it
+// affects, then questions about it. Every point cites the ruling's own
+// paragraphs; a tap on one shows its words under the point.
+const RULING_JID = /^[A-Z]{3,5},\d{2,3},[^,\s]{1,12},\d{1,6},\d{8},\d{1,3}$/u;
+const rulingAiId = id => (isCons(id) || RULING_JID.test(id) ? id : '');
+function rulingAiBtn(id, title) {
+  return `<button type="button" class="lw-ai-btn lw-ruling-ai" data-ruling-ai="${esc(id)}" data-title="${esc(title)}">${ICON_SPARK}<span>${W('AI 白話解釋這個判決', 'Explain this ruling in plain words')}</span></button>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-ruling-ai]');
+  if (b) explainRuling(b.dataset.rulingAi, b.dataset.title || '');
+});
+function explainRuling(id, title) {
+  const out = h('div', { class: 'lw-ask' });
+  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: W('問這個判決…', 'Ask about this ruling…') });
+  const form = h('form', { class: 'lw-composer in-sheet', onsubmit: e => (e.preventDefault(), input.value.trim() && (run(input.value), (input.value = ''), input.blur())) }, [input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('問', 'Ask'), html: ICON_SEND })]);
+  const sugg = h('div', { class: 'lw-starters', html: [W('對一般人有什麼影響？', 'What does it mean for people?'), W('法院為什麼這樣判？', 'Why did the court decide so?'), W('什麼時候開始生效？', 'When does it take effect?')].map(t => `<button type="button" class="lw-starter">${esc(t)}</button>`).join(''), onclick: e => { const b = e.target.closest('button'); if (b) run(b.textContent); } });
+  const note = h('p', { class: 'lw-ask-note', text: W('AI 只依這個判決的原文回答，不是法律意見。', 'AI, from this ruling’s own text only. Not legal advice.') });
+  // A cited paragraph: tapped, its words open under the point (again: closed).
+  out.addEventListener('click', e => {
+    const c = e.target.closest('[data-pk]');
+    if (!c || !c.closest('.lw-ruling-points')) return;
+    e.preventDefault();
+    const li = c.closest('li');
+    const was = li.querySelector(`.lw-quote[data-for="${c.dataset.pk}"]`);
+    li.querySelectorAll('.lw-quote').forEach(q => q.remove());
+    li.querySelectorAll('[data-pk]').forEach(x => x.setAttribute('aria-expanded', 'false'));
+    if (was) return;
+    c.setAttribute('aria-expanded', 'true');
+    li.insertAdjacentHTML('beforeend', `<blockquote class="lw-quote" data-for="${esc(c.dataset.pk)}"><small>${esc(c.dataset.part)}</small>${linkedHtml(c.dataset.text, state.names)}</blockquote>`);
+  });
+  sheet({ title: title || W('判決', 'Ruling'), closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [out, sugg, form, note] });
+  const chip = (k, quotes) => {
+    const [part, text] = quotes[k] || ['', ''];
+    // (憲判字's paragraphs carry their own 【n】: shown as the ruling numbers them.)
+    const mark = /【(\d+)】\s*$/.exec(text)?.[1];
+    const label = part === '理由' ? (mark ? `【${mark}】` : W(`第${k}段`, `¶${k}`)) : part;
+    return `<button type="button" class="lw-cite lw-para" data-pk="${esc(k)}" data-part="${esc(part)}" data-text="${esc(text)}" aria-expanded="false"><span>${esc(label)}</span></button>`;
+  };
+  async function run(q = '') {
+    out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}<div class="lw-typing"><i></i><i></i><i></i></div></div>`;
+    const r = await askRuling({ id, q, lang: en ? 'en' : 'zh' }, ai);
+    if (r.error) return void (out.innerHTML = `<div class="lw-answer"><p class="lw-none">${esc(askError(r.error, en))}</p></div>`);
+    if (q) asked();
+    const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(c => chip(c, r.quotes)).join('')}</li>`).join('');
+    const left = r.left != null ? `<p class="lw-srcs">${W(`今天還能問 ${r.left} 次`, `${r.left} left today`)}</p>` : '';
+    out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}${
+      r.covered
+        ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}${r.held ? `<div class="lw-block cons lw-held"><h4>${W('判了什麼', 'What it decided')}</h4><p>${esc(r.held)}</p></div>` : ''}${points ? `${q ? '' : `<h4 class="lw-ai-h">${W('為什麼', 'Why')}</h4>`}<ul class="lw-points lw-ruling-points">${points}</ul>` : ''}${r.who.length ? `<div class="lw-block blue lw-who"><h4><i>${MENU_ICON.gov}</i>${W('影響到誰', 'Who it affects')}</h4><p>${esc(r.who.join(W('、', ', ')))}</p></div>` : ''}`
+        : `<p>${esc(r.answer || W('這個判決沒有談到這件事。', 'The ruling doesn’t say.'))}</p>`
+    }${left}</div>`;
+  }
+  run();
+}
+
 // An AI explanation on a tap: the button, then the answer in its place.
 function aiBox(label, run) {
   const el = h('div', { class: 'lw-ai' });
@@ -1144,6 +1199,10 @@ async function openJudgment(u, label = '') {
   sheet({ title: W('判決', 'Ruling'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
   if (label) noteRead({ kind: 'judgment', id: u, title: label, href: u, sub: '' });
   const out = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到司法院看原文', 'Open on the Judicial Yuan')}</a>`;
+  let jid = '';
+  try {
+    jid = rulingAiId(new URL(u).searchParams.get('id') || '');
+  } catch {}
   try {
     const j = await fetchPage(u);
     if (j.type !== 'html') throw new Error('bad');
@@ -1158,6 +1217,7 @@ async function openJudgment(u, label = '') {
     };
     body.innerHTML =
       `<header class="lw-page-head"><h3>${esc(label || r.title)}</h3><small>${esc([r.title, r.no, r.date && shortDay(r.date)].filter(Boolean).join(' · '))}</small></header>` +
+      (jid ? rulingAiBtn(jid, r.no || label || r.title) : '') +
       `<div class="lw-jd-hero ${o.tone}"><span>${W('結果', 'Outcome')}</span>${o.label ? `<strong>${esc(o.label)}</strong>` : ''}<p>${linkedHtml(r.main.join(' '), state.names)}</p></div>` +
       (who.length ? `<p class="lw-jd-who">${who.map(esc).join('<br>')}</p>` : '') +
       (r.reasons.length ? `<h4>${W(`理由（${r.reasons.length} 點）`, `Reasons (${r.reasons.length})`)}</h4><div class="lw-jd-points">${r.reasons.map(point).join('')}</div>` : '') +
@@ -1937,13 +1997,14 @@ async function openCons(id) {
   const verdict = consVerdict(it.main.join(''));
   body.innerHTML =
     `<header class="lw-page-head"><h3 class="lw-big-name q-fit-wrap${nameSize(it.n || '')}">${esc(it.n || consLabel(id, en))}</h3><small>${esc([courtName(kind), it.label, it.d && ymd(it.d)].filter(Boolean).join(' · '))}</small></header>` +
+    rulingAiBtn(id, it.label || consLabel(id, en)) +
     (it.issue ? `<div class="lw-block cons"><h4><i>${MENU_ICON.ask}</i>${id[0] === 's' ? W('爭點', 'The question') : W('案由', 'The case')}</h4><p>${plainHtml(it.issue)}</p></div>` : '') +
     `<div class="lw-jd-hero ${verdict.tone}"><span>${id[0] === 's' ? W('解釋文', 'Holding') : W('主文', 'Holding')}</span>${verdict.label ? `<strong>${esc(verdict.label)}</strong>` : ''}<div class="lw-cons-main">${paras(it.main)}</div></div>` +
     (it.by ? `<p class="lw-jd-who">${esc(W(`聲請人 ${it.by}`, `Petitioner ${it.by}`))}</p>` : '') +
     (it.cites.length ? `<h4>${W('涉及的條文', 'Articles it rules on')}</h4>${citeRows(it.cites)}` : '') +
     (named.length ? `<h4>${W('因這個判決提的修法', 'Bills it led to')}</h4>${billRows(named)}` : '') +
     (onArts.length ? `<h4>${W('立法院正在修這些條文', 'Bills on these articles')}</h4>${billRows(onArts)}` : '') +
-    (it.reason.length ? `<details class="lw-fold lw-cons-reason"><summary>${W(`理由（${it.reason.length} 段）`, `Reasons (${it.reason.length} paragraphs)`)}</summary>${paras(it.reason)}</details>` : '') +
+    (it.reason.length ? `<details class="lw-fold lw-cons-reason"><summary>${W(`理由（${it.reason.length} 段）`, `Reasons (${it.reason.length} paragraphs)`)}</summary><div class="lw-fold-body">${paras(it.reason)}</div></details>` : '') +
     (it.refs.length ? `<h4>${W(`引用的解釋與判決（${it.refs.length}）`, `Builds on (${it.refs.length})`)}</h4>${refRows(it.refs.slice(0, 12))}` : '') +
     (cited.length ? `<h4>${W(`後來引用它的（${cited.length}）`, `Cited by (${cited.length})`)}</h4>${refRows(cited.slice(0, 12))}` : '') +
     (it.docs.length ? `<details class="lw-fold"><summary>${W(`意見書與原文（${it.docs.length}）`, `Opinions and files (${it.docs.length})`)}</summary><div class="lw-list in-sheet">${it.docs.map(([t, u]) => `<a class="lw-row" href="${esc(u)}" target="_blank" rel="noopener" data-out><span class="lw-file">PDF</span><span class="lw-row-text"><span class="lw-row-name lw-doc-name q-fit-wrap">${esc(t.replace(/^憲法法庭\d+年憲判字第\d+號判決/, '').replace(/^\d+/, '').replace(/_OCR$/, '') || t)}</span></span></a>`).join('')}</div></details>` : '') +

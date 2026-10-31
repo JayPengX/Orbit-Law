@@ -4,7 +4,8 @@
 // version is answered from its cache, free. Behind the Pass: each call
 // carries this app's session (passFetch), counted per Pass a day.
 //   mode 'bill': what a bill's 對照表 changes; mode 'diff': what the latest
-//   amendment changed (data/diff/<p>.json).
+//   amendment changed (data/diff/<p>.json); mode 'ruling': one ruling, from
+//   its own paragraphs.
 
 import * as kit from '#kit/orbit.mjs';
 
@@ -77,6 +78,18 @@ export async function askDiff({ p, arts, lang = 'zh' }, fetcher = globalThis.fet
   return { answer: String(j.answer || ''), points, covered: Boolean(j.covered) && (points.length > 0 || Boolean(j.answer)), left: j.left };
 }
 
+// A ruling in plain words (no question: what it decided, why, who it
+// affects), or a question about it. Every point cites the ruling's own
+// paragraphs, which come back as quotes: { key: [part, text] }.
+export async function askRuling({ id, q = '', lang = 'zh' }, fetcher = globalThis.fetch) {
+  const j = await post({ mode: 'ruling', id: String(id), q: String(q).trim().slice(0, MAX_Q), lang }, fetcher);
+  if (j.error) return j;
+  const quotes = j.quotes && typeof j.quotes === 'object' ? j.quotes : {};
+  const points = cited(j.points, c => Array.isArray(quotes[c]));
+  const str = x => (typeof x === 'string' ? x.trim() : '');
+  return { answer: str(j.answer), held: str(j.held), points, who: (Array.isArray(j.who) ? j.who : []).map(str).filter(Boolean).slice(0, 4), quotes, covered: Boolean(j.covered) && points.length > 0, left: j.left };
+}
+
 // Each failure in plain words.
 export function askError(code, en = false) {
   const t = {
@@ -86,6 +99,7 @@ export function askError(code, en = false) {
     pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     bill: ['這個版本沒有對照表可以解釋', 'This version has no table to explain'],
     diff: ['這次修法的舊條文讀不到', 'The old text isn’t available'],
+    ruling: ['這個裁判的全文現在讀不到', 'This ruling’s text isn’t available right now'],
     origin: ['這個網址不能使用解釋', 'Not available here']
   }[code] || ['解釋暫時無法使用，請稍後再試', 'Explanations aren’t available right now'];
   return en ? t[1] : t[0];

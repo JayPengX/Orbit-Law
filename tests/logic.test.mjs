@@ -478,7 +478,7 @@ test('問法律: the proxy 404 before the route ships reads as soon', async () =
   assert.equal(c.error, 'cap');
 });
 
-import { passFetch, askBill, askDiff } from '../public/lib/ask.mjs';
+import { passFetch, askBill, askDiff, askRuling } from '../public/lib/ask.mjs';
 test('AI calls carry the Law Pass session, a 401 asked once more with a new token', async () => {
   const urls = [];
   let n = 0;
@@ -496,6 +496,15 @@ test('bill and diff explanations: shapes kept, cites only among the asked', asyn
   assert.deepEqual(d.points, [{ text: 'y', cites: ['1'] }]);
   const e = await askBill({ bill: '20' }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'bill' }) }));
   assert.equal(e.error, 'bill');
+});
+test('a ruling explained: the body sent, a point kept only with a paragraph that came back quoted', async () => {
+  let sent;
+  const r = await askRuling({ id: 'j115-7', q: ' 誰 ' }, async (u, init) => ((sent = JSON.parse(init.body)), { ok: true, json: async () => ({ answer: 'a', held: 'h', points: [{ text: 'x', cites: ['4', '9'] }, { text: 'y', cites: ['8'] }], who: ['業者', ''], quotes: { 4: ['理由', '段落【2】'] }, covered: true, left: 3 }) }));
+  assert.deepEqual(sent, { mode: 'ruling', id: 'j115-7', q: '誰', lang: 'zh' });
+  assert.deepEqual(r.points, [{ text: 'x', cites: ['4'] }]);
+  assert.deepEqual([r.held, r.who, r.covered, r.left], ['h', ['業者'], true, 3]);
+  assert.equal((await askRuling({ id: 's1' }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'ruling' }) }))).error, 'ruling');
+  assert.match(askError('ruling'), /裁判/);
 });
 
 import { lawCounts, latestRulings } from '../public/lib/rulings.mjs';

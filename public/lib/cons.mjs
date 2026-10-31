@@ -211,18 +211,42 @@ export function consItem(id, page, { names = new Map(), rewriteOf, url = '' } = 
     url
   };
 }
-// The index row: [id, date, name, issue (a line), cites, refs, bills].
-export const consRow = (it, bills = []) => [it.id, it.d, it.n, it.issue.length > 90 ? `${it.issue.slice(0, 89)}…` : it.issue, it.cites, it.refs, bills];
+// The index row: [id, date, name, issue (a line), cites, refs, bills, about].
+// about: the laws it is about (its 爭點, 解釋文 or 主文 names them), not one its
+// 理由 only cites in passing (釋字764 cites 預算法第85條 on the way: it's about
+// 公營事業移轉民營條例).
+export const consRow = (it, bills = [], nameOf = () => '') => [it.id, it.d, it.n, it.issue.length > 90 ? `${it.issue.slice(0, 89)}…` : it.issue, it.cites, it.refs, bills, aboutLaws(it, nameOf)];
+
+// The words a law goes by in a ruling's text: 憲法 for the constitution and its
+// 增修條文, else its name without 中華民國 and its kind (預算法 → 預算).
+export function lawStem(name) {
+  const n = String(name || '');
+  if (n.includes('憲法')) return '憲法';
+  return n.replace(/^中華民國/, '').replace(/(施行細則|施行法|組織法|組織條例|條例|通則|規則|辦法|細則|法)$/, '');
+}
+export function aboutLaws(it, nameOf) {
+  const text = [it.n, it.issue, ...(it.main || [])].join('\n');
+  const out = [];
+  for (const c of it.cites || []) {
+    const p = c.split(':')[0];
+    const stem = lawStem(nameOf(p));
+    if (!out.includes(p) && stem.length >= 2 && text.includes(stem)) out.push(p);
+  }
+  return out;
+}
 
 // { pcode: { article: [ids] } } (article '' = the law as a whole), newest first.
+// '#': the ones about the law (consRow's about), the rest only cite it.
 export function consByLaw(rows) {
   const out = {};
-  for (const [id, , , , cites] of [...rows].sort((a, b) => consOrder(b[0]) - consOrder(a[0])))
+  for (const [id, , , , cites, , , about = []] of [...rows].sort((a, b) => consOrder(b[0]) - consOrder(a[0]))) {
     for (const c of cites) {
       const [p, k = ''] = c.split(':');
       const list = ((out[p] ||= {})[k] ||= []);
       if (!list.includes(id)) list.push(id);
     }
+    for (const p of about) if (out[p] && !(out[p]['#'] ||= []).includes(id)) out[p]['#'].push(id);
+  }
   return out;
 }
 

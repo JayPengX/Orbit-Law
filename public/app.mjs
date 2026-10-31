@@ -41,6 +41,8 @@ import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { chatLaw, chatError, stageText, STARTERS, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
+import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
+import { parseHistory } from './lib/history.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId } from './lib/chats.mjs';
 
 const $ = id => document.getElementById(id);
@@ -269,7 +271,7 @@ function drawHome() {
     pageHead('') +
     `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、判決、法案或生活問題', 'Search laws, rulings, bills')}</span></a>` +
     hero +
-    section(W('繼續閱讀', 'Continue reading'), covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
+    section(W('繼續閱讀', 'Continue reading'), resumeRows() || covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }) +
     // A first visit starts from everyday life; a returning one from what they read.
     (recent.length ? '' : section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '')) +
     `<div id="home-live"></div>` +
@@ -312,6 +314,25 @@ function drawHome() {
 }
 // Laws as book covers (Books' shelves): the topic's colour, its mark, the name.
 const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b class="q-fit-wrap">${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
+// 繼續閱讀: the last things read, any kind, each opening where you were
+// (a law at its article, with how far through), newest first.
+function resumeRows() {
+  const log = readLog().slice(0, 4);
+  return log.length
+    ? `<div class="lw-list lw-resume">${log
+        .map(x => {
+          const row = x.kind === 'law' ? state.byCode.get(x.id) : null;
+          const it = x.kind === 'bill' ? state.items.find(i => i.k === x.id) : null;
+          const tile = x.kind === 'law' ? topicTile(row ? rowTopic(row) : 'gov', 'sm') : x.kind === 'cons' ? courtTile(kindOfId(x.id)) : x.kind === 'judgment' ? courtTile('tps') : topicTile(it ? itemTopic(it) : 'gov', 'sm');
+          const kind = { law: row?.[2] === '命令' ? W('子法', 'Regulation') : W('法規', 'Law'), cons: W('憲法法庭', 'Constitutional Court'), judgment: W('判決', 'Judgment'), bill: W('法案', 'Bill') }[x.kind];
+          const sub = [kind, x.kind === 'bill' && it ? stageShort(it, en) : x.sub].filter(Boolean).join(' · ');
+          const bar = x.kind === 'law' && x.pct > 0 ? `<span class="lw-resume-bar"><i style="width:${Math.max(4, Math.round(x.pct * 100))}%"></i></span>` : '';
+          const title = x.kind === 'law' ? (en ? nameOf(x.id, x.title) : x.title) : x.title;
+          return `<a class="lw-row" href="${esc(x.href)}">${tile}<span class="lw-row-text"><span class="lw-row-name">${esc(title)}</span><small>${esc(sub)}</small>${bar}</span></a>`;
+        })
+        .join('')}</div>`
+    : '';
+}
 const svgTopic = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOPICS[id].icon}</svg>`;
 // For you: the laws people use most in the topics you read and follow, newest
 // amended first, not yet opened; everyday laws when there's nothing to go on.
@@ -558,7 +579,10 @@ async function openLaw(p, at, find = '') {
       for (const [k, l] of Object.entries(low)) state.lawRulings[k] = [...(state.lawRulings[k] || []), ...l];
     }
     // 憲法法庭's rulings on it, by article ('' = the law as a whole).
-    state.lawCons = (await Promise.race([consLaws().then(c => c[p] || {}).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
+    // ('#': the ones about this law, not just citing an article of it in passing.)
+    const { '#': core = [], ...cons } = (await Promise.race([consLaws().then(c => c[p] || {}).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
+    state.lawCons = cons;
+    state.lawCore = core;
     state.consRows = state.lawCons && Object.keys(state.lawCons).length ? await consData().catch(() => null) : null;
     // 授權: the regulations made under its articles, or (a regulation) what it rests on.
     state.deleg = { to: {}, rest: [], from: [] };
@@ -620,26 +644,30 @@ async function drawLaw() {
   const topic = rowTopic(row);
   const nArts = law.a.filter(a => a[0] === 'A').length;
   const change = state.changes.items.find(c => c.p === law.p && c.m === law.m);
-  const chips = [
-    [row[2] === '命令' ? W('命令', 'Regulation') : law.l === '憲法' || row[2] === '憲法' ? W('憲法', 'Constitution') : W('法律', 'Act'), ''],
-    [topicName(topic, en), 'topic'],
-    [W(`${nArts} 條`, `${nArts} articles`), ''],
-    law.m && [`${W('修正', 'Rev.')} ${ymd(law.m)}`, ''],
-    law.ab && [W('已廢止', 'Repealed'), 'red']
-  ].filter(Boolean);
+  const kind = row[2] === '命令' ? W('命令', 'Regulation') : law.l === '憲法' || row[2] === '憲法' ? W('憲法', 'Constitution') : W('法律', 'Act');
+  const facts = [W(`${nArts} 條`, `${nArts} articles`), law.m && W(`${ymd(law.m)} 修正`, `amended ${ymd(law.m)}`)].filter(Boolean).join(' · ');
   const partyText = live ? partyChips(live.by, en, 2).replace(/<b>/g, '\u00a0').replace(/<[^>]+>/g, '  ').replace(/\s{2,}/g, ' · ').replace(/^ · | · $/g, '').trim() : '';
-  const over = h('div', { class: 'lw-over-card', style: `--t:${TOPICS[topic].color}` }, [
-    // The name across the whole card; the tile and facts under it.
-    h('strong', { class: `lw-over-title lw-big-name${nameSize(name)}`, text: name }),
-    h('div', { class: 'lw-over-top', html: `${topicTile(topic, 'lg')}<span class="lw-meta">${chips.map(([t, c]) => `<span class="lw-tag ${c}">${esc(t)}</span>`).join('')}</span>` }),
-    change ? h('button', { type: 'button', class: 'lw-strip green', html: `<b>${W('最近修法', 'Just amended')}</b><span>${esc(changeText(change))}</span><em>${W('看修了什麼', 'What changed')}</em>`, onclick: () => diffSheet(law, change) }) : null,
-    live ? h('button', { type: 'button', class: 'lw-strip indigo', html: `<b>${W('立法院審議中', 'In the Legislative Yuan')}</b><span>${esc([stageShort(live, en), partyText].filter(Boolean).join(' · '))}</span><em>${W('看進度', 'Progress')}</em>${progress(live, en)}`, onclick: () => go(`item=${live.k.replace(':', '-')}`) }) : null,
-    consStrip(law),
-    draftStrip(law)
-  ].filter(Boolean));
-  // The doors: 目錄, 子法, 判決 (and a regulation's 授權依據), each with its count.
+  // What's moving on it: rows on the card, a hairline apart (a tap: over this page, the reading kept).
+  const rows = [
+    change && overRow('green', W('最近修法', 'Just amended'), changeText(change), () => diffSheet(law, change)),
+    // Only a bill really moving (in committee or past it) gets the progress bar; most drafts sit
+    // after 一讀 for years, so those are one quiet line (Jay 2026-10-31).
+    live && (live.stage >= 2 ? overRow('indigo', W('立法院正在修', 'Being amended in the Legislative Yuan'), [stageShort(live, en), partyText].filter(Boolean).join(' · '), () => openItem(live.k), progress(live, en)) : overRow('idle', W(`${live.open || live.count || 1} 個修正草案待審`, `${live.open || live.count || 1} draft amendment${(live.open || live.count || 1) > 1 ? 's' : ''} waiting`), [W('已一讀，還沒排進委員會', 'Read once, not yet taken up in committee'), partyText].filter(Boolean).join(' · '), () => openItem(live.k))),
+    consRow_(law),
+    draftRow(law)
+  ].filter(Boolean);
+  // The doors: 目錄, 子法, 判決 (and a regulation's 授權依據), each with its count, along the card's foot.
   const toc = contents(law).filter(c => c.depth <= 1);
-  const doors = h('div', { class: 'lw-doors' }, [tocDoor(law, toc, nArts), basisDoor(law), regsDoor(law), rulingDoor(law)].filter(Boolean));
+  const doors = [tocDoor(law, toc, nArts), basisDoor(law), regsDoor(law), rulingDoor(law)].filter(Boolean);
+  // The card: kind and topic, the name, its facts; what's moving; the doors.
+  const title = h('strong', { class: `lw-over-title lw-big-name${nameSize(name)}`, text: name });
+  const over = h('section', { class: 'lw-over-card', style: `--t:${TOPICS[topic].color}` }, [
+    h('div', { class: 'lw-over-top', html: `${topicTile(topic)}<span>${esc(`${kind} · ${topicName(topic, en)}`)}</span>${law.ab ? countTag(W('已廢止', 'Repealed'), 'red') : ''}` }),
+    title,
+    h('p', { class: 'lw-over-facts', text: facts }),
+    rows.length ? h('div', { class: 'lw-over-rows' }, rows) : null,
+    doors.length ? h('div', { class: `lw-doors n${doors.length}` }, doors) : null
+  ].filter(Boolean));
   const fw = shown.fw ? h('p', { class: 'lw-fw', text: shown.fw }) : null;
   const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, self: selfOf(law), en: state.showEn, fresh: freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
@@ -654,12 +682,46 @@ async function drawLaw() {
     const no = body.querySelector(`#a-${CSS.escape(k)} .lw-no`);
     (no?.nextElementSibling?.classList.contains('lw-rul') ? no.nextElementSibling : no)?.insertAdjacentHTML('afterend', `<button type="button" class="lw-rul lw-regs" data-art="${esc(k)}">${ICON_DOC}${W(`子法 ${list.length}`, `${list.length} rule${list.length > 1 ? 's' : ''}`)}</button>`);
   }
-  panel.replaceChildren(head, find, over, doors, ...[fw, body].filter(Boolean));
+  panel.replaceChildren(head, find, over, ...[fw, body].filter(Boolean));
   box.hidden = true;
+  // The bar's name only once the card's has scrolled away (as iOS's large titles).
+  titleWatch?.disconnect();
+  head.classList.add('quiet');
+  titleWatch = new IntersectionObserver(([e]) => head.classList.toggle('quiet', e.isIntersecting), { rootMargin: `-${head.offsetHeight || 52}px 0px 0px 0px` });
+  titleWatch.observe(title);
+  trackReading(law, body);
 }
 
+let titleWatch = null;
+// 繼續閱讀: the law noted as read, then the article at the top of the screen
+// as you scroll (where 繼續閱讀 on 首頁 opens it, and how far through).
+let readOff = null;
+function trackReading(law, body) {
+  readOff?.();
+  const p = law.p;
+  const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
+  const had = readLog().find(x => x.kind === 'law' && x.id === p);
+  noteRead({ kind: 'law', id: p, title: law.n, href: had?.href || `#law=${p}`, sub: had?.sub || '', pct: had?.pct ?? 0 });
+  let t = 0;
+  const on = () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      if (state.law?.p !== p || !location.hash.startsWith('#law=') || !body.isConnected || !body.offsetParent) return;
+      const y = (document.querySelector('.lw-bar')?.offsetHeight || 0) + 24;
+      const art = document.elementFromPoint(innerWidth / 2, y)?.closest('.lw-art');
+      const at = art && body.getBoundingClientRect().top < y ? lawPlace(keys, art.dataset.k) : null;
+      noteRead({ kind: 'law', id: p, title: law.n, href: at ? `#law=${p}&a=${at.k}` : `#law=${p}`, sub: at ? W(`讀到${artLabel(at.k)}`, `at Art. ${at.k}`) : '', pct: at ? at.pct : 0 });
+    }, 400);
+  };
+  addEventListener('scroll', on, { passive: true });
+  readOff = () => removeEventListener('scroll', on);
+}
+// A row on the law's card: a coloured dot, what it is, a line under it, a chevron.
+const overRow = (tone, title, sub, onclick, extra = '') => h('button', { type: 'button', class: `lw-over-row ${tone}`, html: `<span class="lw-over-text"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>${ICON_CHEV}${extra}`, onclick });
+const ICON_CHEV = '<svg class="lw-chev" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 // 最高法院判決: how many cite this law, and which articles (a tap: the list, by article).
-const door = (cls, icon, n, label, onclick) => h('button', { type: 'button', class: `lw-door ${cls}`, html: `<span class="lw-door-ic">${icon}</span><b>${esc(String(n))}</b><small>${esc(label)}</small>`, onclick });
+const door = (cls, icon, n, label, onclick) => h('button', { type: 'button', class: `lw-door ${cls}`, html: `<b>${esc(String(n))}</b><small>${esc(label)}</small>`, onclick });
 // 目錄: the chapters (a tap: there); a law without chapters opens 找字.
 function tocDoor(law, toc, nArts) {
   if (toc.length < 2) return door('slate', ICON.find, nArts, W('條・找字', 'articles · find'), () => toggleFind());
@@ -674,16 +736,18 @@ function tocDoor(law, toc, nArts) {
   });
 }
 // 判決: every ruling on this law, 憲法法庭's first, then by article (a tap: that article's).
-const lawConsIds = () => [...new Set(Object.values(state.lawCons).flat())].sort((a, b) => consOrder(b) - consOrder(a));
+const lawConsIds = () => { const core = new Set(state.lawCore || []); return [...new Set(Object.values(state.lawCons).flat())].sort((a, b) => core.has(b) - core.has(a) || consOrder(b) - consOrder(a)); };
 function rulingDoor(law) {
   const arts = Object.entries(state.lawRulings);
   const consIds = lawConsIds();
   if (!arts.length && !consIds.length) return null;
   const n = (state.rulingLaws[law.p] || state.lowLaws[law.p] ? (state.rulingLaws[law.p] || 0) + (state.lowLaws[law.p] || 0) : new Set(arts.flatMap(([, l]) => l.map(x => x[0]))).size) + consIds.length;
   const sorted = arts.sort((a, b) => b[1].length - a[1].length);
-  return door('court', ICON_GAVEL, n, W('則判決', 'rulings'), () => {
+  return door('court', ICON_GAVEL, n, W('判決', 'rulings'), () => {
     const cons = consIds.map(id => state.consRows?.byId.get(id)).filter(Boolean);
-    const html = (cons.length ? `<p class="lw-list-cap">${W(`憲法法庭 ${cons.length}`, `Constitutional Court ${cons.length}`)}</p>${cons.slice(0, 30).map(r => rulingRow(r)).join('')}` : '') + (sorted.length ? `<p class="lw-list-cap">${state.lowLaws[law.p] ? W('各級法院，依條文', 'Courts, by article') : W('最高法院・最高行政法院，依條文', 'Top courts, by article')}</p>` : '') + sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${courtTile(kindOfId(l[0][0]))}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('');
+    const core = new Set(state.lawCore || []);
+    const about = cons.filter(r => core.has(r[0])), passing = cons.filter(r => !core.has(r[0]));
+    const html = (about.length ? `<p class="lw-list-cap">${W(`憲法法庭 · 針對這部法 ${about.length}`, `Constitutional Court · about it ${about.length}`)}</p>${about.slice(0, 30).map(r => rulingRow(r)).join('')}` : '') + (passing.length ? `<p class="lw-list-cap">${W(`憲法法庭 · 理由中引用 ${passing.length}`, `Constitutional Court · cited in passing ${passing.length}`)}</p>${passing.slice(0, 30).map(r => rulingRow(r)).join('')}` : '') + (sorted.length ? `<p class="lw-list-cap">${state.lowLaws[law.p] ? W('各級法院，依條文', 'Courts, by article') : W('最高法院・最高行政法院，依條文', 'Top courts, by article')}</p>` : '') + sorted.map(([k, l]) => `<button type="button" class="lw-row" data-k="${esc(k)}">${courtTile(kindOfId(l[0][0]))}<span class="lw-row-text"><span class="lw-row-name">${esc(artLabel(k, en))}</span><small>${esc(l[0][2] || '')}</small></span><span class="lw-tag court">${ICON_GAVEL}${l.length}</span></button>`).join('');
     const s = sheet({ title: W(`${shortName(law.n)} · 判決`, `${nameOf(law.p, law.n)} · rulings`), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-list in-sheet', html }) });
     s.el.addEventListener('click', e => {
       const b = e.target.closest('[data-k]');
@@ -699,7 +763,7 @@ function regsDoor(law) {
   const ag = state.agency;
   const n = new Set([...arts.flatMap(([, l]) => l), ...state.deleg.rest].map(r => r[0])).size + new Set([...Object.values(ag.to).flat(), ...ag.rest].map(r => r[0])).size;
   if (!n) return null;
-  return door('teal', ICON_DOC, n, W('個子法', 'rules'), () => regsSheet(law));
+  return door('teal', ICON_DOC, n, W('子法', 'rules'), () => regsSheet(law));
 }
 // The 子法 sheet: by article, each with the words that call for the rules, then the rules.
 function regsSheet(law) {
@@ -754,18 +818,20 @@ function openRulings(k) {
   const law = state.law;
   if (state.lawRulings[k]?.length || state.lawCons[k]?.length) rulingsSheet(`${shortName(law.n)}${artLabel(k)}`, state.lawRulings[k] || [], state.lawCons[k] || []);
 }
-// 憲法法庭 on this law: how many, the newest (a tap: the list).
-function consStrip(law) {
-  const ids = lawConsIds();
-  const top = state.consRows?.byId.get(ids[0]);
+// 憲法法庭 on this law: only the rulings about it (its 爭點 or 解釋文 name
+// it), the newest named; one that cites an article in passing (釋字764 on
+// 預算法第85條) waits in 判決 (a tap: the list, those about it first).
+function consRow_(law) {
+  const about = (state.lawCore || []).filter(id => state.consRows?.byId.has(id)).sort((a, b) => consOrder(b) - consOrder(a));
+  const top = state.consRows?.byId.get(about[0]);
   if (!top) return null;
-  return h('button', { type: 'button', class: 'lw-strip cons', html: `<b>${W(`憲法法庭 ${ids.length} 件`, `Constitutional Court · ${ids.length}`)}</b><span>${esc(`${consLabel(top[0], en)} ${consName(top)}`)}</span><em>${W('看裁判', 'Rulings')}</em>`, onclick: () => (ids.length === 1 ? openCons(ids[0]) : rulingsSheet(W(`${shortName(law.n)} · 憲法法庭`, 'Constitutional Court'), [], ids)) });
+  return overRow('cons', W(`憲法法庭解釋 ${about.length} 件`, `Constitutional Court · ${about.length}`), `${consLabel(top[0], en)} ${consName(top)}`, () => (about.length === 1 ? openCons(about[0]) : rulingsSheet(W(`${shortName(law.n)} · 憲法法庭`, 'Constitutional Court'), [], about)));
 }
 
 // A ministry's draft of this law still open for comment (預告).
-function draftStrip(law) {
+function draftRow(law) {
   const draft = (state.noticesByLaw.get(law.p) || []).find(n => isOpen(n, today()));
-  return draft ? h('a', { class: 'lw-strip orange', href: `#notice=${draft.id}`, html: `<b>${esc(W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`))}</b><span>${esc(W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`))}</span><em>${W('去留言', 'Comment')}</em>` }) : null;
+  return draft ? overRow('orange', W(`${draft.gov}預告修法`, `Draft by ${draft.gov}`), W(`意見至 ${shortDay(draft.to)}`, `comments till ${shortDay(draft.to)}`), () => openNotice(draft.id)) : null;
 }
 
 function scrollToHeading(id) {
@@ -838,11 +904,43 @@ function lawMenu(law, row) {
   const rows = [];
   if (contents(law).length) rows.push([W('目錄', 'Contents'), () => showContents(law)]);
   if (row[6] || state.showEn) rows.push([state.showEn ? '中文條文' : 'English text', () => ((state.showEn = !state.showEn), drawLaw())]);
-  if (law.h) rows.push([W('沿革', 'History'), () => textSheet(W('沿革', 'History'), law.h)]);
+  if (law.h) rows.push([W('沿革', 'History'), () => historySheet(law)]);
   if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W(`立法院第 ${it.term} 屆`, `Legislative Yuan, term ${it.term}`)} · ${stageShort(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
   for (const r of relatedLaws(state.rows, row)) rows.push([r[1], () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
   const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
+}
+// 沿革 as a timeline, newest first: the day, what each order did (the
+// articles a tap away), the order's number quiet under it.
+const ACT_TONE = { 制定: 'green', 訂定: 'green', 增訂: 'green', 修正: 'indigo', 刪除: 'red', 廢止: 'red' };
+function historySheet(law) {
+  const events = parseHistory(law.h).reverse();
+  if (!events.length) return textSheet(W('沿革', 'History'), law.h);
+  const has = new Set(law.a.filter(a => a[0] === 'A').map(a => a[1]));
+  const art = a => {
+    const k = a.split('～')[0];
+    const label = a.replace('～', '–');
+    return has.has(k) ? `<a class="lw-ref lw-h-art" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(label)}</a>` : `<span class="lw-h-art gone">${esc(label)}</span>`;
+  };
+  const acts = e =>
+    e.acts
+      .map(a => {
+        const what = a.whole ? W(`${a.part || ''}全文 ${a.whole} 條`, `${a.whole} articles in full`) : '';
+        const arts = a.arts.length > 12 ? `${a.arts.slice(0, 12).map(art).join('')}<button type="button" class="lw-h-more" data-more="${esc(JSON.stringify(a.arts.slice(12)))}">${W(`還有 ${a.arts.length - 12} 條`, `${a.arts.length - 12} more`)}</button>` : a.arts.map(art).join('');
+        return `<div class="lw-h-act">${countTag(a.act, ACT_TONE[a.act] || '')}${what ? `<span class="lw-h-what">${esc(what)}</span>` : ''}${arts ? `<span class="lw-h-arts">${arts}</span>` : ''}</div>`;
+      })
+      .join('');
+  const day = d => (d ? d.replace(/-/g, '/') : '');
+  const html = events
+    .map(
+      e => `<li class="lw-h-ev"><time>${esc(day(e.date))}</time>${acts(e)}${e.notes.map(n => `<p class="lw-h-note">${esc(n)}</p>`).join('')}${e.doc ? `<small class="lw-h-doc">${esc(e.doc)}</small>` : ''}${e.more.map(m => `<div class="lw-h-sub"><time>${esc(day(m.date))}</time>${acts(m)}${m.notes.map(n => `<p class="lw-h-note">${esc(n)}</p>`).join('')}${m.doc ? `<small class="lw-h-doc">${esc(m.doc)}</small>` : ''}</div>`).join('')}</li>`
+    )
+    .join('');
+  const s = sheet({ title: W('沿革', 'History'), subtitle: W(`${events.length} 次異動`, `${events.length} changes`), closeLabel: W('關閉', 'Close'), cls: 'lw-h-sheet', body: h('ol', { class: 'lw-h', html }) });
+  s.el.addEventListener('click', e => {
+    const b = e.target.closest('.lw-h-more');
+    if (b) b.outerHTML = JSON.parse(b.dataset.more).map(art).join('');
+  });
 }
 function textSheet(title, text) {
   sheet({ title, closeLabel: W('關閉', 'Close'), body: h('pre', { class: 'lw-pre', text }) });
@@ -892,27 +990,48 @@ function articleMenu(k) {
   const s = sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-menu' }, rows.map(([t, fn, ic]) => h('button', { class: `lw-menu-row ${ic}`, type: 'button', onclick: () => (s.close(), fn()), html: `<i>${MENU_ICON[ic]}</i><span>${esc(t)}</span>` }))) });
 }
 
-// 白話解釋: the answer, each point with the article it cites (tap: the
-// article in a sheet), suggested questions, and a box for one's own.
+// 白話解釋: the article explained as a teacher would (what it means in a
+// line, what it says, why it's there, examples, the hard words, how it stands
+// today, what to read next), then questions on it, each answered under it.
 // `ks`: one article key, or a few (a linked range, up to 8: answered together).
 function explain(law, ks) {
   ks = [].concat(ks).slice(0, 8);
   const one = ks.length === 1;
-  const out = h('div', { class: 'lw-ask' });
-  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: W('問這一條…', 'Ask about it…') });
-  const form = h('form', { class: 'lw-composer in-sheet', onsubmit: e => (e.preventDefault(), input.value.trim() && run(input.value)) }, [input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('問', 'Ask'), html: ICON_SEND })]);
-  const sugg = h('div', { class: 'lw-starters', html: [W('適用在誰身上？', 'Who does it apply to?'), W('違反會怎樣？', 'What if it’s broken?'), W('有什麼例外？', 'Any exceptions?')].map(t => `<button type="button" class="lw-starter">${esc(t)}</button>`).join(''), onclick: e => { const b = e.target.closest('button'); if (b) run(b.textContent); } });
-  const note = h('p', { class: 'lw-ask-note', text: one ? W('AI 只依這一條的條文回答，不是法律意見。', 'AI, from this article’s text only. Not legal advice.') : W('AI 只依這幾條的條文回答，不是法律意見。', 'AI, from these articles’ text only. Not legal advice.') });
-  sheet({ title: `${shortName(law.n)}${one ? artLabel(ks[0], en) : `${artLabel(ks[0], en)}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [out, sugg, form, note] });
-  async function run(q = '') {
-    out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}<div class="lw-typing"><i></i><i></i><i></i></div></div>`;
+  const text = one ? law.a.find(a => a[0] === 'A' && a[1] === ks[0])?.[2] : '';
+  // The article itself, folded to three lines (a tap: all of it).
+  const quote = text ? h('button', { type: 'button', class: 'lw-x-quote', text: String(text).replace(/\s*\n\s*/g, ' '), onclick: e => e.currentTarget.classList.toggle('open') }) : null;
+  const out = h('div', { class: 'lw-x', html: `<div class="lw-x-gist"><span class="lw-x-label">${ICON_SPARK}${W('白話', 'In plain words')}</span><span class="q-skel lw-x-skel"></span><span class="q-skel lw-x-skel short"></span></div><span class="q-skel lw-x-skel tall"></span><span class="q-skel lw-x-skel tall"></span>` });
+  const qa = h('div', { class: 'lw-x-qa' });
+  const input = h('input', { type: 'text', class: 'lw-ask-q', maxlength: String(MAX_Q), enterkeyhint: 'send', placeholder: one ? W('再問這一條…', 'Ask more about it…') : W('再問這幾條…', 'Ask more about them…') });
+  const form = h('form', { class: 'lw-composer in-sheet', onsubmit: e => (e.preventDefault(), input.value.trim() && ask(input.value)) }, [input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('問', 'Ask'), html: ICON_SEND })]);
+  const sugg = h('div', { class: 'lw-starters', html: [W('適用在誰身上？', 'Who does it apply to?'), W('違反會怎樣？', 'What if it’s broken?'), W('有什麼例外？', 'Any exceptions?')].map(t => `<button type="button" class="lw-starter">${esc(t)}</button>`).join(''), onclick: e => { const b = e.target.closest('button'); if (b) ask(b.textContent); } });
+  const note = h('p', { class: 'lw-ask-note', text: W('AI 依條文和公開的背景知識整理，只是一般資訊，不是法律意見。', 'AI, from the text and well-known background. General information, not legal advice.') });
+  sheet({ title: `${shortName(law.n)}${one ? artLabel(ks[0], en) : `${artLabel(ks[0], en)}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [quote, out, qa, sugg, form, note].filter(Boolean) });
+  const chips = pt => (one ? '' : pt.cites.map(c => citeChip(law.p, c, '')).join(''));
+  const part = (title, html) => (html ? `<section class="lw-x-part"><h3>${esc(title)}</h3>${html}</section>` : '');
+  (async () => {
+    const r = await askLaw({ p: law.p, arts: ks, lang: en ? 'en' : 'zh' }, ai);
+    if (r.error) return void (out.innerHTML = `<p class="lw-none">${esc(askError(r.error, en))}</p>`);
+    if (!r.covered) return void (out.innerHTML = `<p class="lw-none">${esc(r.answer || W('這一條現在解釋不了，請稍後再試。', 'Can’t explain this one right now.'))}</p>`);
+    out.innerHTML =
+      `<div class="lw-x-gist"><span class="lw-x-label">${ICON_SPARK}${W('白話', 'In plain words')}</span><p>${esc(r.gist || r.answer)}</p></div>` +
+      part(W('條文在說什麼', 'What it says'), r.points.length ? `<ul class="lw-x-points">${r.points.map(pt => `<li>${esc(pt.text)}${chips(pt)}</li>`).join('')}</ul>` : '') +
+      part(W('為什麼有這一條', 'Why it’s there'), r.why ? `<p>${esc(r.why)}</p>` : '') +
+      part(W('舉個例子', 'For example'), r.examples?.length ? `<div class="lw-x-examples">${r.examples.map(x => `<div class="lw-x-ex">${x.title ? `<b>${esc(x.title)}</b>` : ''}<p>${esc(x.text)}</p></div>`).join('')}</div>` : '') +
+      part(W('現在的情形', 'Today'), r.now ? `<p>${esc(r.now)}</p>` : '') +
+      part(W('看不懂的詞', 'Words to know'), r.terms?.length ? `<dl class="lw-x-terms">${r.terms.map(t => `<dt>${esc(t.term)}</dt><dd>${esc(t.means)}</dd>`).join('')}</dl>` : '') +
+      part(W('相關條文', 'Read next'), r.related?.length ? `<div class="lw-x-related">${r.related.map(x => `<a class="lw-ref lw-x-rel" href="#law=${esc(x.p)}&amp;a=${esc(x.k)}" data-law="${esc(x.p)}" data-from="${esc(x.k)}" data-to="${esc(x.k)}" data-para="0"><span><b>${esc(`${x.p === law.p ? '' : en ? `${nameOf(x.p, x.n)} ` : shortName(x.n)}${artLabel(x.k, en)}`)}</b>${x.why ? `<small>${esc(x.why)}</small>` : ''}</span>${ICON_CHEV}</a>`).join('')}</div>` : '');
+  })();
+  // A question: answered under the explanation (the newest replaces the last).
+  async function ask(q) {
+    input.value = '';
+    qa.innerHTML = `<div class="lw-answer"><p class="lw-asked">${esc(q)}</p><div class="lw-typing"><i></i><i></i><i></i></div></div>`;
+    qa.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     const r = await askLaw({ p: law.p, arts: ks, q, lang: en ? 'en' : 'zh' }, ai);
-    if (r.error) return void (out.innerHTML = `<div class="lw-answer"><p class="lw-none">${esc(askError(r.error, en))}</p></div>`);
-    if (q) asked();
-    const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(c => citeChip(law.p, c, '')).join('')}</li>`).join('');
-    out.innerHTML = `<div class="lw-answer">${q ? `<p class="lw-asked">${esc(q)}</p>` : ''}${r.covered ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}<ul class="lw-points">${points}</ul>` : `<p>${esc(r.answer || (one ? W('這一條沒有規定這件事。', 'This article doesn’t cover that.') : W('這幾條沒有規定這件事。', 'These articles don’t cover that.')))}</p>`}</div>`;
+    if (r.error) return void (qa.innerHTML = `<div class="lw-answer"><p class="lw-asked">${esc(q)}</p><p class="lw-none">${esc(askError(r.error, en))}</p></div>`);
+    asked();
+    qa.innerHTML = `<div class="lw-answer"><p class="lw-asked">${esc(q)}</p>${r.covered ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}<ul class="lw-x-points">${r.points.map(pt => `<li>${esc(pt.text)}${chips(pt)}</li>`).join('')}</ul>` : `<p>${esc(r.answer || (one ? W('這一條沒有規定這件事。', 'This article doesn’t cover that.') : W('這幾條沒有規定這件事。', 'These articles don’t cover that.')))}</p>`}</div>`;
   }
-  run();
 }
 
 // An AI explanation on a tap: the button, then the answer in its place.
@@ -1023,6 +1142,7 @@ async function openPage(u, label = '') {
 async function openJudgment(u, label = '') {
   const body = h('div', { class: 'lw-page lw-jd', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
   sheet({ title: W('判決', 'Ruling'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
+  if (label) noteRead({ kind: 'judgment', id: u, title: label, href: u, sub: '' });
   const out = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到司法院看原文', 'Open on the Judicial Yuan')}</a>`;
   try {
     const j = await fetchPage(u);
@@ -1152,6 +1272,8 @@ document.addEventListener(
     let m;
     // A ruling (#r=<id>): opened over the screen it was tapped on.
     if ((m = (a.getAttribute('href') || '').match(/^#r=(.+)$/))) return e.preventDefault(), openRuling(decodeURIComponent(m[1]));
+    // A bill (#item=…) tapped outside 立法 (a law you're reading, 首頁): over that screen, so closing it is back where you were.
+    if ((m = (a.getAttribute('href') || '').match(/^#item=([^&]+)$/)) && state.tab !== 'bills') return e.preventDefault(), openItem(decodeURIComponent(m[1]).replace('-', ':'));
     if (a.dataset.text) return e.preventDefault(), openRuleText(a.dataset.text, label);
     if ((m = href.match(/^https:\/\/ivod\.ly\.gov\.tw\/Play\/Clip\/\w+\/(\d+)/))) return e.preventDefault(), openClip(m[1], label);
     if ((m = href.match(/^https:\/\/ppg\.ly\.gov\.tw\/ppg\/bills\/(\d+)\/details/))) return e.preventDefault(), openBillById(m[1]);
@@ -1165,7 +1287,7 @@ document.addEventListener(
 
 document.addEventListener('click', e => {
   const pend = e.target.closest('.lw-pending');
-  if (pend) return go(`item=${pend.dataset.item}`);
+  if (pend) return openItem(pend.dataset.item.replace('-', ':'));
   const sub = e.target.closest('.lw-regs');
   if (sub) return openRegs(sub.dataset.art);
   const rul = e.target.closest('.lw-rul');
@@ -1803,6 +1925,7 @@ async function openCons(id) {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這個裁判，請稍後再試', 'Couldn’t load this ruling; try again later')}</p><a class="lw-out" href="${esc(id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE)}" target="_blank" rel="noopener" data-out>${W('到憲法法庭看', 'Open on the Constitutional Court')}</a>`;
     return;
   }
+  noteRead({ kind: 'cons', id, title: `${consLabel(id, en)}${it.n ? ` ${it.n}` : it.issue ? ` ${it.issue.replace(/[？?]$/, '')}` : ''}`, href: `#r=${id}`, sub: '' });
   const kind = kindOfId(id);
   const refRows = ids => list(ids.map(x => cons.byId.get(x)).filter(Boolean).map(r => rulingRow(r)));
   const cited = (cons.cited[id] || []).sort((a, b) => consOrder(b) - consOrder(a));
@@ -2096,6 +2219,7 @@ async function openItem(k) {
   }
   markSeen(state.mine, 'items', k);
   save();
+  noteRead({ kind: 'bill', id: k, title: W(`${it.n}修正草案`, `${it.n} amendment`), href: `#item=${k.replace(':', '-')}`, sub: '' });
   const topic = itemTopic(it);
   const steps = timeline(it, bills, en, state.noticesByLaw.get(it.p));
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });

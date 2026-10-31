@@ -44,7 +44,20 @@ export async function askLaw({ p, arts, q = '', lang = 'zh' }, fetcher = globalT
   // Only points citing an article that was asked about (the proxy checks too).
   const asked = new Set(arts);
   const points = cited(j.points, c => asked.has(c));
-  return { answer: String(j.answer || ''), points, covered: Boolean(j.covered) && points.length > 0, cached: Boolean(j.cached), left: j.left };
+  const str = v => (typeof v === 'string' ? v.trim() : '');
+  const list = (v, n) => (Array.isArray(v) ? v : []).slice(0, n);
+  // (No question: the whole explanation, its parts each optional.)
+  const more = q
+    ? {}
+    : {
+        gist: str(j.gist),
+        why: str(j.why),
+        now: str(j.now),
+        examples: list(j.examples, 3).map(x => ({ title: str(x?.title), text: str(x?.text) })).filter(x => x.text),
+        terms: list(j.terms, 3).map(x => ({ term: str(x?.term), means: str(x?.means) })).filter(x => x.term && x.means),
+        related: list(j.related, 4).filter(r => /^[A-Z]\d{7}$/.test(r?.p) && /^\d{1,4}(-\d{1,3})?$/.test(r?.k)).map(r => ({ p: r.p, n: str(r.n), k: r.k, why: str(r.why) }))
+      };
+  return { answer: String(j.answer || ''), points, covered: Boolean(j.covered) && points.length > 0, cached: Boolean(j.cached), left: j.left, ...more };
 }
 
 // A bill's 對照表 in plain words: what it changes (by article) and who it affects.

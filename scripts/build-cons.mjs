@@ -112,7 +112,8 @@ for (const it of items) {
   it.bills = naming[it.id] || [];
   await writeFile(`${out}${it.id}.json`, JSON.stringify(it));
 }
-const index_ = items.map(it => consRow(it, it.bills));
+const nameByP = new Map(rows.map(r => [r[0], r[1]]));
+const index_ = items.map(it => consRow(it, it.bills, p => nameByP.get(p)));
 await writeFile(`${out}index.json`, JSON.stringify({ built: new Date().toISOString(), items: index_ }));
 await writeFile(`${out}laws.json`, JSON.stringify(consByLaw(index_)));
 console.log(`cons: ${items.length} rulings (${items.filter(i => i.id[0] === 'j').length} 憲判, ${items.filter(i => i.id[0] === 's').length} 釋字); ${fetched} read, ${carried} kept, ${missing} missing; ${index_.reduce((n, r) => n + r[4].length, 0)} cites, ${Object.keys(naming).length} named by bills; ${Math.round((Date.now() - start) / 1000)}s`);

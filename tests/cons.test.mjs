@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readConsPage, consItem, judgmentList, lastRewrite, citesOf, consByLaw, billsNaming, citedBy, consOfJid, consLabel, rocDate, consRow } from '../public/lib/cons.mjs';
+import { aboutLaws, lawStem, readConsPage, consItem, judgmentList, lastRewrite, citesOf, consByLaw, billsNaming, citedBy, consOfJid, consLabel, rocDate, consRow } from '../public/lib/cons.mjs';
 import { caseQuery, caseMatch, byMonth, monthCounts } from '../public/lib/rulings.mjs';
 
 const names = new Map([['中華民國憲法', 'A0000001'], ['民法', 'B0000001'], ['公司法', 'J0080001'], ['入出國及移民法', 'D0080132']]);
@@ -52,6 +52,16 @@ test('cons: by law and article, the bills that name a ruling, cited by', () => {
   assert.deepEqual(consByLaw(rows), { B0000001: { 1: ['j111-1', 's1'] }, A0000001: { '': ['s1'] } });
   assert.deepEqual(citedBy(rows), { s1: ['j111-1'] });
   assert.deepEqual(billsNaming([{ term: 11, laws: ['01126'], a: '為因應憲法法庭111年憲判字第8號判決' }, { term: 11, laws: ['00001'], t: '某法', a: '依司法院釋字第七四八號解釋' }]), { 'j111-8': ['11:01126'], s748: ['11:00001'] });
+});
+
+test('cons: a ruling is about a law its 爭點 or 解釋文 names, not one its 理由 cites in passing', () => {
+  const name = p => ({ T0020001: '預算法', J0120044: '公營事業移轉民營條例', A0000001: '中華民國憲法' })[p];
+  const s764 = { n: '公營事業移轉民營留用人員年資結算案', issue: '公營事業移轉民營條例第8條第3項前段規定…是否侵害其服公職權？', main: ['…與憲法第18條保障人民服公職之權利意旨尚無違背。'], cites: ['A0000001:18', 'J0120044:8', 'T0020001:85'] };
+  assert.deepEqual(aboutLaws(s764, name), ['A0000001', 'J0120044']);
+  assert.deepEqual(aboutLaws({ n: '', issue: '政院停建核四廠應向立院報告？', main: ['…預算案經立法院通過…'], cites: ['T0020001:6'] }, name), ['T0020001']);
+  assert.equal(lawStem('預算法'), '預算');
+  const rows = [['s764', '2018-05-04', '', 'q', ['T0020001:85', 'J0120044:8'], [], [], ['J0120044']]];
+  assert.deepEqual(consByLaw(rows), { T0020001: { 85: ['s764'] }, J0120044: { 8: ['s764'], '#': ['s764'] } });
 });
 
 test('rulings: a case number typed, the months to browse', () => {

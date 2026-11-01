@@ -2424,20 +2424,36 @@ async function openNotice(id) {
 async function openItem(k) {
   const it = state.items.find(x => x.k === k);
   if (!it) return;
+  // The sheet opens at once on what the list already knows (its name, topic,
+  // stage, who filed it); the versions are read behind it (it used to wait
+  // for them with nothing on screen: about a second on a phone).
+  const topic = itemTopic(it);
+  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
+  const tone = it.dropped ? '' : it.held ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
+  const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
+  const artsHtml = articleChips(it, en);
+  const arts = artsHtml ? h('div', { class: 'lw-item-who', html: `<h4>${W(`要改哪幾條（${Object.keys(it.arts).length}）`, `Articles it changes (${Object.keys(it.arts).length})`)}</h4><div class="lw-parties">${artsHtml}</div>` }) : null;
+  const who = it.by?.length ? h('div', { class: 'lw-item-who', html: `<h4>${W('誰提的', 'Proposed by')}</h4><div class="lw-parties">${partyChips(it.by, en, 6)}</div>` }) : null;
+  const why = h('div', { class: 'lw-item-why', html: `<h4>${W('為什麼要修', 'Why, as filed')}</h4><span class="q-skel" style="height:56px"></span>` });
+  const changes = h('div', { class: 'lw-item-diff', html: `<h4>${W('修什麼', 'What it changes')}</h4><div class="lw-diffs"><span class="q-skel" style="height:72px"></span></div>` });
+  const openLawBtn = it.p ? h('button', { class: 'q-btn block', type: 'button', text: W('打開現行法規', 'Open the law in force'), onclick: () => (s.close(), go(`law=${it.p}`)) }) : null;
+  const votes = h('div', { class: 'lw-item-votes' });
+  votesOn(it.p, it.n).then(list => list.length && votes.replaceChildren(h('h4', { text: W(`院會表決（${list.length}）`, `Floor votes (${list.length})`) }), voteList(list)));
+  const rul = h('div', { class: 'lw-item-who' });
+  billRulings(it).then(html => html && (rul.innerHTML = html));
+  const progWait = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true }) + '<div class="lw-now"><span class="q-skel" style="display:block;height:120px"></span></div>' });
+  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, progWait, who, arts, rul, why, changes, votes, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
   let bills;
   try {
     bills = await data(`bills/item/${encodeURIComponent(k.replace(':', '-'))}.json`);
   } catch {
+    s.close();
     return toast(W('這個法案打不開，請稍後再試', 'This bill can’t be opened right now'));
   }
   markSeen(state.mine, 'items', k);
   save();
   noteRead({ kind: 'bill', id: k, title: W(`${it.n}修正草案`, `${it.n} amendment`), href: `#item=${k.replace(':', '-')}`, sub: '' });
-  const topic = itemTopic(it);
   const steps = timeline(it, bills, en, state.noticesByLaw.get(it.p));
-  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
-  const tone = it.dropped ? '' : it.held ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
-  const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
   const now = whereNow(it, bills, en);
   const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審，數字是各停在哪一步`, `${now.open} versions open; the numbers say where each stands`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span>${esc(W(`${now.before} 已三讀過一次`, `passed ${now.before}`))}</span></p>`].filter(Boolean).join('');
   const prog = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true, counts: now.open > 1 ? roundSteps(openRound(bills)) : null }) + `<div class="lw-now">${nowLine}</div>` });
@@ -2449,11 +2465,6 @@ async function openItem(k) {
       const next = nextSitting(a.meets, { ids: bills.map(b => b.id), law: it.law, name: it.n });
       if (next) prog.querySelector('.lw-now').insertAdjacentHTML('afterbegin', `<p><b>${W('排議程', 'On agenda')}</b><span><a href="#meet=${esc(encodeURIComponent(next.m.id))}&amp;d=${esc(next.d)}">${esc(`${meetDay(next.d)} ${hm(next.from)} ${roomShort(next.m)}${kindLabel(next.m.kind) !== roomShort(next.m) ? ` ${kindLabel(next.m.kind)}` : ''}`)}</a></span></p>`);
     }).catch(() => {});
-  const artsHtml = articleChips(it, en);
-  const arts = artsHtml ? h('div', { class: 'lw-item-who', html: `<h4>${W(`要改哪幾條（${Object.keys(it.arts).length}）`, `Articles it changes (${Object.keys(it.arts).length})`)}</h4><div class="lw-parties">${artsHtml}</div>` }) : null;
-  const who = it.by?.length ? h('div', { class: 'lw-item-who', html: `<h4>${W('誰提的', 'Proposed by')}</h4><div class="lw-parties">${partyChips(it.by, en, 6)}</div>` }) : null;
-  const why = h('div', { class: 'lw-item-why', html: `<h4>${W('為什麼要修', 'Why, as filed')}</h4><span class="q-skel" style="height:56px"></span>` });
-  const changes = h('div', { class: 'lw-item-diff', html: `<h4>${W('修什麼', 'What it changes')}</h4><div class="lw-diffs"><span class="q-skel" style="height:72px"></span></div>` });
   const line = h('details', { class: 'lw-fold' }, [h('summary', { text: W('審議過程', 'Steps so far') }), h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}"${s.url.startsWith('#') ? '' : ' target="_blank" rel="noopener"'}>${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') })]);
   const versions = [...bills].sort((a, b) => (a.u < b.u ? 1 : -1));
   const vlist = h('details', { class: 'lw-fold' }, [
@@ -2469,12 +2480,8 @@ async function openItem(k) {
       )
     )
   ]);
-  const openLawBtn = it.p ? h('button', { class: 'q-btn block', type: 'button', text: W('打開現行法規', 'Open the law in force'), onclick: () => (s.close(), go(`law=${it.p}`)) }) : null;
-  const votes = h('div', { class: 'lw-item-votes' });
-  votesOn(it.p, it.n).then(list => list.length && votes.replaceChildren(h('h4', { text: W(`院會表決（${list.length}）`, `Floor votes (${list.length})`) }), voteList(list)));
-  const rul = h('div', { class: 'lw-item-who' });
-  billRulings(it).then(html => html && (rul.innerHTML = html));
-  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, prog, who, arts, rul, why, changes, votes, line, vlist, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
+  progWait.replaceWith(prog);
+  votes.after(line, vlist);
   // What it changes: the newest version with a table (a just-filed one may not have it yet).
   const order = [...new Set([bills.find(b => b.id === it.top), ...versions].filter(Boolean))];
   whyList(order, why);

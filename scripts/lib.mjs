@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { get as httpsGet } from 'node:https';
 import { rootCertificates } from 'node:tls';
 export const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
-const PREV = args.prev ?? 'https://jaypengx.github.io/Orbit-Law/data/';
+const PREV = args.prev ?? 'https://orbit.jaypengx.com/law/data/';
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // The last deploy's data/<path> as JSON, or null (`--prev ''` builds from nothing; `--prev dir/`

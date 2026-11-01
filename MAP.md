@@ -35,7 +35,7 @@ Live: https://orbit.jaypengx.com/law/
   `bills/items.json` has one item per law per term (every version folded
   in), and `bills/item/<term>-<law>.json` that item's versions. A version's
   對照表 is fetched from the API only when opened in the app.
-- **Reading costs nothing:** static files on Pages, kept by the service
+- **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).
 
 ## Decisions in force

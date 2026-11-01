@@ -1,11 +1,10 @@
 # Tests, builds the law data (全國法規資料庫 + 立法院 bills, never committed),
-# then deploys public/ to GitHub Pages: on every push to main, and once a
+# then deploys public/ to Cloudflare (Orbit-Core deploy/cf-site.mjs): on every push to main, and once a
 # day at 03:30 Taiwan time, after the ministry's midnight refresh. A failed
 # build deploys nothing, so the site keeps yesterday's data. Court rulings
 # come from the store rulings.yml fills each night (it asks for a deploy when
 # it has read more); 憲法法庭's rulings from its own site on every run.
-# One-time setup: Settings -> Pages -> Source: GitHub Actions.
-name: Deploy to Pages
+name: Deploy to Cloudflare
 
 on:
   push:
@@ -15,14 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       local_from_run:
-        description: Build the cities' rules on this earlier run's deploy (its github-pages artifact) instead of the live site
+        description: Build the cities' rules on this earlier run's deploy (its local-data artifact) instead of the live site
         required: false
 
 permissions:
   contents: read
   actions: read
-  pages: write
-  id-token: write
 
 jobs:
   # One deploy at a time, without cancelling any (a cancelled run mails its
@@ -57,8 +54,6 @@ jobs:
     needs: queue
     if: needs.queue.outputs.go == 'true'
     runs-on: ubuntu-latest
-    env:
-      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       # main as it is now, never the commit that started the run: GitHub can
       # deliver a push late (hours, out of order), and an old tree deployed
@@ -110,7 +105,7 @@ jobs:
       # Ministries' own 行政規則 (open data and their rule sites), linked to the
       # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
       # The last build's ministries' and cities' rules (texts and all), kept in the cache: read from
-      # there, not fetched file by file from Pages (which answers thousands of reads with 429).
+      # there, not fetched file by file from the live site.
       - uses: actions/cache@v4
         with:
           path: .prev-data
@@ -127,12 +122,10 @@ jobs:
       - uses: actions/download-artifact@v4
         if: inputs.local_from_run != ''
         with:
-          name: github-pages
+          name: local-data
           run-id: ${{ inputs.local_from_run }}
           github-token: ${{ github.token }}
-          path: .local-prev
-      - if: inputs.local_from_run != ''
-        run: tar -xf .local-prev/artifact.tar -C .local-prev ./data/local && ls .local-prev/data/local | head
+          path: .local-prev/data/local
       - name: Build the cities' rules
         run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }} ${{ inputs.local_from_run != '' && '--prev .local-prev/data/' || '' }}
         continue-on-error: true
@@ -176,33 +169,16 @@ jobs:
         # once, never mix it with cached older ones, and keep every file the
         # deploy didn't change.
         run: node scripts/stamp-version.mjs "$(git rev-parse HEAD)"
-      - uses: actions/configure-pages@v5
+      # The cities' rules this run built, kept two weeks (local_from_run).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-data
+          path: public/data/local
+          retention-days: 14
+          if-no-files-found: ignore
       # The site on Cloudflare, at its address on the family's domain
       # (Orbit-Core deploy/cf-site.mjs): what phones are served.
       - name: Publish to Cloudflare
-        if: ${{ env.HAS_CF == 'true' }}
         run: node .shared/deploy/cf-site.mjs Orbit-Law public
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'public'
-
-  deploy:
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.again.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
-        # A clash with another deploy or a hiccup at GitHub: tried once more.
-        continue-on-error: true
-      - if: steps.deployment.outcome == 'failure'
-        run: sleep 60
-      - name: Deploy to GitHub Pages (again)
-        id: again
-        if: steps.deployment.outcome == 'failure'
-        uses: actions/deploy-pages@v5

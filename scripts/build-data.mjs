@@ -7,7 +7,7 @@
 // Bills (立法院審議中) come from the g0v 立法院 API (v2.ly.govapi.tw, which
 // mirrors 立法院's 議事 data daily): only the bills that moved since the
 // last build, merged into the last deploy's copy.
-//   node scripts/build-data.mjs [--zh ChLaw.zip] [--en EnLaw.zip] [--prev https://jaypengx.github.io/Orbit-Law/data/] [--bills off]
+//   node scripts/build-data.mjs [--zh ChLaw.zip] [--en EnLaw.zip] [--prev https://orbit.jaypengx.com/law/data/] [--bills off]
 import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
@@ -232,7 +232,7 @@ if (args.notices !== 'off') {
   // Whether the closed ones back to the term's start are all in (once done, daily runs read only the newest).
   let history = Boolean(prevN?.history);
   const join = async (type, page) => {
-    const r = await fetch(noticesUrl(type, page), { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)' }, signal: AbortSignal.timeout(90_000) });
+    const r = await fetch(noticesUrl(type, page), { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://orbit.jaypengx.com/law/)' }, signal: AbortSignal.timeout(90_000) });
     if (!r.ok) throw new Error(`join.gov.tw ${r.status}`);
     return r.json();
   };

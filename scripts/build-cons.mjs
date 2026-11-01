@@ -4,7 +4,7 @@
 // that name it. A ruling's file is kept from the last deploy (or the
 // workflow cache) and read again only while it's this year's; a 釋字 never
 // changes once out. Runs after build-data.mjs (index, orders, laws, bills).
-//   node scripts/build-cons.mjs [--minutes 20] [--prev https://jaypengx.github.io/Orbit-Law/data/]
+//   node scripts/build-cons.mjs [--minutes 20] [--prev https://orbit.jaypengx.com/law/data/]
 // Writes data/cons/: index.json (every ruling's row), <id>.json (its text),
 // laws.json (by law and article).
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
@@ -41,7 +41,7 @@ const rewriteOf = p => {
 async function page(u) {
   for (let i = 0; i < 2; i++) {
     try {
-      const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)' }, signal: AbortSignal.timeout(25_000) });
+      const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://orbit.jaypengx.com/law/)' }, signal: AbortSignal.timeout(25_000) });
       if (r.ok) return { html: await r.text(), url: r.url };
       if (r.status === 404) return null;
     } catch {}

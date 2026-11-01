@@ -6,7 +6,7 @@
 // and a build that would publish far fewer top-court rulings than the last
 // deploy keeps the last deploy's.
 // Runs after build-data.mjs (needs public/data/index.json).
-//   node scripts/build-rulings.mjs [--store .rulings-store] [--prev https://jaypengx.github.io/Orbit-Law/data/]
+//   node scripts/build-rulings.mjs [--store .rulings-store] [--prev https://orbit.jaypengx.com/law/data/]
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { courtOf, lowCode, mergeRulings, byLaw, lawCounts, latestRulings, byMonth, monthCounts, findRows, dropDeleted, lowViews, titleKey } from '../public/lib/rulings.mjs';

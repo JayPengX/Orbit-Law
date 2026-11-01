@@ -31,7 +31,7 @@ try {
 }
 await mkdir(`${root}notice`, { recursive: true });
 const tmp = await mkdtemp(join(tmpdir(), 'notice-'));
-const UA = { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://jaypengx.github.io/Orbit-Law/)', Accept: 'application/json' };
+const UA = { 'User-Agent': 'Mozilla/5.0 (Orbit Law; +https://orbit.jaypengx.com/law/)', Accept: 'application/json' };
 const today = twDay(Date.now());
 const since = twDay(Date.now() - 90 * 864e5);
 const text = html => String(html || '').replace(/<br\s*\/?>/g, '\n').replace(/<\/p>/g, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');

@@ -5,7 +5,7 @@
 // most. Never fails the deploy: whatever can't be fetched today is carried
 // over from the last deploy's copy.
 // Runs after build-data.mjs (reads public/data/index.json for law names, if there).
-//   node scripts/build-ly.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/] [--term 11]
+//   node scripts/build-ly.mjs [--prev https://orbit.jaypengx.com/law/data/] [--term 11]
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { hash } from '../public/lib/bills.mjs';

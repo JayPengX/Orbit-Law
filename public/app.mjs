@@ -383,7 +383,8 @@ function recommend(recent) {
   return [...new Set([...out, ...common])].slice(0, 8);
 }
 let lawNews;
-const newsData = () => (lawNews ||= data('ai/news.json').catch(e => ((lawNews = null), Promise.reject(e))));
+// (Home's few: news-top.json, not the AI's whole news.json.)
+const newsData = () => (lawNews ||= data('ai/news-top.json').catch(() => data('ai/news.json')).catch(e => ((lawNews = null), Promise.reject(e))));
 
 function topicGrid() {
   const counts = {};

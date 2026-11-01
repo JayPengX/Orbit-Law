@@ -5,7 +5,7 @@
 // between deploys in local/state.json), then the pages not read yet, until --minutes (default
 // 20); the rest is read next time. A site that fails keeps its rules from the last deploy.
 // Runs after build-data.mjs (needs public/data/index.json).
-//   node scripts/build-local.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/] [--minutes 20]
+//   node scripts/build-local.mjs [--prev https://orbit.jaypengx.com/law/data/] [--minutes 20]
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { rule, textFile, linkRules, vendorLeaves, vendorList, staleFirst, listedRows } from '../public/lib/agency.mjs';

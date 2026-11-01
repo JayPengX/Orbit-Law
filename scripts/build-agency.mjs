@@ -8,7 +8,7 @@
 // over between deploys in agency/state.json), every 行政規則 / 其他 kept, linked
 // to a law or not, and each page read whole into agency/text/ (cached by date
 // from the last deploy) until --minutes (default 20), the rest read next time.
-//   node scripts/build-agency.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/] [--minutes 20]
+//   node scripts/build-agency.mjs [--prev https://orbit.jaypengx.com/law/data/] [--minutes 20]
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { textFile, parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, vendorLeaves, vendorList, vendorText, vendorRule, vendorWant, staleFirst, listedRows, listedKeep } from '../public/lib/agency.mjs';

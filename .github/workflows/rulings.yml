@@ -38,7 +38,7 @@ jobs:
       - name: The laws' names
         run: |
           mkdir -p public/data
-          curl -sfL -o public/data/index.json https://jaypengx.github.io/Orbit-Law/data/index.json && curl -sfL -o public/data/orders.json https://jaypengx.github.io/Orbit-Law/data/orders.json || node scripts/build-data.mjs
+          curl -sfL -o public/data/index.json https://orbit.jaypengx.com/law/data/index.json && curl -sfL -o public/data/orders.json https://orbit.jaypengx.com/law/data/orders.json || node scripts/build-data.mjs
       - name: An unpacker for the monthly archives (RAR)
         run: command -v unrar || sudo apt-get install -y unrar || sudo apt-get install -y libarchive-tools || true
       - uses: actions/cache/restore@v4

@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="GitHub" src="https://img.shields.io/badge/GitHub-Pages-24292F?logo=github&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
+  <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
 </p>
 
 Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
@@ -56,13 +56,13 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 ```
 GitHub Actions, every push and daily at 03:30 Taiwan time
   npm test → build-data → notices → ly → photos → budget → agency → local
-           → rulings → cons → news → stamp-version → GitHub Pages
+           → rulings → cons → news → stamp-version → Cloudflare
                                                       │
 phone ◄── static JSON, kept by the service worker ◄───┘
 ```
 
 - **Data at deploy, never in git:** each build starts from the last deploy's copy and fetches only what changed; a source that fails keeps yesterday's.
-- **Reading costs nothing:** everything is static files on Pages; only questions to the AI reach a server.
+- **Reading costs nothing:** everything is static files on Cloudflare; only questions to the AI reach a server.
 - **One id, one link:** a law `#law=<pcode>`, an article `&a=184`, a ruling `#r=s748`, a bill `#item=<term>-<law>`, the same in the data files.
 - **Rulings backfill** runs nightly while 司法院's archive is open, saving its store to the Actions cache.
 
@@ -123,7 +123,7 @@ node scripts/build-data.mjs --prev ''
 
 ## Deploying
 
-Push to `main`. GitHub Actions runs the tests, builds the data, stamps every file with its content hash (so a phone downloads only what changed) and publishes `public/` to GitHub Pages; the site Worker serves it at its orbit.jaypengx.com address. There are no pull requests or release branches.
+Push to `main`. GitHub Actions runs the tests, builds the data, stamps every file with its content hash (so a phone downloads only what changed) and publishes `public/` to Cloudflare at its orbit.jaypengx.com address (Orbit-Core `deploy/cf-site.mjs`). There are no pull requests or release branches.
 
 ## Part of Orbit
 

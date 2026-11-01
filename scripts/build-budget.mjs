@@ -7,7 +7,7 @@
 // today too. Never fails the deploy.
 // Runs after build-ly.mjs. ws.dgbas.gov.tw leaves out its certificate's
 // issuer: run with NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem (pages.yml does).
-//   node scripts/build-budget.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
+//   node scripts/build-budget.mjs [--prev https://orbit.jaypengx.com/law/data/]
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { inflateRawSync } from 'node:zlib';
 import { xmlRows, bookOf, yearOf, moneyOf } from '../public/lib/budget.mjs';

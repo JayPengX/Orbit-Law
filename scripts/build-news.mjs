@@ -2,7 +2,7 @@
 // merged into the last deploy's copy (a feed keeps only its newest items),
 // three years kept, each text cut short; and the hand-kept key figures
 // (data-src/facts.json). Never stops the deploy: a feed that fails is skipped.
-//   node scripts/build-news.mjs [--prev https://jaypengx.github.io/Orbit-Law/data/]
+//   node scripts/build-news.mjs [--prev https://orbit.jaypengx.com/law/data/]
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { parseFeed, mergeNews } from '../public/lib/news.mjs';
 import { prevJson } from './lib.mjs';
@@ -41,5 +41,8 @@ const facts = JSON.parse(await readFile(new URL('../data-src/facts.json', import
 for (const r of fresh) if (/最低工資|基本工資/.test(r[2]) && /調|公告|核定/.test(r[2])) console.log(`check facts.json: ${r[0]} ${r[2]} ${r[3]}`);
 await mkdir(out, { recursive: true });
 await writeFile(out + 'news.json', JSON.stringify({ built: new Date().toISOString(), news }));
+// Home's 政府公告 shows the newest few: a file of its own, so opening the
+// app doesn't download every notice kept for the AI (news.json, ~270 KB).
+await writeFile(out + 'news-top.json', JSON.stringify({ built: new Date().toISOString(), news: news.slice(0, 8) }));
 await writeFile(out + 'facts.json', JSON.stringify({ built: new Date().toISOString(), facts }));
 console.log(`news: ${notes.join(', ')}; ${news.length} kept (${prev.length} carried over); ${facts.length} facts`);

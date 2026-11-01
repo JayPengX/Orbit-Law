@@ -13,7 +13,7 @@
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
 </p>
 
-Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
+Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
   <img src="docs/screenshots/law-1.webp" width="30%" alt="Ask the law in plain words">
@@ -36,8 +36,9 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 - **議程 and live video:** the day's sittings, the speakers, clips of who has spoken, and IVOD's live stream of a meeting in session.
 - **The three sides link:** an article shows its rulings and the bills open on it; a ruling the articles it rules on; a bill the rulings that named it.
 - **Also:** ministries' 行政規則, every city's 地方法規, 政府公告 and 預告, budgets, legislators by 縣市 and their votes (an independent set against the caucus they sit in).
-- **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app. A question is split into its ideas, each in the law's own words, so the right article is found far more often.
+- **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app; past chats kept by day (今天, 昨天, 過去 7 天, by month), each with what it came to. A question is split into its ideas, each in the law's own words, so the right article is found far more often.
 - **One search** across names, short names, article numbers and full text; a law named outright (預算法, 刑法) comes first with its first article; works offline once opened.
+- **Every screen, either way up:** on a phone on its side, a tablet or a computer each tab is two or three columns, with bills, votes and meetings in grids.
 
 ## Tech stack
 

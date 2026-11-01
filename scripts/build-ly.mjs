@@ -184,7 +184,7 @@ const budgetData = budget ? await step('budget build', () => {
   return { term, built, budgets: budgetGroups(budget, words) };
 }) : null;
 
-// ---- Agenda: the meetings from three days back on (what's live: live-ly.mjs) ----
+// ---- Agenda: the meetings from three days back on (what's live: the proxy's /law-live) ----
 const agenda = await step('agenda', async () => {
   const since = twNow(new Date(Date.now() - 3 * 864e5)).day;
   const rows = [];

@@ -660,7 +660,7 @@ test('授權: 訂之 wording, spaced article numbers, a former name, and a name 
   assert.deepEqual(d.L0040001.rest, [['L0040099', '卵磷脂衛生標準']]);
 });
 
-import { compactMeet, sittings, sittingState, nextSitting, roomOf, ivodLive, liveOf, liveHls } from '../public/lib/agenda.mjs';
+import { compactMeet, sittings, sittingState, nextSitting, roomOf, liveOf, liveHls } from '../public/lib/agenda.mjs';
 test('議程: meetings kept small, live by Taiwan time, a bill’s next sitting, IVOD’s channel', () => {
   const raw = {
     會議代碼: '委員會-11-6-26-3', 會議種類: '委員會', 會議標題: '社福委員會第3次全體委員會議', '委員會代號:str': ['社會福利及衛生環境委員會'],
@@ -685,9 +685,7 @@ test('議程: meetings kept small, live by Taiwan time, a bill’s next sitting,
   assert.equal(nextSitting([m], { name: '食品安全衛生管理法' }, now)?.m.id, m.id);
   assert.equal(nextSitting([m], { name: '安全衛生管理法' }, now), null);
   assert.equal(nextSitting([m], { law: '09999' }, new Date('2026-10-23T03:00:00Z')), null);
-  const html = `<div class="live-list"><h2><i class="icon-20-hammer"></i>社會福利及衛生環境委員會</h2><ul><li><p class="info"> <span class="time">2026-10-22 09:00</span><span class="place">群賢樓801會議室</span><span class="status" id="status_1" title="會議進行中">會議進行中</span></p><p class="text"> <span class="metdec" title="社福委員會第3次全體委員會議（事由：…）">x</span></p><div class="btn-box"><a href="/Live/Single/26/1/live/09:00" class="btn-play">播放</a></div></li></ul></div><div class="live-list"><h2><i></i>院會</h2><ul><li><p class="info"><span class="time">2026-10-22 14:00</span><span class="place">本院議場</span><span class="status" title="會議尚未開始">會議尚未開始</span></p><a href="javascript:void(0)" class="btn-play btn-play-gray">尚未播放</a></li></ul></div>`;
-  const rows = ivodLive(html);
-  assert.deepEqual(rows.map(r => [r.unit, r.time, r.status, r.single]), [['社會福利及衛生環境委員會', '2026-10-22 09:00', '會議進行中', '/Live/Single/26/1/live/09:00'], ['院會', '2026-10-22 14:00', '會議尚未開始', '']]);
+  const rows = [{ unit: '社會福利及衛生環境委員會', time: '2026-10-22 09:00', place: '群賢樓801會議室', status: '會議進行中', title: '社福委員會第3次全體委員會議（事由：…）', ch: 3 }, { unit: '院會', time: '2026-10-22 14:00', place: '本院議場', status: '會議尚未開始', title: '', ch: null }];
   assert.equal(liveOf(rows, m, s).place, '群賢樓801會議室');
   assert.equal(liveOf(rows, m, { ...s, from: '14:00' }), null);
   assert.match(liveHls(3), /ly-live3\/live-hls-cl-tv\/index\.m3u8$/);

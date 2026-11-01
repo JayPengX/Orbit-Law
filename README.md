@@ -82,7 +82,7 @@ public/
 │   └── ask.mjs, chat.mjs, chats.mjs                the AI questions
 ├── img/ly/              legislators' photos
 └── sw.js                (public/data/ is built at deploy)
-scripts/                 build-*.mjs, backfill-rulings.mjs, live-ly.mjs
+scripts/                 build-*.mjs, backfill-rulings.mjs
 data-src/                figures the news build keeps
 tests/                   node --test
 MAP.md                   how it works

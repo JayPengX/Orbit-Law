@@ -74,11 +74,9 @@ Live: https://orbit.jaypengx.com/law/
 - **議程** (`lib/agenda.mjs`): a day's sittings at a time on the family's strip of days (the kit's dayBar, swiped too; a search lists every day's). 立法院's meetings from the API's `/meets`
   (`ly/agenda.json`, three days back on; today's read again in the app, its
   發言名單 filling in on the day). The live video is IVOD's own stream for
-  that meeting: `scripts/live-ly.mjs`, run by `live.yml` every 90 seconds in
-  sitting hours (each run starts the next, since GitHub's schedule alone
-  is late or skipped; `live.json` rewritten at least every 10 minutes), reads IVOD's live list and each live meeting's channel and
-  writes `live.json` to the `live` branch (read from raw.githubusercontent);
-  the app plays `ly-live<ch>`'s HLS. Nothing is matched by room name: a
+  that meeting: the proxy's `/law-live` (Orbit-Core `law-live.js`, on
+  demand, kept 60 s at the edge; no cron, nothing stored) reads IVOD's live
+  list and each live meeting's channel; the app plays `ly-live<ch>`'s HLS. Nothing is matched by room name: a
   meeting IVOD doesn't list as streaming shows its state, not a video, and
   is never 直播中 on its scheduled hours alone (`meetState`'s `sched`).
   (國會頻道's YouTube room streams were tried first and showed other
@@ -223,7 +221,6 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
 | `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |
-| `scripts/live-ly.mjs` | IVOD's live list, run by `live.yml` |
 | `data-src/facts.json` | Figures the news build keeps |
 
 ## Run and test

@@ -3089,11 +3089,11 @@ async function openBudget(k) {
 
 // The agenda: this deploy's copy (meetings from three days back), today's
 // meetings read again from the 立法院 API (its 發言名單 fills in on the day),
-// and what IVOD streams now (live.yml's live.json: each meeting's channel).
+// and what IVOD streams now (the proxy's /law-live: each meeting's channel, read at most a minute ago).
 let lyAgenda;
-const LIVE_URL = 'https://raw.githubusercontent.com/JayPengX/Orbit-Law/live/live.json';
-// (The rooms carry `fresh`: read in the last half hour. live.yml stops after sitting hours.)
-const liveData = () => fetch(`${LIVE_URL}?t=${Math.floor(Date.now() / 60e3)}`, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
+const LIVE_URL = `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-live`;
+// (The rooms carry `fresh`: read in the last half hour; the proxy answers its last good read when IVOD fails.)
+const liveData = () => fetch(LIVE_URL, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
 const agendaData = () =>
   (lyAgenda ||= (async () => {
     const [a, live] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), liveData(), loadDayOff(LY_PLACE)]);

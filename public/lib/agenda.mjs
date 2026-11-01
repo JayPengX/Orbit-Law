@@ -114,28 +114,6 @@ export function nextSitting(meets, { ids = [], law = '', name = '' } = {}, now =
   return sittings(meets.filter(on)).find(s => s.d >= day && sittingState(s, now) !== 'done') || null;
 }
 
-// IVOD's live list (ivod.ly.gov.tw/Live/FetchCommInfo, HTML): one row per
-// meeting today, under its unit's heading: [{ unit, time, place, status, title, single }].
-// `single` is the meeting's player page (/Live/Single/...), there only while it streams.
-export function ivodLive(html) {
-  const out = [];
-  for (const block of String(html).split('<div class="live-list">').slice(1)) {
-    const unit = (block.match(/<h2>[^]*?<\/i>\s*([^<]+?)\s*<\/h2>/) || [])[1] || '';
-    for (const li of block.split('<li>').slice(1)) {
-      const pick = re => ((li.match(re) || [])[1] || '').trim();
-      out.push({
-        unit,
-        time: pick(/class="time">([^<]+)</),
-        place: pick(/class="place">([^<]+)</),
-        status: pick(/class="status"[^>]*>([^<]+)</),
-        title: pick(/class="metdec"\s+title="([^"]+)"/),
-        single: pick(/href="(\/Live\/Single\/[^"]+)"/)
-      });
-    }
-  }
-  return out;
-}
-
 // A live HLS stream of 立法院's own (IVOD's channels on HiNet; open to any page).
 export const liveHls = ch => `https://lylive-ott2b2.cdn.hinet.net/live/pool/ly-live${ch}/live-hls-cl-tv/index.m3u8`;
 

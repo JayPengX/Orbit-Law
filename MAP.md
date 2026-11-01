@@ -102,9 +102,9 @@ Live: https://orbit.jaypengx.com/law/
 - **裁判, the courts** (`lib/rulings.mjs`): every court's judgments citing a law,
   3 years back. `scripts/backfill-rulings.mjs` (workflow `rulings.yml`, nightly
   00:05–06:00 Taiwan time, when 司法院 opens; it saves the store to the cache,
-  asks Pages for a deploy and starts itself again while months remain) reads
+  asks `pages.yml` for a deploy to Cloudflare and starts itself again while months remain) reads
   司法院's monthly archives and JDoc into `.rulings-store/` (cache only, never
-  carried through a deploy). `scripts/build-rulings.mjs` (Pages) makes what the
+  carried through a deploy). `scripts/build-rulings.mjs` (in `pages.yml`) makes what the
   app reads: 最高法院 and 最高行政法院 whole, by article (`rulings/<pcode>.json`),
   month (`rulings/m/`, `months.json`) and number (`find.json`); the other courts'
   判決 (高等法院 and branches, 高等行政法院, 智財商業法院, 地方法院 and 簡易庭) by
@@ -124,6 +124,18 @@ Live: https://orbit.jaypengx.com/law/
 - **Following 立委** (`lib/ly.mjs` personFeed): 我的 shows each one's newest
   bill, 質詢 and whole-bill vote; what came since they were last opened counts
   on the tab.
+- **立委 by side** (Jay 2026-10-31): an independent's votes are set against the
+  caucus they sit in (陳超明, 高金素梅 in the 國民黨團), else the party they side
+  with most, never 無黨籍; the list is by 縣市 (north to south, 原住民, 不分區)
+  with 依政黨 beside it; the build keeps each one's 黨團.
+- **A law's page** (Jay 2026-10-31): one card (name, facts, what's moving, its
+  doors along the foot); 憲法法庭 only the rulings about the law; drafts at
+  一讀 a quiet line; bills open over the law; 沿革 a timeline. 繼續閱讀 resumes
+  any law, ruling or bill where you were.
+- **AI for a ruling** (Jay 2026-10-31): AI 白話解釋這個判決 on every 憲判字,
+  釋字 and top-court judgment (the proxy's `/law-ask` mode `ruling`): what it
+  decided, why (each reason citing the ruling's own numbered paragraphs, tapped
+  open to its words), who it affects, then questions about it.
 - **問法律** (`lib/chat.mjs`, `chats.mjs`, `find.mjs`): the proxy's live
   `/law-chat` (Orbit-Core `law-chat.js`, `law-ground.js`, `law-more.js`)
   finds what a question needs in this site's data: articles of every law
@@ -140,13 +152,17 @@ Live: https://orbit.jaypengx.com/law/
   name a link (`view.mjs` linkedHtml, ruleHtml: a rule's 一、（一） as
   points). The verdict and the answer show as Gemini writes them (the
   proxy streams them as `draft` lines), the points and links when it's done.
-  Chats are kept on the phone. 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  Chats are kept on the phone; 對話紀錄 lists them by day (今天, 昨天, 過去 7
+  天, months) in grouped cards, with a search past 5 chats, and 全部刪除 asks
+  in the kit's dialog (never the browser's). 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,
   `data-src/facts.json`): ministries' rules and RSS notices, and 預告 on
   join.gov.tw, kept beside the laws they rest on; the news and `facts.json`
-  feed the AI's exact figures (最低工資). Every rule the agencies list is
+  feed the AI's exact figures (最低工資). 首頁's 政府公告 reads only `news-top.json` (the
+  newest 8, built with the rest by `scripts/build-news.mjs`), not the whole
+  270 KB of news, so Law opens lighter. Every rule the agencies list is
   kept (`agency/all.json`, `names.json` for the 法規 search), linked to a
   law or not, its whole text in `agency/text/`. The rule sites (主管法規
   platform: 農業部, 環境部, 財政部, 教育部, 客委會, 國科會) are listed and read

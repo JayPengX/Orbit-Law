@@ -22,10 +22,27 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.webp" width="30%" alt="Bills, stage by stage">
+  <img src="docs/screenshots/law-4.webp" width="30%" alt="What a bill changes">
   <img src="docs/screenshots/law-5.webp" width="30%" alt="How every party voted">
-  <img src="docs/screenshots/law-6.webp" width="30%" alt="Landmark interpretations">
+  <img src="docs/screenshots/law-6.webp" width="30%" alt="Every legislator">
 </p>
+
+<details>
+<summary>中文畫面</summary>
+
+<p align="center">
+  <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="用白話問法律">
+  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="每一條條文都能點">
+  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="判決隨手查">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="法案改了什麼">
+  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="每個政黨怎麼投票">
+  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="每一位立委">
+</p>
+
+</details>
 
 ## Features
 

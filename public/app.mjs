@@ -330,18 +330,22 @@ const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<
 // 繼續閱讀: the last things read, any kind, each opening where you were
 // (a law at its article, with how far through), newest first.
 function resumeRows() {
-  const log = readLog().slice(0, 4);
+  const log = readLog().slice(0, 6);
   return log.length
-    ? `<div class="lw-list lw-resume">${log
+    ? `<div class="lw-rail nv-resume">${log
         .map(x => {
           const row = x.kind === 'law' ? state.byCode.get(x.id) : null;
           const it = x.kind === 'bill' ? state.items.find(i => i.k === x.id) : null;
-          const tile = x.kind === 'law' ? topicTile(row ? rowTopic(row) : 'gov', 'sm') : x.kind === 'cons' ? courtTile(kindOfId(x.id)) : x.kind === 'judgment' ? courtTile('tps') : topicTile(it ? itemTopic(it) : 'gov', 'sm');
+          const topic = x.kind === 'law' ? (row ? rowTopic(row) : 'gov') : x.kind === 'bill' ? (it ? itemTopic(it) : 'gov') : '';
+          const court = x.kind === 'cons' ? kindOfId(x.id) : x.kind === 'judgment' ? 'tps' : '';
+          const tile = topic ? topicTile(topic, 'sm') : courtTile(court);
           const kind = { law: row?.[2] === '命令' ? W('子法', 'Regulation') : W('法規', 'Law'), cons: W('憲法法庭', 'Constitutional Court'), judgment: W('判決', 'Judgment'), bill: W('法案', 'Bill') }[x.kind];
-          const sub = [kind, x.kind === 'bill' && it ? stageShort(it, en) : x.sub].filter(Boolean).join(' · ');
+          const sub = x.kind === 'bill' && it ? stageShort(it, en) : x.sub || '';
           const bar = x.kind === 'law' && x.pct > 0 ? `<span class="lw-resume-bar"><i style="width:${Math.max(4, Math.round(x.pct * 100))}%"></i></span>` : '';
           const title = x.kind === 'law' ? (en ? nameOf(x.id, x.title) : x.title) : x.title;
-          return `<a class="lw-row" href="${esc(x.href)}">${tile}<span class="lw-row-text"><span class="lw-row-name">${esc(title)}</span><small>${esc(sub)}</small>${bar}</span></a>`;
+          // Each a card: its kind's mark and name on top, the title large, where you were under it.
+          const look = topic ? `--t:${TOPICS[topic].color}` : `--t:var(--lw-${court})`;
+          return `<a class="nv-rcard" href="${esc(x.href)}" style="${look}"><span class="nv-rcard-top">${tile}<small>${esc(kind)}</small></span><b>${esc(title)}</b>${sub ? `<small class="nv-rcard-sub">${esc(sub)}</small>` : ''}${bar}</a>`;
         })
         .join('')}</div>`
     : '';
@@ -396,13 +400,15 @@ function findCard() {
   ]);
   return (nvFind = h('section', { class: 'q-card nv-find' }, [form, ways]));
 }
-// What you searched or asked last (a tap: again), else the everyday questions to start from.
+// What you searched or asked last (a tap: again), else the everyday questions to start from:
+// a rail of cards, each a question on its topic's colour (its glyph, its name), 問法律 at its foot.
 function findsHtml() {
   const finds = readFinds().slice(0, 6);
   const chats = loadChats().slice(0, 3).map(c => ({ q: c.t, k: 'a', u: c.u, chat: c.id }));
   const all = [...finds, ...chats.filter(c => !finds.some(f => f.q === c.q))].sort((a, b) => b.u - a.u).slice(0, 6);
-  if (!all.length) return section(W('試試這樣問', 'Try asking'), `<div class="nv-finds">${STARTERS.slice(0, 4).map(([zh, e]) => `<a class="nv-findrow" href="#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}"><i class="is-ask">${ICON_SPARK}</i><span>${esc(W(zh, e))}</span></a>`).join('')}</div>`);
-  return section(W('最近找過', 'Recent'), `<div class="nv-finds">${all.map(x => `<a class="nv-findrow" href="#${x.k === 'a' ? `tab=ask&amp;q=` : `tab=laws&amp;q=`}${encodeURIComponent(x.q)}"><i class="${x.k === 'a' ? 'is-ask' : ''}">${x.k === 'a' ? ICON_SPARK : ICON_SEARCH}</i><span>${esc(x.q)}</span></a>`).join('')}</div>`);
+  const card = (href, q, topic, foot, ask) => `<a class="nv-qcard${ask ? ' is-ask' : ''}" href="${href}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}"><span class="nv-qcard-top">${topic ? topicTile(topic, 'sm') : `<i class="nv-qcard-mark">${ask ? ICON_SPARK : ICON_SEARCH}</i>`}${topic ? `<small>${esc(topicName(topic, en))}</small>` : ''}</span><b>${esc(q)}</b><span class="nv-qcard-foot">${ask ? ICON_SPARK : ICON_SEARCH}${esc(foot)}</span></a>`;
+  if (!all.length) return section(W('試試這樣問', 'Try asking'), `<div class="lw-rail nv-qrail">${STARTERS.map(([zh, e, topic]) => card(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), topic, W('問法律', 'Ask'), true)).join('')}</div>`);
+  return section(W('最近找過', 'Recent'), `<div class="lw-rail nv-qrail is-recent">${all.map(x => card(`#${x.k === 'a' ? 'tab=ask&amp;q=' : 'tab=laws&amp;q='}${encodeURIComponent(x.q)}`, x.q, '', x.k === 'a' ? W('再問一次', 'Ask again') : W('再找一次', 'Search again'), x.k === 'a')).join('')}</div>`);
 }
 // 依生活情境找, compact: a row a topic, its colour a mark, how many laws.
 function topicList() {

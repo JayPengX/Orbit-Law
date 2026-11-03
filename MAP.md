@@ -47,7 +47,10 @@ Live: https://orbit.jaypengx.com/law/
   one large field (`findCard`, kept across redraws so typing is never lost):
   Enter or 搜尋法規 finds laws, 問法律 asks in plain words, each with what
   was typed; under it 最近找過 (this device, `law.finds.v1`, and saved
-  chats) or 試試這樣問 on a first visit; 繼續閱讀; what 立法院 streams now;
+  chats) or 試試這樣問 on a first visit, as a rail of cards (`findsHtml`:
+  each question on its topic's colour, a bar on top, its glyph and name, 問法律
+  at its foot); 繼續閱讀 as a rail of cards (`resumeRows`: the kind's mark,
+  the title large, where you were and how far through); what 立法院 streams now;
   the life situations as a compact list (`topicList`); then what's new.
   `tests/look.test.mjs` holds it.
 

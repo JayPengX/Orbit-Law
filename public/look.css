@@ -84,46 +84,6 @@ html[data-look='native'] .nv-way.is-ask {
   color: #fff;
 }
 
-/* ---- What you searched or asked last ---- */
-html[data-look='native'] .nv-finds {
-  display: grid;
-  overflow: hidden;
-  border-radius: var(--q-r-card);
-  background: var(--nv-card);
-  box-shadow: inset 0 0 0 0.5px var(--nv-edge), inset 0 1px 0 rgba(255, 255, 255, 0.035), var(--nv-lift);
-}
-html[data-look='native'] .nv-findrow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 0 16px;
-  color: var(--q-label);
-  font: 400 16px/21px var(--q-font);
-  text-decoration: none;
-}
-html[data-look='native'] .nv-findrow + .nv-findrow {
-  box-shadow: inset 0 0.5px 0 var(--q-sep);
-}
-html[data-look='native'] .nv-findrow i {
-  display: grid;
-  flex: none;
-  color: var(--q-label-3);
-}
-html[data-look='native'] .nv-findrow i.is-ask {
-  color: var(--q-accent);
-}
-html[data-look='native'] .nv-findrow svg {
-  width: 17px;
-  height: 17px;
-}
-html[data-look='native'] .nv-findrow span {
-  overflow: hidden;
-  min-width: 0;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 /* ---- 依生活情境找: a compact list, two to a row ---- */
 html[data-look='native'] .nv-topics {
   display: grid;
@@ -191,4 +151,124 @@ html[data-look='native'][data-look='native'] .lw-cover-art {
 }
 html[data-look='native'][data-look='native'] .lw-cover-art svg {
   color: color-mix(in srgb, var(--t) 80%, var(--q-label));
+}
+
+/* ---- 試試這樣問 / 最近找過, and 繼續閱讀: rails of cards on graphite ----
+   A question is a card on its topic's colour (a bar of it on top, its glyph
+   and name), the question large, the way it goes (問法律) at its foot. What
+   you were reading is a card of its kind (a law's topic, a court's colour),
+   its title large, where you were under it and how far through. */
+html[data-look='native'] .lw-rail.nv-qrail {
+  grid-auto-columns: min(62%, 220px);
+}
+html[data-look='native'] .lw-rail.nv-resume {
+  grid-auto-columns: min(70%, 240px);
+}
+html[data-look='native'] :is(.nv-qcard, .nv-rcard) {
+  --t: var(--q-accent);
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 148px;
+  padding: 14px 14px 12px;
+  overflow: hidden;
+  border-radius: var(--q-r-card);
+  background: var(--nv-card);
+  box-shadow: inset 0 0 0 0.5px var(--nv-edge), inset 0 1px 0 rgba(255, 255, 255, 0.035), var(--nv-lift);
+  color: var(--q-label);
+  text-decoration: none;
+}
+html[data-look='native'] :is(.nv-qcard, .nv-rcard)::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--t);
+}
+html[data-look='native'] :is(.nv-qcard-top, .nv-rcard-top) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+html[data-look='native'] :is(.nv-qcard-top, .nv-rcard-top) small {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--t) 80%, var(--q-label));
+  font: 600 13px/16px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] :is(.nv-qcard, .nv-rcard) .lw-tile.sm,
+html[data-look='native'] .nv-rcard .lw-ctile.sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+html[data-look='native'] :is(.nv-qcard, .nv-rcard) .lw-tile.sm svg {
+  width: 17px;
+  height: 17px;
+}
+html[data-look='native'] :is(.nv-qcard, .nv-rcard) > b {
+  display: -webkit-box;
+  overflow: hidden;
+  font: 600 17px/23px var(--q-font);
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+html[data-look='native'] .nv-qcard-foot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--q-label-2);
+  font: 500 13px/16px var(--q-font);
+}
+html[data-look='native'] .nv-qcard.is-ask .nv-qcard-foot {
+  color: var(--q-accent);
+}
+html[data-look='native'] .nv-qcard-foot svg {
+  width: 14px;
+  height: 14px;
+}
+html[data-look='native'] .nv-qcard-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--q-fill-3, rgba(120, 120, 128, 0.16));
+  color: var(--q-label-2);
+}
+html[data-look='native'] .nv-qcard.is-ask .nv-qcard-mark {
+  background: color-mix(in srgb, var(--q-accent) var(--nv-wash), transparent);
+  color: var(--q-accent);
+}
+html[data-look='native'] .nv-qcard-mark svg {
+  width: 16px;
+  height: 16px;
+}
+/* (Recent searches: no topic, so no bar; a smaller card.) */
+html[data-look='native'] .nv-qrail.is-recent .nv-qcard {
+  min-height: 120px;
+}
+html[data-look='native'] .nv-qrail.is-recent .nv-qcard::before {
+  display: none;
+}
+html[data-look='native'] .nv-rcard-sub {
+  overflow: hidden;
+  margin-top: -6px;
+  color: var(--q-label-2);
+  font: 400 13px/17px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] .nv-rcard .lw-resume-bar {
+  margin: 0;
+}
+html[data-look='native'] .nv-rcard .lw-resume-bar i {
+  background: var(--t);
 }

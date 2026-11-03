@@ -204,6 +204,15 @@ Live: https://orbit.jaypengx.com/law/
   a name count (`ideas`: 高中服儀 → 高級中等學校訂定學生服裝儀容規定之原則). `ALIASES` adds everyday names to `SHORT_NAMES` for search
   only. `tests/search.test.mjs`: 38 queries on the real index's names
   (`tests/fixtures/law-names.json`).
+- **為你推薦** (`lib/foryou.mjs`; Jay 2026-11-03: the family's picks were weak):
+  the laws people use (how often rulings cite one, the everyday ten) in the
+  subjects you read lately and keep (☆), ranked by the kit's `rank` with the
+  family's one engine (`feedback.mjs` `lifter`): the first three covers
+  shown, a law opened from them or anywhere (`trackReading`) and a ☆
+  (`lawActed`), learnt by law and subject and kept on the Pass (`fb:law`):
+  a subject passed over makes way, one opened rises. Never one read lately; a
+  subject's third pick only when far ahead. Replayed (Orbit-Core
+  `tools/picks-backtest.mjs law`): opened 12–18% → 35–38%.
 
 ## Files
 
@@ -218,6 +227,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/rulings.mjs`, `judgment.mjs`, `reader.mjs` | Top-court rulings by article and month; a judgment read into parts; a government page read in the app |
 | `public/lib/agency.mjs`, `local.mjs`, `news.mjs`, `notices.mjs` | 行政規則, 地方法規, 政府公告, 預告 |
 | `public/lib/search.mjs`, `fulltext.mjs`, `find.mjs`, `topics.mjs` | Finding a law or article, full text, topics |
+| `public/lib/foryou.mjs` | 首頁's 為你推薦 (the kit's engine) |
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
 | `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |

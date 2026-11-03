@@ -42,6 +42,7 @@ import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { chatLaw, chatError, stageText, STARTERS, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
+import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
 import { parseHistory } from './lib/history.mjs';
 import { loadChats, saveChats, putChat, renameChat, dropChat, newChatId, chatGroups, chatGist, chatMatches, questionsIn } from './lib/chats.mjs';
 
@@ -81,6 +82,15 @@ document.documentElement.lang = en ? 'en' : 'zh-Hant';
 // ---- Orbit Pass: the Home Screen gate, the sign-in, the account button -----------------
 
 const q = orbitSession('law', { lang: en ? 'en' : 'zh' });
+// 為你推薦 learns from what's opened and passed over (the kit's feedback.mjs, the
+// family's one engine, kept on the Pass; loaded on the side: an older kit ranks without it).
+let feedback = null;
+import('#kit/feedback.mjs')
+  .then(m => {
+    feedback = m;
+    feedback.keep?.(q, 'law');
+  })
+  .catch(() => {});
 // Each question answered, one more toward the 十個問題 milestone.
 const asked = () => kit.milestone?.(q, 'law');
 // The app starts at once, beside boot.js's first look at version.json (a
@@ -296,6 +306,8 @@ function drawHome() {
   const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 4);
   const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 8);
   const picks = recommend(recent);
+  // (The first three are what's in view: what the engine learns a pass-over from.)
+  feedback?.shown('law', picks.slice(0, 3).map(r => pickItem(r, rowTopic)));
 
   // One search, the ask card, then calm shelves of what's new.
   // (Wide: the ask card heads the left column, what's new the right.)
@@ -369,18 +381,13 @@ function resumeRows() {
     : '';
 }
 const svgTopic = id => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOPICS[id].icon}</svg>`;
-// For you: the laws people use most in the topics you read and follow, newest
-// amended first, not yet opened; everyday laws when there's nothing to go on.
+// For you (lib/foryou.mjs): the laws people use most, in the subjects you
+// read and keep (☆), ranked by the family's one engine (the kit's
+// feedback.mjs, kept on the Pass): a subject passed over day after day makes
+// way, one opened rises; never one read lately.
 function recommend(recent) {
-  const seen = new Set(recent.map(r => r[0]));
-  const topics = new Set([...recent, ...Object.keys(state.mine.laws).map(p => state.byCode.get(p)).filter(Boolean)].map(rowTopic));
-  const pool = topics.size ? state.rows.filter(r => r[2] !== '命令' && !r[5] && topics.has(rowTopic(r)) && !seen.has(r[0])).sort((a, b) => (state.rulingLaws[b[0]] || 0) - (state.rulingLaws[a[0]] || 0) || (a[4] < b[4] ? 1 : -1)) : [];
-  const common = COMMON.map(n => state.rows.find(r => r[1] === n)).filter(r => r && !seen.has(r[0]));
-  // Your topics' top laws woven with everyday laws from other topics, so the shelf isn't one colour.
-  const mine = pool.slice(0, 4), other = common.filter(r => !topics.has(rowTopic(r)));
-  const out = [];
-  for (let i = 0; out.length < 8 && (i < mine.length || i < other.length); i++) out.push(...[mine[i], other[i]].filter(Boolean));
-  return [...new Set([...out, ...common])].slice(0, 8);
+  const starred = Object.keys(state.mine.laws).map(p => state.byCode.get(p)).filter(Boolean);
+  return forYou({ rows: state.rows, recent, starred, rulings: state.rulingLaws, topicOf: rowTopic, lift: feedback?.lifter?.('law') || null, n: 8 });
 }
 let lawNews;
 // (Home's few: news-top.json, not the AI's whole news.json.)
@@ -396,7 +403,6 @@ function topicGrid() {
 
 // ---- 法規: search, topics, the common laws -----------------------------------------------
 
-const COMMON = ['中華民國憲法', '民法', '中華民國刑法', '民事訴訟法', '刑事訴訟法', '行政程序法', '勞動基準法', '道路交通管理處罰條例', '個人資料保護法', '消費者保護法'];
 
 const box = search({ placeholder: W('找法規、條文或生活問題', 'Search laws, articles or topics'), onInput: v => ((state.query = v), drawResults()), onSubmit: v => jump(v) });
 
@@ -686,7 +692,7 @@ async function drawLaw() {
     h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? name : shortName(name) })]),
     h('div', { class: 'lw-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('找條文', 'Find'), html: ICON.find, onclick: () => toggleFind() }),
-      h('button', { type: 'button', class: `lw-tool${followed ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'laws', law.p) ? toast(W('已追蹤：修法時會標出來', 'Following: amendments will show')) : null, save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.laws[law.p])), haptic()) }),
+      h('button', { type: 'button', class: `lw-tool${followed ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'laws', law.p) ? (toast(W('已追蹤：修法時會標出來', 'Following: amendments will show')), lawActed(law.p)) : null, save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.laws[law.p])), haptic()) }),
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('更多', 'More'), html: ICON.more, onclick: () => lawMenu(law, row) })
     ])
   ]);
@@ -750,9 +756,13 @@ let titleWatch = null;
 // 繼續閱讀: the law noted as read, then the article at the top of the screen
 // as you scroll (where 繼續閱讀 on 首頁 opens it, and how far through).
 let readOff = null;
+// A law kept (☆): its subject, for the picks.
+const lawActed = p => state.byCode.get(p) && feedback?.did?.('law', pickItem(state.byCode.get(p), rowTopic).keys, 1.5);
 function trackReading(law, body) {
   readOff?.();
   const p = law.p;
+  // Opened (from 為你推薦 while it was in view, or anywhere): what the picks learn from.
+  if (state.byCode.get(p)) feedback?.picked('law', pickItem(state.byCode.get(p), rowTopic), Date.now(), { from: 'elsewhere' });
   const keys = law.a.filter(a => a[0] === 'A').map(a => a[1]);
   const had = readLog().find(x => x.kind === 'law' && x.id === p);
   noteRead({ kind: 'law', id: p, title: law.n, href: had?.href || `#law=${p}`, sub: had?.sub || '', pct: had?.pct ?? 0 });

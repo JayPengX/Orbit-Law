@@ -194,7 +194,7 @@ export function chatError(code, en = false) {
 // (A situation to judge, a rule, a ruling, the 立法院: what it can answer; each with its topic's tile.)
 export const STARTERS = [
   ['房東扣光押金合理嗎？', 'Can my landlord keep my deposit?', 'home'],
-  ['幫朋友領包裹變詐騙，會判刑嗎？', 'I picked up scam parcels. Am I guilty?', 'justice'],
+  ['幫領包裹變詐騙會判刑嗎？', 'I picked up scam parcels. Am I guilty?', 'justice'],
   ['天天加班沒加班費怎麼辦？', 'Daily overtime, no overtime pay', 'labor'],
   ['高中學生會能自己管經費嗎？', 'Can a student council run its own budget?', 'edu'],
   ['勞基法修法進度到哪了？', 'Where is the Labor Act amendment?', 'labor'],

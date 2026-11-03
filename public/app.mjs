@@ -286,6 +286,7 @@ function changeText(c, brief = false) {
 }
 // 新 on an amendment from the last two weeks; older ones in the list go untagged.
 const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>';
 
@@ -293,29 +294,37 @@ const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="cur
 
 const LIVE = it => !it.dropped && !it.held && it.open && it.stage >= 1 && it.stage < PASSED;
 
-// 立法院 meeting now, and the ministries' notices: into #home-live and #home-news once read.
+// 立法院 today, into 最新動態's first row (its place held from the first
+// drawing: only its words change), and the ministries' notices into #home-news.
+let lyLine = null;
+function lyText(a) {
+  const all = sittings(a.meets);
+  const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
+  if (live.length) return { live: true, t: W(`開會中 · ${live.length} 場直播`, `In session · ${live.length} live`), s: live.map(x => roomShort(x.m)).join(W('、', ', ')) };
+  const { day } = twNow();
+  const today = all.filter(x => x.d === day);
+  const states = today.map(x => liveState(x, a.live));
+  const next = all.find(x => x.d > day && liveState(x, a.live) !== 'off');
+  const nextLine = next ? W(`下次開會：${meetDay(next.d)}，${all.filter(x => x.d === next.d).length} 場`, `Next: ${meetDay(next.d)}, ${all.filter(x => x.d === next.d).length} meetings`) : W('看議程', 'See the agenda');
+  const ahead = today.filter((x, i) => !['done', 'off'].includes(states[i]));
+  if (ahead.length) return { t: W(`今天 ${today.length} 場會議`, `${today.length} meetings today`), s: W(`${hm(ahead[0].from) || ''} 開始 · ${roomShort(ahead[0].m)}`, `From ${hm(ahead[0].from) || ''} · ${roomShort(ahead[0].m)}`) };
+  if (today.length && states.every(st => st === 'off')) return { t: lyDayOff(day) ? W('颱風停會', 'Typhoon: no sitting') : W('今日停會', 'No sitting today'), s: nextLine };
+  if (today.length) return { t: W('今日已散會', 'Done for today'), s: nextLine };
+  return { t: W('今天沒有開會', 'No sitting today'), s: nextLine };
+}
+const lyRowInner = () => `${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name${lyLine?.live ? ' nv-live' : ''}" id="home-ly-t">${esc(lyLine ? lyLine.t : W('立法院', 'Legislative Yuan'))}</span><small id="home-ly-s"${lyLine ? '' : ' class="q-skel"'}>${esc(lyLine ? `${W('立法院', 'Legislature')} · ${lyLine.s}` : '\u00a0')}</small></span>${CHEVRON}`;
 function fillHome() {
-  // 立法院 meeting now: its rooms, each opening the live video.
   agendaData()
     .then(a => {
-      const all = sittings(a.meets);
-      const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
-      const el = $('home-live');
-      if (!el) return;
-      if (live.length) return void (el.outerHTML = section(W('立法院開會中', 'In session now'), `<div class="lw-meets">${live.map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' }));
-      // Today's meetings all over or called off: say so, with the next day that has any.
-      const { day } = twNow();
-      const today = all.filter(x => x.d === day);
-      const states = today.map(x => liveState(x, a.live));
-      const next = all.find(x => x.d > day && liveState(x, a.live) !== 'off');
-      if (!today.length || states.some(st => !['done', 'off'].includes(st))) return;
-      const off = states.every(st => st === 'off');
-      const why = off ? lyDayOff(day) ? W('颱風停止上班，立法院今天停會。', 'Typhoon day off in Taipei: the Legislative Yuan isn’t sitting today.') : W('今天的會議取消了。', 'Today’s meetings are called off.') : '';
-      if (!next) return void (off && (el.outerHTML = section(W('今日停會', 'No sitting today'), `<p class="lw-hint-sm lw-next-sit">${esc(why)}</p>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' })));
-      const nextDay = all.filter(x => x.d === next.d);
-      el.outerHTML = section(off ? W('今日停會', 'No sitting today') : W('今日已散會', 'Done for today'), `${why ? `<p class="lw-hint-sm lw-next-sit">${esc(why)}</p>` : ''}<p class="lw-hint-sm lw-next-sit">${esc(W(`下次開會：${meetDay(next.d)}，${nextDay.length} 場`, `Next: ${meetDay(next.d)}, ${nextDay.length} meeting${nextDay.length === 1 ? '' : 's'}`))}</p><div class="lw-meets">${nextDay.slice(0, 3).map(x => meetRow(x, a.live)).join('')}</div>`, { more: W('議程', 'Agenda'), moreHref: '#tab=bills&f=agenda' });
+      lyLine = lyText(a);
+      const row = $('home-ly');
+      if (row) row.innerHTML = lyRowInner();
     })
-    .catch(() => {});
+    .catch(() => {
+      lyLine ||= { t: W('立法院議程', 'Legislature agenda'), s: W('看開會和直播', 'Sittings and live video') };
+      const row = $('home-ly');
+      if (row) row.innerHTML = lyRowInner();
+    });
   // 政府公告: the ministries' latest notices (they open in the reader).
   newsData()
     .then(d => {
@@ -328,11 +337,11 @@ function fillHome() {
 // Laws as book covers (Books' shelves): the topic's colour, its mark, the name.
 const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b class="q-fit-wrap">${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
 // 繼續閱讀: the last things read, any kind, each opening where you were
-// (a law at its article, with how far through), newest first.
+// (a law at its article, with how far through), newest first: a short list.
 function resumeRows() {
-  const log = readLog().slice(0, 6);
+  const log = readLog().slice(0, 3);
   return log.length
-    ? `<div class="lw-rail nv-resume">${log
+    ? `<div class="lw-list nv-resume">${log
         .map(x => {
           const row = x.kind === 'law' ? state.byCode.get(x.id) : null;
           const it = x.kind === 'bill' ? state.items.find(i => i.k === x.id) : null;
@@ -341,11 +350,9 @@ function resumeRows() {
           const tile = topic ? topicTile(topic, 'sm') : courtTile(court);
           const kind = { law: row?.[2] === '命令' ? W('子法', 'Regulation') : W('法規', 'Law'), cons: W('憲法法庭', 'Constitutional Court'), judgment: W('判決', 'Judgment'), bill: W('法案', 'Bill') }[x.kind];
           const sub = x.kind === 'bill' && it ? stageShort(it, en) : x.sub || '';
-          const bar = x.kind === 'law' && x.pct > 0 ? `<span class="lw-resume-bar"><i style="width:${Math.max(4, Math.round(x.pct * 100))}%"></i></span>` : '';
+          const pct = x.kind === 'law' && x.pct > 0 ? W(`讀了 ${Math.round(x.pct * 100)}%`, `${Math.round(x.pct * 100)}% read`) : '';
           const title = x.kind === 'law' ? (en ? nameOf(x.id, x.title) : x.title) : x.title;
-          // Each a card: its kind's mark and name on top, the title large, where you were under it.
-          const look = topic ? `--t:${TOPICS[topic].color}` : `--t:var(--lw-${court})`;
-          return `<a class="nv-rcard" href="${esc(x.href)}" style="${look}"><span class="nv-rcard-top">${tile}<small>${esc(kind)}</small></span><b>${esc(title)}</b>${sub ? `<small class="nv-rcard-sub">${esc(sub)}</small>` : ''}${bar}</a>`;
+          return `<a class="lw-row" href="${esc(x.href)}">${tile}<span class="lw-row-text"><span class="lw-row-name nv-two">${esc(title)}</span><small class="nv-one">${esc([kind, sub, pct].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</a>`;
         })
         .join('')}</div>`
     : '';
@@ -388,27 +395,38 @@ const findGo = (q, kind) => {
   noteFind(q, kind);
   go(kind === 'a' ? `tab=ask&q=${encodeURIComponent(q)}` : `tab=laws&q=${encodeURIComponent(q)}`);
 };
-// The field is made once and kept: a redraw (data landing) never takes what's being typed.
+// The lead card says what the app is (Jay 2026-11-03: "you go in the home
+// you immediately know what this do"): a law question asked in plain words,
+// answered with the articles. Its field is made once and kept: a redraw (data
+// landing) never takes what's being typed. Under the two ways in, three
+// questions to tap: what you searched or asked last, else everyday ones.
 let nvFind = null;
+let nvAsks = null;
 function findCard() {
   if (nvFind) return nvFind;
-  const input = h('input', { class: 'nv-find-input', type: 'search', enterkeyhint: 'search', autocomplete: 'off', placeholder: W('找法規、判決，或用白話問', 'Search laws, or ask in plain words'), 'aria-label': W('搜尋或問法律', 'Search or ask') });
+  const input = h('input', { class: 'nv-find-input', type: 'search', enterkeyhint: 'search', autocomplete: 'off', placeholder: W('例：房東扣押金合理嗎？', 'e.g. Can my landlord keep my deposit?'), 'aria-label': W('搜尋或問法律', 'Search or ask') });
   const form = h('form', { class: 'nv-find-field', role: 'search', onsubmit: e => (e.preventDefault(), findGo(input.value, 's')) }, [h('i', { class: 'nv-find-icon', html: ICON_SEARCH }), input]);
   const ways = h('div', { class: 'nv-find-ways' }, [
     h('button', { class: 'nv-way q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 's') : go('tab=laws')) }, [h('i', { html: ICON_SEARCH }), W('搜尋法規', 'Search laws')]),
     h('button', { class: 'nv-way is-ask q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 'a') : go('tab=ask')) }, [h('i', { html: ICON_SPARK }), W('問法律', 'Ask the law')])
   ]);
-  return (nvFind = h('section', { class: 'q-card nv-find' }, [form, ways]));
+  const head = h('div', { class: 'nv-find-head' }, [h('b', { class: 'nv-find-title', text: W('有法律問題？用白話問', 'A legal question? Just ask') }), h('small', { class: 'nv-find-sub', text: W('答案都附上條文，也能直接查法規、判決', 'Answers cite the law. Or look it up yourself.') })]);
+  nvAsks = h('div', { class: 'nv-asks' });
+  return (nvFind = h('section', { class: 'q-card nv-find' }, [head, form, ways, nvAsks]));
 }
-// What you searched or asked last (a tap: again), else the everyday questions to start from:
-// a rail of cards, each a question on its topic's colour (its glyph, its name), 問法律 at its foot.
-function findsHtml() {
-  const finds = readFinds().slice(0, 6);
-  const chats = loadChats().slice(0, 3).map(c => ({ q: c.t, k: 'a', u: c.u, chat: c.id }));
-  const all = [...finds, ...chats.filter(c => !finds.some(f => f.q === c.q))].sort((a, b) => b.u - a.u).slice(0, 6);
-  const card = (href, q, topic, foot, ask) => `<a class="nv-qcard${ask ? ' is-ask' : ''}" href="${href}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}"><span class="nv-qcard-top">${topic ? topicTile(topic, 'sm') : `<i class="nv-qcard-mark">${ask ? ICON_SPARK : ICON_SEARCH}</i>`}${topic ? `<small>${esc(topicName(topic, en))}</small>` : ''}</span><b>${esc(q)}</b><span class="nv-qcard-foot">${ask ? ICON_SPARK : ICON_SEARCH}${esc(foot)}</span></a>`;
-  if (!all.length) return section(W('試試這樣問', 'Try asking'), `<div class="lw-rail nv-qrail">${STARTERS.map(([zh, e, topic]) => card(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), topic, W('問法律', 'Ask'), true)).join('')}</div>`);
-  return section(W('最近找過', 'Recent'), `<div class="lw-rail nv-qrail is-recent">${all.map(x => card(`#${x.k === 'a' ? 'tab=ask&amp;q=' : 'tab=laws&amp;q='}${encodeURIComponent(x.q)}`, x.q, '', x.k === 'a' ? W('再問一次', 'Ask again') : W('再找一次', 'Search again'), x.k === 'a')).join('')}</div>`);
+// Three questions under the field: what you searched or asked last (a tap:
+// again), the everyday questions filling the rest. Always three: a row each
+// on a phone, three across on a wide screen.
+function asksHtml() {
+  const finds = readFinds().slice(0, 3);
+  const chats = loadChats().slice(0, 3).map(c => ({ q: c.t, k: 'a', u: c.u }));
+  const mine = [...finds, ...chats.filter(c => !finds.some(f => f.q === c.q))].sort((a, b) => b.u - a.u).slice(0, 3);
+  const starters = STARTERS.filter(([zh, e]) => !mine.some(x => x.q === W(zh, e))).slice(0, 3 - mine.length);
+  const row = (href, q, mark, sub) => `<a class="nv-ask" href="${href}">${mark}<span class="nv-ask-text"><b>${esc(q)}</b><small>${esc(sub)}</small></span>${CHEVRON}</a>`;
+  return [
+    ...mine.map(x => row(`#${x.k === 'a' ? 'tab=ask&amp;q=' : 'tab=laws&amp;q='}${encodeURIComponent(x.q)}`, x.q, `<i class="nv-ask-mark">${ICON_CLOCK}</i>`, x.k === 'a' ? W('最近問過', 'Asked lately') : W('最近找過', 'Searched lately'))),
+    ...starters.map(([zh, e, topic]) => row(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), `<i class="nv-ask-mark is-topic" style="--t:${(TOPICS[topic] || TOPICS.gov).color}"></i>`, `${topicName(topic, en)} · ${W('試試這樣問', 'Try asking')}`))
+  ].join('');
 }
 // 依生活情境找, compact: a row a topic, its colour a mark, how many laws.
 function topicList() {
@@ -416,23 +434,38 @@ function topicList() {
   for (const r of state.rows) if (r[2] !== '命令' && !r[5]) counts[rowTopic(r)] = (counts[rowTopic(r)] || 0) + 1;
   return `<div class="nv-topics">${Object.keys(TOPICS).map(id => `<a class="nv-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}"><i></i><span>${esc(topicName(id, en))}</span><small>${counts[id] || ''}</small></a>`).join('')}</div>`;
 }
+// 最新動態: the law moving now, one row a side: 立法院 today (filled once its
+// agenda is read, its place held), the newest amendment, the newest ruling.
+function pulseHtml() {
+  const amend = state.changes.items.find(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令');
+  const newest = [...state.consTop, ...state.latestRulings].sort((x, y) => (x[1] < y[1] ? 1 : -1))[0];
+  const law = amend && state.byCode.get(amend.p);
+  const rows = [
+    `<a class="lw-row" id="home-ly" href="#tab=bills&amp;f=agenda">${lyRowInner()}</a>`,
+    law ? `<a class="lw-row" href="#law=${esc(amend.p)}">${topicTile(rowTopic(law), 'sm')}<span class="lw-row-text"><span class="lw-row-name nv-two">${esc(en ? nameOf(law[0], law[1]) : law[1])}</span><small class="nv-one">${esc(`${W('剛修正', 'Amended')} · ${changeText(amend, true).replace(/^\S+ /, '')}`)}</small></span>${CHEVRON}</a>` : '',
+    newest
+      ? `<a class="lw-row" href="${esc(rulingHref(newest[0]))}">${courtTile(kindOfId(newest[0]))}<span class="lw-row-text"><span class="lw-row-name nv-two">${esc(isCons(newest[0]) ? consName(newest) : newest[2] || caseNo(newest[0]))}</span><small class="nv-one">${esc(`${W('最新判決', 'Latest ruling')} · ${isCons(newest[0]) ? consShort(newest[0]) : courtLabel(newest[0])} · ${shortDay(newest[1])}`)}</small></span>${CHEVRON}</a>`
+      : ''
+  ];
+  return `<div class="lw-list nv-pulse">${rows.join('')}</div>`;
+}
 function drawHome() {
   const panel = $('panel-home');
   const card = findCard();
   let rest = panel.querySelector(':scope > .nv-rest');
   if (!rest || card.parentNode !== panel) panel.replaceChildren(card, (rest = h('div', { class: 'nv-rest' })));
+  nvAsks.innerHTML = asksHtml();
   const items = state.items.filter(it => !it.dropped && it.u);
   const moved = [...items].sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : b.stage - a.stage)).slice(0, 10);
   const bills = state.items.length ? rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
-  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 4);
+  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(1, 5);
   const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 8);
   const picks = recommend(recent);
   // (The first three are what's in view: what the engine learns a pass-over from.)
   feedback?.shown('law', picks.slice(0, 3).map(r => pickItem(r, rowTopic)));
   rest.innerHTML = cols([
-    [findsHtml(), 0],
-    [section(W('繼續閱讀', 'Continue reading'), resumeRows() || (recent.length ? list(recent.slice(0, 4).map(r => lawItem(r))) : ''), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }), 0],
-    [`<div id="home-live"></div>`, 1],
+    [section(W('最新動態', 'What’s moving'), pulseHtml()), 0],
+    [section(W('繼續閱讀', 'Continue reading'), resumeRows() || (recent.length ? list(recent.slice(0, 3).map(r => lawItem(r))) : ''), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }), 0],
     [section(W('依生活情境找', 'By life situation'), state.rows.length ? topicList() : ''), 0],
     [section(W('立法院這週', 'Legislature this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
     [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],

@@ -43,16 +43,20 @@ Live: https://orbit.jaypengx.com/law/
 - **The look** (Orbit-Core `docs/DESIGN.md` §11): Orbit's own, always on
   (`index.html` says `data-look="native"`, `look.css` after `law.css`):
   graphite cards, colour only on what it names (a topic's mark), the app's
-  colour only for 問法律, the one main action. 首頁 (`drawHome`) leads with
-  one large field (`findCard`, kept across redraws so typing is never lost):
-  Enter or 搜尋法規 finds laws, 問法律 asks in plain words, each with what
-  was typed; under it 最近找過 (this device, `law.finds.v1`, and saved
-  chats) or 試試這樣問 on a first visit, as a rail of cards (`findsHtml`:
-  each question on its topic's colour, a bar on top, its glyph and name, 問法律
-  at its foot); 繼續閱讀 as a rail of cards (`resumeRows`: the kind's mark,
-  the title large, where you were and how far through); what 立法院 streams now;
-  the life situations as a compact list (`topicList`); then what's new.
-  `tests/look.test.mjs` holds it.
+  colour only for 問法律, the one main action. 首頁 (`drawHome`) says what the
+  app is for at a glance (Jay 2026-11-03: the home must say what the app
+  does): one lead card (`findCard`, kept across redraws so typing is never
+  lost) with its line (有法律問題？用白話問, answers cite the articles), one
+  large field, its two ways (Enter or 搜尋法規 finds laws, 問法律 asks, each
+  with what was typed) and always three questions to tap (`asksHtml`: what
+  you searched or asked last, this device's `law.finds.v1` and saved chats,
+  the everyday `STARTERS` filling the rest; three across when wide). Then
+  最新動態 (`pulseHtml`): 立法院 today (its row drawn at once, its words
+  filled when the agenda is read: live rooms, today's sittings, 散會 or 停會
+  and the next day), the newest amendment, the newest ruling; 繼續閱讀 as
+  three rows (`resumeRows`: the kind's mark, the title, where you were and
+  how far); the life situations as a compact list (`topicList`); then
+  what's new. Section heads' ways on are grey words. `tests/look.test.mjs` holds it.
 
 - **Every screen** (kit DESIGN §10): a phone upright is one column; with room
   for two (a phone on its side, a tablet, a computer) the page grows to 1180

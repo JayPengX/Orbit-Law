@@ -606,7 +606,7 @@ async function findAll(q, out) {
       .then(cons => rulingSearchHtml(q, cons, { max: 3, quiet: true }))
       .then(html => {
         const el = $('find-rulings');
-        if (run === findRun && el && html) el.innerHTML = `<div class="lw-find-rulings">${html}</div><a class="lw-more-link" href="#tab=rulings&amp;q=${encodeURIComponent(q)}">${W(`在裁判找「${esc(q)}」`, `Search rulings for “${esc(q)}”`)}</a>`;
+        if (run === findRun && el && html) el.innerHTML = `<div class="lw-find-rulings">${html}</div><a class="q-more q-more-go lw-more-link" href="#tab=rulings&amp;q=${encodeURIComponent(q)}"><span>${W(`在裁判找「${esc(q)}」`, `Search rulings for “${esc(q)}”`)}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
       })
       .catch(() => {});
   // 行政規則 by name (a ministry's 要點 or 注意事項 has no law of its own to open), and the cities' 地方法規.
@@ -627,7 +627,7 @@ async function findAll(q, out) {
       .then(ppl => {
         const hit = ppl.people.filter(x => !x.to && (x.n.includes(q) || x.area.includes(q))).slice(0, 4);
         const el = $('find-people');
-        if (run === findRun && el && hit.length) el.outerHTML = section(W('立委', 'Legislators'), `<div class="lw-people">${hit.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a>`).join('')}</div>`);
+        if (run === findRun && el && hit.length) el.outerHTML = section(W('立委', 'Legislators'), `<div class="lw-people q-rows-full q-rows-keep">${hit.map(x => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a>`).join('')}</div>`);
       })
       .catch(() => {});
   if ([...q].length < 2 || jumpTo) return;
@@ -1351,7 +1351,7 @@ async function openPage(u, label = '') {
   sheet({ title: label.slice(0, 40) || W('閱讀', 'Read'), closeLabel: W('關閉', 'Close'), body });
   // A picture its site won't share (CORP): its caption stays, the picture goes.
   body.addEventListener('error', e => e.target.tagName === 'IMG' && e.target.closest('figure')?.classList.add('broken'), true);
-  const fallback = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到原網站看', 'Open the original site')}</a>`;
+  const fallback = `<a class="q-more q-more-go lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out><span>${W('到原網站看', 'Open the original site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   try {
     const j = await fetchPage(u);
     if (j.type !== 'html' && !/^(pdf|file)$/.test(j.type)) throw Object.assign(new Error('bad'), { code: 'bad' });
@@ -1374,7 +1374,7 @@ async function openJudgment(u, label = '') {
   const body = h('div', { class: 'lw-page lw-jd', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
   sheet({ title: W('判決', 'Ruling'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
   if (label) noteRead({ kind: 'judgment', id: u, title: label, href: u, sub: '' });
-  const out = `<a class="lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out>${W('到司法院看原文', 'Open on the Judicial Yuan')}</a>`;
+  const out = `<a class="q-more q-more-go lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out><span>${W('到司法院看原文', 'Open on the Judicial Yuan')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   let jid = '';
   try {
     jid = rulingAiId(new URL(u).searchParams.get('id') || '');
@@ -1420,7 +1420,7 @@ async function openRuleText(path, label) {
     const [dir, file] = path.split('/');
     const r = await fetch(`./data/${dir}/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
     // Its points as points, every law it names a link, then its page (Jay 2026-10-27: it read as one plain block).
-    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><div class="lw-rule-text">${ruleHtml(r.t, state.names)}</div>${/^https:\/\//.test(r.url || '') ? `<a class="lw-out" href="${esc(r.url)}" target="_blank" rel="noopener" data-out>${W('到原網站看', 'Open the original site')}</a>` : ''}`;
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><div class="lw-rule-text">${ruleHtml(r.t, state.names)}</div>${/^https:\/\//.test(r.url || '') ? `<a class="q-more q-more-go lw-out" href="${esc(r.url)}" target="_blank" rel="noopener" data-out><span>${W('到原網站看', 'Open the original site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}`;
   } catch {
     body.innerHTML = `<p class="lw-none">${W('讀不到這個規定', 'Couldn’t load this rule')}</p>`;
   }
@@ -1453,7 +1453,7 @@ async function openClip(id, label = '') {
       if (i !== at) (items[at]?.classList.remove('now'), items[i]?.classList.add('now'), (at = i));
     });
   } catch {
-    body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out>${W('到立法院 IVOD 看', 'Watch on the Legislative Yuan’s IVOD')}</a>`;
+    body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="q-more q-more-go lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out><span>${W('到立法院 IVOD 看', 'Watch on the Legislative Yuan’s IVOD')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   }
 }
 
@@ -2131,7 +2131,7 @@ async function lowHtml() {
   if (rulingQuery) {
     const words = rulingQuery.split(/\s+/).filter(Boolean);
     const hits = ix.titles.filter(([t]) => words.every(w => t.includes(w))).slice(0, 40);
-    return head + (hits.length ? section(W(`符合的案由 · ${hits.length}`, `Matching matters · ${hits.length}`), list(hits.map(titleRow))) : emptyNote(W('沒有這個案由', 'No matter like that'), W('試試「詐欺」、「損害賠償」、「離婚」這類案由的字', 'Try a matter, like fraud, damages or divorce'))) + `<a class="lw-out" href="https://judgment.judicial.gov.tw/FJUD/default.aspx" target="_blank" rel="noopener" data-out>${W('到司法院裁判書查詢找全文', 'Full-text search on the Judicial Yuan')}</a>`;
+    return head + (hits.length ? section(W(`符合的案由 · ${hits.length}`, `Matching matters · ${hits.length}`), list(hits.map(titleRow))) : emptyNote(W('沒有這個案由', 'No matter like that'), W('試試「詐欺」、「損害賠償」、「離婚」這類案由的字', 'Try a matter, like fraud, damages or divorce'))) + `<a class="q-more q-more-go lw-out" href="https://judgment.judicial.gov.tw/FJUD/default.aspx" target="_blank" rel="noopener" data-out><span>${W('到司法院裁判書查詢找全文', 'Full-text search on the Judicial Yuan')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   }
   const courts = ix.courts.filter(c => !rulingLevel || c[3] === rulingLevel);
   const titleChips = `<div class="q-chips lw-chips lw-titles">${ix.titles.slice(0, 18).map(([t, n]) => `<button type="button" class="q-chip" data-title="${esc(t)}">${esc(t.length > 12 ? `${t.slice(0, 11)}…` : t)}<small>${n.toLocaleString()}</small></button>`).join('')}</div>`;
@@ -2219,7 +2219,7 @@ async function openCons(id) {
   try {
     [it, cons] = await Promise.all([data(`cons/${id}.json`), consData().catch(() => ({ byId: new Map(), cited: {} }))]);
   } catch {
-    body.innerHTML = `<p class="lw-none">${W('現在讀不到這個裁判，請稍後再試', 'Couldn’t load this ruling; try again later')}</p><a class="lw-out" href="${esc(id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE)}" target="_blank" rel="noopener" data-out>${W('到憲法法庭看', 'Open on the Constitutional Court')}</a>`;
+    body.innerHTML = `<p class="lw-none">${W('現在讀不到這個裁判，請稍後再試', 'Couldn’t load this ruling; try again later')}</p><a class="q-more q-more-go lw-out" href="${esc(id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE)}" target="_blank" rel="noopener" data-out><span>${W('到憲法法庭看', 'Open on the Constitutional Court')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
     return;
   }
   noteRead({ kind: 'cons', id, title: `${consLabel(id, en)}${it.n ? ` ${it.n}` : it.issue ? ` ${it.issue.replace(/[？?]$/, '')}` : ''}`, href: `#r=${id}`, sub: '' });
@@ -2245,7 +2245,7 @@ async function openCons(id) {
     (it.refs.length ? `<h4>${W(`引用的解釋與判決（${it.refs.length}）`, `Builds on (${it.refs.length})`)}</h4>${refRows(it.refs.slice(0, 12))}` : '') +
     (cited.length ? `<h4>${W(`後來引用它的（${cited.length}）`, `Cited by (${cited.length})`)}</h4>${refRows(cited.slice(0, 12))}` : '') +
     (it.docs.length ? `<details class="lw-fold"><summary>${W(`意見書與原文（${it.docs.length}）`, `Opinions and files (${it.docs.length})`)}</summary><div class="lw-list in-sheet">${it.docs.map(([t, u]) => `<a class="lw-row" href="${esc(u)}" target="_blank" rel="noopener" data-out><span class="lw-file">PDF</span><span class="lw-row-text"><span class="lw-row-name lw-doc-name q-fit-wrap">${esc(t.replace(/^憲法法庭\d+年憲判字第\d+號判決/, '').replace(/^\d+/, '').replace(/_OCR$/, '') || t)}</span></span></a>`).join('')}</div></details>` : '') +
-    `<a class="lw-out" href="${esc(it.url || (id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE))}" target="_blank" rel="noopener" data-out>${W('到憲法法庭看原文', 'Open on the Constitutional Court')}</a>`;
+    `<a class="q-more q-more-go lw-out" href="${esc(it.url || (id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE))}" target="_blank" rel="noopener" data-out><span>${W('到憲法法庭看原文', 'Open on the Constitutional Court')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
 }
 // The holding in a word: 違憲 / 合憲 / part of each, from its own words.
 function consVerdict(text) {
@@ -2494,7 +2494,7 @@ async function openNotice(id) {
       (why ? `<section class="lw-person-sec"><h4>${W('為什麼要改', 'Why')}</h4>${n.s && d?.about ? `<p class="lw-notice-lead">${esc(n.s.replace(/…$/, ''))}${/…$/.test(n.s) ? '…' : '。'}</p>` : ''}<button type="button" class="lw-why-row lw-notice-about">${proseHtml(why, state.names)}</button></section>` : '') +
       (rows.length ? `<section class="lw-person-sec"><h4>${W(`改了什麼（${rows.length} 條）`, `What changes (${rows.length})`)}</h4><p class="lw-hint-sm">${W('綠色是新增的字、紅色刪掉的字，對照現行條文。', 'Green is added, red is removed, against the text in force.')}</p><div class="lw-nrows">${rows.slice(0, shown).map(rowHtml).join('')}</div>${rows.length > shown ? `<button type="button" class="lw-more" data-nmore>${W(`再顯示 ${rows.length - shown} 條`, `${rows.length - shown} more`)}</button>` : ''}</section>` : d ? `<p class="lw-hint-sm">${W('草案條文只有掃描檔，請看原始 PDF。', 'The draft’s text is only a scan: see the PDF.')}</p>` : '<span class="q-skel lw-bud-skel"></span>') +
       (laws ? `<section class="lw-person-sec"><h4>${W('相關法規', 'The law')}</h4><div class="lw-cites">${laws}</div></section>` : '') +
-      `<div class="lw-notice-acts">${openNow ? `<a class="q-btn lw-notice-go" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('到眾開講留言', 'Comment on join.gov.tw')}</a>` : `<a class="lw-out" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('眾開講原文', 'On join.gov.tw')}</a>`}${d?.pdf ? `<a class="lw-out" href="${esc(d.pdf)}" target="_blank" rel="noopener">${W('草案 PDF', 'Draft PDF')}</a>` : ''}${openNow && d?.email ? `<a class="lw-out" href="mailto:${esc(d.email)}?subject=${encodeURIComponent(`對「${noticeName(n)}」的意見`)}">${W('寫信給承辦人', 'Email the agency')}</a>` : ''}</div>`;
+      `<div class="lw-notice-acts">${openNow ? `<a class="q-btn lw-notice-go" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener">${W('到眾開講留言', 'Comment on join.gov.tw')}</a>` : `<a class="q-more q-more-go lw-out" href="${esc(noticeUrl(n.id))}" target="_blank" rel="noopener"><span>${W('眾開講原文', 'On join.gov.tw')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`}${d?.pdf ? `<a class="q-more q-more-go lw-out" href="${esc(d.pdf)}" target="_blank" rel="noopener"><span>${W('草案 PDF', 'Draft PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}${openNow && d?.email ? `<a class="q-more q-more-go lw-out" href="mailto:${esc(d.email)}?subject=${encodeURIComponent(`對「${noticeName(n)}」的意見`)}"><span>${W('寫信給承辦人', 'Email the agency')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}</div>`;
     body.querySelector('[data-nmore]')?.addEventListener('click', e => (e.currentTarget.previousElementSibling.insertAdjacentHTML('beforeend', rows.slice(shown).map(rowHtml).join('')), e.currentTarget.remove()));
     body.querySelector('.lw-notice-about')?.addEventListener('click', e => e.currentTarget.classList.toggle('open'));
     body.querySelectorAll('.lw-cites a').forEach(a => a.addEventListener('click', () => body.closest('dialog')?.close()));
@@ -2825,7 +2825,7 @@ async function voteSheet(i) {
   const all = Math.max(1, y + n + a);
   const pass = y > n;
   const result = `<div class="lw-vote-result ${pass ? 'y' : 'n'}"><b>${pass ? W('通過', 'Passed') : W('未通過', 'Failed')}</b><span>${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</span></div><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span>`;
-  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(voteName(v))}</p>${w.zh ? `<p class="lw-vote-plain">${esc(en ? w.en : w.zh)}</p>` : ''}${result}${on ? `<h4>${W('表決的法案', 'The bill')}</h4><div class="lw-cites lw-vote-on">${on}</div>` : bk ? `<h4>${W('表決的預算', 'The budget')}</h4><div class="lw-cites lw-vote-on"><a class="lw-notice lw-vote-bill" href="#tab=bills&f=budget&budget=${esc(encodeURIComponent(bk))}"><b>${esc(topic || bk)}</b><small>${W('看這份預算：錢花在哪、刪了多少', 'See where the money goes and what was cut')}</small></a></div>` : topic ? `<h4>${W('議案', 'On the agenda')}</h4><p class="lw-vote-topic">${esc(topic)}</p>` : ''}${followed}<h4>${W('各黨怎麼投', 'By party')}</h4><div class="lw-pbars">${split}</div>${names}<p class="lw-vote-raw">${W('議事錄原文：', 'As recorded: ')}${esc(v[2])}</p>${url ? `<a class="lw-out" href="${esc(url)}" target="_blank" rel="noopener">${W('立法院公報', 'In the Gazette')}</a>` : ''}` });
+  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(voteName(v))}</p>${w.zh ? `<p class="lw-vote-plain">${esc(en ? w.en : w.zh)}</p>` : ''}${result}${on ? `<h4>${W('表決的法案', 'The bill')}</h4><div class="lw-cites lw-vote-on">${on}</div>` : bk ? `<h4>${W('表決的預算', 'The budget')}</h4><div class="lw-cites lw-vote-on"><a class="lw-notice lw-vote-bill" href="#tab=bills&f=budget&budget=${esc(encodeURIComponent(bk))}"><b>${esc(topic || bk)}</b><small>${W('看這份預算：錢花在哪、刪了多少', 'See where the money goes and what was cut')}</small></a></div>` : topic ? `<h4>${W('議案', 'On the agenda')}</h4><p class="lw-vote-topic">${esc(topic)}</p>` : ''}${followed}<h4>${W('各黨怎麼投', 'By party')}</h4><div class="lw-pbars">${split}</div>${names}<p class="lw-vote-raw">${W('議事錄原文：', 'As recorded: ')}${esc(v[2])}</p>${url ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener"><span>${W('立法院公報', 'In the Gazette')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   const s = sheet({ title: W(`表決 · ${shortDay(v[1])}`, `Vote · ${shortDay(v[1])}`), closeLabel: W('關閉', 'Close'), body });
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-who]');
@@ -2952,9 +2952,9 @@ async function peopleList(out) {
   const head = o => (byArea ? `<h2>${esc(W(o.g[1], o.g[2]))}</h2>` : `<h2><span class="lw-party" style="--p:${partyColor(o.g[1])}">${esc(partyShort(o.g[1]))}</span></h2>`);
   const toggle = `<div class="q-chips lw-chips lw-people-by" role="tablist">${[['area', W('依縣市', 'By place')], ['party', W('依政黨', 'By party')]].map(([id, label]) => `<button type="button" class="q-chip" role="tab" data-by="${id}" aria-selected="${id === peopleBy}" aria-pressed="${id === peopleBy}">${label}</button>`).join('')}</div>`;
   const list =
-    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people">${followed.map(x => card(x, true)).join('')}</div></section>` : '') +
-    order.map(o => `<section class="q-section lw-sec"><div class="q-section-head">${head(o)}<span class="lw-count">${o.xs.length}</span></div><div class="lw-people">${o.xs.map(card).join('')}</div></section>`).join('') +
-    (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people">${left.map(x => card(x, true)).join('')}</div></section>` : '');
+    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people q-rows-full q-rows-keep">${followed.map(x => card(x, true)).join('')}</div></section>` : '') +
+    order.map(o => `<section class="q-section lw-sec"><div class="q-section-head">${head(o)}<span class="lw-count">${o.xs.length}</span></div><div class="lw-people q-rows-full q-rows-keep">${o.xs.map(card).join('')}</div></section>`).join('') +
+    (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people q-rows-full q-rows-keep">${left.map(x => card(x, true)).join('')}</div></section>` : '');
   out.innerHTML = list ? (now.length > 1 ? toggle : '') + list : emptyNote(W('沒有符合的立委', 'No one matches'));
   out.querySelectorAll('[data-by]').forEach(b => b.addEventListener('click', () => peopleBy !== b.dataset.by && ((peopleBy = b.dataset.by), haptic(), peopleList(out))));
 }

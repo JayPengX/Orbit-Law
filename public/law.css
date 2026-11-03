@@ -975,7 +975,7 @@ html.q-kb #panel-ask::after {
   padding: 0 4px 0 0;
   border: 0;
   background: none;
-  color: var(--q-accent);
+  color: var(--q-label);
   font: 600 14px/1 var(--q-font);
   cursor: pointer;
 }
@@ -1237,7 +1237,7 @@ html.q-kb #panel-ask::after {
   white-space: nowrap;
 }
 a.lw-art-chip {
-  color: var(--q-accent);
+  color: var(--q-label);
 }
 .lw-art-chip b {
   color: var(--q-label-2);
@@ -1439,11 +1439,9 @@ a.lw-art-chip {
 .lw-compare .lw-diff {
   background: var(--q-fill-4, var(--q-fill-3));
 }
-.lw-out {
-  display: inline-block;
-  margin-top: 8px;
-  color: var(--q-accent);
-  font: var(--q-t-subhead);
+/* A way out to the source: the kit's quiet bar with its › (never accent text, Jay 2026-11-03). */
+a.q-more.lw-out {
+  margin-top: 12px;
 }
 
 /* ---- 問法律 and 白話解釋 ---- */
@@ -3718,7 +3716,7 @@ details.lw-bud-row[open] > summary .lw-bud-line::after {
 .lw-cons-main p:last-child { margin: 0; }
 .lw-cons-page .lw-list { background: var(--q-sheet-cell, var(--q-surface)); border-radius: 14px; overflow: hidden; }
 .lw-find-rulings .q-section { margin-top: 0; }
-.lw-more-link { display: block; margin: 8px 0 16px; padding: 4px 4px; color: var(--q-accent); font: 600 15px/20px var(--q-font); text-decoration: none; }
+a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-bill-court { margin-top: 8px; }
 .lw-cons-main p { display: block; overflow: visible; -webkit-line-clamp: unset; }
 .lw-cons-page .lw-block h4 { margin: 0 0 6px; }
@@ -4402,8 +4400,12 @@ a.lw-x-rel {
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
+/* (A cited article in a line: underlined, in the line's colour, never accent text.) */
 a.lw-h-art {
-  color: var(--q-accent);
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--q-label-3);
+  text-underline-offset: 3px;
 }
 .lw-h-art.gone {
   color: var(--q-label-2);

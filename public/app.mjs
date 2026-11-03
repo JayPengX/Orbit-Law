@@ -293,42 +293,8 @@ const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="cur
 
 const LIVE = it => !it.dropped && !it.held && it.open && it.stage >= 1 && it.stage < PASSED;
 
-function drawHome() {
-  const panel = $('panel-home');
-  const starters = STARTERS.map(([zh, e]) => `<a class="lw-starter" href="#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}">${esc(W(zh, e))}</a>`).join('');
-  const hero = `<a class="q-hero-card lw-hero" href="#tab=ask"><span class="q-hc-eyebrow lw-hero-top">${ICON_SPARK}<span>${W('問法律', 'Ask the law')}</span></span><strong>${W('遇到法律問題？用白話問', 'A legal question? Ask in plain words')}</strong><span class="lw-hero-box"><span>${W('輸入你遇到的事', 'Type what happened')}</span><i>${ICON_SEND}</i></span></a><div class="lw-starters rail">${starters}</div>`;
-
-  // 立法院: the latest day anything moved, and the bills that moved last.
-  const items = state.items.filter(it => !it.dropped && it.u);
-  const moved = [...items].sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : b.stage - a.stage)).slice(0, 10);
-  const bills = state.items.length ? rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
-  // Laws just amended or new (not regulations), and what you opened last.
-  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 4);
-  const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 8);
-  const picks = recommend(recent);
-  // (The first three are what's in view: what the engine learns a pass-over from.)
-  feedback?.shown('law', picks.slice(0, 3).map(r => pickItem(r, rowTopic)));
-
-  // One search, the ask card, then calm shelves of what's new.
-  // (Wide: the ask card heads the left column, what's new the right.)
-  const topics = section(W('依生活情境找', 'By life situation'), state.rows.length ? topicGrid() : '');
-  panel.innerHTML =
-    pageHead('') +
-    `<a class="lw-find-pill" href="#tab=laws&amp;q=">${ICON_SEARCH}<span>${W('找法規、判決、法案或生活問題', 'Search laws, rulings, bills')}</span></a>` +
-    cols([
-      [`<div class="lw-hero-wrap">${hero}</div>`, 0],
-      [section(W('繼續閱讀', 'Continue reading'), resumeRows() || covers(recent), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }), 0],
-      // A first visit starts from everyday life; a returning one from what they read.
-      [recent.length ? '' : topics, 0],
-      [`<div id="home-live"></div>`, 1],
-      [section(W('立法院這週', 'Legislature this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
-      [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],
-      [section(W('為你推薦', 'For you'), covers(picks)), 1],
-      // 裁判: 憲法法庭's two newest, then the top courts' newest.
-      [section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }), 1],
-      [`<div id="home-news"></div>`, 0],
-      [recent.length ? topics : '', 1]
-    ]);
+// 立法院 meeting now, and the ministries' notices: into #home-live and #home-news once read.
+function fillHome() {
   // 立法院 meeting now: its rooms, each opening the live video.
   agendaData()
     .then(a => {
@@ -399,6 +365,76 @@ function topicGrid() {
   return `<div class="lw-topics">${Object.keys(TOPICS)
     .map(id => `<a class="lw-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}">${topicTile(id)}<span class="q-fit-wrap">${esc(topicName(id, en))}</span><small>${counts[id] ? W(`${counts[id]} 部`, `${counts[id]}`) : ''}</small></a>`)
     .join('')}</div>`;
+}
+
+// 首頁's lead and lists (Orbit's own look, docs/DESIGN.md §11; look.css).
+// Search leads: one large field for both ways in (Enter or 搜尋 finds laws,
+// 問法律 asks in plain words), what you searched and read last under it; then
+// what 立法院 streams now (if anything) and the life situations as a compact
+// list; then the shelves of what's new as before. Colour only names a topic.
+const FINDS_KEY = 'law.finds.v1';
+const readFinds = () => { try { const v = JSON.parse(localStorage.getItem(FINDS_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+function noteFind(q, kind) {
+  const list = [{ q, k: kind, u: Date.now() }, ...readFinds().filter(x => x.q !== q)].slice(0, 8);
+  try { localStorage.setItem(FINDS_KEY, JSON.stringify(list)); } catch {}
+}
+const findGo = (q, kind) => {
+  q = String(q || '').trim();
+  if (!q) return;
+  noteFind(q, kind);
+  go(kind === 'a' ? `tab=ask&q=${encodeURIComponent(q)}` : `tab=laws&q=${encodeURIComponent(q)}`);
+};
+// The field is made once and kept: a redraw (data landing) never takes what's being typed.
+let nvFind = null;
+function findCard() {
+  if (nvFind) return nvFind;
+  const input = h('input', { class: 'nv-find-input', type: 'search', enterkeyhint: 'search', autocomplete: 'off', placeholder: W('找法規、判決，或用白話問', 'Search laws, or ask in plain words'), 'aria-label': W('搜尋或問法律', 'Search or ask') });
+  const form = h('form', { class: 'nv-find-field', role: 'search', onsubmit: e => (e.preventDefault(), findGo(input.value, 's')) }, [h('i', { class: 'nv-find-icon', html: ICON_SEARCH }), input]);
+  const ways = h('div', { class: 'nv-find-ways' }, [
+    h('button', { class: 'nv-way q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 's') : go('tab=laws')) }, [h('i', { html: ICON_SEARCH }), W('搜尋法規', 'Search laws')]),
+    h('button', { class: 'nv-way is-ask q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 'a') : go('tab=ask')) }, [h('i', { html: ICON_SPARK }), W('問法律', 'Ask the law')])
+  ]);
+  return (nvFind = h('section', { class: 'q-card nv-find' }, [form, ways]));
+}
+// What you searched or asked last (a tap: again), else the everyday questions to start from.
+function findsHtml() {
+  const finds = readFinds().slice(0, 6);
+  const chats = loadChats().slice(0, 3).map(c => ({ q: c.t, k: 'a', u: c.u, chat: c.id }));
+  const all = [...finds, ...chats.filter(c => !finds.some(f => f.q === c.q))].sort((a, b) => b.u - a.u).slice(0, 6);
+  if (!all.length) return section(W('試試這樣問', 'Try asking'), `<div class="nv-finds">${STARTERS.slice(0, 4).map(([zh, e]) => `<a class="nv-findrow" href="#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}"><i class="is-ask">${ICON_SPARK}</i><span>${esc(W(zh, e))}</span></a>`).join('')}</div>`);
+  return section(W('最近找過', 'Recent'), `<div class="nv-finds">${all.map(x => `<a class="nv-findrow" href="#${x.k === 'a' ? `tab=ask&amp;q=` : `tab=laws&amp;q=`}${encodeURIComponent(x.q)}"><i class="${x.k === 'a' ? 'is-ask' : ''}">${x.k === 'a' ? ICON_SPARK : ICON_SEARCH}</i><span>${esc(x.q)}</span></a>`).join('')}</div>`);
+}
+// 依生活情境找, compact: a row a topic, its colour a mark, how many laws.
+function topicList() {
+  const counts = {};
+  for (const r of state.rows) if (r[2] !== '命令' && !r[5]) counts[rowTopic(r)] = (counts[rowTopic(r)] || 0) + 1;
+  return `<div class="nv-topics">${Object.keys(TOPICS).map(id => `<a class="nv-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}"><i></i><span>${esc(topicName(id, en))}</span><small>${counts[id] || ''}</small></a>`).join('')}</div>`;
+}
+function drawHome() {
+  const panel = $('panel-home');
+  const card = findCard();
+  let rest = panel.querySelector(':scope > .nv-rest');
+  if (!rest || card.parentNode !== panel) panel.replaceChildren(card, (rest = h('div', { class: 'nv-rest' })));
+  const items = state.items.filter(it => !it.dropped && it.u);
+  const moved = [...items].sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : b.stage - a.stage)).slice(0, 10);
+  const bills = state.items.length ? rail(moved.map(it => billCard(it, { topic: itemTopic(it), en }))) : `<div class="lw-rail">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
+  const amended = state.changes.items.filter(c => state.byCode.get(c.p) && state.byCode.get(c.p)[2] !== '命令').slice(0, 4);
+  const recent = state.mine.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 8);
+  const picks = recommend(recent);
+  // (The first three are what's in view: what the engine learns a pass-over from.)
+  feedback?.shown('law', picks.slice(0, 3).map(r => pickItem(r, rowTopic)));
+  rest.innerHTML = cols([
+    [findsHtml(), 0],
+    [section(W('繼續閱讀', 'Continue reading'), resumeRows() || (recent.length ? list(recent.slice(0, 4).map(r => lawItem(r))) : ''), { more: W('我的', 'Mine'), moreHref: '#tab=mine' }), 0],
+    [`<div id="home-live"></div>`, 1],
+    [section(W('依生活情境找', 'By life situation'), state.rows.length ? topicList() : ''), 0],
+    [section(W('立法院這週', 'Legislature this week'), bills, { more: W('全部', 'All'), moreHref: '#tab=bills' }), 1],
+    [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],
+    [section(W('為你推薦', 'For you'), covers(picks)), 1],
+    [section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }), 1],
+    [`<div id="home-news"></div>`, 0]
+  ]);
+  fillHome();
 }
 
 // ---- 法規: search, topics, the common laws -----------------------------------------------

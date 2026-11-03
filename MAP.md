@@ -5,7 +5,7 @@ Taiwan's law on three sides that link to each other: the laws to read
 憲法法庭's every 釋字 and 憲判字, the top courts' judgments); and the bills in
 立法院 that will change them (立法), stage by stage. Behind the Orbit Pass
 like every Orbit app; the data is public, built onto this site once a day,
-and works offline once opened. Tabs: 首頁 (one search) · 法規 · 裁判 ·
+and works offline once opened. Tabs: 首頁 (one field, search or ask) · 法規 · 裁判 ·
 立法 · 我的, and 問法律 on its own round button beside them.
 
 Live: https://orbit.jaypengx.com/law/
@@ -39,6 +39,17 @@ Live: https://orbit.jaypengx.com/law/
   worker (data: the kept copy first, refreshed behind it).
 
 ## Decisions in force
+
+- **The look** (Orbit-Core `docs/DESIGN.md` §11): Orbit's own, always on
+  (`index.html` says `data-look="native"`, `look.css` after `law.css`):
+  graphite cards, colour only on what it names (a topic's mark), the app's
+  colour only for 問法律, the one main action. 首頁 (`drawHome`) leads with
+  one large field (`findCard`, kept across redraws so typing is never lost):
+  Enter or 搜尋法規 finds laws, 問法律 asks in plain words, each with what
+  was typed; under it 最近找過 (this device, `law.finds.v1`, and saved
+  chats) or 試試這樣問 on a first visit; 繼續閱讀; what 立法院 streams now;
+  the life situations as a compact list (`topicList`); then what's new.
+  `tests/look.test.mjs` holds it.
 
 - **Every screen** (kit DESIGN §10): a phone upright is one column; with room
   for two (a phone on its side, a tablet, a computer) the page grows to 1180
@@ -218,7 +229,7 @@ Live: https://orbit.jaypengx.com/law/
 
 | File | What |
 | --- | --- |
-| `public/app.mjs`, `index.html`, `law.css` | The page: five tabs, the reader, 裁判, the sheets |
+| `public/app.mjs`, `index.html`, `law.css`, `look.css` | The page: five tabs, the reader, 裁判, the sheets; Orbit's own look |
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |

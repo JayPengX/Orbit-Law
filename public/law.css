@@ -473,44 +473,6 @@ html.q-kb #panel-ask::after {
 }
 
 /* ---- 首頁 ---- */
-/* (The ask card is the kit's hero, .q-hero-card: its colour, corners and eyebrow.) */
-.lw-hero-top svg {
-  width: 16px;
-  height: 16px;
-}
-.lw-hero strong {
-  font: 600 22px/28px var(--q-font);
-}
-.lw-hero-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 6px 0 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.82);
-  font: 15px/20px var(--q-font);
-}
-.lw-hero-box span {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 0;
-}
-.lw-hero-box i {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #fff;
-  color: #4f46e5;
-}
-.lw-hero-box svg {
-  width: 18px;
-  height: 18px;
-}
 .lw-starters {
   display: flex;
   flex-wrap: wrap;
@@ -1790,10 +1752,6 @@ a.lw-art-chip {
   }
   .lw-stat b {
     font-size: 21px;
-  }
-  .lw-hero strong {
-    font-size: 19px;
-    line-height: 25px;
   }
 }
 
@@ -3173,23 +3131,6 @@ details.lw-bud-row[open] > summary {
 .lw-reg-head b { color: var(--q-accent); font: 600 14px/20px var(--q-font); }
 .lw-reg-head span { color: var(--q-label-2); font: 14px/20px var(--q-font); }
 
-/* Home: the one search, first. */
-.lw-find-pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  margin: 4px 0 16px;
-  padding: 0 16px;
-  border-radius: var(--q-r-cell);
-  background: var(--q-surface);
-  color: var(--q-label-2);
-  font: 500 16px/22px var(--q-font);
-  text-decoration: none;
-}
-.lw-find-pill svg { flex: none; width: 20px; height: 20px; color: var(--q-indigo); }
-.lw-find-pill span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-
 /* 立法: five doors across the top (the open one filled). */
 .lw-bill-doors {
   display: grid;
@@ -3700,19 +3641,6 @@ div.lw-video {
   font: 400 14px/20px var(--q-font);
 }
 
-/* No white in dark mode (Jay 2026-10-21): the hero's icon is glass. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .lw-hero-box i {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    box-shadow: none;
-  }
-}
-:root[data-theme='dark'] .lw-hero-box i {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  box-shadow: none;
-}
 /* A ministry or agency row opens: a chevron that turns. */
 details.lw-bud-row > summary .lw-bud-line::after {
   content: '';

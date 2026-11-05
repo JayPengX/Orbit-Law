@@ -146,8 +146,13 @@ Live: https://orbit.jaypengx.com/law/
   articles say it is made under (訂定/訂之/授權); a law cited by a former name
   (its 沿革's 原名稱) lists the regulation without an article.
 - **Following 立委** (`lib/ly.mjs` personFeed): 我的 shows each one's newest
-  bill, 質詢 and whole-bill vote; what came since they were last opened counts
-  on the tab.
+  bill, 質詢 and whole-bill vote; what came since they were last opened is
+  marked 新.
+- **The 我的 badge** (`lib/store.mjs` newsKeys, Jay 2026-11-05): one for each
+  followed law amended, followed bill moved and followed 立委 with news, that
+  came since the tab was last open (`orbit-law.told.v1`, this device); opening
+  the tab clears it. A bill's 最新進度日期 still to come (a meeting set for
+  next week) is no move until that day. Never the laws only looked at.
 - **立委 by side** (Jay 2026-10-31): an independent's votes are set against the
   caucus they sit in (陳超明, 高金素梅 in the 國民黨團), else the party they side
   with most, never 無黨籍; the list is by 縣市 (north to south, 原住民, 不分區)

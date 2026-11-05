@@ -26,7 +26,7 @@ const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
-import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
+import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askRuling, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel } from './lib/rulings.mjs';
@@ -127,8 +127,16 @@ const save = () => {
   badge();
   if (pass) (pass.changed(), pass.sync());
 };
-// The 追蹤 tab's count: what moved, among what this device follows, since it last looked.
-const badge = () => tabs.badge('mine', newCount(state.mine, state.items, state.changes) + Object.entries(state.peopleNew || {}).reduce((n, [id, k]) => n + (state.mine.people?.[id] ? k : 0), 0));
+// The 我的 tab's count: followed laws amended, followed bills moved and
+// followed legislators with news, one each, that came since the tab was last
+// open (never the laws only looked at). While the tab is open it's told.
+let told = loadTold();
+const badge = () => {
+  const keys = newsKeys(state.mine, state.items, state.changes, state.peopleLast);
+  if (state.tab === 'mine' && document.visibilityState !== 'hidden' && keys.some(k => !told.includes(k))) saveTold((told = [...new Set([...told.filter(k => keys.includes(k)), ...keys])]));
+  tabs.badge('mine', newCount(keys, told));
+};
+document.addEventListener('visibilitychange', () => badge());
 let itemsReady = Promise.resolve();
 let noticesReady = Promise.resolve();
 let rulingsReady = Promise.resolve();
@@ -2663,10 +2671,10 @@ function drawMine() {
   const m = state.mine;
   const changedLaws = lawsChanged(m, state.changes);
   const items = state.items.filter(it => m.items[it.k]);
-  const moved = items.filter(it => it.u > m.items[it.k]);
+  const moved = items.filter(it => billMoved(it, m.items[it.k]));
   const laws = Object.keys(m.laws).map(p => state.byCode.get(p)).filter(Boolean);
   const marks = m.marks.map(x => ({ ...x, row: state.byCode.get(x.p) })).filter(x => x.row);
-  const news = changedLaws.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), countTag(W('新', 'New'), 'green')));
+  const news = changedLaws.filter(c => state.byCode.has(c.p)).map(c => lawItem(state.byCode.get(c.p), changeText(c, true), countTag(W('新', 'New'), 'green')));
   // (Wide: bills on the left, laws and legislators on the right.)
   const html = cols([
     [section(W('自上次查看後的變動', 'New since you last looked'), (moved.length ? grid(moved.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)), 0],
@@ -2684,6 +2692,7 @@ function drawMine() {
     ((html && (nothingFollowed ? html + hint : html)) ||
       `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`);
   wireTitles($('panel-mine'));
+  badge();
   // 追蹤的立委: each one's newest bills, 質詢 and whole-bill votes, what came since last time marked.
   if (Object.keys(m.people || {}).length) drawTracked(m);
 }
@@ -2696,6 +2705,7 @@ async function trackedFeeds(m) {
   const [files, votes] = await Promise.all([Promise.all(xs.map(x => data(`ly/person/${encodeURIComponent(x.id)}.json`).catch(() => null))), votesData().catch(() => null)]);
   const feeds = xs.map((x, i) => (files[i] ? personFeed({ ...files[i], from: x.from, to: x.to }, votes) : []));
   state.peopleNew = Object.fromEntries(xs.map((x, i) => [x.id, feedNew(feeds[i], m.people[x.id])]));
+  state.peopleLast = Object.fromEntries(xs.map((x, i) => [x.id, state.peopleNew[x.id] ? feeds[i][0].d : '']));
   badge();
   return { xs, feeds, votes };
 }
@@ -2984,7 +2994,7 @@ async function openPerson(id) {
     return toast(W('這位立委的資料讀不到', 'Couldn’t load this legislator'));
   }
   const row = ppl.people.find(p => String(p.id) === String(id)) || x;
-  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), state.peopleNew && (state.peopleNew[id] = 0), save());
+  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), state.peopleNew && (state.peopleNew[id] = 0), state.peopleLast && (state.peopleLast[id] = ''), save());
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
   const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];

@@ -52,10 +52,42 @@ export function lawsChanged(mine, changes) {
 }
 export { today };
 
-// What the 追蹤 tab's badge counts: followed laws amended and followed bills
-// moved since this device last looked at each.
-export function newCount(mine, items, changes) {
-  return lawsChanged(mine, changes).length + (items || []).filter(it => mine.items[it.k] && it.u > mine.items[it.k]).length;
+// A followed bill moved since the day last looked. 立法院's 最新進度日期 can
+// be a day still to come (a committee's meeting set for next week): that's
+// no move yet, so it counts once the day comes, not every day before.
+export const billMoved = (it, seen, now) => Boolean(seen) && it.u > seen && it.u <= today(now);
+
+// What's new among what this device follows, one key per thing (a law, a
+// bill, a legislator), each with the day of its newest change, so a later
+// change is a new key: [ 'l:<pcode>:<day>', 'b:<item>:<day>', 'p:<id>:<day>' ].
+// peopleLast: each followed legislator's newest doing since last opened.
+export function newsKeys(mine, items, changes, peopleLast = {}, now) {
+  return [
+    ...lawsChanged(mine, changes).map(c => `l:${c.p}:${c.seen}`),
+    ...(items || []).filter(it => billMoved(it, mine.items[it.k], now)).map(it => `b:${it.k}:${it.u}`),
+    ...Object.entries(peopleLast).filter(([id, d]) => d && mine.people?.[id]).map(([id, d]) => `p:${id}:${d}`)
+  ];
+}
+
+// The 我的 tab's count: what's new since the tab was last open (`told`, the
+// keys it showed then). Opening the tab clears it; the 新 marks inside stay
+// until each one is opened.
+export const newCount = (keys, told = []) => keys.filter(k => !told.includes(k)).length;
+
+// The keys the 我的 tab last showed: this device's alone (not on the Pass).
+const TOLD = 'orbit-law.told.v1';
+export function loadTold(store = globalThis.localStorage) {
+  try {
+    const v = JSON.parse(store?.getItem(TOLD) || '[]');
+    return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+export function saveTold(keys, store = globalThis.localStorage) {
+  try {
+    store?.setItem(TOLD, JSON.stringify(keys));
+  } catch {}
 }
 
 // On the Orbit Pass (its orbit-law payload): what's followed, the

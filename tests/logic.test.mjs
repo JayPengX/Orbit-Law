@@ -266,7 +266,7 @@ test('rulings: top courts only, the articles cited by law name, newest kept per 
 
 import { consLinks } from '../public/lib/cons.mjs';
 import { relatedLaws } from '../public/lib/search.mjs';
-import { newCount } from '../public/lib/store.mjs';
+import { newCount, newsKeys, billMoved } from '../public/lib/store.mjs';
 test('cross-links: 大法官解釋 and 憲判 to 裁判, a law with its 施行法, the 追蹤 badge count', () => {
   const s = consLinks('依司法院釋字第七四八號解釋之意旨，及大法官釋字第 499  號。');
   assert.equal(s[1].t, '司法院釋字第七四八號解釋');
@@ -280,7 +280,18 @@ test('cross-links: 大法官解釋 and 憲判 to 裁判, a law with its 施行�
   assert.deepEqual(relatedLaws(rows, rows[2]).map(r => r[0]), ['B1', 'B2']);
   const mine = { laws: { B1: '2026-10-01' }, items: { 'x:1': '2026-10-01', 'x:2': '2026-10-10' } };
   const items = [{ k: 'x:1', u: '2026-10-05' }, { k: 'x:2', u: '2026-10-05' }, { k: 'x:3', u: '2026-10-09' }];
-  assert.equal(newCount(mine, items, { items: [{ p: 'B1', seen: '2026-10-02' }, { p: 'B9', seen: '2026-10-02' }] }), 2);
+  const now = new Date('2026-10-20T04:00:00Z');
+  const keys = newsKeys(mine, items, { items: [{ p: 'B1', seen: '2026-10-02' }, { p: 'B9', seen: '2026-10-02' }] }, {}, now);
+  assert.deepEqual(keys, ['l:B1:2026-10-02', 'b:x:1:2026-10-05']);
+  assert.equal(newCount(keys), 2);
+  // Opening 我的 tells them: the count is what came after.
+  assert.equal(newCount(keys, keys), 0);
+  assert.equal(newCount([...keys, 'b:x:2:2026-10-19'], keys), 1);
+  // A step set for a day still to come is no move yet (it counted every day, opened or not).
+  assert.equal(billMoved({ k: 'x:1', u: '2026-11-10' }, '2026-10-01', now), false);
+  assert.equal(billMoved({ k: 'x:1', u: '2026-11-10' }, '2026-10-01', new Date('2026-11-10T01:00:00Z')), true);
+  // A legislator with news is one, however many votes and speeches.
+  assert.deepEqual(newsKeys({ laws: {}, items: {}, people: { 7: '2026-10-01' } }, [], {}, { 7: '2026-10-15', 8: '2026-10-15' }, now), ['p:7:2026-10-15']);
 });
 
 test('English: index rows carry MOJ’s English name; search finds it by words', () => {

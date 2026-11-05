@@ -871,3 +871,31 @@ test('no browser popups: confirm, alert and prompt are the kit’s dialogs (Jay 
     assert.ok(!/(?<![\w.$])(window\.)?(confirm|alert|prompt)\(/.test(src), `${f} calls a browser popup`);
   }
 });
+
+// 刑法 185-3 (毒駕), 2026-10-30: the committee's report passed 三讀; the 逕付二讀
+// versions it took in stayed at 排入院會(討論事項), dated by the 11-03 sitting,
+// and a new round (假釋, 77/79-1) was filed the same day. 這週三讀通過 showed
+// the law as 政黨協商中 with the new round's purpose (Jay 2026-11-05).
+test('bills: versions a 三讀 took in are not open, and 這週三讀通過 shows the passed round', async () => {
+  const { passedView } = await import('../public/lib/cards.mjs');
+  const { openRound } = await import('../public/lib/bills.mjs');
+  const report = compactBill(raw('203', { 議案名稱: '報告併案審查「甲法第二條條文修正草案」', '提案單位/提案委員': '本院司法及法制委員會', 提案日期: '2026-07-30', 最新進度日期: '2026-11-03', 議案狀態: '三讀', 案由: '本院司法及法制委員會 審查報告', 議案流程: [{ 狀態: '排入院會(討論事項)', 日期: ['2026-10-30', '2026-11-03'] }, { 狀態: '三讀', 日期: ['2026-10-30'] }], 關連議案: [{ 議案編號: '201' }] }));
+  const direct = compactBill(raw('202', { 提案日期: '2026-08-21', 最新進度日期: '2026-11-03', 議案狀態: '排入院會(討論事項)', 案由: '本院委員甲等16人，為了提高毒駕罰則，爰擬具「甲法第二條條文修正草案」。是否有當？敬請公決。', 議案流程: [{ 狀態: '逕付二讀(交付協商)', 日期: ['2026-08-21'] }, { 狀態: '排入院會(討論事項)', 日期: ['2026-10-30'] }], 關連議案: [{ 議案編號: '203' }] }));
+  const listed = compactBill(raw('201', { 提案日期: '2026-06-11', 最新進度日期: '2026-11-03', 議案狀態: '審查完畢', 議案流程: [{ 狀態: '審查完畢', 日期: ['2026-07-30'] }, { 狀態: '排入院會(討論事項)', 日期: ['2026-11-03'] }] }));
+  const fresh = compactBill(raw('204', { 議案名稱: '「甲法第七十七條條文修正草案」，請審議案。', 提案日期: '2026-10-30', 最新進度日期: '2026-11-03', 議案狀態: '排入院會', 案由: '本院委員乙等17人，為了配合新增不得假釋之規定，爰擬具「甲法第七十七條條文修正草案」。是否有當？敬請公決。', 議案流程: [{ 狀態: '排入院會', 日期: ['2026-10-30'] }] }));
+  const all = [report, direct, listed, fresh];
+  assert.deepEqual(openRound(all).map(b => b.id), ['204'], 'only the round filed after the vote is open');
+  const [it] = foldBills(all);
+  assert.equal(it.passed, '2026-10-30');
+  assert.equal(it.open, 1);
+  assert.ok(it.stage < PASSED, 'the law itself stands where its new round is');
+  const card = passedView(it);
+  assert.equal(card.stage, PASSED);
+  assert.equal(card.u, '2026-10-30');
+  assert.equal(card.count, 3);
+  assert.match(card.about, /毒駕/);
+  assert.doesNotMatch(card.about, /假釋/);
+  // A version tied to a 三讀 but filed after it is a new round, not taken in.
+  const later = compactBill(raw('205', { 提案日期: '2026-11-02', 最新進度日期: '2026-11-03', 關連議案: [{ 議案編號: '203' }] }));
+  assert.ok(openRound([...all, later]).some(b => b.id === '205'));
+});

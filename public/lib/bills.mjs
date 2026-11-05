@@ -98,6 +98,16 @@ export function sponsorOf(by, parties = new Map()) {
   return (who && parties.get(who[1].trim())) || '';
 }
 
+// The round the last 三讀 (on `passed`) took in, as the card shows it: how many
+// versions, the newest one's purpose, and who filed them.
+function passedSummary(bills, passed, parties) {
+  const on = new Set(bills.filter(b => passedOn(b) === passed).map(b => b.id));
+  const round = passedRound(bills).filter(b => on.has(b.id) || (b.rel || []).some(id => on.has(id)) || bills.some(o => on.has(o.id) && (o.rel || []).includes(b.id)));
+  const newest = [...round].sort((a, b) => (a.d < b.d ? 1 : -1));
+  const by = [...round.reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(partyOf(sponsorOf(b.by, parties)).zh), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return { n: round.length, about: newest.find(b => b.a && !/審查報告$/.test(b.a))?.a || '', by };
+}
+
 export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map() } = {}) {
   const items = new Map();
   const ids = new Map(bills.flatMap(b => b.laws.map((id, i) => [b.names[i], id])));
@@ -146,6 +156,8 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       about: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1)).find(b => b.a)?.a || '',
       // The newest version (its 對照表 summarised on the card).
       top: [...(open.length ? open : it.bills)].sort((a, b) => (a.d < b.d ? 1 : -1))[0]?.id || '',
+      // The last 三讀's own round (for 這週三讀通過): its versions, its purpose, who filed them.
+      ...(passed ? { pr: passedSummary(it.bills, passed, parties) } : {}),
       ids: it.bills.map(b => b.id)
     };
   });
@@ -169,9 +181,21 @@ export function articlesTouched(bills) {
   return out;
 }
 
-// The versions still in play: live, not passed, and moving after the last 三讀.
+// The versions a 三讀 took in: the passed ones, and every version tied to one
+// (its 關連議案, either way) filed before that vote. 立法院 leaves those at
+// 審查完畢 or 排入院會(討論事項), dated by a later sitting (刑法 185-3's
+// 逕付二讀 versions sat at 2026-11-03 after their 10-30 三讀).
+export function passedRound(bills) {
+  const on = new Map(bills.map(b => [b.id, passedOn(b)]));
+  const tiedTo = b => [...(b.rel || []).map(id => on.get(id) || ''), ...bills.filter(o => on.get(o.id) && (o.rel || []).includes(b.id)).map(o => on.get(o.id))].filter(d => d && d >= b.d).sort().pop() || '';
+  return bills.filter(b => on.get(b.id) || tiedTo(b));
+}
+
+// The versions still in play: live, not passed, not taken in by a 三讀, and
+// moving after the last 三讀.
 export function openRound(bills, passed = bills.map(passedOn).sort().pop() || '') {
-  return bills.filter(b => !billStage(b).dropped && !passedOn(b) && (!passed || b.u > passed));
+  const taken = new Set(passedRound(bills).map(b => b.id));
+  return bills.filter(b => !billStage(b).dropped && !taken.has(b.id) && (!passed || b.u > passed));
 }
 
 // Bills worth refetching: everything whose 最新進度日期 is on or after the

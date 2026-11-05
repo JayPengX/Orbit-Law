@@ -139,6 +139,14 @@ ${progress(it, en)}
 </a>`;
 }
 
+// An item as its last 三讀 left it (這週三讀通過): passed (or law, once the MOJ
+// copy is newer), dated by the vote, with that round's purpose, versions and
+// proposers, never the newer round still open on the same law.
+export function passedView(it) {
+  const pr = it.pr || {};
+  return { ...it, stage: it.pub ? PROMULGATED : PASSED, held: false, open: 0, arts: {}, u: it.passed, about: pr.about || it.about, by: pr.by?.length ? pr.by : it.by, count: pr.n || it.count };
+}
+
 // A law as a row: tile, the name (the whole width; the kit's .q-fit-wrap shrinks
 // it onto one line, or two), one line under it
 // ending in `extra` (a count tag).

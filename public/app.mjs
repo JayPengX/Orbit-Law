@@ -36,7 +36,7 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -2426,7 +2426,7 @@ function weekDigest() {
   const card = it => billCard(it, { topic: itemTopic(it), en });
   const html =
     section(W('你追蹤的有新進度', 'Your bills moved'), rail(mine.slice(0, 10).map(card))) +
-    section(W(`這週三讀通過 ${passed.length}`, `Passed this week ${passed.length}`), rail(passed.slice(0, 10).map(card))) +
+    section(W(`這週三讀通過 ${passed.length}`, `Passed this week ${passed.length}`), rail(passed.slice(0, 10).map(it => card(passedView(it))))) +
     section(W('這週往前走的法案', 'Moving this week'), rail(moved.slice(0, 10).map(card)));
   return html ? `<div class="lw-digest">${html}</div>` : '';
 }

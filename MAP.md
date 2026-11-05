@@ -86,7 +86,10 @@ Live: https://orbit.jaypengx.com/law/
   → 二讀 → 三讀 → 總統公布. 總統公布 is when the MOJ copy's 異動日期 is on or
   after the 三讀. Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.
   After a 三讀, versions still moving are the item's open round; versions
-  that went quiet before it don't count as open. The bar shows six steps
+  that went quiet before it don't count as open, nor do the versions it took
+  in (`passedRound`: tied to a passed one by 關連議案 and filed before the vote;
+  立法院 leaves them at 排入院會 dated by a later sitting). 這週三讀通過 shows
+  the passed round (`passedView`, the item's `pr`), not a newer one still open. The bar shows six steps
   (`lib/cards.mjs`): 提案 · 一讀 · 委員會 · 院會 · 三讀 · 公布. 院會 takes in
   審查完畢, 黨團協商 and 二讀 (協商 happens at the floor, not between 一讀 and
   二讀). With several open versions, each step shows how many stand there.

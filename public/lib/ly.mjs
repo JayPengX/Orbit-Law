@@ -177,6 +177,9 @@ export function budgetStage(bills) {
   return { stage: mains.length ? '排入院會' : '' };
 }
 
+// A report the floor sent to party talks stands at 黨團協商, not 審查總報告.
+const talked = (st, flow, filed) => (st.stage === '審查總報告' && filed && flow.some(f => /^黨團協商/.test(f[1]) && f[0] >= filed) ? { stage: '黨團協商' } : st);
+
 // The term's budget bills by budget, newest first: [{ k, title, stage,
 // first, last, flow: [[date, status]] (the master bill's), bills: [[id, role,
 // committee, status, 提案日期, 最新進度日期, title]], votes: [vote ids] }].
@@ -207,6 +210,15 @@ export function budgetGroups(rows, votes = []) {
     if (filed && !reserve) flow.push([filed, '審查總報告']);
     const passed = list.filter(b => (b.role === 'report' || b.role === 'main') && /三讀/.test(b.st)).map(b => b.u).filter(Boolean).sort()[0];
     if (passed && !flow.some(f => /三讀/.test(f[1]))) flow.push([passed, '三讀']);
+    // The party talks on the report (the floor sends a report to 協商 when the
+    // parties can't agree): they're where a stuck budget stands (113年度
+    // 追加預算: 協商 2025/01, never voted), so the road reaches 協商. Only
+    // while it hasn't passed: talks after a 三讀 are on something else.
+    if (!reserve && !passed) for (const b of reports) if (b !== master) for (const f of b.r['議案流程'] || []) {
+      const st = String(f['狀態'] || '');
+      const d = [].concat(f['日期'] || [])[0] || '';
+      if (/^黨團協商/.test(st) && d && !flow.some(g => g[0] === d && g[1] === st)) flow.push([d, st]);
+    }
     flow.sort((a, b) => (a[0] && b[0] && a[0] !== b[0] ? (a[0] < b[0] ? -1 : 1) : 0));
     // Its dates: the budget's own bills' (a 勘誤表's letters don't move it).
     const own = list.filter(b => b.role !== 'errata');
@@ -217,7 +229,7 @@ export function budgetGroups(rows, votes = []) {
     return {
       k,
       title,
-      ...(reserve ? { stage: (list[0].st || '').replace(/\(.*$/, '') } : budgetStage(list)),
+      ...(reserve ? { stage: (list[0].st || '').replace(/\(.*$/, '') } : talked(budgetStage(list), flow, filed)),
       first: days[0] || '',
       last: days[days.length - 1] || '',
       flow,

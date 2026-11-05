@@ -1,7 +1,7 @@
 // 預算: 主計總處's 預算表 read (two layouts), a year's books, what was cut.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { xmlRows, codeKind, bookOf, yearOf, moneyOf, money, change } from '../public/lib/budget.mjs';
+import { xmlRows, codeKind, bookOf, yearOf, moneyOf, money, change, budgetSteps, roadSteps, stuckMonths } from '../public/lib/budget.mjs';
 
 const row = (code, name, amt, prev) => `<報表資料列><款></款><名稱及編號>${code}${name}</名稱及編號><本年度預算數>${amt}</本年度預算數><上年度預算數>${prev}</上年度預算數><說明><![CDATA[1.說明]]></說明></報表資料列>`;
 const spend = (a, d) => xmlRows(`<x>${row('0002000000', '總統府主管', 1000 + a + d, 900)}${row('0002010000', '總統府', 1000 + a + d, 900)}${row('3102010000', '國務支出', 1000 + a + d, 900)}${row('3102010100', '一般行政', 600 + a, 500)}${row('3102010200', '國務機要', 400 + d, 400)}${row('3102010201', '節', 1, 1)}${row('0009000000', '國防部主管', 5000, 4000)}${row('0009010000', '國防部', 5000, 4000)}</x>`);
@@ -47,4 +47,19 @@ test('a budget’s six steps: talks count only after the report; sent back is no
   assert.equal(budgetSteps([['2026-10-02', '排入院會']]).now, 1);
   assert.equal(budgetDue(116), '2026-11-30');
   assert.equal(daysBetween('2026-10-21', '2026-11-30'), 40);
+});
+
+test('a 第二預備金 report is done when its committee is (deemed) done; a budget left still is stuck', () => {
+  // 112年度第二預備金動支數額表 on 立法院 (2026-11): 交付審查 2024-03-01, 審查完畢(逾審查期限), 委員會發文 2026-10-13.
+  const flow = [['2024-03-01', '排入院會 (交財政委員會)'], ['2024-03-01', '交付審查'], ['2026-10-13', '委員會發文'], ['2026-10-13', '審查完畢']];
+  const r = budgetSteps(flow, '2024-03-01');
+  const steps = roadSteps('112預備金');
+  assert.equal(steps.length, 4);
+  assert.equal(r.now, steps.length - 1, 'its last step: nothing more to come');
+  assert.equal(roadSteps('113追加').length, 6);
+  assert.equal(roadSteps('115').at(-1)[0], '三讀');
+  // 113年度追加預算: last moved 2025-01-21.
+  assert.equal(stuckMonths('2025-01-21', '2026-11-05'), 21);
+  assert.equal(stuckMonths('2026-10-13', '2026-11-05'), 0);
+  assert.equal(stuckMonths('', '2026-11-05'), 0);
 });

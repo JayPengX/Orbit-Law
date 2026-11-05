@@ -3762,6 +3762,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 
 /* 預算: a budget's road through 立法院 (six steps), the one in 立法院 now on top */
 .lw-road { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; }
+.lw-road.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .lw-road > span { display: grid; justify-items: center; gap: 4px; min-width: 0; }
 .lw-road i { justify-self: stretch; height: 6px; border-radius: 3px; background: var(--q-fill-3); }
 .lw-road .done i { background: var(--q-indigo); }

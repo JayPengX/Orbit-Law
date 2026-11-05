@@ -1,6 +1,7 @@
 // 立法院 data: vote days, votes made small, laws in a vote, budgets.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { budgetSteps } from '../public/lib/budget.mjs';
 import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups } from '../public/lib/ly.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 
@@ -115,4 +116,24 @@ test('alignment: a member with their party, an independent with the caucus they 
   assert.deepEqual([closest.how, closest.bloc], ['closest', '中國國民黨']);
   const member = alignment(data, { n: '綠1', party: '民主進步黨' }, [[0, 'n'], [1, 'y'], [2, 'y']], party);
   assert.deepEqual([member.how, pctText(member)], ['party', '100']);
+});
+
+test('a budget whose report the floor sent to party talks stands at 黨團協商 (113年度追加預算, 立法院 as of 2026-11)', () => {
+  const rows = [
+    { 議案編號: '301110043590000', 議案名稱: '「113年度中央政府總預算追加預算案」案。', '提案單位/提案委員': '行政院', 議案狀態: '審查完畢', 提案日期: '2024-05-10', 最新進度日期: '2024-12-02', 議案流程: [{ 狀態: '排入院會 (定期舉行會議)', 日期: ['2024-05-10'] }, { 狀態: '交付審查', 日期: ['2024-05-10'] }, { 狀態: '黨團協商', 日期: ['2024-10-17'] }, { 狀態: '委員會審查', 日期: ['2024-11-27'] }, { 狀態: '委員會發文', 日期: ['2024-12-02'] }] },
+    { 議案編號: '303110081830000', 議案名稱: '報告審查行政院函請審議「113年度中央政府總預算追加預算案」案。', '提案單位/提案委員': '本院財政委員會', 議案狀態: '排入院會(討論事項)', 提案日期: '2024-12-03', 最新進度日期: '2025-01-21', 議案流程: [{ 狀態: '委員會發文', 日期: ['2024-12-03'] }, { 狀態: '交付協商', 日期: ['2024-12-03'] }, { 狀態: '排入院會(討論事項)', 日期: ['2025-01-17', '2025-01-21'] }, { 狀態: '黨團協商', 日期: ['2025-01-06'] }, { 狀態: '黨團協商', 日期: ['2025-01-16'] }] }
+  ];
+  const [g] = budgetGroups(rows);
+  assert.equal(g.k, '113追加');
+  assert.equal(g.stage, '黨團協商', 'not 審查總報告: the floor sent it to talks and never voted');
+  assert.equal(g.last, '2025-01-21');
+  const r = budgetSteps(g.flow, g.first);
+  assert.equal(r.now, 4, 'the road reaches 協商');
+  assert.equal(r.days[4], '2025-01-06');
+  assert.ok(!g.flow.some(f => /三讀/.test(f[1])));
+  // Once passed, later talks (on something else) don't join its steps.
+  rows[1]['議案狀態'] = '三讀';
+  const [p] = budgetGroups(rows);
+  assert.equal(p.stage, '三讀');
+  assert.ok(!p.flow.some(f => f[0] === '2025-01-16'));
 });

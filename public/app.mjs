@@ -35,7 +35,7 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
-import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween } from './lib/budget.mjs';
+import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
@@ -3029,7 +3029,8 @@ async function openPerson(id) {
 const BUDGET_STEP_EN = [[/三讀/, 'Passed'], [/公布/, 'Promulgated'], [/協商/, 'In talks'], [/二讀/, '2nd reading'], [/審查完畢|審查總報告/, 'Reviewed'], [/退回程序/, 'Sent back'], [/委員會發文/, 'Committee letter'], [/交付審查|委員會/, 'In committee'], [/排入院會/, 'On the agenda'], [/復議/, 'Reconsidered'], [/預算流程/, 'Budget filed'], [/撤/, 'Withdrawn']];
 // A step in words: its note in brackets dropped; in English, the usual ones translated.
 const budgetStep = t => { const z = String(t || '').replace(/\s*[（(].*$/, ''); return en ? BUDGET_STEP_EN.find(([re]) => re.test(z))?.[1] || z : z; };
-const budgetTone = st => (/三讀|公布/.test(st) ? 'passed' : /協商|二讀|討論/.test(st) ? 'held' : '');
+// A 第二預備金 report is done once reviewed (or deemed reviewed): it has no 三讀.
+const budgetTone = (st, k = '') => (/三讀|公布/.test(st) || (/預備金$/.test(k) && /審查完畢/.test(st)) ? 'passed' : /協商|二讀|討論/.test(st) ? 'held' : '');
 // 政事別 (what the money is for): a colour and a short name each.
 const FN = {
   一般政務支出: ['#64748b', '一般政務', 'Government'],
@@ -3058,19 +3059,27 @@ const md = d => (d ? `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}` : '');
 // report deemed reviewed when its review period ran out) counts as reviewed that day.
 const stepsOf = x => budgetSteps(/審查完畢/.test(x.stage) && !(x.flow || []).some(f => /總報告|審查完畢/.test(f[1])) ? [...(x.flow || []), [x.last, '審查完畢']] : x.flow, x.first);
 const lapsed = x => (x.bills || []).some(b => /逾審查期限/.test(b[3] || ''));
+const roadOf = x => roadSteps(x.k);
+const roadDone = (x, r) => r.now === roadOf(x).length - 1;
 const roadHtml = (x, big = false) => {
   const r = stepsOf(x);
-  return `<span class="lw-road${big ? ' big' : ''}${r.now === 5 ? ' passed' : ''}" role="img" aria-label="${esc(BUDGET_STEPS[r.now][en ? 1 : 0])}">${BUDGET_STEPS.map(([zh, e], i) => `<span class="${i < r.now || (i === r.now && r.now === 5) ? 'done' : i === r.now ? 'now' : ''}"><i></i>${big ? `<b>${esc(en ? e : zh)}</b><small>${i <= r.now && r.days[i] ? esc(md(r.days[i])) : ''}</small>` : ''}</span>`).join('')}</span>`;
+  const steps = roadOf(x);
+  const end = roadDone(x, r);
+  return `<span class="lw-road${big ? ' big' : ''}${steps.length === 4 ? ' four' : ''}${end ? ' passed' : ''}" role="img" aria-label="${esc(steps[r.now][en ? 1 : 0])}">${steps.map(([zh, e], i) => `<span class="${i < r.now || (i === r.now && end) ? 'done' : i === r.now ? 'now' : ''}"><i></i>${big ? `<b>${esc(en ? e : zh)}</b><small>${i <= r.now && r.days[i] ? esc(md(r.days[i])) : ''}</small>` : ''}</span>`).join('')}</span>`;
 };
+// Months since a budget last moved, when it's stuck (not done, quiet over half a year).
+const quietMonths = (x, r, today) => (roadDone(x, r) ? 0 : stuckMonths(x.last, today));
 // Where a budget stands in a line: the step and its day, how long it took,
 // and for a yearly 總預算 the legal deadline (11/30 before its year).
 function roadLine(x, long = false) {
   const r = stepsOf(x);
-  const now = BUDGET_STEPS[r.now][en ? 1 : 0];
+  const now = roadOf(x)[r.now][en ? 1 : 0];
   const day = r.days[r.now] || x.last;
   const parts = [`${lapsed(x) && r.now === 3 ? W('逾期視為審完', 'Deemed reviewed') : now}${day ? ` ${ymd(day)}` : ''}`];
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   if (long && lapsed(x)) parts.push(W('審查期限已過，依法視為審查完畢', 'the review period ran out'));
+  const quiet = quietMonths(x, r, today);
+  if (quiet) parts.push(long ? W(`${ymd(x.last)} 後就沒有進度`, `no progress since ${ymd(x.last)}`) : W(`${quiet} 個月沒進度`, `stuck ${quiet} months`));
   if (r.now === 5 && r.days[0] && day) parts.push(W(`歷時 ${daysBetween(r.days[0], day)} 天`, `${daysBetween(r.days[0], day)} days`));
   if (long && /^\d+$/.test(x.k)) {
     const due = budgetDue(x.k);
@@ -3103,7 +3112,7 @@ async function budgetList(out) {
     return `<span class="lw-bud-total"><b>${esc(money(m.total, en))}</b><small>${W('歲出', 'Spending')}</small>${chgTag(m.total, m.prev)}</span>${fnBar(m.fn)}<span class="lw-bud-legend">${top.map(f => `<span><i style="--c:${fnOf(f[0])[0]}"></i>${esc(fnName(f[0]))} ${pct(f[1], m.total)}</span>`).join('')}</span>${cut}${most}`;
   };
   const card = x => {
-    const head = `<span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(x.stage)}">${esc(budgetStep(x.stage))}</span><span class="lw-bill-day">${esc(shortDay(x.last))}</span></span><b class="lw-bill-name">${esc(budgetName(x))}</b>`;
+    const head = `<span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(x.stage, x.k)}">${esc(budgetStep(x.stage))}</span></span><b class="lw-bill-name">${esc(budgetName(x))}</b>`;
     return `<a class="lw-bill lw-budget${x.money ? ' money' : ''}" href="${href(x)}">${head}${roadHtml(x)}<span class="lw-bud-steps">${esc(roadLine(x).join(' · '))}</span>${x.money ? moneyBits(x.money) : ''}</a>`;
   };
   const q = billQuery;
@@ -3112,7 +3121,7 @@ async function budgetList(out) {
   // The 總預算 in 立法院 now: the newest year's.
   const cur = !q && shown.filter(x => budgetKind(x.k) === 'year').sort((a, c) => Number(c.k) - Number(a.k))[0];
   const hero = cur
-    ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${stepsOf(cur).now < 5 ? W('立法院正在審', 'In the Legislative Yuan now') : W('最新的總預算', 'Latest budget')}</h2></div><a class="lw-bill lw-budget lw-bud-hero${cur.money ? ' money' : ''}" href="${href(cur)}"><span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(cur.stage)}">${esc(budgetStep(cur.stage))}</span><span class="lw-bill-day">${esc(shortDay(cur.last))}</span></span><b class="lw-bill-name">${esc(budgetName(cur))}</b>${roadHtml(cur, true)}<span class="lw-bud-road-note">${roadLine(cur, true).map(dueSpan).join('')}</span>${cur.money ? moneyBits(cur.money) : `<span class="lw-bud-note wrap">${W('主計總處公布預算表後，這裡會有金額、各部會和刪減。', 'Amounts, ministries and cuts show once the DGBAS publishes the tables.')}</span>`}</a></section>`
+    ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${stepsOf(cur).now < 5 ? W('立法院正在審', 'In the Legislative Yuan now') : W('最新的總預算', 'Latest budget')}</h2></div><a class="lw-bill lw-budget lw-bud-hero${cur.money ? ' money' : ''}" href="${href(cur)}"><span class="lw-bill-top"><span class="lw-bill-stage ${budgetTone(cur.stage, cur.k)}">${esc(budgetStep(cur.stage))}</span></span><b class="lw-bill-name">${esc(budgetName(cur))}</b>${roadHtml(cur, true)}<span class="lw-bud-road-note">${roadLine(cur, true).map(dueSpan).join('')}</span>${cur.money ? moneyBits(cur.money) : `<span class="lw-bud-note wrap">${W('主計總處公布預算表後，這裡會有金額、各部會和刪減。', 'Amounts, ministries and cuts show once the DGBAS publishes the tables.')}</span>`}</a></section>`
     : '';
   out.innerHTML =
     hero +
@@ -3133,7 +3142,7 @@ async function openBudget(k) {
   const body = h('div', { class: 'lw-bud-page' });
   const close = () => location.hash.includes('budget=') && history.replaceState(null, '', '#tab=bills&f=budget');
   sheet({ title: W('預算', 'Budget'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
-  const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage)}">${esc(budgetStep(x.stage))}</span>${x.last ? `<span class="lw-tag">${esc(ymd(x.last))}</span>` : ''}</div><div class="lw-bud-road">${roadHtml(x, true)}<span class="lw-bud-road-note">${roadLine(x, true).map(dueSpan).join('')}</span></div>`;
+  const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage, x.k)}">${esc(budgetStep(x.stage))}</span>${x.last ? `<span class="lw-tag">${esc(ymd(x.last))}</span>` : ''}</div><div class="lw-bud-road">${roadHtml(x, true)}<span class="lw-bud-road-note">${roadLine(x, true).map(dueSpan).join('')}</span></div>`;
   const steps = x.flow?.length ? `<section class="lw-person-sec"><h4>${W('進度', 'Steps')}</h4><ol class="lw-timeline">${x.flow.map(f => `<li class="done"><b>${esc(budgetStep(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol></section>` : '';
   const votesBox = h('section', { class: 'lw-person-sec' });
   if (x.votes?.length)

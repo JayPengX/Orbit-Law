@@ -65,6 +65,14 @@ Live: https://orbit.jaypengx.com/law/
   columns, cards in a grid. 問法律 and a law's text keep a reading width; on a
   computer a law's card and its 目錄 stand beside the text.
 
+- **Budgets** (`budgetGroups` in `lib/ly.mjs`, the road in `lib/budget.mjs`): a
+  budget's steps are its master bill's, its 審查總報告's filing, and while it
+  hasn't passed, the 黨團協商 held on that report (113年度追加預算 has sat in
+  協商 since 2025/01, never voted: it stands at 黨團協商, not 審查總報告). A
+  第二預備金動支數額表 has four steps, ending at 審完 (reviewed, or deemed
+  reviewed when the period runs out: 審查完畢(逾審查期限)), so it reads done.
+  A card carries one date, in full, on the line under its road; one not done
+  that sat still over half a year says how many months.
 - **Links** (`lib/refs.mjs`, one rule for every screen): 第X條(之Y), ranges
   (至), lists (、), 前條/前N條, 前項/第N項, and another law's name before 第X條
   (index names plus `SHORT_NAMES`). A name we don't know right before 第X條

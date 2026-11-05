@@ -176,3 +176,11 @@ export function budgetSteps(flow = [], first = '') {
 export const budgetDue = y => `${Number(y) + 1910}-11-30`;
 // Whole days from a to b (YYYY-MM-DD).
 export const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400e3);
+// A 第二預備金動支數額表 is a report on spending already made: its road ends
+// when the committee is done with it (or the review period runs out), with
+// no 總報告, 協商 or 三讀. Its four steps; every other budget's six.
+export const RESERVE_STEPS = [...BUDGET_STEPS.slice(0, 3), ['審完', 'Reviewed']];
+export const roadSteps = k => (/預備金$/.test(String(k || '')) ? RESERVE_STEPS : BUDGET_STEPS);
+// Whole months a budget not yet done has sat still (its last move `last`),
+// once that's over half a year; else 0.
+export const stuckMonths = (last, today) => (last && daysBetween(last, today) > 180 ? Math.floor(daysBetween(last, today) / 30.4) : 0);

@@ -117,6 +117,18 @@ Live: https://orbit.jaypengx.com/law/
   an article `&a=<key>` (`184`, `39-1`), a ruling `#r=<id>` (`s748` 釋字第748號,
   `j111-10` 111年憲判字第10號, else the 司法院 JID), a bill `#item=<term>-<law>`.
   Data files use the same: cites are `pcode:key` (`pcode` alone: the law as a whole).
+  立法's own pages (`#item=`, `#who=`, `#budget=`, `#notice=`, `#meet=`) tapped
+  outside 立法 (我的, 首頁, a law) open as a sheet over that screen (`overHere`),
+  a bill and a 立委 alike (Jay 2026-11-05); from 立法 itself, or a shared link,
+  they open over 立法.
+- **A tab you come back to stays as you left it** (Jay 2026-11-05: tabs jumped
+  up and flashed). The kit's tabBar shows a tab drawn before at once and the
+  app draws it again once the pill lands; every tab's draw goes through
+  `paint(el, html)`, which leaves the nodes alone when the words are the same,
+  and a part filled later (我的's 立委, 首頁's 政府公告) keeps its last drawing in
+  its place (`laterHtml`/`fillLater`), so the page never goes short and Safari
+  never drops the reader up. 法規 tapped again with a law open keeps the place
+  being read (only a newly opened law starts at its top). `tests/tab-return.test.mjs`.
 - **裁判, 憲法法庭** (`lib/cons.mjs`, `scripts/build-cons.mjs`): every 大法官解釋
   (1–813) and 憲判字 read from the court's own pages (open all day): question,
   holding, reasons, opinions, and its 相關法令 as article cites. Numbers cited

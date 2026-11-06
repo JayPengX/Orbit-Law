@@ -416,7 +416,7 @@ test('cards: six steps, short stages, party chips, a bill card, the funnel', () 
   assert.equal(stageShort({ stage: 2, held: true }), '暫停審查');
   assert.match(progress({ stage: 4 }), /lw-prog moving/);
   assert.equal((progress({ stage: 4 }).match(/class="on/g) || []).length, 4);
-  assert.match(progress({ stage: 4 }, false, { counts: [3, 11, 0, 61, 0, 0] }), /lw-prog-counts"><span><b>3<\/b><\/span><span><b>11<\/b><\/span><span><\/span><span><b>61<\/b>/);
+  assert.match(progress({ stage: 4 }, false, { counts: [3, 11, 0, 61, 0, 0] }), /lw-prog-counts"><span><b>3<\/b><small>版本<\/small><\/span><span><b>11<\/b><small>版本<\/small><\/span><span><\/span><span><b>61<\/b>/);
   assert.match(partyChips([['民主進步黨', 3], ['行政院', 1]]), /民進黨<b>3<\/b>.*行政院<\/span>/);
   const card = billCard({ k: '11:01126', n: '老人福利法', stage: 4, u: '2026-10-20', count: 59, arts: { 2: 1, 8: 1 }, by: [['中國國民黨', 20]] }, { topic: 'welfare', now: new Date('2026-10-18') });
   assert.match(card, /href="#item=11-01126"/);
@@ -898,4 +898,50 @@ test('bills: versions a 三讀 took in are not open, and 這週三讀通過 show
   // A version tied to a 三讀 but filed after it is a new round, not taken in.
   const later = compactBill(raw('205', { 提案日期: '2026-11-02', 最新進度日期: '2026-11-03', 關連議案: [{ 議案編號: '203' }] }));
   assert.ok(openRound([...all, later]).some(b => b.id === '205'));
+});
+
+// The 這週三讀通過 card showed 刑法 已通過 (10/30, 國民黨 +2, 63 版本) and opened
+// the newer round's sheet: 剛提出, 民進黨 5, 最新 11/3 排入院會 over a bar at
+// 提案 (Jay 2026-11-06). The card opens its own round, and both say the same.
+test('bills: a 這週三讀通過 card opens its passed round, and card and sheet agree', async () => {
+  const { passedView, billCard, whereNow, stageShort, progress, itemHref } = await import('../public/lib/cards.mjs');
+  const { passedRoundOf } = await import('../public/lib/bills.mjs');
+  const report = compactBill(raw('203', { 議案名稱: '報告併案審查「甲法第二條條文修正草案」', '提案單位/提案委員': '本院司法及法制委員會', 提案日期: '2026-07-30', 最新進度日期: '2026-11-03', 議案狀態: '三讀', 案由: '本院司法及法制委員會 審查報告', 議案流程: [{ 狀態: '排入院會(討論事項)', 日期: ['2026-10-30', '2026-11-03'] }, { 狀態: '三讀', 日期: ['2026-10-30'] }], 關連議案: [{ 議案編號: '201' }] }));
+  const direct = compactBill(raw('202', { 議案名稱: '「甲法第二條條文修正草案」，請審議案。', '提案單位/提案委員': '本院中國國民黨黨團', 提案日期: '2026-08-21', 最新進度日期: '2026-11-03', 議案狀態: '排入院會(討論事項)', 案由: '本院中國國民黨黨團，為了提高毒駕罰則，爰擬具「甲法第二條條文修正草案」。是否有當？敬請公決。', 議案流程: [{ 狀態: '逕付二讀(交付協商)', 日期: ['2026-08-21'] }, { 狀態: '排入院會(討論事項)', 日期: ['2026-10-30'] }], 關連議案: [{ 議案編號: '203' }] }));
+  const fresh = compactBill(raw('204', { 議案名稱: '「甲法第七十七條條文修正草案」，請審議案。', '提案單位/提案委員': '本院民主進步黨黨團', 提案日期: '2026-10-30', 最新進度日期: '2026-11-03', 議案狀態: '排入院會', 案由: '本院民主進步黨黨團，為了配合新增不得假釋之規定，爰擬具「甲法第七十七條條文修正草案」。是否有當？敬請公決。', 議案流程: [{ 狀態: '排入院會', 日期: ['2026-10-30'] }] }));
+  const all = [report, direct, fresh];
+  const [it] = foldBills(all);
+  const card = passedView(it);
+  // The card's link is the passed round's; the rest of 立法 links the law's open round.
+  assert.match(billCard(card), /href="#item=[^"]+&amp;round=passed"/);
+  assert.doesNotMatch(billCard(it), /round=passed/);
+  assert.equal(itemHref({ k: it.k }), `#item=${it.k.replace(':', '-')}`);
+  // The sheet's versions are the card's: the same round, count and articles.
+  const round = passedRoundOf(all, card.passed);
+  assert.deepEqual(round.map(b => b.id).sort(), ['202', '203']);
+  assert.equal(card.count, round.length, 'versions: card = sheet');
+  assert.deepEqual(Object.keys(card.arts), ['2'], 'articles: the passed round’s, not 77');
+  assert.equal(card.top, '202', 'its newest version, not the new round’s');
+  assert.deepEqual(card.by.map(([w]) => w).sort(), ['國民黨'], 'who: the passed round’s');
+  // Its sheet reads as the card: passed on the vote's day, the bar at 三讀, the new round a tap on.
+  assert.equal(stageShort(card), '已通過');
+  assert.match(progress(card, false, { labels: true }), /aria-label="三讀"/);
+  const w = whereNow(card, round, false, new Date('2026-11-06T06:00:00Z'));
+  assert.equal(w.last, '10/30 三讀通過');
+  assert.equal(w.next, '總統公布');
+  assert.equal(w.later, 1, 'the newer round is named, not shown as this one');
+  // The open round's sheet: its latest step agrees with its bar (提案, waiting for 一讀).
+  assert.match(progress(it, false, { labels: true }), /aria-label="提案"/);
+  const o = whereNow(it, all, false, new Date('2026-11-06T06:00:00Z'));
+  assert.match(o.last, /排入院會，等一讀$/);
+  assert.equal(o.before, '10/30');
+});
+
+test('bills: 這週三讀通過 cards and the bill sheet go through the passed round', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../public/app.mjs', import.meta.url), 'utf8');
+  assert.match(src, /passed\.slice\(0, 10\)\.map\(it => card\(passedView\(it\)\)\)/, '這週三讀通過 draws passedView');
+  assert.match(src, /openItem\(p\.get\('item'\)\.replace\('-', ':'\), \{ round: p\.get\('round'\) \}\)/, 'the route passes &round=');
+  assert.match(src, /round === 'passed' && item\.passed \? passedView\(item\)/, 'the sheet draws the same view as the card');
+  assert.match(src, /bills = passedRoundOf\(bills, it\.passed\)/, 'the sheet lists the card’s versions');
 });

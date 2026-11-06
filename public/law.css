@@ -417,7 +417,14 @@ html.q-kb #panel-ask::after {
   font-variant-numeric: tabular-nums;
 }
 .lw-prog-counts b {
+  display: block;
   font-size: 13px;
+}
+/* The unit under each number (版本), so a 5 under 提案 reads as 5 versions. */
+.lw-prog-counts small {
+  display: block;
+  color: var(--q-label-3);
+  font: 500 10px/12px var(--q-font);
 }
 
 /* The term at a glance: how many bills stand at each step. */

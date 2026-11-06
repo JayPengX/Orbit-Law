@@ -89,10 +89,14 @@ Live: https://orbit.jaypengx.com/law/
   that went quiet before it don't count as open, nor do the versions it took
   in (`passedRound`: tied to a passed one by 關連議案 and filed before the vote;
   立法院 leaves them at 排入院會 dated by a later sitting). 這週三讀通過 shows
-  the passed round (`passedView`, the item's `pr`), not a newer one still open. The bar shows six steps
+  the passed round (`passedView`, the item's `pr`), not a newer one still open,
+  and opens that round's sheet (`#item=…&round=passed`, `passedRoundOf`: its
+  versions, proposers and articles, 最新 its 三讀, 新一輪 a link to the open one;
+  the open sheet's 上一輪 links back). The bar shows six steps
   (`lib/cards.mjs`): 提案 · 一讀 · 委員會 · 院會 · 三讀 · 公布. 院會 takes in
   審查完畢, 黨團協商 and 二讀 (協商 happens at the floor, not between 一讀 and
-  二讀). With several open versions, each step shows how many stand there.
+  二讀). With several open versions, each step shows how many stand there ("5 版本"); a
+  version only set for its 一讀 reads 排入院會，等一讀 (the bar's 院會 is later).
   The 立法 funnel counts versions by how far they got (`billCounts`), with how
   many still wait under each; a reviewed version a 三讀 of its law took over
   doesn't wait.

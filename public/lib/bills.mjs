@@ -98,14 +98,21 @@ export function sponsorOf(by, parties = new Map()) {
   return (who && parties.get(who[1].trim())) || '';
 }
 
-// The round the last 三讀 (on `passed`) took in, as the card shows it: how many
-// versions, the newest one's purpose, and who filed them.
-function passedSummary(bills, passed, parties) {
+// The round the last 三讀 (on `passed`) took in: the versions passed that day
+// and the ones tied to them that it took in. One list for the card and its sheet.
+export function passedRoundOf(bills, passed = bills.map(passedOn).sort().pop() || '') {
+  if (!passed) return [];
   const on = new Set(bills.filter(b => passedOn(b) === passed).map(b => b.id));
-  const round = passedRound(bills).filter(b => on.has(b.id) || (b.rel || []).some(id => on.has(id)) || bills.some(o => on.has(o.id) && (o.rel || []).includes(b.id)));
+  return passedRound(bills).filter(b => on.has(b.id) || (b.rel || []).some(id => on.has(id)) || bills.some(o => on.has(o.id) && (o.rel || []).includes(b.id)));
+}
+
+// That round as the card shows it: how many versions, the newest one's
+// purpose, who filed them, the articles it changed, its newest version.
+function passedSummary(bills, passed, parties) {
+  const round = passedRoundOf(bills, passed);
   const newest = [...round].sort((a, b) => (a.d < b.d ? 1 : -1));
   const by = [...round.reduce((m, b) => (s => (s ? m.set(s, (m.get(s) || 0) + 1) : m))(partyOf(sponsorOf(b.by, parties)).zh), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  return { n: round.length, about: newest.find(b => b.a && !/審查報告$/.test(b.a))?.a || '', by };
+  return { n: round.length, about: newest.find(b => b.a && !/審查報告$/.test(b.a))?.a || '', by, arts: articlesTouched(round), top: newest[0]?.id || '' };
 }
 
 export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map() } = {}) {

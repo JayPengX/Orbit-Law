@@ -24,7 +24,7 @@ import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN } from
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
-import { PASSED, PROMULGATED, whyOf, openRound } from './lib/bills.mjs';
+import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askRuling, askError, passFetch, MAX_Q } from './lib/ask.mjs';
@@ -36,7 +36,7 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
@@ -242,7 +242,7 @@ async function route() {
     showTab('bills');
     drawBills();
     await itemsReady;
-    if (p.get('item')) openItem(p.get('item').replace('-', ':'));
+    if (p.get('item')) openItem(p.get('item').replace('-', ':'), { round: p.get('round') });
     if (p.get('who')) openPerson(p.get('who'));
     if (p.get('budget')) openBudget(p.get('budget'));
     if (p.get('notice')) noticesReady.then(() => openNotice(p.get('notice')));
@@ -1528,8 +1528,8 @@ async function openBillById(id) {
 }
 
 // One of 立法's pages, opened as a sheet over the screen it was tapped on.
-function overHere(kind, id, d = '') {
-  if (kind === 'item') return itemsReady.then(() => openItem(id.replace('-', ':')));
+function overHere(kind, id, d = '', round = '') {
+  if (kind === 'item') return itemsReady.then(() => openItem(id.replace('-', ':'), { round }));
   if (kind === 'who') return openPerson(id);
   if (kind === 'notice') return noticesReady.then(() => openNotice(id));
   itemsReady.then(() => (kind === 'budget' ? openBudget(id) : openMeet(id, d)));
@@ -1562,7 +1562,7 @@ document.addEventListener(
     // tapped outside 立法 (我的, a law you're reading, 首頁): over that screen,
     // so closing it is back where you were. A bill and a 立委 in 我的 open the
     // same way (Jay 2026-11-05: a 立委 went to 立法, a bill didn't).
-    if (state.tab !== 'bills' && (m = (a.getAttribute('href') || '').match(/^#(item|who|budget|notice|meet)=([^&]+)(?:&d=([^&]*))?$/))) return e.preventDefault(), overHere(m[1], decodeURIComponent(m[2]), m[3] || '');
+    if (state.tab !== 'bills' && (m = (a.getAttribute('href') || '').match(/^#(item|who|budget|notice|meet)=([^&]+)(?:&d=([^&]*))?(?:&round=(passed))?$/))) return e.preventDefault(), overHere(m[1], decodeURIComponent(m[2]), m[3] || '', m[4] || '');
     if (a.dataset.text) return e.preventDefault(), openRuleText(a.dataset.text, label);
     if ((m = href.match(/^https:\/\/ivod\.ly\.gov\.tw\/Play\/Clip\/\w+\/(\d+)/))) return e.preventDefault(), openClip(m[1], label);
     if ((m = href.match(/^https:\/\/ppg\.ly\.gov\.tw\/ppg\/bills\/(\d+)\/details/))) return e.preventDefault(), openBillById(m[1]);
@@ -2562,9 +2562,12 @@ async function openNotice(id) {
 
 // A bill item: where it stands, who proposed it, what it changes (the
 // newest version's 對照表, changed words marked), its steps and versions.
-async function openItem(k) {
-  const it = state.items.find(x => x.k === k);
-  if (!it) return;
+// `round: 'passed'` (a 這週三讀通過 card): the round its last 三讀 passed, as the
+// card showed it (stage, who, versions, articles), with a way on to the newer one.
+async function openItem(k, { round } = {}) {
+  const item = state.items.find(x => x.k === k);
+  if (!item) return;
+  const it = round === 'passed' && item.passed ? passedView(item) : item;
   // The sheet opens at once on what the list already knows (its name, topic,
   // stage, who filed it); the versions are read behind it (it used to wait
   // for them with nothing on screen: about a second on a phone).
@@ -2572,8 +2575,8 @@ async function openItem(k) {
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
   const tone = it.dropped ? '' : it.held ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
   const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
-  const artsHtml = articleChips(it, en);
-  const arts = artsHtml ? h('div', { class: 'lw-item-who', html: `<h4>${W(`要改哪幾條（${Object.keys(it.arts).length}）`, `Articles it changes (${Object.keys(it.arts).length})`)}</h4><div class="lw-parties">${artsHtml}</div>` }) : null;
+  const artsBox = x => (html => (html ? h('div', { class: 'lw-item-who', html: `<h4>${it.round === 'passed' ? W(`改了哪幾條（${Object.keys(x.arts).length}）`, `Articles it changed (${Object.keys(x.arts).length})`) : W(`要改哪幾條（${Object.keys(x.arts).length}）`, `Articles it changes (${Object.keys(x.arts).length})`)}</h4><div class="lw-parties">${html}</div>` }) : null))(articleChips(x, en));
+  let arts = artsBox(it);
   const who = it.by?.length ? h('div', { class: 'lw-item-who', html: `<h4>${W('誰提的', 'Proposed by')}</h4><div class="lw-parties">${partyChips(it.by, en, 6)}</div>` }) : null;
   const why = h('div', { class: 'lw-item-why', html: `<h4>${W('為什麼要修', 'Why, as filed')}</h4><span class="q-skel" style="height:56px"></span>` });
   const changes = h('div', { class: 'lw-item-diff', html: `<h4>${W('修什麼', 'What it changes')}</h4><div class="lw-diffs"><span class="q-skel" style="height:72px"></span></div>` });
@@ -2591,12 +2594,21 @@ async function openItem(k) {
     s.close();
     return toast(W('這個法案打不開，請稍後再試', 'This bill can’t be opened right now'));
   }
+  // The passed round: only its own versions (the card's count), its articles.
+  if (it.round === 'passed') {
+    bills = passedRoundOf(bills, it.passed);
+    if (!Object.keys(it.arts).length) {
+      const fresh = artsBox({ ...it, arts: articlesTouched(bills) });
+      if (fresh) arts ? arts.replaceWith(fresh) : (who || progWait).after(fresh);
+      arts = fresh;
+    }
+  }
   markSeen(state.mine, 'items', k);
   save();
-  noteRead({ kind: 'bill', id: k, title: W(`${it.n}修正草案`, `${it.n} amendment`), href: `#item=${k.replace(':', '-')}`, sub: '' });
+  noteRead({ kind: 'bill', id: k, title: W(`${it.n}修正草案`, `${it.n} amendment`), href: itemHref(it).replace('&amp;', '&'), sub: '' });
   const steps = timeline(it, bills, en, state.noticesByLaw.get(it.p));
   const now = whereNow(it, bills, en);
-  const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審，數字是各停在哪一步`, `${now.open} versions open; the numbers say where each stands`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span>${esc(W(`${now.before} 已三讀過一次`, `passed ${now.before}`))}</span></p>`].filter(Boolean).join('');
+  const nowLine = [now.last && `<p><b>${W('最新', 'Latest')}</b><span>${esc(now.last)}</span></p>`, now.next && `<p><b>${W('下一步', 'Next')}</b><span>${esc(now.next)}</span></p>`, now.open > 1 && `<p><b>${W('這一輪', 'This round')}</b><span>${esc(W(`${now.open} 個版本還在審`, `${now.open} versions open; the numbers say how many stand at each step`))}</span></p>`, now.before && `<p><b>${W('上一輪', 'Last round')}</b><span><a href="${itemHref({ k, round: 'passed' })}">${esc(W(`${now.before} 已三讀通過`, `passed ${now.before}`))}</a></span></p>`, now.later && `<p><b>${W('新一輪', 'New round')}</b><span><a href="${itemHref({ k })}">${esc(W(`${now.later} 個新版本・${stageShort({ stage: it.laterStage }, en)}`, `${now.later} new versions · ${stageShort({ stage: it.laterStage }, en)}`))}</a></span></p>`].filter(Boolean).join('');
   const prog = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true, counts: now.open > 1 ? roundSteps(openRound(bills)) : null }) + `<div class="lw-now">${nowLine}</div>` });
   prog.querySelector('.lw-prog').insertAdjacentHTML('afterend', `<button type="button" class="lw-how" data-how="${it.dropped || it.held ? -1 : stepOf(it.stage)}">${W('每一步是什麼意思？', 'What do the steps mean?')}</button>`);
   prog.addEventListener('click', e => e.target.closest('[data-how]') && howBillsWork(Number(e.target.closest('[data-how]').dataset.how)));

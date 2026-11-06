@@ -4,7 +4,7 @@
 // and a list of 200 cards draws in one go.
 import { esc } from './view.mjs';
 import { TOPICS, partyOf } from './topics.mjs';
-import { PASSED, PROMULGATED, openRound, billStage } from './bills.mjs';
+import { PASSED, PROMULGATED, openRound, billStage, stageOf } from './bills.mjs';
 
 const svg = (d, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -39,7 +39,7 @@ export function progress(item, en = false, { labels = false, counts = null } = {
   const tone = toneOf(item);
   const segs = STEPS.map((s, i) => `<i class="${i <= step ? 'on' : ''}${i === step ? ' now' : ''}"></i>`).join('');
   const names = labels ? `<span class="lw-prog-names">${STEPS.map((s, i) => `<span class="${i <= step ? 'on' : ''}">${esc(s[en ? 1 : 0])}</span>`).join('')}</span>` : '';
-  const nums = counts ? `<span class="lw-prog-counts">${STEPS.map((s, i) => `<span>${counts[i] ? `<b>${counts[i]}</b>` : ''}</span>`).join('')}</span>` : '';
+  const nums = counts ? `<span class="lw-prog-counts">${STEPS.map((s, i) => `<span>${counts[i] ? `<b>${counts[i]}</b><small>${en ? (counts[i] > 1 ? 'versions' : 'version') : '版本'}</small>` : ''}</span>`).join('')}</span>` : '';
   return `<span class="lw-prog ${tone}" role="img" aria-label="${esc(STEPS[step][en ? 1 : 0])}"><span class="lw-prog-bar">${segs}</span>${names}${nums}</span>`;
 }
 // How many of a round's versions stand at each step (each by the furthest it reached).
@@ -91,14 +91,22 @@ export const dayOf = (d, en, now = new Date()) => (String(d).slice(0, 10) > new 
 // Where an item stands, in words, from its versions' own steps: the latest
 // step (a day ahead is the meeting it's set for), the step it waits for,
 // how many versions are still open, and an earlier round's 三讀.
+// The passed round's sheet (這週三讀通過) reads as that 三讀 left it, with how
+// many versions a newer round has open (`later`). A version only set on the
+// floor for its 一讀 (排入院會, stage 0) says so: 院會 is a later step on the bar.
 export function whereNow(it, bills = [], en = false, now = new Date()) {
+  if (it.round === 'passed') {
+    const pub = it.pub ? String(it.pub).replace(/^(\d{4})(\d\d)(\d\d)$/, '$1-$2-$3') : '';
+    return { last: pub ? `${shortDay(pub, now)} ${en ? 'promulgated' : '總統公布'}` : `${shortDay(it.passed, now)} ${en ? 'passed' : '三讀通過'}`, next: pub ? '' : (en ? NEXT_EN : NEXT)[PROMULGATED], open: 0, before: '', later: it.later || 0 };
+  }
   const round = openRound(bills);
   let last = null;
   for (const b of round.length ? round : bills) for (const [d, , raw] of [...(b.flow || []), [b.u, 0, b.st]]) if (d && raw && (!last || d > last.d)) last = { d, raw };
   const s = it.stage;
   const next = it.dropped || it.held || s >= PROMULGATED || s < 0 ? '' : (en ? NEXT_EN : NEXT)[s === 3 || s === 4 ? 5 : s + 1];
+  const said = raw => (/^排入(院會|程序)/.test(raw) && stageOf(raw).stage === 0 ? (en ? 'on the floor agenda, for 1st reading' : '排入院會，等一讀') : raw.replace(/\s+/g, ''));
   return {
-    last: last ? `${/^排入/.test(last.raw) ? shortDay(last.d, now) : dayOf(last.d, en, now)} ${last.raw.replace(/\s+/g, '')}` : '',
+    last: last ? `${/^排入/.test(last.raw) ? shortDay(last.d, now) : dayOf(last.d, en, now)} ${said(last.raw)}` : '',
     next,
     open: round.length,
     before: s < PASSED && it.passed ? shortDay(it.passed, now) : ''
@@ -130,7 +138,7 @@ export function billCard(it, { topic = 'gov', en = false, now, wide = false, on 
   const day = on ? (on === today ? (en ? 'On today' : '今天議程') : en ? `On ${shortDay(on, now)}` : `${shortDay(on, now)} 議程`) : dayOf(it.u, en, now);
   const arts = Object.keys(it.arts || {}).length;
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean).slice(0, wide ? 2 : 1);
-  return `<a class="lw-bill${wide ? ' wide' : ''}" href="#item=${esc(it.k.replace(':', '-'))}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
+  return `<a class="lw-bill${wide ? ' wide' : ''}" href="${itemHref(it)}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
 <span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(day)}</span></span>
 <span class="lw-bill-name${fit(it.n)}">${esc(String(it.n).replace(/^中華民國(?!\d)/, ''))}</span>
 ${it.about && !en ? `<span class="lw-bill-about">${esc(it.about)}</span>` : ''}
@@ -144,8 +152,10 @@ ${progress(it, en)}
 // proposers, never the newer round still open on the same law.
 export function passedView(it) {
   const pr = it.pr || {};
-  return { ...it, stage: it.pub ? PROMULGATED : PASSED, held: false, open: 0, arts: {}, u: it.passed, about: pr.about || it.about, by: pr.by?.length ? pr.by : it.by, count: pr.n || it.count };
+  return { ...it, round: 'passed', later: it.open, laterStage: it.stage, stage: it.pub ? PROMULGATED : PASSED, held: false, open: 0, arts: pr.arts || {}, top: pr.top || it.top, u: it.passed, about: pr.about || it.about, by: pr.by?.length ? pr.by : it.by, count: pr.n || it.count };
 }
+// A bill's own link: the passed round's (這週三讀通過) opens that round's sheet.
+export const itemHref = it => `#item=${esc(it.k.replace(':', '-'))}${it.round === 'passed' ? '&amp;round=passed' : ''}`;
 
 // A law as a row: tile, the name (the whole width; the kit's .q-fit-wrap shrinks
 // it onto one line, or two), one line under it

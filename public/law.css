@@ -4530,7 +4530,7 @@ a.lw-h-art {
    conversation) and a law's text keep a reading width; on a computer the
    law's card and 目錄 stand beside its text. */
 :root.q-wide {
-  --q-page-max: 1180px;
+  --q-page-max: var(--q-wide-max, 1180px);
 }
 :root.q-wide[data-lw-tab='ask'],
 :root.q-wide:not(.q-w3)[data-lw-law] {
@@ -4568,7 +4568,8 @@ a.lw-h-art {
   padding-inline: 0;
   scroll-padding-inline: 0;
 }
-@container (min-width: 540px) {
+/* (Two from a 480 column: a laptop's, beside the computer's side bar, Jay 2026-11-06.) */
+@container (min-width: 480px) {
   :root.q-wide .lw-rail { --n: 2; }
 }
 @container (min-width: 820px) {

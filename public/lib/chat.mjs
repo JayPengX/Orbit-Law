@@ -200,3 +200,44 @@ export const STARTERS = [
   ['勞基法修法進度到哪了？', 'Where is the Labor Act amendment?', 'labor'],
   ['我追蹤的立委投了什麼票？', 'How did my legislators vote?', 'gov']
 ];
+
+// 問法律's start: four questions worth asking now, each with why it's here
+// (Jay 2026-11-06: 試試這樣問, the same six fixed questions home already
+// shows, read "shit"). What you were reading, a bill you follow, your
+// legislators' votes, the bill that moved most lately, then everyday
+// situations. Each { q, why, topic, mark } (mark: 'law', 'bill', 'gov', 'try').
+export function askIdeas({ reading = [], items = [], followed = {}, people = false, lawTopic = () => 'gov', itemTopic = () => 'gov', en = false, n = 4, now = Date.now() } = {}) {
+  const W = (zh, e) => (en ? e : zh);
+  const out = [];
+  const add = (q, why, topic, mark) => q && out.length < n && !out.some(x => x.q === q) && out.push({ q, why, topic, mark });
+  const law = reading.find(x => x.kind === 'law' && x.title);
+  if (law) {
+    const k = /[#&]a=([^&]+)/.exec(law.href || '')?.[1];
+    add(k ? W(`${law.title}第 ${k} 條在說什麼？`, `What does Article ${k} of ${law.title} say?`) : W(`${law.title}的重點是什麼？`, `What are the main points of ${law.title}?`), W('剛看過', 'Read lately'), lawTopic(law.id), 'law');
+  }
+  const newest = (a, b) => ((b.u || '') > (a.u || '') ? 1 : (b.u || '') < (a.u || '') ? -1 : 0);
+  const live = items.filter(it => it && it.n && !it.dropped);
+  const mine = live.filter(it => followed[it.k]).sort(newest)[0];
+  if (mine) add(W(`${mine.n}要改什麼？`, `What does the ${mine.n} amendment change?`), W('你追蹤的法案', 'A bill you follow'), itemTopic(mine), 'bill');
+  if (people) add(W('我追蹤的立委投了什麼票？', 'How did my legislators vote?'), W('你追蹤的立委', 'Legislators you follow'), 'gov', 'gov');
+  const moved = live.filter(it => it.u && it !== mine).sort(newest)[0];
+  if (moved) add(W(`${moved.n}要改什麼？`, `What does the ${moved.n} amendment change?`), W('立法院最新進度', 'Just moved in the Legislative Yuan'), itemTopic(moved), 'bill');
+  // (Home already shows STARTERS: here other everyday cases, a different few each day.)
+  const day = Math.floor((now + 8 * 3600e3) / 864e5);
+  for (let i = 0; i < EVERYDAY.length && out.length < n; i++) {
+    const [zh, e, topic] = EVERYDAY[(day + i) % EVERYDAY.length];
+    add(W(zh, e), W('常見情況', 'A common case'), topic, 'try');
+  }
+  return out;
+}
+// Everyday cases for 問法律's start: a situation a person meets, said as they'd say it.
+export const EVERYDAY = [
+  ['網購退貨，七天內一定能退嗎？', 'Can I always return an online order within 7 days?', 'econ'],
+  ['被資遣可以拿到哪些補償？', 'What am I owed if I’m laid off?', 'labor'],
+  ['騎車被開罰單，可以申訴嗎？', 'Can I appeal a traffic ticket?', 'traffic'],
+  ['打工時薪最低要給多少？', 'What’s the minimum hourly wage?', 'labor'],
+  ['被偷拍或照片被亂傳怎麼辦？', 'Someone shared my photos without asking', 'justice'],
+  ['租屋押金最多可以收幾個月？', 'How much deposit can a landlord ask?', 'home'],
+  ['在網路上罵人會被告嗎？', 'Can I be sued for insulting someone online?', 'justice'],
+  ['學校可以檢查學生的手機嗎？', 'Can a school search a student’s phone?', 'edu']
+];

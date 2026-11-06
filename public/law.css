@@ -1480,7 +1480,8 @@ a.q-more.lw-out {
   background: var(--q-surface);
   color: var(--q-label);
 }
-.lw-msg.ai > p {
+.lw-msg.ai > p,
+.lw-msg-main > p {
   margin: 0;
 }
 .lw-lead {
@@ -4526,15 +4527,57 @@ a.lw-h-art {
    A phone upright is the phone's one column. With room for two (a phone on
    its side, a tablet, a computer) the page grows to 1180 and each tab lays
    its sections out side by side (app.mjs cols()), each column laid out as
-   on a phone; long lists flow into columns, cards into a grid. 問法律 (a
-   conversation) and a law's text keep a reading width; on a computer the
-   law's card and 目錄 stand beside its text. */
+   on a phone; long lists flow into columns, cards into a grid. A law's text
+   keeps a reading width; on a computer the law's card and 目錄 stand beside
+   its text. 問法律 takes the page's width as every tab does (its questions in
+   columns, an answer's text beside its cards: Jay 2026-11-06, iPad, a narrow
+   column left empty space and the rail jumped when it opened). */
 :root.q-wide {
   --q-page-max: var(--q-wide-max, 1180px);
 }
-:root.q-wide[data-lw-tab='ask'],
 :root.q-wide:not(.q-w3)[data-lw-law] {
   --q-page-max: 760px;
+}
+/* 問法律 on a wide page: an answer's text (a reading width) with its cards
+   (後果, 下一步, rulings, bills…) in a column beside it; on a phone, one under
+   the other as before. Questions and follow-ups two across. */
+.lw-msg-main,
+.lw-msg-side {
+  display: contents;
+}
+#chat {
+  container: lw-chat / inline-size;
+}
+/* (Its start: four questions on a phone, six on a wide page.) */
+:root:not(.q-wide) .lw-ideas > :nth-child(n + 5) {
+  display: none;
+}
+.lw-ideas + .lw-ask-cap {
+  margin-top: 20px;
+}
+@container lw-chat (min-width: 760px) {
+  .lw-msg.ai:has(> .lw-msg-side) {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+    column-gap: 24px;
+    align-items: start;
+  }
+  .lw-msg.ai:has(> .lw-msg-side) > :is(.lw-msg-main, .lw-msg-side) {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+  .lw-msg.ai > .lw-srcs {
+    grid-column: 1 / -1;
+  }
+  .lw-msg-main > :is(p, ul, ol) {
+    max-width: 720px;
+  }
+  .lw-msg.me {
+    max-width: min(85%, 640px);
+  }
+  .lw-follow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 /* In a column: nothing reaches past its edges (rails and chips bleed only on a phone). */
 .lw-col {
@@ -4580,26 +4623,26 @@ a.lw-h-art {
 }
 /* A long list across the page (not in a column or a sheet): its rows in two
    columns (three on a computer), read left to right, a hairline between. */
-:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) {
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(2)::before {
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :nth-child(2)::before {
   display: none;
 }
-:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(2n) {
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :nth-child(2n) {
   box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(3)::before {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :nth-child(3)::before {
   display: none;
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(n) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :nth-child(n) {
   box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :nth-child(3n + 1) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :nth-child(3n + 1) {
   box-shadow: none;
 }
 /* 立法 and 裁判: the doors and the search side by side across the top. */
@@ -4710,17 +4753,17 @@ a.lw-h-art {
   box-shadow: inset var(--q-hairline, 0.5px) 0 0 var(--q-sep);
 }
 /* (A list's odd row out runs across, so the card has no hole.) */
-:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(odd),
+:root.q-wide .lw-list:has(> :nth-child(4)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :last-child:nth-child(odd),
 :root.q-wide .lw-meets:has(> :nth-child(3)):not(.lw-col .lw-meets, dialog .lw-meets) > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(odd) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :last-child:nth-child(odd) {
   grid-column: auto;
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(3n + 1) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :last-child:nth-child(3n + 1) {
   grid-column: 1 / -1;
 }
-:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list, #panel-ask .lw-list) > :last-child:nth-child(3n + 2) {
+:root.q-w3 .lw-list:has(> :nth-child(6)):not(.lw-col .lw-list, dialog .lw-list, .lw-law-side .lw-list) > :last-child:nth-child(3n + 2) {
   grid-column: span 2;
 }
 /* 政府公告: a headline whole, however narrow the column. */

@@ -202,7 +202,14 @@ Live: https://orbit.jaypengx.com/law/
   proxy streams them as `draft` lines), the points and links when it's done.
   Chats are kept on the phone; 對話紀錄 lists them by day (今天, 昨天, 過去 7
   天, months) in grouped cards, with a search past 5 chats, and 全部刪除 asks
-  in the kit's dialog (never the browser's). 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
+  in the kit's dialog (never the browser's). Its start (`chat.mjs`
+  `askIdeas`): 從這裡問起, questions each saying why they're there (the law
+  you read last at its article, a bill you follow, your legislators' votes,
+  the bill that moved last, then `EVERYDAY` cases, a different few each day;
+  never home's `STARTERS`), four on a phone and six in columns on a wide page;
+  接著問, the last three chats. On a wide page it takes the page's width as
+  every tab does, an answer's text (`.lw-msg-main`) beside its cards
+  (`.lw-msg-side`) once the chat is 760 wide (`tests/ask-page.test.mjs`). 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,

@@ -154,7 +154,7 @@ Live: https://orbit.jaypengx.com/law/
   article (`rulings/low/law/<pcode>.json`), 案由 (`low/t/<key>.json`), court
   (`low/c/<code>.json`), with `low/index.json` (courts, 案由, newest). No text
   is kept; a judgment opens through the proxy's `/law-page` and is read by
-  `lib/judgment.mjs`: the outcome first.
+  `lib/judgment.mjs`: the outcome first, then each 理由 point whole (a court's ㈠ ⒈ read as （一） 1. and hung under it); past six lines a point shows four and the kit's 看全文 bar (`fitJdPoints`).
 - **The sides link** (app.mjs): an article shows its rulings (purple when
   憲法法庭's) and the bills open on it; a law its 憲法法庭 strip; a ruling the
   articles it rules on, the bills that name it and the bills open on those

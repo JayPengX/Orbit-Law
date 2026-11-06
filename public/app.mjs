@@ -13,6 +13,7 @@
 // what it changes.
 
 import * as kit from '#kit/orbit.mjs';
+import * as kitUI from '#kit/ui.mjs';
 import { orbitSession, installGate, topActions, tabBar, watchUpdates, keepOffline, haptic } from '#kit/orbit.mjs';
 import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, emptyHtml, sectionHtml } from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
@@ -1408,6 +1409,44 @@ async function openPage(u, label = '') {
   }
 }
 
+// A judgment's point: its first lines, then a quiet bar that opens the rest (the kit's
+// moreHtml), shown only when there is more than those lines. A tap on a closed point
+// opens it too; 收起 closes it.
+const jdMore = open =>
+  kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), open, cls: 'lw-jd-more', attr: 'hidden' }) ??
+  `<button type="button" class="q-more lw-jd-more" aria-expanded="${open}" hidden><span>${open ? W('收起', 'Less') : W('看全文', 'Read all')}</span></button>`;
+function fitJdPoints(root) {
+  const fit = () => {
+    for (const p of root.querySelectorAll('.lw-jd-point:not(.open)')) {
+      const t = p.querySelector('.lw-jd-text');
+      // Folded only past six lines: one or two more lines are just shown.
+      p.classList.remove('clip');
+      const more = t.scrollHeight > parseFloat(getComputedStyle(t).lineHeight) * 6 + 4;
+      p.classList.toggle('clip', more);
+      p.querySelector('.lw-jd-more').hidden = !more;
+    }
+  };
+  requestAnimationFrame(fit);
+  if (root.dataset.jdFit) return;
+  root.dataset.jdFit = '1';
+  // A new width (turned, a window resized) fits them again.
+  let w = root.clientWidth;
+  new ResizeObserver(() => root.clientWidth !== w && ((w = root.clientWidth), fit())).observe(root);
+  root.addEventListener('click', e => {
+    const p = e.target.closest('.lw-jd-point');
+    if (!p || (!p.classList.contains('clip') && !p.classList.contains('open'))) return;
+    const bar = e.target.closest('.lw-jd-more');
+    if (!bar && (p.classList.contains('open') || e.target.closest('a') || String(getSelection?.() || ''))) return;
+    const open = !p.classList.contains('open');
+    p.classList.toggle('open', open);
+    p.classList.toggle('clip', !open);
+    const b = p.querySelector('.lw-jd-more');
+    b.setAttribute('aria-expanded', String(open));
+    b.querySelector('span').textContent = open ? W('收起', 'Less') : W('看全文', 'Read all');
+    // (收起 stays under the finger, the point's first lines just above it: the kit's hold-place.mjs.)
+  });
+}
+
 // A judgment: the outcome first in plain words, then who, then the reasons a point at a time.
 async function openJudgment(u, label = '') {
   const body = h('div', { class: 'lw-page lw-jd', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
@@ -1425,11 +1464,9 @@ async function openJudgment(u, label = '') {
     if (!r.main.length) throw new Error('empty');
     const o = outcome(r.main.join(''));
     const who = partiesLine(r.parties);
-    const point = x => {
-      const t = x.text.replace(/^[一二三四五六七八九十百]+、/, '');
-      const [first, ...rest] = t.split('\n');
-      return rest.length || first.length > 90 ? `<details class="lw-jd-point"><summary><b>${esc(x.head || '·')}</b><span>${esc(first.slice(0, 90))}${first.length > 90 ? '…' : ''}</span></summary>${proseHtml([first.length > 90 ? first : '', ...rest].filter(Boolean).join('\n'), state.names)}</details>` : `<div class="lw-jd-point"><b>${esc(x.head || '·')}</b><span>${linkedHtml(first, state.names)}</span></div>`;
-    };
+    // Each point whole, its sub-points hung under it; a long one shows its first lines and a
+    // 看全文 bar (Jay 2026-11-06: a point cut with … and nothing said it opened).
+    const point = x => `<div class="lw-jd-point clip"><b>${esc(x.head || '·')}</b><div class="lw-jd-text">${proseHtml(x.text.replace(/^[一二三四五六七八九十百]+、/, ''), state.names)}</div>${jdMore(false)}</div>`;
     body.innerHTML =
       `<header class="lw-page-head"><h3>${esc(label || r.title)}</h3><small>${esc([r.title, r.no, r.date && shortDay(r.date)].filter(Boolean).join(' · '))}</small></header>` +
       (jid ? rulingAiBtn(jid, r.no || label || r.title) : '') +
@@ -1438,6 +1475,7 @@ async function openJudgment(u, label = '') {
       (r.reasons.length ? `<h4>${W(`理由（${r.reasons.length} 點）`, `Reasons (${r.reasons.length})`)}</h4><div class="lw-jd-points">${r.reasons.map(point).join('')}</div>` : '') +
       (r.judges.length ? `<p class="lw-page-src">${esc(W(`法官 ${r.judges.join('、')}`, `Judges ${r.judges.join(', ')}`))}</p>` : '') +
       out;
+    fitJdPoints(body);
   } catch {
     // Not the usual shape: the page as read, or the way out.
     try {

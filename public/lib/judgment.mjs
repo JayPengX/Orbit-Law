@@ -12,11 +12,18 @@ const unescape = s =>
     .replace(/&quot;/g, '"')
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&amp;/g, '&');
+// A court's own numbers ㈠ ⒈ read as the ones the app knows: （一） 1. (so a
+// point's sub-points are its own lines, hung under it, not one run of text).
+const CN10 = '一二三四五六七八九十';
+export const plainMarks = s =>
+  String(s)
+    .replace(/[\u3220-\u3229]/g, c => `（${CN10[c.charCodeAt(0) - 0x3220]}）`)
+    .replace(/[\u2488-\u249b]/g, c => `${c.charCodeAt(0) - 0x2487}.`);
 const squash = s => s.replace(/[\s　]+/g, '');
-const tidy = s => s.replace(/[ \t ]+/g, ' ').replace(/　+/g, '　').trim();
+const tidy = s => plainMarks(s).replace(/[ \t ]+/g, ' ').replace(/　+/g, '　').trim();
 
-// A paragraph that starts a point of its own: 一、 （一） (1) 1. or a 2-space indent.
-const POINT = /^[　 ]*([一二三四五六七八九十百]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、])/;
+// A paragraph that starts a point of its own: 一、 （一） ㈠ (1) 1. ⒈ or a 2-space indent.
+const POINT = /^[　 ]*([一二三四五六七八九十百]+、|[\u3220-\u3229\u2488-\u249b]|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、])/;
 const HEAD = { main: /^主文$/, reasons: /^(理由|事實及理由|事實|事實及理由要領|理由要領)$/ };
 
 // The page's paragraphs, in order.

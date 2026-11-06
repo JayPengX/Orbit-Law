@@ -3323,33 +3323,37 @@ details.lw-bud-row[open] > summary {
 .lw-jd-hero > span { color: var(--q-label-2); font: 600 13px/18px var(--q-font); }
 .lw-jd-hero strong { color: var(--c); font: 600 24px/30px var(--q-font); }
 .lw-jd-hero p {
-  display: -webkit-box;
-  overflow: hidden;
   margin: 0;
   font: 16px/1.6 var(--q-font);
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
 }
 .lw-jd-who { margin: 0 0 8px; color: var(--q-label-2); font: var(--q-t-footnote); }
 .lw-jd-points { display: grid; gap: 8px; }
+/* A point whole, its sub-points hung under it; a long one shows four lines
+   fading out and the kit's 看全文 bar (app.mjs fitJdPoints; Jay 2026-11-06). */
 .lw-jd-point {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 0 8px;
   padding: 12px 14px;
   border-radius: var(--q-r-cell);
   background: var(--q-surface);
 }
-.lw-jd-point summary,
-div.lw-jd-point {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 8px;
-  font: 15px/1.6 var(--q-font);
-  list-style: none;
-  cursor: pointer;
+.lw-jd-point > b { color: var(--q-accent); font: 600 15px/1.7 var(--q-font); }
+.lw-jd-text { min-width: 0; font: 15px/1.7 var(--q-font); }
+.lw-jd-point .lw-jd-text .lw-prose { margin: 0; }
+.lw-jd-point .lw-jd-text .lw-rule { font: inherit; }
+/* The point's number already holds the edge: its （一） start there, not a step in. */
+.lw-jd-text .lw-prose .d1 { --d: 0; }
+.lw-jd-text .lw-prose .d2 { --d: 1; }
+.lw-jd-text .lw-prose .d3 { --d: 2; }
+.lw-jd-point.clip { cursor: pointer; }
+.lw-jd-point.clip .lw-jd-text {
+  max-height: calc(4 * 1.7em);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 50%, transparent);
+  mask-image: linear-gradient(#000 50%, transparent);
 }
-.lw-jd-point summary::-webkit-details-marker { display: none; }
-.lw-jd-point b { color: var(--q-accent); font-weight: 600; }
-.lw-jd-point p { margin: 8px 0 0 32px; font: 15px/1.7 var(--q-font); }
-.lw-jd-point[open] summary span { color: var(--q-label-2); }
+.lw-jd-point .lw-jd-more { grid-column: 2; margin-top: 8px; }
 
 /* 對照表 at a glance: the tally, then each article as a chip */
 .lw-diff-sum { margin: 0 0 12px; }
@@ -4080,7 +4084,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
    spread its characters apart), and the reasons inside their card's padding. */
 .lw-cons-main p,
 .lw-cons-reason p,
-.lw-jd-point p {
+.lw-jd-text p {
   text-align: start;
   letter-spacing: normal;
 }
@@ -4509,9 +4513,6 @@ a.lw-h-art {
 .lw-nrow-why .lw-rule {
   color: var(--q-label-2);
   font: 400 14px/1.6 var(--q-font);
-}
-.lw-jd-point .lw-prose {
-  margin: 8px 0 0 32px;
 }
 .lw-cons-main .lw-prose,
 .lw-cons-reason .lw-prose {

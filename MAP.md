@@ -121,7 +121,7 @@ Live: https://orbit.jaypengx.com/law/
   **Bills read from their PDFs** (`scripts/build-council-text.mjs`, `billPdfParts` in
   `lib/council.mjs`): 新竹縣's and 新竹市's proposals are PDFs; each build reads the newest
   not yet read (pdftotext -layout; hcc.gov.tw a request every 2 s) into 案號, 說明, 辦法,
-  議決 and the sitting that decided it (its outcome then set on the council's lists and session files), kept in `council/text/<code>/<n>.json` (64 files by
+  議決 and the sitting that decided it (its outcome and its day, `decidedDays`, then set on the council's lists and session files: 新竹縣's list dates a bill the day it was posted), kept in `council/text/<code>/<n>.json` (64 files by
   `textBucket(id)`); a bill's sheet shows them as the API's bills are, the PDF a link below.
   **A 代表會's own site** (`lib/town-site.mjs` `TOWN_SITES`, `scripts/build-town.mjs` →
   `council/town/<tc>.json`; first 竹北市民代表會, whose site moved into 竹北市公所's at

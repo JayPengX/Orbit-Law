@@ -98,3 +98,15 @@ test('council PDF: a bill’s text is kept in one of a fixed set of files, the s
   const all = new Set(Array.from({ length: 500 }, (_, i) => textBucket(`hsq-p${i}`)));
   assert.ok([...all].every(n => n >= 0 && n < TEXT_BUCKETS) && all.size > TEXT_BUCKETS / 2);
 });
+
+test('council text: a bill’s list day is the day it was decided (新竹縣 posts days later)', async () => {
+  const { decidedDays } = await import('../public/lib/council.mjs');
+  // (The bill Jay found: listed 11/10, its 議決 line 第20屆第8次定期會第23次會議 · 11/6.)
+  const known = id => ({ 'hsq-p5973': { 議決: '照案通過。', 議決會議: '第20屆第8次定期會第23次會議', 議決日期: '2026-11-06' } })[id];
+  const rows = [{ id: 'hsq-p5973', d: '2026-11-10' }, { id: 'hsq-p1', d: '2026-11-10' }];
+  assert.equal(decidedDays(rows, known), 1);
+  assert.deepEqual(rows.map(r => r.d), ['2026-11-06', '2026-11-10']);
+  const list = [{ 代碼: 'hsq-p5973', 日期: '2026-11-10' }];
+  decidedDays(list, known, '日期', '代碼');
+  assert.equal(list[0]['日期'], '2026-11-06');
+});

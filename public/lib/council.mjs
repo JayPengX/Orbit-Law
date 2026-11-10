@@ -616,6 +616,20 @@ export function billPdfParts(text, { centred = false } = {}) {
   return out;
 }
 
+// A bill's day on its list is the day it was decided, where its PDF says (新竹縣's list dates it the day the council
+// posted it, days later, so the list and the bill's own 議決 line disagreed). Returns how many rows changed.
+export function decidedDays(rows, known, key = 'd', idKey = 'id') {
+  let n = 0;
+  for (const b of rows || []) {
+    const d = known(b[idKey])?.['議決日期'];
+    if (d && b[key] !== d) {
+      b[key] = d;
+      n++;
+    }
+  }
+  return n;
+}
+
 // Where a bill's text read from its PDF is kept: council/text/<code>/<n>.json, n of 64 by its id (the app reads one).
 export const TEXT_BUCKETS = 64;
 export const textBucket = id => [...String(id)].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7) % TEXT_BUCKETS;

@@ -8,7 +8,7 @@ import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { args, sleep, prevJson } from './lib.mjs';
-import { billPdfParts, textBucket, TEXT_BUCKETS, HCC, outcomeOf, sessionBillsFile } from '../public/lib/council.mjs';
+import { billPdfParts, textBucket, TEXT_BUCKETS, HCC, outcomeOf, sessionBillsFile, decidedDays } from '../public/lib/council.mjs';
 
 const out = new URL('../public/data/council/', import.meta.url).pathname;
 const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
@@ -84,7 +84,8 @@ await Promise.all(Object.keys(SITES).map(async code => {
     const k = known(id);
     return k?.['議決'] ? outcomeOf(k['議決'], '') : '';
   };
-  const mark = rows => rows.reduce((n, b) => (!b.out && outOf(b.id) ? ((b.out = outOf(b.id)), n + 1) : n), 0);
+  // And its day the day it was decided (新竹縣's list dates a bill the day it was posted, days after).
+  const mark = rows => decidedDays(rows, known, 'd', 'id') + rows.reduce((n, b) => (!b.out && outOf(b.id) ? ((b.out = outOf(b.id)), n + 1) : n), 0);
   let marked = 0;
   const main = await readFile(`${out}${code}.json`, 'utf8').then(JSON.parse, () => null);
   if (main?.bills) {
@@ -98,6 +99,11 @@ await Promise.all(Object.keys(SITES).map(async code => {
         await writeFile(f, JSON.stringify(doc));
       }
     }
+  }
+  // (The whole list too, which the app searches.)
+  if (decidedDays(list.rows, known, '日期', '代碼')) {
+    list.rows.sort((a, b) => (a['日期'] < b['日期'] ? 1 : a['日期'] > b['日期'] ? -1 : 0));
+    await writeFile(`${out}${code}-bills.json`, JSON.stringify(list));
   }
   const have = buckets.reduce((s, b) => s + Object.values(b).filter(x => x.pdf).length, 0);
   console.log(`council text ${code}: ${marked} rows given their outcome`);

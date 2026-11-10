@@ -211,3 +211,9 @@ test('council: a sitting typed a year off its session is set back into it; one f
   const got = saneSittings([{ d: '2027-11-05', s: 'hua-20-r8' }, { d: '2026-10-20', s: 'hua-20-r8' }, { d: '2029-03-01', s: 'hua-20-r8' }, { d: '2027-01-01', s: 'x' }], sessions);
   assert.deepEqual(got.map(y => y.d), ['2026-11-05', '2026-10-20', '2027-01-01']);
 });
+test('council: a council’s days are its sittings, and the days only its recordings know', async () => {
+  const { councilDays, ccTermSittings } = await import('../public/lib/council.mjs');
+  const got = councilDays([{ d: '2026-03-20', from: '10:00', what: '大會' }], [{ d: '2026-11-04', t: '', n: '第8次定期會' }, { d: '2026-11-04', t: '', n: '第8次定期會（2）' }, { d: '2026-03-20', n: '第19次臨時會' }]);
+  assert.deepEqual(got.map(x => [x.d, x.what, !!x.video]), [['2026-03-20', '大會', false], ['2026-11-04', '第8次定期會', true]]);
+  assert.match(ccTermSittings('cha', 20), /sittings\?.*%E5%B1%86=20.*limit=2000/);
+});

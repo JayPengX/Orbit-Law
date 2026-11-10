@@ -131,6 +131,9 @@ Live: https://orbit.jaypengx.com/law/
   (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
+  **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the
+  API's every sitting itself, `ccTermSittings`, one read) and the days only its recordings know (`councilDays`:
+  彰化's API stops in March); a day shows its sittings, each with its recording, and the day's other recordings.
   A sitting typed a year off its session (花蓮's API: 2027 for 2026) is set back into it
   (`saneSittings`, at build and on the phone's live read).
 - **Reading costs nothing:** static files on Cloudflare, kept by the service

@@ -190,6 +190,22 @@ export function sittingsAround(sittings = [], day, past = 6) {
   return { ahead, gone: gone.slice(0, past) };
 }
 
+// A council's every sitting of the term (the API answers it in one read, CORS open: the phone asks it itself).
+export const ccTermSittings = (code, term) => `${CC_API}sittings?${new URLSearchParams({ 議會代碼: code, 屆: String(term), sort: '日期>', limit: '2000' })}`;
+
+// The days a council sat: its sittings, and a day it has recordings of but no sitting listed (the API lags weeks;
+// 彰化's stops in March) as a sitting from the recordings (what they were, the part of the day).
+export function councilDays(sits = [], vids = []) {
+  const have = new Set(sits.map(x => x.d));
+  const add = new Map();
+  for (const v of vids) {
+    if (!v.d || have.has(v.d) || !v.n) continue;
+    const k = `${v.d}|${v.t || ''}`;
+    if (!add.has(k)) add.set(k, { d: v.d, t: v.t || '', from: '', to: '', kind: /委員會|審查/.test(v.n) ? '委員會' : '大會', room: '', what: v.n, s: '', video: true });
+  }
+  return [...sits, ...add.values()].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.from || a.t) < (b.from || b.t) ? -1 : 1));
+}
+
 // A council's state in words: 開會中 (第14屆第8次定期會, to 10/2), 休會中, the next session.
 export function councilState(c, day) {
   if (c.on && c.on.from <= day && (!c.on.to || c.on.to >= day)) return { live: true, s: c.on };

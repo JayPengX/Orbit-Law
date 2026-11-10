@@ -41,7 +41,7 @@ import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
-import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings } from './lib/council.mjs';
+import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings, ccTermSittings, councilDays } from './lib/council.mjs';
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf } from './lib/council-video.mjs';
@@ -3749,11 +3749,7 @@ async function councilList(out) {
     }
     return;
   }
-  const { ahead, gone } = sittingsAround(c.sittings, day, 4);
   const vids = c.video?.vids || [];
-  const vidOf = x => videosOf(vids, x)[0];
-  // Coming sittings, and (with recordings) the last ones too: a recorded sitting opens its video.
-  const sits = (ahead.length ? section(W('接下來開會', 'Coming sittings'), `<div class="lw-meets">${ahead.slice(0, 6).map(x => sittingRow(x, x.d <= day ? vidOf(x) : null)).join('')}</div>`) : '') + ((!ahead.length || vids.length) && gone.length ? section(W('最近開會', 'Last sittings'), `<div class="lw-meets">${gone.map(x => sittingRow({ ...x, done: true }, vidOf(x))).join('')}</div>`) : '');
   const video = vids.length ? section(W('議會影音', 'Council video'), `<div class="lw-list wrap">${vids.slice(0, 4).map(vidRow).join('')}</div>${vids.length > 4 ? `<button type="button" class="lw-more" data-ccvids>${W(`看更多影音（${vids.length}）`, `More video (${vids.length})`)}</button>` : ''}`) : '';
   // The term's every session, each opened whole (its sittings, recordings and every bill), not only the newest.
   const ss = (c.sessions || []).filter(x => x.from && x.from <= day);
@@ -3778,9 +3774,59 @@ async function councilList(out) {
     if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
-  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[sits + video + sessions + bills, 0], [people + towns, 1]])}</div>`;
+  const agenda = section(W('議程', 'Agenda'), '<div data-ccagenda><span class="q-skel" style="display:block;height:120px"></span></div>');
+  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[agenda + video + sessions + bills, 0], [people + towns, 1]])}</div>`;
   paint(out, html);
+  councilAgenda(c, out);
   councilLive(c, out);
+}
+
+// A council's 議程 as 立法's: its days on the family's day strip (the term's, read live from the API, with the
+// days only its recordings know), a day's sittings each with its recording, and the day's other recordings.
+const councilAgendaRec = {};
+let councilAgendaDay = null;
+const termSits = new Map();
+async function councilAgenda(c, out) {
+  const box = out.querySelector('[data-ccagenda]');
+  if (!box) return;
+  const day = twNow().day;
+  const draw = (sits, vids) => {
+    const all = councilDays(sits, vids);
+    const days = [...new Set(all.map(x => x.d))];
+    if (!days.length) return void (box.innerHTML = `<p class="lw-none">${W('這個議會還沒有公布議程', 'No agenda published yet')}</p>`);
+    if (councilAgendaRec.c !== c.c || !days.includes(councilAgendaDay)) councilAgendaDay = days.find(d => d >= day) || days.at(-1);
+    councilAgendaRec.c = c.c;
+    const list = h('div', { class: 'lw-meets' });
+    const show = d => {
+      councilAgendaDay = d;
+      const here = all.filter(x => x.d === d);
+      const vs = vids.filter(v => v.d === d);
+      const used = new Set();
+      const rows = here.map(x => {
+        const v = videosOf(vs, x).find(y => !used.has(y.id));
+        if (v) used.add(v.id);
+        return sittingRow({ ...x, done: x.d < day }, x.d <= day ? v : null);
+      });
+      const extra = vs.filter(v => !used.has(v.id));
+      list.innerHTML = rows.join('') + (extra.length ? `<div class="lw-list in-sheet wrap lw-day-vids">${extra.map(vidRow).join('')}</div>` : '');
+    };
+    const bar = d => dayBar(councilAgendaRec, { flat: true, days, current: d, today: day, follow: true, onPick: d2 => (show(d2), bar(d2)) });
+    // (A fresh draw, or the term's days come in: the chosen day back to the strip's middle.)
+    kitUI.dayRecenter?.(councilAgendaRec);
+    box.replaceChildren(bar(councilAgendaDay), list);
+    show(councilAgendaDay);
+  };
+  const vids = c.video?.vids?.length ? termVids.get(c.c) || c.video.vids : [];
+  draw(c.sittings || [], vids);
+  // The term's: every sitting (the phone's own read of the API), every recording.
+  const [sits, all] = await Promise.all([
+    termSits.has(c.c) ? termSits.get(c.c) : ccJson(ccTermSittings(c.c, c.term)).then(r => saneSittings((r.sittings || []).map(compactSitting).filter(Boolean), c.sessions)).catch(() => null),
+    c.video?.vids?.length ? councilTermVids(c) : []
+  ]);
+  if (sits?.length) termSits.set(c.c, sits);
+  if (!box.isConnected || shownCouncil?.c !== c.c) return;
+  const merged = sits?.length ? [...sits, ...(c.sittings || []).filter(x => x.video)] : c.sittings || [];
+  draw(merged, all);
 }
 
 // One session of a council, whole: its sittings (read live from the API, each with its recording where there is

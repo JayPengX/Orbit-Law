@@ -4820,7 +4820,7 @@ a.lw-h-art {
 }
 
 /* 立法 · 議會: the council shown (a tap picks another), its sittings, bills, members, townships. */
-.lw-council { display: grid; gap: 4px; }
+.lw-council { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 button.lw-council-pick { margin-bottom: 8px; border-radius: var(--q-r-card); background: var(--q-surface); }
 .lw-council-pick .lw-row-name { font-weight: 600; }
 .lw-council-facts .lw-stat b.q-fit { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -4952,3 +4952,10 @@ button.lw-turn-cite { border: 0; cursor: pointer; }
 .lw-wq { display: grid; gap: 12px; margin: 12px 0 4px; }
 .lw-wq .lw-block h4 { margin: 0 0 6px; font: var(--q-t-subhead); font-weight: 600; color: var(--q-label-2); }
 .lw-vid-group { margin: 16px 0 6px; font: var(--q-t-subhead); font-weight: 600; color: var(--q-label-2); }
+/* A council's 議程: its day strip held to the column (a term's days would widen the page). */
+.lw-council [data-ccagenda],
+.lw-council .lw-cols > * {
+  min-width: 0;
+}
+.lw-council [data-ccagenda] .q-day-bar { max-width: 100%; }
+.lw-day-vids { margin-top: 8px; }

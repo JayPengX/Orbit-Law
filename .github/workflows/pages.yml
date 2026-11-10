@@ -175,6 +175,10 @@ jobs:
       # 政府公告 (ministries' RSS) and the hand-kept key figures, for the AI.
       - name: Build the government notices
         run: node scripts/build-news.mjs || echo "notices skipped"
+      # When each part above was built (the admin panel's 外部來源: a part that failed shows as old or missing).
+      - name: Note when each part was built
+        run: node scripts/build-status.mjs
+        continue-on-error: true
       - name: Minify, and address every file by its content
         # Each script and stylesheet minified and stamped with its own content
         # hash (the kit's kit/stamp-app.mjs): browsers fetch a changed file at

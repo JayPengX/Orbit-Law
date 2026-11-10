@@ -21,6 +21,9 @@ Live: https://orbit.jaypengx.com/law/
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
   as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
+  `build-status.mjs` (`data/status.json`: when each part was built and its
+  count, 0 when missing; Orbit-Core's admin panel reads it for 外部來源, as
+  every source step may fail without stopping the deploy), then
   `stamp-version.mjs`. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,
   `api/En/Law/JSON`) and writes `public/data/`: `index.json` (every law),

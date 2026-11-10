@@ -3004,9 +3004,10 @@ async function votesList(out) {
   if (billFilter !== 'votes') return;
   const partyOfName = new Map(ppl.people.map(x => [x.n, x.party]));
   const groups = voteGroups(list);
+  const last = d.votes.reduce((m, v) => (v[1] > m ? v[1] : m), '');
   let shown = 20;
   const draw = () => {
-    out.innerHTML = `<div class="lw-vgroups">${groups.slice(0, shown).map((g, gi) => voteGroupCard(g, gi, d, agendas, partyOfName)).join('')}</div>${groups.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再顯示 ${Math.min(20, groups.length - shown)} 案（共 ${groups.length}）`, `Show more (${groups.length})`)}</button>` : ''}`;
+    out.innerHTML = `${words.length ? '' : `<p class="lw-hint-sm lead">${esc(W(`記名表決要等立法院公報刊出，通常晚兩三週；目前刊到 ${shortDay(last)} 的院會。`, `Roll-call votes come out in the Legislative Gazette, usually two to three weeks late; the newest is from ${shortDay(last)}.`))}</p>`}<div class="lw-vgroups">${groups.slice(0, shown).map((g, gi) => voteGroupCard(g, gi, d, agendas, partyOfName)).join('')}</div>${groups.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再顯示 ${Math.min(20, groups.length - shown)} 案（共 ${groups.length}）`, `Show more (${groups.length})`)}</button>` : ''}`;
   };
   draw();
   out.onclick = e => {

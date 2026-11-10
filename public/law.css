@@ -2537,6 +2537,9 @@ button.lw-notice {
   color: var(--q-label-2);
   font: var(--q-t-footnote);
 }
+.lw-hint-sm.lead {
+  margin: 0 4px 12px;
+}
 .lw-timeline.mini {
   margin: 8px 0 0;
 }

@@ -66,6 +66,10 @@ Live: https://orbit.jaypengx.com/law/
   會議記錄 pages' PDFs hold text, read with poppler's pdftotext (`mcc*`:
   府/議 第 N 號案 with 大會決議, 臨時動議 動-N with 動議人, 附議人, 決議),
   40 records a night, each once (`done`), newest first.
+  嘉義市 (`cyi*`, www.cycc.gov.tw): each session picked in its 議決案檢索
+  (an ASP.NET postback) lists its bills' pages; those the API lacks are read,
+  100 a night, and sessions the API doesn't list take their days from the
+  議事日程表 (`own.add`). Councils are built four at a time.
   Sessions the API doesn't list yet sort by the bill's day.
   高雄's 議決 carries date lines (決議日期：…), which `outcomeOf` drops. A council
   with none at all says why (`gap`, from the API's

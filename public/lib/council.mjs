@@ -398,6 +398,41 @@ export function mccBills(files, at) {
   return rows;
 }
 
+// 嘉義市議會 (www.cycc.gov.tw/web): its 議決案檢索 and 議事日程表 are ASP.NET
+// forms (a session picked → its bills' links, or its days); each bill's own
+// page holds it whole (議程, 編號, 類別, 案由, 提案人, 連署人, 審查意見, 決議).
+export const CHIAYI = 'https://www.cycc.gov.tw/web/';
+// 嘉義市議會第11屆115年第5次臨時會 → 第11屆115年第5次臨時會
+export const cyiSession = t => String(t || '').replace(/\s+/g, '').replace(/^嘉義市議會/, '').replace(/[、]+$/, '').replace(/議事日程表$/, '');
+export function aspForm(html) {
+  return Object.fromEntries([...String(html).matchAll(/<input type="hidden" name="(__[A-Z]+)" id="[^"]*" value="([^"]*)"/g)].map(([, k, v]) => [k, v.replace(/&amp;/g, '&')]));
+}
+export function cyiOptions(html) {
+  const sel = (String(html).match(/<select name="ctl00\$ContentPlaceHolder1\$ddl_aoe"[\s\S]*?<\/select>/) || [''])[0];
+  return [...sel.matchAll(/<option[^>]*value="(\d+)"[^>]*>([^<]+)<\/option>/g)].filter(([, v]) => v !== '0').map(([, v, t]) => ({ v, name: cyiSession(tag(t)) }));
+}
+export const cyiLinks = html => [...new Set([...String(html).matchAll(/View\.aspx\?c0=3672&(?:amp;)?p0=(\d+)/g)].map(m => Number(m[1])))];
+export const cyiDays = html => [...String(html).matchAll(/>\s*(\d{4})\.(\d{2})\.(\d{2})\s*</g)].map(([, y, m, d]) => `${y}-${m}-${d}`).sort();
+export function cyiBill(html, id) {
+  const f = {};
+  for (const [, k, v] of String(html).matchAll(/<span[^>]*>\s*(議程|編號|類別|案由|提案人|連署人|動議人|附議人|審查意見|決議)\s*[:：]([\s\S]*?)<\/span>/g)) f[{ 動議人: '提案人', 附議人: '連署人' }[k] || k] ??= tag(v.replace(/&nbsp;/g, '、'));
+  if (!f['案由']) return null;
+  const people = s => String(s || '').split(/[、\n\s]+/).map(bare).filter(Boolean);
+  const by = people(f['提案人']), co = people(f['連署人']);
+  const office = /市政府|市議會|^[^議]*府/.test(f['提案人'] || '') && !by.some(n => n.length <= 4 && !/府|會/.test(n));
+  return {
+    代碼: `cyi-p${id}`,
+    案號: f['編號'] || '',
+    類別: (f['類別'] || '').replace(/[、\s]+$/, ''),
+    案由: f['案由'],
+    ...(office || !by.length ? { 提案單位: (f['提案人'] || '').replace(/[、\s]+/g, '') } : { 提案人: [...by, ...co].join('、'), 主提案人: by.join('、'), 連署人: co.join('、') }),
+    審查意見: f['審查意見'] || '',
+    議決: f['決議'] || '',
+    會期名稱: cyiSession(f['議程']),
+    來源網址: `${CHIAYI}Expect_Search/View.aspx?c0=3672&p0=${id}`
+  };
+}
+
 // Why a council has no bills to show, in plain words (the API's own note, else a plain one).
 export function gapOf(note = '') {
   if (/掃描|OCR|影像/.test(note)) return ['議會只公開掃描的圖檔，沒有文字可以讀，所以這裡沒有提案。', 'The council publishes its records only as scanned images, so there is no text to read.'];

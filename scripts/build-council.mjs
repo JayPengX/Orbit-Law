@@ -17,7 +17,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -74,8 +74,65 @@ const OWN = {
   lie: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
   pif: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
   // 苗栗's meeting records: PDFs with text (the API has none of its bills).
-  mia: { site: '苗栗縣議會網站', out: true, whole: miaoli }
+  mia: { site: '苗栗縣議會網站', out: true, whole: miaoli },
+  // 嘉義市's bills the API hasn't read (its 議決案檢索), added to the API's.
+  cyi: { site: '嘉義市議會網站', out: true, add: true, whole: chiayi }
 };
+
+// 嘉義市議會: each of the term's sessions picked in its 議決案檢索 (a postback,
+// 2 s apart) gives its bills' pages; those the API doesn't hold are read, 100
+// a night. A session the API doesn't list takes its days from the 議事日程表.
+async function chiayi(term, { old, urls, sessions: listed }) {
+  const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
+  const page = async (path, pick) => {
+    await sleep(2000);
+    const url = `${CHIAYI}${path}`;
+    let r = await fetch(url, { signal: AbortSignal.timeout(60_000), headers: UA });
+    if (!r.ok) throw new Error(`cyi ${r.status} at ${path}`);
+    let html = await r.text();
+    if (pick == null) return html;
+    await sleep(2000);
+    r = await fetch(url, { method: 'POST', body: new URLSearchParams({ ...aspForm(html), __EVENTTARGET: 'ctl00$ContentPlaceHolder1$ddl_aoe', __EVENTARGUMENT: '', 'ctl00$ContentPlaceHolder1$ddl_aoe': pick }), signal: AbortSignal.timeout(60_000), headers: UA });
+    if (!r.ok) throw new Error(`cyi ${r.status} at ${path} (${pick})`);
+    return r.text();
+  };
+  const SEARCH = 'Expect_Search/listExpect_Search.aspx?c0=3672', DAYS = 'schedule/listschedule.aspx?c0=3673';
+  const mine = cyiOptions(await page(SEARCH)).filter(x => x.name.startsWith(`第${term}屆`));
+  const before = new Map((old?.rows || []).map(r => [r['代碼'], r]));
+  const rows = [], todo = [];
+  for (const x of mine) {
+    for (const id of cyiLinks(await page(SEARCH, x.v))) {
+      const url = `${CHIAYI}Expect_Search/View.aspx?c0=3672&p0=${id}`;
+      if (urls.has(url)) continue;
+      if (before.has(`cyi-p${id}`)) rows.push(before.get(`cyi-p${id}`));
+      else todo.push(id);
+    }
+  }
+  let stop = '';
+  for (const id of todo.slice(0, 100)) {
+    try {
+      const b = cyiBill(await page(`Expect_Search/View.aspx?c0=3672&p0=${id}`), id);
+      if (b) rows.push(b);
+    } catch (e) {
+      stop = e.message;
+      break;
+    }
+  }
+  // Days for the sessions these bills sit in that the API doesn't list.
+  const known = new Set(listed.map(x => x['會期名稱']));
+  const want = new Set(rows.map(r => r['會期名稱']).filter(n => n && !known.has(n)));
+  const sessions = [...(old?.sessions || []).filter(x => want.has(x['會期名稱']))];
+  const days = cyiOptions(await page(DAYS)).filter(x => want.has(x.name) && !sessions.some(y => y['會期名稱'] === x.name));
+  for (const x of days) {
+    try {
+      const d = cyiDays(await page(DAYS, x.v));
+      if (d.length) sessions.push({ 代碼: `cyi-${term}-s${x.v}`, 會期名稱: x.name, 會期類別: /定期會$/.test(x.name) ? '定期會' : '臨時會', 開始日期: d[0], 結束日期: d[d.length - 1] });
+    } catch {}
+  }
+  const from = new Map(sessions.map(x => [x['會期名稱'], x['開始日期']]));
+  for (const r of rows) r['日期'] ||= from.get(r['會期名稱']) || '';
+  return { rows, stop, sessions, keep: { sessions } };
+}
 
 // 苗栗縣議會's 會議記錄, newest first: each record's PDFs read with pdftotext
 // into bills (lib/council.mjs mccBills). 40 records a night, 2 s apart, each
@@ -286,7 +343,8 @@ try {
 }
 const prevIndex = await prevJson('council/index.json');
 const index = [];
-for (const o of overviews) {
+// Four councils at a time: the own sites are each read gently, so side by side they fit the step's time.
+async function council(o) {
   const code = o['代碼'];
   try {
     const term = o['屆次'];
@@ -294,7 +352,7 @@ for (const o of overviews) {
       await all('sessions', 'sessions', { 議會代碼: code, 屆: String(term) }, ['代碼', '會期名稱', '會期類別', '開始日期', '結束日期'], 200),
       (await get('sittings', { 議會代碼: code, sort: '日期>', limit: '80' })).sittings || [],
       await all('councilors', 'councilors', { 議會代碼: code, 屆次: String(term) }, ['姓名', '黨籍', '參選政黨', '選區別', '職稱', '照片', '現況', '人物代碼', '屆次'], 200, '姓名'),
-      await all('bills', 'bills', { 議會代碼: code, 屆: String(term) }, ['代碼', '案號', '類別', '提案人', '提案單位', '案由', '議決', '審查意見', '會議代碼'])
+      await all('bills', 'bills', { 議會代碼: code, 屆: String(term) }, ['代碼', '案號', '類別', '提案人', '提案單位', '案由', '議決', '審查意見', '會議代碼', '來源網址'])
     ];
     // Its own site's 提案 where the API holds none or few (新竹縣, 新竹市, 花蓮縣).
     let own = null;
@@ -306,7 +364,7 @@ for (const o of overviews) {
           // Where the API's bills stop: the start of their newest session (the term's start if none).
           const from = new Map(sessions.map(x => [x['代碼'], x['開始日期']]));
           const since = bills.map(b => from.get(b['會議代碼']) || '').sort().pop() || o['就職日'] || '2022-12-25';
-          const r = await OWN[code].whole(term, { code, sessions, since, have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
+          const r = await OWN[code].whole(term, { code, sessions, since, urls: new Set(bills.map(b => b['來源網址']).filter(Boolean)), have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
           got = Array.isArray(r) ? { rows: r, next: 0, stop: '' } : { next: 0, stop: '', ...r };
         } else got = await ownBills(code, term, o['就職日'] || '2022-12-25');
         // Sessions the council's site lists and the API doesn't yet.
@@ -366,6 +424,13 @@ for (const o of overviews) {
     }
   }
 }
+const queue = [...overviews];
+await Promise.all(Array.from({ length: 4 }, async () => {
+  while (queue.length) await council(queue.shift());
+}));
+// The family's order (the API's), whichever finished first.
+const order = new Map(overviews.map((o, i) => [o['代碼'], i]));
+index.sort((a, b) => (order.get(a.c) ?? 99) - (order.get(b.c) ?? 99));
 if (args.only) {} else if (index.length) await write('index.json', { built, day, councils: index });
 else if (prevIndex) await write('index.json', prevIndex);
 

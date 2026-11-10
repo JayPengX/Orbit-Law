@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -174,4 +174,18 @@ test('council: 苗栗縣議會’s meeting records read into bills', () => {
   assert.deepEqual([gov['案號'], gov['案由'], gov['提案單位'], compactCouncilBill(gov).out], ['府第1號', '116年度本縣總預算案歲入編列365億元。', '苗栗縣政府', 'yes']);
   assert.deepEqual([m1['案號'], m1['連署人'], m1['案由'], m1['會期名稱']], ['動-1', '陳品安、張志宇、翁杰', '有關籃球場損壞一案，建請縣府協助修繕，請審議。', '第20屆第8次定期會']);
   assert.equal(m2['主提案人'], '張淑芬', 'the post isn’t part of the name');
+});
+
+test('council: 嘉義市議會’s sessions, links, days and a bill’s page', () => {
+  assert.equal(cyiSession('嘉義市議會第11屆115年第5次臨時會&nbsp;'.replace('&nbsp;', ' ')), '第11屆115年第5次臨時會');
+  assert.deepEqual(cyiOptions('<select name="ctl00$ContentPlaceHolder1$ddl_aoe" id="x"><option value="0">請選擇</option><option value="1091">嘉義市議會第11屆115年第5次臨時會</option></select>'), [{ v: '1091', name: '第11屆115年第5次臨時會' }]);
+  assert.deepEqual(cyiLinks("<a class='tdav' href='View.aspx?c0=3672&p0=1425'>x</a><a href='View.aspx?c0=3672&p0=1425'>"), [1425]);
+  assert.deepEqual(cyiDays('<td> 2026.10.14 </td><td>2026.10.13</td>'), ['2026-10-13', '2026-10-14']);
+  const page = `<span style="display:block">議程:嘉義市議會第11屆115年第5次臨時會&nbsp;&nbsp;</span><span>編號:臨二</span><span>類別:工務 &nbsp;&nbsp;</span>
+    <span>案由:建請市府加速國華街排水工程進度。</span><li><span style='display:block'>動議人:張議員秀華&nbsp;&nbsp;</span></li>
+    <li><span style='display:block'>附議人:<br/>顔議員翎熹&nbsp;&nbsp;王議員浩&nbsp;&nbsp;</span></li><span>決議:原案通過。</span>`;
+  const b = cyiBill(page, 1436);
+  assert.deepEqual([b['代碼'], b['案號'], b['類別'], b['主提案人'], b['連署人'], b['會期名稱'], compactCouncilBill(b).out], ['cyi-p1436', '臨二', '工務', '張秀華', '顔翎熹、王浩', '第11屆115年第5次臨時會', 'yes']);
+  const gov = cyiBill('<span>案由:115年度本市總預算第5次追加預算案。</span><span>提案人:嘉義市政府&nbsp;&nbsp;</span>', 1423);
+  assert.equal(gov['提案單位'], '嘉義市政府');
 });

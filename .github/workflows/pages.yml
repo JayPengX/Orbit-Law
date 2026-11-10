@@ -97,9 +97,16 @@ jobs:
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
-      # Legislators' headshots, mirrored small (the committed ones, plus a newcomer's).
+      # Councillors' photos, mirrored small: kept between builds (only newcomers are fetched).
+      - uses: actions/cache@v4
+        with:
+          path: .council-photos
+          key: council-photos-${{ github.run_id }}
+          restore-keys: council-photos-
+      # Legislators' headshots, mirrored small (the committed ones, plus a newcomer's), then the councillors'.
       - name: Mirror the legislators' photos
         run: (npm i --no-save --no-package-lock sharp@0.33.5 || true) && node scripts/build-photos.mjs
+        timeout-minutes: 20
         continue-on-error: true
       # The budgets' money: 主計總處's 預算表 (ws.dgbas.gov.tw leaves its certificate's issuer out).
       - name: Read the budget books

@@ -41,7 +41,7 @@ import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf
 import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
-import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf } from './lib/council.mjs';
+import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName } from './lib/council.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -3601,7 +3601,9 @@ async function councilList(out) {
   const bills = c.gap
     ? section(W('提案', 'Bills'), `<p class="lw-council-gap">${esc(W(...c.gap))}</p>`) + (c.records?.length ? section(W('議事錄', 'Minutes'), `<div class="lw-list">${c.records.map(r => `<a class="lw-row" href="${esc(r.url)}" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(r.what || W('會議紀錄', 'Minutes'))}</span><small>${esc(shortDay(r.d))}</small></span>${CHEVRON}</a>`).join('')}</div>`) : '')
     : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own && !c.own.add ? `<p class="lw-hint-sm">${esc(c.own.out ? W(`開放資料的提案不完整，這裡讀自${c.own.site}。`, 'Read from the council’s own site, which holds more than the open data.') : W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
-  const person = x => `<button type="button" class="lw-person" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n.replace(/\s*[(（].*$/, '').replace(/[A-Za-z][A-Za-z·．.'\s-]*$/, '') || x.n)}</b><small>${esc([partyShort(x.party), x.title || x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${d}區`, `D${d}`))].filter(Boolean).join(' · '))}</small></span>${c.gap ? '' : `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>`}</button>`;
+  // Each one's bill count only where the bills name the councillors (宜蘭's open data holds only the 縣府's).
+  const counted = !c.gap && c.people.filter(p => p.bills).length * 2 >= c.people.length;
+  const person = x => `<button type="button" class="lw-person" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(zhName(x.n) || x.n)}</b><small>${esc([partyShort(x.party), x.title || x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))].filter(Boolean).join(' · '))}</small></span>${counted ? `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>` : ''}</button>`;
   const byArea = new Map();
   for (const x of [...c.people].sort((a, b) => (Number(a.area.match(/\d+/)?.[0]) || 99) - (Number(b.area.match(/\d+/)?.[0]) || 99))) byArea.set(x.area, [...(byArea.get(x.area) || []), x]);
   const people = section(W(`議員 ${c.people.length}`, `Members ${c.people.length}`), `<div class="lw-people q-rows-full q-rows-keep">${[...byArea.values()].flat().map(person).join('')}</div>`);
@@ -3667,14 +3669,17 @@ async function openCouncilor(name) {
   const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   const x = c?.people.find(p => p.n === name);
   if (!x) return;
+  const zh = zhName(name) || name;
+  const counted = c.people.filter(p => p.bills).length * 2 >= c.people.length;
+  const billsHead = () => `<h4>${counted ? W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`) : W('本屆提案', 'Bills this term')}</h4>`;
   const skel = '<span class="q-skel" style="display:block;height:120px"></span>';
-  const list = h('div', { class: 'lw-person-sec', html: c.gap ? '' : `<h4>${W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`)}</h4>${skel}` });
+  const list = h('div', { class: 'lw-person-sec', html: c.gap ? '' : `${billsHead()}${skel}` });
   const talk = h('div', { class: 'lw-person-sec', html: `<h4>${W('最近質詢和發言', 'Recent speeches')}</h4>${skel}` });
   const head = h('div', { class: 'lw-person-head', html: `${personPhoto(x, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span><span class="lw-tag">${esc(`${c.city}${x.area}`)}</span>${x.title ? countTag(x.title, 'indigo') : ''}</div></div>` });
   const s = sheet({ title: W('議員', 'Councillor'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, list, talk] });
   list.addEventListener('click', e => e.target.closest('[data-cbill]') && openCouncilBill(e.target.closest('[data-cbill]').dataset.cbill));
   // What they said in the chamber: the API's transcripts of the 議事錄, a meeting a row.
-  ccJson(ccSpeech(c.c, name))
+  ccJson(ccSpeech(c.c, zh))
     .then(r => {
       const said = speechesOf(r.meet_transcripts || [], 6);
       talk.innerHTML = said.length
@@ -3684,12 +3689,12 @@ async function openCouncilor(name) {
     .catch(() => (talk.innerHTML = ''));
   if (c.gap) return s;
   try {
-    const mine = () => ownBills(c).then(all => all.filter(b => String(b['提案人']).split('、').includes(name)));
+    const mine = () => ownBills(c).then(all => all.filter(b => String(b['提案人']).split('、').includes(zh)));
     // 彰化's newest sessions are only in its own file (`add`): with the API's.
-    const r = c.own && !c.own.add ? { bills: await mine() } : await ccJson(ccSearch(c.c, c.term, name, 100));
+    const r = c.own && !c.own.add ? { bills: await mine() } : await ccJson(ccSearch(c.c, c.term, zh, 100));
     if (c.own?.add) r.bills = [...(r.bills || []), ...(await mine().catch(() => []))];
-    const rows = newestBills(theirBills(r.bills || [], name).map(compactCouncilBill), c.sessions, 100);
-    list.innerHTML = `<h4>${W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`)}</h4>${rows.length ? `<div class="lw-list in-sheet wrap">${rows.slice(0, 30).map(b => cbillRow(c, b)).join('')}</div>` : emptyNote(W('還沒有提案', 'No bills yet'))}`;
+    const rows = newestBills(theirBills(r.bills || [], zh).map(compactCouncilBill), c.sessions, 100);
+    list.innerHTML = `${billsHead()}${rows.length ? `<div class="lw-list in-sheet wrap">${rows.slice(0, 30).map(b => cbillRow(c, b)).join('')}</div>` : emptyNote(counted ? W('還沒有提案', 'No bills yet') : W('這個議會的開放資料沒有議員提案', 'This council’s open data lists no councillors’ bills'))}`;
   } catch {
     list.innerHTML = emptyNote(W('提案讀不到，請稍後再試', 'Couldn’t load the bills'));
   }

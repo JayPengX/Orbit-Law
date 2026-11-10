@@ -58,16 +58,26 @@ export function compactSitting(s) {
 // A party as people say it: 無, 無黨籍及未經政黨推薦 → 無黨籍.
 export const partyName = p => (!p || /^無($|黨籍)/.test(p) ? '無黨籍' : String(p));
 
+// A name as the bills write it: its Chinese part (宋雨蓁 Nikar．Falong → 宋雨蓁, 林秉君(kaying．kuying) → 林秉君).
+export const zhName = n => (String(n || '').match(/^[\u3400-\u9fff\uf900-\ufaff]+/) || [String(n || '')])[0];
+
 // A councillor in office: name, party, district, title, photo.
+// Rows from a council's own 歷屆議員 page (資料來源, no 當選狀態) are not 中選會's
+// winners: one with an end date (來源備註 111.12.25~114.08.05) has left; the
+// rest are kept only if a bill names them (`maybe`, settled by the build):
+// 新竹縣's lists 連郁婷, who lost in 2022.
 export function compactCouncilor(p) {
   if (p['現況'] && p['現況'] !== '在任') return null;
+  const maybe = !!p['資料來源'] && !p['當選狀態'];
+  if (maybe && /~\s*\d/.test(p['來源備註'] || '')) return null;
   return {
     n: p['姓名'],
     party: partyName(p['黨籍'] && p['黨籍'] !== '無' ? p['黨籍'] : p['參選政黨']),
-    area: String(p['選區別'] || '').replace(/^.+?(第\d+選舉區)$/, '$1'),
+    area: String(p['選區別'] || '').replace(/^.+?(第\d+選舉區)$/, '$1').replace(/^第0+(\d)/, '第$1'),
     title: /議長/.test(p['職稱'] || '') ? p['職稱'] : '',
     photo: p['照片'] || '',
-    id: p['人物代碼'] || ''
+    id: p['人物代碼'] || '',
+    ...(maybe ? { maybe: true } : {})
   };
 }
 

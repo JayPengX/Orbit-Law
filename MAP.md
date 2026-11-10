@@ -17,7 +17,7 @@ Live: https://orbit.jaypengx.com/law/
   (each 預告's join.gov.tw record and its 總說明 and 條文對照表 read from the
   公報 PDF with poppler's `pdftotext -bbox`: `bills/notice/<id>.json`), `build-ly.mjs`,
   `build-council.mjs` (地方議會, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
-  under `public/img/ly/`; only a newcomer's is fetched), `build-budget.mjs` (each 總預算's
+  under `public/img/ly/`; only a newcomer's is fetched; then the 縣市議員's, below), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
   as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
@@ -40,7 +40,8 @@ Live: https://orbit.jaypengx.com/law/
   內政部's and 中選會's lists, refreshed daily; CORS open). The deploy writes
   `council/index.json` (the 22 縣市議會 in a line each: session now, counts),
   `council/<code>.json` (a council's sittings, sessions, councillors in office
-  with how many bills carry their name, the newest 240 bills of the term) and
+  with how many bills carry their name's Chinese part (`zhName`: 宋雨蓁 Nikar．Falong
+  → 宋雨蓁), the newest 240 bills of the term) and
   `council/reps.json` (鄉鎮市民代表 and 山地原住民區民代表: 中選會's 2022 winners
   by county and township). A council that fails keeps the last deploy's copy.
   The API pages only its first 10,000 rows, so `all()` reads the rest sorted
@@ -75,6 +76,15 @@ Live: https://orbit.jaypengx.com/law/
   with none at all says why (`gap`, from the API's
   `completenesses`) and lists its newest 議事錄 files. A councillor's sheet
   shows their recent speeches (`meet_transcripts`, read live; `speechesOf`).
+  A row from a council's own 歷屆議員 page that isn't among 中選會's winners is
+  dropped if it has an end date, else kept only if a bill names them (新竹縣
+  listed 連郁婷, who lost in 2022); 第01選舉區 reads 第1. Where fewer than half
+  the councillors are named on any bill (宜蘭's open data holds only the 縣府's),
+  the list shows no 提案 counts. Their photos (內政部's, up to 5,000 px; some carry
+  EXIF sizes Safari stretched) are mirrored by `build-photos.mjs` as 96/192 px
+  WebPs into `council/img/` (not committed; kept between builds in
+  `.council-photos/` by the workflow's cache, 12 minutes of newcomers a night;
+  a blank one is dropped for the initial).
   代表會 have no bills or sittings in any open data, so they show their members only. The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
 - **Reading costs nothing:** static files on Cloudflare, kept by the service

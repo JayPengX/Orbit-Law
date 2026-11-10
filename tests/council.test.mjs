@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf, zhName } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -49,6 +49,16 @@ test('council: no sitting on a day off; only councillors in office', () => {
   assert.equal(p.party, '無黨籍');
   assert.equal(p.area, '第1選舉區');
   assert.equal(p.title, '');
+  // A council's own 歷屆 page: 第01 → 第1; one who left is gone; one no winner's list holds is a maybe.
+  const own = { 姓名: '連郁婷', 現況: '在任', 資料來源: '新竹縣議會官網歷屆議員', 選區別: '第01選舉區', 參選政黨: '時代力量' };
+  assert.equal(compactCouncilor(own).area, '第1選舉區');
+  assert.equal(compactCouncilor(own).maybe, true);
+  assert.equal(compactCouncilor({ ...own, 來源備註: '111.12.25~114.08.05' }), null);
+  assert.equal(compactCouncilor({ ...own, 當選狀態: '當選' }).maybe, undefined);
+  assert.equal(zhName('宋雨蓁 Nikar．Falong'), '宋雨蓁');
+  assert.equal(zhName('林秉君(kaying．kuying．kalang)'), '林秉君');
+  assert.equal(zhName('范織欽Pasulang‧Tomatalate'), '范織欽');
+  assert.equal(zhName('王小明'), '王小明');
 });
 
 test('council: a councillor’s bills are only those that list them', () => {

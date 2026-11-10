@@ -17,7 +17,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -351,7 +351,7 @@ async function council(o) {
     const [sessions, sittings, councilors, bills] = [
       await all('sessions', 'sessions', { 議會代碼: code, 屆: String(term) }, ['代碼', '會期名稱', '會期類別', '開始日期', '結束日期'], 200),
       (await get('sittings', { 議會代碼: code, sort: '日期>', limit: '80' })).sittings || [],
-      await all('councilors', 'councilors', { 議會代碼: code, 屆次: String(term) }, ['姓名', '黨籍', '參選政黨', '選區別', '職稱', '照片', '現況', '人物代碼', '屆次'], 200, '姓名'),
+      await all('councilors', 'councilors', { 議會代碼: code, 屆次: String(term) }, ['姓名', '黨籍', '參選政黨', '選區別', '職稱', '照片', '現況', '人物代碼', '屆次', '當選狀態', '資料來源', '來源備註'], 200, '姓名'),
       await all('bills', 'bills', { 議會代碼: code, 屆: String(term) }, ['代碼', '案號', '類別', '提案人', '提案單位', '案由', '議決', '審查意見', '會議代碼', '來源網址'])
     ];
     // Its own site's 提案 where the API holds none or few (新竹縣, 新竹市, 花蓮縣).
@@ -400,8 +400,10 @@ async function council(o) {
     }
     const c = compactCouncil(o, { day, sessions, bills: bills.length });
     const people = councilors.filter(p => (p['屆次'] ?? term) === term).map(compactCouncilor).filter(Boolean);
-    // How many bills each councillor's name is on this term (first or co-filer).
-    for (const p of people) p.bills = bills.filter(b => String(b['提案人'] || '').includes(p.n)).length;
+    // How many bills each councillor's name is on this term (first or co-filer), by the name's Chinese part.
+    for (const p of people) p.bills = bills.filter(b => String(b['提案人'] || '').includes(zhName(p.n))).length;
+    // An own-site row no winner's list holds stays only if a bill names them.
+    people.splice(0, people.length, ...people.filter(p => !p.maybe || p.bills).map(({ maybe, ...p }) => p));
     const rows = bills.map(compactCouncilBill);
     await write(`${code}.json`, {
       ...c,

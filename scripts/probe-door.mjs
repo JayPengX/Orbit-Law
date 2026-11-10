@@ -19,9 +19,31 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 const SAVE = process.env.SAVE || '';
 if (SAVE) mkdirSync(SAVE, { recursive: true });
 const keep = (name, text) => SAVE && text && writeFileSync(`${SAVE}/${name}`, text);
+// A PDF (.pdf): its bytes through the door (file=1), its text by pdftotext, TEXT characters of it shown.
+import { execFileSync } from 'node:child_process';
+async function pdf(url, n) {
+  const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
+  const b = await r.json().catch(() => ({}));
+  if (!b.b64) return console.log(JSON.stringify({ url, door: r.status, error: b.error, type: b.type, size: b.size }));
+  const file = `${SAVE || '.'}/door-${n}.pdf`;
+  writeFileSync(file, Buffer.from(b.b64, 'base64'));
+  let text = '';
+  try {
+    text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  } catch (e) {
+    text = `(pdftotext: ${e.message})`;
+  }
+  keep(`door-${n}.txt`, text);
+  console.log(JSON.stringify({ url, door: r.status, bytes: b.size, chars: text.length }));
+  console.log(text.slice(0, Number(process.env.TEXT || 0)));
+}
 let i = 0;
 for (const url of process.argv.slice(2)) {
   i++;
+  if (/\.pdf$/i.test(url)) {
+    await pdf(url, i).catch(e => console.log(JSON.stringify({ url, door: 'failed', why: String(e.message || e) })));
+    continue;
+  }
   try {
     const r = await fetch(`${DOOR}?v=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
     const b = await r.json().catch(() => ({}));

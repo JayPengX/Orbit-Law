@@ -3588,7 +3588,7 @@ async function councilList(out) {
     out.innerHTML = `<div class="lw-council">${pick}${section(live ? W(`本屆提案 ${councilFound.total.toLocaleString()} 件符合`, `${councilFound.total} bills this term`) : W('符合的提案', 'Bills that match'), rows.length ? `<div class="lw-list wrap">${rows.map(b => cbillRow(c, b)).join('')}</div>` : live ? emptyNote(W('沒有符合的提案', 'No bills match')) : '<span class="q-skel" style="display:block;height:120px"></span>')}</div>`;
     if (!live) {
       const ask = ++councilAsk;
-      (c.own ? ownBills(c).then(all => ({ bills: ownFind(all, words).slice(0, 60), total: ownFind(all, words).length })) : ccJson(ccSearch(c.c, c.term, q, 40)))
+      (c.own && !c.own.add ? ownBills(c).then(all => ({ bills: ownFind(all, words).slice(0, 60), total: ownFind(all, words).length })) : ccJson(ccSearch(c.c, c.term, q, 40)))
         .then(r => ask === councilAsk && ((councilFound = { q, c: c.c, total: r.total || 0, rows: (r.bills || []).map(compactCouncilBill) }), billFilter === 'council' && councilList(out)))
         .catch(() => ask === councilAsk && ((councilFound = { q, c: c.c, total: here.length, rows: here }), billFilter === 'council' && councilList(out)));
     }
@@ -3600,7 +3600,7 @@ async function councilList(out) {
   const n = 8 + councilMore;
   const bills = c.gap
     ? section(W('提案', 'Bills'), `<p class="lw-council-gap">${esc(W(...c.gap))}</p>`) + (c.records?.length ? section(W('議事錄', 'Minutes'), `<div class="lw-list">${c.records.map(r => `<a class="lw-row" href="${esc(r.url)}" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(r.what || W('會議紀錄', 'Minutes'))}</span><small>${esc(shortDay(r.d))}</small></span>${CHEVRON}</a>`).join('')}</div>`) : '')
-    : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own ? `<p class="lw-hint-sm">${esc(c.own.out ? W(`開放資料的提案不完整，這裡讀自${c.own.site}。`, 'Read from the council’s own site, which holds more than the open data.') : W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
+    : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own && !c.own.add ? `<p class="lw-hint-sm">${esc(c.own.out ? W(`開放資料的提案不完整，這裡讀自${c.own.site}。`, 'Read from the council’s own site, which holds more than the open data.') : W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
   const person = x => `<button type="button" class="lw-person" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n.replace(/\s*[(（].*$/, '').replace(/[A-Za-z][A-Za-z·．.'\s-]*$/, '') || x.n)}</b><small>${esc([partyShort(x.party), x.title || x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${d}區`, `D${d}`))].filter(Boolean).join(' · '))}</small></span>${c.gap ? '' : `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>`}</button>`;
   const byArea = new Map();
   for (const x of [...c.people].sort((a, b) => (Number(a.area.match(/\d+/)?.[0]) || 99) - (Number(b.area.match(/\d+/)?.[0]) || 99))) byArea.set(x.area, [...(byArea.get(x.area) || []), x]);
@@ -3651,7 +3651,7 @@ async function openCouncilBill(id) {
         const who = `${b['主提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}`;
         return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2><div class="lw-meta">${b['類別'] ? countTag(b['類別']) : ''}${countTag(shortDay(b['日期']))}</div><p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p><p class="lw-hint-sm">${esc(W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
       }
-      b = { ...b, 提案人: b['主提案人'] || '' };
+      b = { ...b, 提案人: b['主提案人'] ?? b['提案人'] ?? '' };
     } else b = (await ccJson(ccBill(id))).data;
   } catch {
     return void (box.innerHTML = emptyNote(W('這件提案讀不到，請稍後再試', 'Couldn’t load this bill')));
@@ -3684,7 +3684,10 @@ async function openCouncilor(name) {
     .catch(() => (talk.innerHTML = ''));
   if (c.gap) return s;
   try {
-    const r = c.own ? { bills: (await ownBills(c)).filter(b => String(b['提案人']).split('、').includes(name)) } : await ccJson(ccSearch(c.c, c.term, name, 100));
+    const mine = () => ownBills(c).then(all => all.filter(b => String(b['提案人']).split('、').includes(name)));
+    // 彰化's newest sessions are only in its own file (`add`): with the API's.
+    const r = c.own && !c.own.add ? { bills: await mine() } : await ccJson(ccSearch(c.c, c.term, name, 100));
+    if (c.own?.add) r.bills = [...(r.bills || []), ...(await mine().catch(() => []))];
     const rows = newestBills(theirBills(r.bills || [], name).map(compactCouncilBill), c.sessions, 100);
     list.innerHTML = `<h4>${W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`)}</h4>${rows.length ? `<div class="lw-list in-sheet wrap">${rows.slice(0, 30).map(b => cbillRow(c, b)).join('')}</div>` : emptyNote(W('還沒有提案', 'No bills yet'))}`;
   } catch {

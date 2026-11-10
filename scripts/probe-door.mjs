@@ -14,17 +14,27 @@ const sum = html => ({
   links: [...new Set([...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]{0,120}?)<\/a>/gi)].filter(([, u, t]) => /提案|議案|議決|議事|Bill|propos|agenda/i.test(u + t)).map(([, u, t]) => `${t.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 30)} ${u}`))].slice(0, 30),
   text: html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, Number(process.env.TEXT || 0))
 });
+// SAVE=dir keeps each page whole (door-N.html, direct-N.html) for the workflow's artifact.
+import { mkdirSync, writeFileSync } from 'node:fs';
+const SAVE = process.env.SAVE || '';
+if (SAVE) mkdirSync(SAVE, { recursive: true });
+const keep = (name, text) => SAVE && text && writeFileSync(`${SAVE}/${name}`, text);
+let i = 0;
 for (const url of process.argv.slice(2)) {
+  i++;
   try {
     const r = await fetch(`${DOOR}?v=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
     const b = await r.json().catch(() => ({}));
+    keep(`door-${i}.html`, `<!-- ${url} -->\n${b.html || ''}`);
     console.log(JSON.stringify({ url, door: r.status, error: b.error, site: b.status, at: b.url, ...sum(b.html || '') }));
   } catch (e) {
     console.log(JSON.stringify({ url, door: 'failed', why: String(e.message || e) }));
   }
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html', 'Accept-Language': 'zh-TW,zh;q=0.9' }, signal: AbortSignal.timeout(30_000) });
-    console.log(JSON.stringify({ url, direct: r.status, server: r.headers.get('server'), ...sum(await r.text()) }));
+    const text = await r.text();
+    keep(`direct-${i}.html`, `<!-- ${url} -->\n${text}`);
+    console.log(JSON.stringify({ url, direct: r.status, server: r.headers.get('server'), ...sum(text) }));
   } catch (e) {
     console.log(JSON.stringify({ url, direct: 'failed', why: String(e.cause?.code || e.cause?.message || e.message || e) }));
   }

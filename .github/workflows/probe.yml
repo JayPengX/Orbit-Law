@@ -33,7 +33,14 @@ jobs:
         env:
           URLS: ${{ inputs.urls }}
           TEXT: ${{ inputs.text }}
+          SAVE: pages
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pages
+          path: pages
+          retention-days: 3
+          if-no-files-found: ignore
       # A host that shows no chain is the answer, not a failed run (no mail).
       - name: Certificate chains
         if: inputs.certs != ''

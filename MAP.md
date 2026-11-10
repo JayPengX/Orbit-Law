@@ -52,7 +52,12 @@ Live: https://orbit.jaypengx.com/law/
   (`hszRows`, www.hsinchu-cc.gov.tw) page by page, gently (2 s a page, 150 a
   night, on from `next`; no outcomes there); 花蓮縣 (`hlcRows`,
   www.hlcc.gov.tw's search: a whole term of each kind in one POST, with its
-  大會決議, `own.out`). Sessions the API doesn't list yet sort by the bill's day.
+  大會決議, `own.out`); 彰化縣 (`cha*` in lib/council.mjs, www.chcc.gov.tw:
+  its 議事日程's sessions with their days, each session's counts, the lists of
+  sessions the API lacks, then 80 bill pages a night for the whole text), which
+  joins the API's bills (`own.add`: search and a councillor's bills still ask
+  the API, plus the file) and replaces the API's rows it repeats.
+  Sessions the API doesn't list yet sort by the bill's day.
   高雄's 議決 carries date lines (決議日期：…), which `outcomeOf` drops. A council
   with none at all (苗栗縣: scanned images only and its site refuses readers
   outside Taiwan; 金門縣: none this term) says why (`gap`, from the API's

@@ -252,6 +252,53 @@ export function hlcRows(html, kind = 2) {
   return rows;
 }
 
+// 彰化縣議會 (www.chcc.gov.tw/council): its term's sessions with a count and a list
+// for each kind (2 議員, 3 縣府, 4 臨時動議, 5 議長), lists ten a page with the
+// 案由 cut short, and each bill's page whole.
+export const CHANGHUA = 'https://www.chcc.gov.tw/council/';
+const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+const cnNum = t => (/^\d+$/.test(t) ? Number(t) : t.split('十').length === 2 ? (CN[t.split('十')[0]] || 1) * 10 + (CN[t.split('十')[1]] || 0) : CN[t] || 0);
+// 第二十屆 第7次 定期會 → 第20屆第7次定期會, the API's way.
+export const chaSession = t => String(t || '').replace(/\s+/g, '').replace(/第([一二三四五六七八九十\d]+)屆/, (_, n) => `第${cnNum(n)}屆`);
+export function chaCounts(html) {
+  const out = [];
+  for (const [, li] of String(html).matchAll(/<li>\s*<span data-th="會期：[^>]*>([\s\S]*?)<\/li>/g)) {
+    const name = tag(li.split('</span>')[0]);
+    for (const [, iid, tid, kind, n] of li.matchAll(/List2\.aspx\?Parser=99,7,47,+(\d+),,(\d+),,,,,,(\d)">(\d+)</g)) out.push({ name, iid, tid, kind: Number(kind), n: Number(n) });
+  }
+  return out;
+}
+export function chaListRows(html) {
+  const head = tag((String(html).match(/彰化縣議會(第[^<]*?)\s*&nbsp;/) || [])[1] || '');
+  const rows = [];
+  for (const [, li] of String(html).matchAll(/<li>\s*(<span data-th="案號：[\s\S]*?)<\/li>/g)) {
+    const cell = k => tag((li.match(new RegExp(`data-th="${k}："[^>]*>([\\s\\S]*?)</span>`)) || [])[1]);
+    const id = (li.match(/Details\.aspx\?Parser=99,7,47,,,,(\d+)/) || [])[1];
+    if (!id) continue;
+    rows.push({ 代碼: `cha-p${id}`, 案號: cell('案號'), 類別: cell('委員會別'), 案由: cell('案由'), 議決: cell('大會決議'), 提案人: cell('提案人'), 會期名稱: chaSession(head), 來源網址: `${CHANGHUA}Details.aspx?Parser=99,7,47,,,,${id}` });
+  }
+  return rows;
+}
+export function chaDetail(html) {
+  const f = {};
+  for (const [, k, v] of String(html).matchAll(/<span class="tabulation_tt[^"]*">([\s\S]*?)<\/span>\s*<span class="tabulation_word[^"]*">([\s\S]*?)<\/span>/g)) f[tag(k).replace(/\s+/g, '')] = tag(v);
+  if (f['連署人']) f['連署人'] = f['連署人'].split(/[\n、,，\s]+/).filter(Boolean).join('、');
+  return f;
+}
+// Its 議事日程's sessions (not 程序委員會), with their days, in the API's shape.
+export function chaSessions(html) {
+  const out = [];
+  for (const [, li] of String(html).matchAll(/<li>\s*(<span data-th="會　　期：[\s\S]*?)<\/li>/g)) {
+    const name = chaSession(tag((li.match(/data-th="會　　期："[^>]*>([\s\S]*?)<\/span>/) || [])[1]));
+    const day = k => ((li.match(new RegExp(`data-th="${k}："[^>]*>\\s*(\\d{4})年(\\d{2})月(\\d{2})日`)) || []).slice(1).join('-'));
+    const kind = (name.match(/(定期會|臨時會)$/) || [])[1];
+    if (!kind || !day('開始日期')) continue;
+    const no = (name.match(/第(\d+)[次、]/) || [])[1];
+    out.push({ 代碼: `cha-${(name.match(/第(\d+)屆/) || [])[1]}-${kind === '定期會' ? 'r' : 'e'}${no}`, 會期名稱: name, 會期類別: kind, 開始日期: day('開始日期'), 結束日期: day('結束日期') });
+  }
+  return out;
+}
+
 // Why a council has no bills to show, in plain words (the API's own note, else a plain one).
 export function gapOf(note = '') {
   if (/掃描|OCR|影像/.test(note)) return ['議會只公開掃描的圖檔，沒有文字可以讀，所以這裡沒有提案。', 'The council publishes its records only as scanned images, so there is no text to read.'];

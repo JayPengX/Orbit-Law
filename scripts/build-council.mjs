@@ -7,7 +7,7 @@
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
 //   <code>-bills.json  a council's 議員提案 this term read from its own site where
-//                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣): for a search,
+//                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣; 彰化縣's newest sessions): for a search,
 //                  a councillor, a bill's page
 // A bill's whole text, a search and a councillor's bills are read from the
 // API by the app when asked (lib/council.mjs). Never fails the deploy: a
@@ -15,7 +15,7 @@
 //   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz]
 import { mkdir, writeFile } from 'node:fs/promises';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -62,8 +62,59 @@ const OWN = {
   hsq: { site: '新竹縣議會網站', page: () => n => `${HCC}porposal?program=197&page=${n}`, rows: () => hccRows },
   hsz: { site: '新竹市議會網站', page: term => n => `${HSINCHU_CITY}TC/proposal.aspx?pn=${n}&mid=42&cc=${term}&r=5`, rows: term => html => hszRows(html, term) },
   // 花蓮's search gives a whole term of each kind in one answer, decisions and all.
-  hua: { site: '花蓮縣議會網站', out: true, whole: hualien }
+  hua: { site: '花蓮縣議會網站', out: true, whole: hualien },
+  // 彰化's sessions the API hasn't read yet, added to the API's (`add`).
+  cha: { site: '彰化縣議會網站', out: true, add: true, whole: changhua }
 };
+
+// 彰化縣議會: its 議事日程's sessions (with days), each session's count of bills
+// by kind, and the lists of those the API lacks, ten a page, 2 s apart; a
+// list whose count didn't change isn't read again. Then each bill's own page
+// (its whole 案由, 類別, 連署人, 審查意見), 80 a night.
+async function changhua(term, { have, old }) {
+  const read = async path => {
+    await sleep(2000);
+    const r = await fetch(new URL(path, CHANGHUA), { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
+    if (!r.ok) throw new Error(`cha ${r.status} at ${path}`);
+    return r.text();
+  };
+  const sessions = chaSessions(await read('../schedule/index.aspx?Parser=99,7,167'));
+  const counts = [], seen = new Set();
+  for (let p = 0; p < 6; p++) {
+    const got = chaCounts(await read(`index.aspx?Parser=99,7,47,,,,,,,,${p}`)).filter(x => !seen.has(`${x.tid}-${x.kind}`));
+    if (!got.length) break;
+    for (const x of got) seen.add(`${x.tid}-${x.kind}`), counts.push(x);
+  }
+  const before = new Map((old?.rows || []).map(r => [r['代碼'], r]));
+  const rows = [], kept = {};
+  for (const x of counts) {
+    const key = `${x.tid}-${x.kind}`;
+    if (have.has(chaSession(`第${term}屆${x.name}`))) continue;
+    kept[key] = x.n;
+    if (old?.counts?.[key] === x.n) {
+      rows.push(...old.rows.filter(r => r.k === key));
+      continue;
+    }
+    for (let p = 0; p * 10 < x.n; p++)
+      for (const r of chaListRows(await read(`List2.aspx?Parser=99,7,47,,,,,,,,${p},${x.iid},,${x.tid},,,,,,${x.kind}`))) {
+        const gov = x.kind === 3;
+        rows.push({ ...r, ...(gov ? { 提案人: '', 提案單位: '彰化縣政府' } : {}), ...(before.get(r['代碼'])?.full ? before.get(r['代碼']) : {}), k: key });
+      }
+  }
+  let budget = 80;
+  for (const r of rows) {
+    if (r.full || budget-- <= 0) continue;
+    try {
+      const f = chaDetail(await read(r['來源網址']));
+      if (!f['案由']) continue;
+      const by = r['提案人'] ? f['提案人'] || r['提案人'] : '';
+      Object.assign(r, { 案由: f['案由'], 類別: f['類別'] || r['類別'], 審查意見: f['審查意見'] || '', ...(by ? { 主提案人: by, 連署人: f['連署人'] || '', 提案人: [by, f['連署人']].filter(Boolean).join('、') } : {}), full: 1 });
+    } catch {
+      break;
+    }
+  }
+  return { rows, sessions, keep: { counts: kept } };
+}
 
 // 花蓮縣議會: 縣府提案 (1), 議員提案 (2), 本會提案 (4) (臨時動議, 3, holds none), this term's each in one POST, 5 s apart.
 async function hualien(term) {
@@ -157,9 +208,16 @@ for (const o of overviews) {
     let own = null;
     if (OWN[code]) {
       try {
-        const got = OWN[code].whole ? { rows: await OWN[code].whole(term), next: 0, stop: '' } : await ownBills(code, term, o['就職日'] || '2022-12-25');
-        if (!got.rows.length) throw new Error(got.stop || 'none');
-        await write(`${code}-bills.json`, { built, next: got.next, rows: got.rows });
+        let got;
+        if (OWN[code].whole) {
+          const named = new Map(sessions.map(x => [x['代碼'], x['會期名稱']]));
+          const r = await OWN[code].whole(term, { have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
+          got = Array.isArray(r) ? { rows: r, next: 0, stop: '' } : { next: 0, stop: '', ...r };
+        } else got = await ownBills(code, term, o['就職日'] || '2022-12-25');
+        // Sessions the council's site lists and the API doesn't yet.
+        for (const x of got.sessions || []) if (!sessions.some(y => y['代碼'] === x['代碼'] || y['會期名稱'] === x['會期名稱'])) sessions.push(x);
+        if (!got.rows.length && !OWN[code].add) throw new Error(got.stop || 'none');
+        await write(`${code}-bills.json`, { built, next: got.next, rows: got.rows, ...(got.keep || {}) });
         own = got.rows;
         notes.push(`${code}: ${got.rows.length} bills from its site${got.next ? `, page ${got.next} next` : ''}${got.stop ? ` (${got.stop})` : ''}`);
       } catch (e) {
@@ -167,11 +225,17 @@ for (const o of overviews) {
         const old = await prevJson(`council/${code}-bills.json`);
         if (old) (await write(`${code}-bills.json`, old), (own = old.rows));
       }
-      // Its own rows stand in for the API's when they hold more; each finds its session by name.
-      if (own && own.length > bills.length) {
-        const byName = new Map(sessions.map(x => [x['會期名稱'], x['代碼']]));
-        bills.splice(0, bills.length, ...own.map(r => ({ ...r, 會議代碼: byName.get(r['會期名稱']) || byName.get(String(r['會期名稱'] || '').replace(/大會$/, '會')) || '' })));
-      } else own = null;
+      // Its own rows stand in for the API's when they hold more (or join them, `add`); each finds its session by name.
+      const byName = new Map(sessions.map(x => [x['會期名稱'], x['代碼']]));
+      const placed = (own || []).map(r => ({ ...r, 會議代碼: byName.get(r['會期名稱']) || byName.get(String(r['會期名稱'] || '').replace(/大會$/, '會')) || '' }));
+      if (OWN[code].add && placed.length) {
+        // The API holds some of them without their session (彰化's 7th 定期會): those go, ours stay.
+        const same = b => `${String(b['案號'] || '').replace(/\D/g, '')}|${String(b['案由'] || '').replace(/\s+/g, '').slice(0, 16)}`;
+        const ours = new Set(placed.map(same));
+        bills.splice(0, bills.length, ...bills.filter(b => !ours.has(same(b))), ...placed);
+      }
+      else if (placed.length > bills.length) bills.splice(0, bills.length, ...placed);
+      else own = null;
     }
     // A council with no bills: why, and its newest 議事錄 (the API's meetings, each with its file).
     let records = [];
@@ -193,7 +257,7 @@ for (const o of overviews) {
       sessions: sessions.map(s => ({ id: s['代碼'], n: s['會期名稱'], kind: s['會期類別'], from: s['開始日期'], to: s['結束日期'] || '' })).sort((a, b) => (a.from < b.from ? 1 : -1)),
       people,
       bills: newestBills(rows, sessions, 240),
-      ...(own ? { own: { file: `council/${code}-bills.json`, site: OWN[code].site, ...(OWN[code].out ? { out: true } : {}) } } : {}),
+      ...(own ? { own: { file: `council/${code}-bills.json`, site: OWN[code].site, ...(OWN[code].out ? { out: true } : {}), ...(OWN[code].add ? { add: true } : {}) } } : {}),
       ...(!rows.length ? { gap: gapOf(gaps.get(code)?.bill || ''), records } : {})
     });
     index.push({ ...c, people: people.length });

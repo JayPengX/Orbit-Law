@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -118,4 +118,27 @@ test('council: 花蓮縣議會’s search read whole, its decision kept', () => 
   assert.equal(theirBills(rows, '林正福').length, 2);
   // A session the API doesn't list yet sorts by the bill's own day.
   assert.deepEqual(newestBills([{ id: 1, s: 'old', d: '2026-03-01' }, { id: 2, s: '', d: '2026-09-04' }], [{ 代碼: 'old', 開始日期: '2026-02-20' }]).map(x => x.id), [2, 1]);
+});
+
+test('council: 彰化縣議會’s sessions, counts, lists and a bill’s page', () => {
+  assert.equal(chaSession('第二十屆  第21、22、23、24次 臨時會'), '第20屆第21、22、23、24次臨時會');
+  const [s] = chaSessions(`<li>
+    <span data-th="會　　期：" style="width:30%;"><a href="list.aspx?Parser=99,7,167,,,,,42">第二十屆  第8次 定期會</a></span>
+    <span data-th="開始日期：">2026年09月21日</span><span data-th="結束日期：">2026年11月04日</span></li>
+    <li><span data-th="會　　期："><a>第二十屆 第19次 程序委員會</a></span><span data-th="開始日期：">2026年09月14日</span></li>`);
+  assert.deepEqual(s, { 代碼: 'cha-20-r8', 會期名稱: '第20屆第8次定期會', 會期類別: '定期會', 開始日期: '2026-09-21', 結束日期: '2026-11-04' });
+  const counts = chaCounts(`<li>
+    <span data-th="會期：" class="list_date w40 left"> 第7次 定期會</span>
+    <span data-th="議員提案數："><a href="List2.aspx?Parser=99,7,47,,,,,,,,,15,,129,,,,,,2">17</a></span><span data-th="議長提案數：">0</span></li>`);
+  assert.deepEqual(counts, [{ name: '第7次 定期會', iid: '15', tid: '129', kind: 2, n: 17 }]);
+  const [r] = chaListRows(`<strong class="fsize_20">彰化縣議會第二十屆  第7次 定期會 &nbsp; 議員提案</strong>
+    <li><span data-th="案號：" class="list_date w10">第1號</span><span data-th="委員會別：" class="list_date w10"></span>
+    <span data-th="案由：" class="list_date w30">建請縣府體恤本縣長者...</span><span data-th="大會決議：" class="list_date w20">送縣府研究辦理。</span>
+    <span data-th="提案人：" class="list_date w10">李俊諭 </span><span data-th="詳情："><a href="Details.aspx?Parser=99,7,47,,,,3272,,,,,15,,129,,,,,,2">瀏　覽</a></span></li>`);
+  assert.deepEqual([r['代碼'], r['會期名稱'], r['提案人'], compactCouncilBill(r).out], ['cha-p3272', '第20屆第7次定期會', '李俊諭', 'sent']);
+  const f = chaDetail(`<li><span class="tabulation_tt w20"><label for="signatureP">連署人</label></span>
+    <span class="tabulation_word w80">賴清美、藍駿宇
+<br />楊子賢
+<br /> </span></li><li><span class="tabulation_tt w20">類別</span><span class="tabulation_word w80">衛生</span></li>`);
+  assert.deepEqual([f['連署人'], f['類別']], ['賴清美、藍駿宇、楊子賢', '衛生']);
 });

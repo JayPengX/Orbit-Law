@@ -138,6 +138,9 @@ Live: https://orbit.jaypengx.com/law/
   彰化's API stops in March); a day shows its sittings, each with its recording, and the day's other recordings.
   A sitting typed a year off its session (花蓮's API: 2027 for 2026) is set back into it
   (`saneSittings`, at build and on the phone's live read).
+  **各議會的議程** (`allCouncilAgenda`): every council's sittings on one day strip, by council (the reader's
+  first), each with its recording; one file, `council/agenda.json` (`agendaOf`, at build: three weeks back to two
+  months ahead from each council's newest sittings and recordings).
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).
 

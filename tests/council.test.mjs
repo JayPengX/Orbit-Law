@@ -217,3 +217,18 @@ test('council: a council’s days are its sittings, and the days only its record
   assert.deepEqual(got.map(x => [x.d, x.what, !!x.video]), [['2026-03-20', '大會', false], ['2026-11-04', '第8次定期會', true]]);
   assert.match(ccTermSittings('cha', 20), /sittings\?.*%E5%B1%86=20.*limit=2000/);
 });
+
+test('every council’s 議程 in one list: the window, the days only recordings know, a recording a sitting', async () => {
+  const { agendaOf } = await import('../public/lib/council.mjs');
+  const { videosOf } = await import('../public/lib/council-video.mjs');
+  const rows = agendaOf(
+    [
+      { c: 'tpe', sits: [{ d: '2026-11-10', t: '上午', from: '09:00', kind: '大會', what: '市政總質詢' }, { d: '2026-01-01', t: '', kind: '大會', what: 'old' }], vids: [] },
+      { c: 'kee', sits: [{ d: '2026-11-09', t: '上午', kind: '大會', what: '總質詢' }], vids: [{ id: 'm1', d: '2026-11-09', t: '上午', n: '總質詢' }, { id: 'm2', d: '2026-11-03', t: '下午', n: '第8次定期會 · 審查會' }] }
+    ],
+    '2026-11-10',
+    { videosOf }
+  );
+  assert.deepEqual(rows.map(x => [x.c, x.d, x.v?.id || '']), [['kee', '2026-11-03', 'm2'], ['kee', '2026-11-09', 'm1'], ['tpe', '2026-11-10', '']]);
+  assert.equal(rows[0].video, true, 'a day only its recordings know');
+});

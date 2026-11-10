@@ -623,3 +623,23 @@ export const textBucket = id => [...String(id)].reduce((h, c) => (h * 31 + c.cod
 // A session's every bill (the build's council/<code>/s/<id>.json), and its sittings read live from the API.
 export const sessionBillsFile = (code, id) => `council/${code}/s/${String(id).replace(/[^\w-]/g, '_')}.json`;
 export const ccSittings = (code, session) => `${CC_API}sittings?${new URLSearchParams({ 議會代碼: code, 會期代碼: session, sort: '日期<', limit: '300' })}`;
+
+// Every council's days in one list (council/agenda.json, the build's): each sitting a row with its council, from three
+// weeks back to two months ahead, the days only its recordings know too, and a recording that day where it has one.
+//   councils: [{ c, n, sits, vids }]
+export function agendaOf(councils, day, { back = 21, ahead = 62, videosOf = () => [] } = {}) {
+  const from = shiftDays(day, -back);
+  const to = shiftDays(day, ahead);
+  const rows = [];
+  for (const k of councils) {
+    const used = new Set();
+    for (const x of councilDays(k.sits || [], k.vids || [])) {
+      if (x.d < from || x.d > to) continue;
+      const v = x.d <= day ? videosOf(k.vids || [], x).find(y => !used.has(y.id)) : null;
+      if (v) used.add(v.id);
+      rows.push({ c: k.c, ...x, what: clip(x.what, 160), ...(v ? { v } : {}) });
+    }
+  }
+  return rows.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.from || a.t || '') < (b.from || b.t || '') ? -1 : 1));
+}
+const shiftDays = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);

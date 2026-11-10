@@ -8,7 +8,8 @@
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
 //   (in <code>.json) video: its live channels and newest recordings where a council
 //                  keeps them openly (lib/council-video.mjs: HiNet's OTT, 高雄's IVOD, YouTube's feeds)
-//   khh-clips.json 高雄's councillors' 質詢 recordings, by name
+//   khh-clips.json 高雄's councillors' 質詢 recordings, by name (kee-clips.json 基隆's)
+//   agenda.json    every council's sittings, three weeks back to two months ahead, for 各議會的議程
 //   <code>-bills.json  a council's 議員提案 this term read from its own site where
 //                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣; 彰化縣's newest sessions): for a search,
 //                  a councillor, a bill's page
@@ -20,8 +21,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids } from '../public/lib/council-video.mjs';
-import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, videosOf, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids } from '../public/lib/council-video.mjs';
+import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile, agendaOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -347,6 +348,8 @@ try {
 }
 const prevIndex = await prevJson('council/index.json');
 const index = [];
+// Each council's days for the one 議程 of every council (agenda.json).
+const agendaIn = [];
 // Four councils at a time: the own sites are each read gently, so side by side they fit the step's time.
 async function council(o) {
   const code = o['代碼'];
@@ -458,6 +461,7 @@ async function council(o) {
       ...(!rows.length ? { gap: gapOf(gaps.get(code)?.bill || ''), records } : {})
     });
     index.push({ ...c, people: people.length });
+    agendaIn.push({ c: code, sits, vids: video?.vids || [] });
   } catch (e) {
     notes.push(`${code} failed: ${e.message}`);
     const old = await prevJson(`council/${code}.json`);
@@ -465,6 +469,7 @@ async function council(o) {
       await write(`${code}.json`, old);
       const row = prevIndex?.councils?.find(x => x.c === code);
       if (row) index.push(row);
+      agendaIn.push({ c: code, sits: old.sittings || [], vids: old.video?.vids || [] });
     }
   }
 }
@@ -567,6 +572,7 @@ await Promise.all(Array.from({ length: 4 }, async () => {
 const order = new Map(overviews.map((o, i) => [o['代碼'], i]));
 index.sort((a, b) => (order.get(a.c) ?? 99) - (order.get(b.c) ?? 99));
 if (args.only) {} else if (index.length) await write('index.json', { built, day, councils: index });
+if (!args.only && agendaIn.length) await write('agenda.json', { built, day, rows: agendaOf(agendaIn, day, { videosOf }) });
 else if (prevIndex) await write('index.json', prevIndex);
 
 // 鄉鎮市民代表 and 山地原住民區民代表 in office: 中選會's 2022 winners.

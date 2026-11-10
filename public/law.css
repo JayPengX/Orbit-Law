@@ -4959,3 +4959,6 @@ button.lw-turn-cite { border: 0; cursor: pointer; }
 }
 .lw-council [data-ccagenda] .q-day-bar { max-width: 100%; }
 .lw-day-vids { margin-top: 8px; }
+/* 各議會的議程: a council's name heads its sittings, and opens it. */
+button.lw-cc-name { display: flex; align-items: center; gap: 4px; width: 100%; padding: 0; border: 0; background: none; text-align: start; cursor: pointer; }
+button.lw-cc-name svg { width: 8px; height: 13px; opacity: 0.5; }

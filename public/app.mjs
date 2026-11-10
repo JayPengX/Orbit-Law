@@ -2464,6 +2464,7 @@ function drawBills() {
       const lv = e.target.closest('[data-cclive]');
       if (lv) return openCouncilVideo('', Number(lv.dataset.cclive));
       if (e.target.closest('[data-ccvids]')) return councilVideos();
+      if (e.target.closest('[data-ccall]')) return allCouncilAgenda();
       const sall = e.target.closest('[data-ccsessall]');
       if (sall && shownCouncil) {
         const list = sall.parentElement.querySelector('[data-ccsesslist]');
@@ -3775,7 +3776,7 @@ async function councilList(out) {
     if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
-  const agenda = section(W('議程', 'Agenda'), '<div data-ccagenda><span class="q-skel" style="display:block;height:120px"></span></div>');
+  const agenda = section(W('議程', 'Agenda'), `<div data-ccagenda><span class="q-skel" style="display:block;height:120px"></span></div><button type="button" class="q-more q-more-go" data-ccall><span>${W('各議會的議程', 'Every council’s agenda')}</span><span class="q-more-chev" aria-hidden="true">›</span></button>`);
   const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[agenda + video + sessions + bills, 0], [people + towns, 1]])}</div>`;
   paint(out, html);
   councilAgenda(c, out);
@@ -3828,6 +3829,56 @@ async function councilAgenda(c, out) {
   if (!box.isConnected || shownCouncil?.c !== c.c) return;
   const merged = sits?.length ? [...sits, ...(c.sittings || []).filter(x => x.video)] : c.sittings || [];
   draw(merged, all);
+}
+
+// Every council's 議程 on one day (council/agenda.json: one read), by council, each sitting with its recording; a
+// council's name opens it.
+const allAgendaRec = {};
+let allAgendaDay = null;
+async function allCouncilAgenda() {
+  const box = h('div', { html: '<span class="q-skel" style="display:block;height:200px"></span>' });
+  const s = sheet({ title: W('各議會的議程', 'Every council’s agenda'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [box] });
+  let idx, ag;
+  try {
+    [idx, ag] = await Promise.all([councilsData(), data('council/agenda.json')]);
+  } catch {
+    return void (box.innerHTML = emptyNote(W('議程讀不到，請稍後再試', 'Couldn’t load the agenda')));
+  }
+  const day = twNow().day;
+  const rows = ag.rows || [];
+  const name = new Map(idx.councils.map(c => [c.c, c.n]));
+  const order = new Map(idx.councils.map((c, i) => [c.c, i]));
+  const mine = councilOf(idx.councils).c;
+  const days = [...new Set([...rows.map(x => x.d), day])].sort();
+  if (!days.includes(allAgendaDay)) allAgendaDay = days.find(d => d >= day && rows.some(x => x.d === d)) || day;
+  const list = h('div');
+  const show = d => {
+    allAgendaDay = d;
+    const here = rows.filter(x => x.d === d);
+    // The reader's council first, then the family's order (直轄市 first).
+    const by = [...new Set(here.map(x => x.c))].sort((a, b) => (a === mine ? -1 : b === mine ? 1 : (order.get(a) ?? 99) - (order.get(b) ?? 99)));
+    list.innerHTML = by.length
+      ? `<p class="lw-hint-sm">${esc(W(`${by.length} 個議會開會`, `${by.length} councils sit`))}</p>${by.map(c => `<button type="button" class="lw-vid-group lw-cc-name" data-ccopen="${esc(c)}">${esc(name.get(c) || c)}${CHEVRON}</button><div class="lw-meets">${here.filter(x => x.c === c).map(x => sittingRow({ ...x, done: x.d < day }, x.v)).join('')}</div>`).join('')}`
+      : `<p class="lw-none">${W('這天沒有議會開會', 'No council sits this day')}</p>`;
+  };
+  const bar = d => dayBar(allAgendaRec, { flat: true, days, current: d, today: day, follow: true, onPick: d2 => (show(d2), bar(d2)) });
+  kitUI.dayRecenter?.(allAgendaRec);
+  box.replaceChildren(bar(allAgendaDay), list);
+  show(allAgendaDay);
+  list.addEventListener('click', async e => {
+    const open = e.target.closest('[data-ccopen]');
+    if (open) {
+      kit.writeStore?.(COUNCIL_KEY, open.dataset.ccopen);
+      (councilMore = 0), (councilFound = null), haptic(), s.close();
+      return drawBillList();
+    }
+    const b = e.target.closest('[data-ccvid]');
+    const x = b && rows.find(y => y.v?.id === b.dataset.ccvid);
+    if (!x) return;
+    shownCouncil = await data(`council/${x.c}.json`).catch(() => shownCouncil);
+    openCouncilVideo(x.v.id, -1, x.v);
+  });
+  return s;
 }
 
 // One session of a council, whole: its sittings (read live from the API, each with its recording where there is

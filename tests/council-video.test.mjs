@@ -95,3 +95,19 @@ test('基隆: its chamber recordings and its 總質詢 by councillor, from the s
   assert.deepEqual(kmcWho('林旻勳議員暨跨黨派政團聯合_張耿輝議員,呂美玲'), ['林旻勳', '張耿輝', '呂美玲']);
   assert.deepEqual(kmcWho('楊秀玉副議長'), ['楊秀玉']);
 });
+
+test('臺北: a recording read from its own site, its day and hours, its 720p HLS, the agenda without the opening rites', async () => {
+  const { compactTcc, tccTime, tccId } = await import('../public/lib/council-video.mjs');
+  assert.deepEqual(tccTime('2026/10/27 14:50~17:14'), { d: '2026-10-27', t: '下午', from: '14:50', to: '17:14' });
+  assert.equal(tccId('https://tccvideo.tcc.gov.tw/Front/VideoContent/Index?id=63599011-8821-464f-8572-6ea7b99456ce'), '63599011-8821-464f-8572-6ea7b99456ce');
+  const v = compactTcc('63599011-8821-464f-8572-6ea7b99456ce', {
+    Title: '第14屆第13次臨時大會第05次會議',
+    MeetTime: '2026/10/27 14:50~17:14',
+    Content: '第5次會議<br/>1.主席宣告開會<br/>2.報告今日議程<br/>6.一讀會：宣讀議員提案<br/>8.三讀會：<br/>（1）審議115年度追加預算案',
+    ProxyUrls: [{ src: 'https://w/480.m3u8', label: '480p' }, { src: 'https://w/720.m3u8', label: '720p' }]
+  });
+  assert.equal(v.n, '第13次臨時大會第5次會議');
+  assert.equal(v.hls, 'https://w/720.m3u8');
+  assert.equal(v.what, '一讀會：宣讀議員提案；三讀會：（1）審議115年度追加預算案');
+  assert.equal(compactTcc('x', { MeetTime: '2026/10/27 14:50', ProxyUrls: [] }), null, 'no stream, no row');
+});

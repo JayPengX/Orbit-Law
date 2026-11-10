@@ -97,6 +97,8 @@ jobs:
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
+        env:
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       # Council bills whose text is only in a PDF (新竹縣, 新竹市): read into 說明, 辦法, 議決 (pdftotext), the newest first;
       # what the last deploy read is kept, so each build adds more.
       - name: Read the councils' bill PDFs

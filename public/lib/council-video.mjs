@@ -275,3 +275,24 @@ export function kmcVids(html) {
   }
   return [...out.values()];
 }
+
+// 臺北市議會's own video site (tccvideo.tcc.gov.tw, serving only Taiwan: the build reads it through Law's door): its
+// JSON (Front/…); a recording's HLS on its Wowza (tccwowza.tcc.gov.tw:1935), each 質詢's turn a segment of it.
+export const TCC_VIDEO = 'https://tccvideo.tcc.gov.tw/';
+export const tccId = url => (String(url || '').match(/[?&]id=([0-9a-f-]{36})/i) || [])[1] || '';
+// 2026/10/27 14:50~17:14 → its day, its part (上午/下午) and its hours.
+export function tccTime(s) {
+  const m = String(s || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?:~(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  return { d: `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`, t: +m[4] < 12 ? '上午' : '下午', from: `${m[4].padStart(2, '0')}:${m[5]}`, to: m[6] ? `${m[6].padStart(2, '0')}:${m[7]}` : '' };
+}
+// One recording read whole (VideoContent/Read): what it was, its day, its HLS (720p first) and the agenda read out.
+export function compactTcc(id, r, segs = []) {
+  const at = tccTime(r?.MeetTime);
+  const urls = r?.ProxyUrls || [];
+  const hls = (urls.find(x => x.label === '720p') || urls[0])?.src;
+  if (!at || !hls) return null;
+  const n = String(r.Title || '').replace(/^第\d+屆/, '').replace(/第0(\d)次/g, '第$1次').trim();
+  const what = String(r.Content || '').split(/<br\s*\/?>/i).map(x => x.replace(/<[^>]+>/g, '').trim()).filter(x => x && !/^第\d+次會議$|主席宣告開會|報告今日議程|宣讀.*會議紀錄/.test(x)).map(x => x.replace(/^\d+\./, '')).join('；').replace(/：；/g, '：');
+  return { id: `t${id.slice(0, 8)}`, tid: id, d: at.d, t: at.t, n: n || r.Type || '大會', hls, ...(what ? { what: what.slice(0, 300) } : {}), ...(at.from ? { from: at.from, to: at.to } : {}), ...(segs.length ? { segs } : {}) };
+}

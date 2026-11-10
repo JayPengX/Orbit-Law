@@ -216,8 +216,8 @@ export function councilState(c, day) {
 export const ccSearch = (code, term, q, limit = 40) => `${CC_API}bills?${new URLSearchParams({ 議會代碼: code, 屆: String(term), q, limit: String(limit) })}`;
 export const ccBill = id => `${CC_API}bills/${encodeURIComponent(id)}`;
 // A councillor's bills: the full-text search finds the name anywhere; only
-// those that list them among the proposers count.
-export const theirBills = (rows, name) => rows.filter(b => String(b['提案人'] || '').split(/[,、，\s]+/).includes(name));
+// those that list them among the proposers count (by name, with or without 議員: 基隆 writes 何淑萍議員).
+export const theirBills = (rows, name) => rows.filter(b => String(b['提案人'] || '').split(/[,、，\s]+/).map(x => x.replace(/(副議長|議長|議員)$/, '')).includes(name));
 
 // 新竹縣議會 publishes no bills to the API, but lists every 議員提案 on its
 // own site (www.hcc.gov.tw/porposal, six a page): read into the API's shape,

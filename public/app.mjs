@@ -163,7 +163,7 @@ const save = () => {
 // open (never the laws only looked at). While the tab is open it's told.
 let told = loadTold();
 const badge = () => {
-  const keys = newsKeys(state.mine, state.items, state.changes, state.peopleLast);
+  const keys = newsKeys(state.mine, state.items, state.changes, { ...state.peopleLast, ...Object.fromEntries(Object.entries(state.ccLast || {}).map(([k, d]) => [`cc:${k}`, d])) });
   if (state.tab === 'mine' && document.visibilityState !== 'hidden' && keys.some(k => !told.includes(k))) saveTold((told = [...new Set([...told.filter(k => keys.includes(k)), ...keys])]));
   tabs.badge('mine', newCount(keys, told));
 };
@@ -2852,10 +2852,11 @@ function drawMine() {
     [section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))), 1],
     [section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))), 1],
     [section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))), 1],
-    [Object.keys(m.people || {}).length ? laterHtml('mine-people') : '', 1]
+    [Object.keys(m.people || {}).length ? laterHtml('mine-people') : '', 1],
+    [Object.keys(m.cc || {}).length ? laterHtml('mine-cc') : '', 1]
   ]);
   // Only recent laws so far: say what ☆ adds, under them.
-  const nothingFollowed = !items.length && !laws.length && !marks.length && !news.length && !Object.keys(m.people || {}).length;
+  const nothingFollowed = !items.length && !laws.length && !marks.length && !news.length && !Object.keys(m.people || {}).length && !Object.keys(m.cc || {}).length;
   const hint = `<div class="lw-mine-hint"><span class="lw-orb star sm">${ICON.star}</span><div><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('按 ☆，修法和審議進度會出現在這裡', 'Tap ☆: amendments and progress show here')}</p></div></div>`;
   paint(
     $('panel-mine'),
@@ -2867,6 +2868,63 @@ function drawMine() {
   badge();
   // 追蹤的立委: each one's newest bills, 質詢 and whole-bill votes, what came since last time marked.
   if (Object.keys(m.people || {}).length) drawTracked(m);
+  if (Object.keys(m.cc || {}).length) drawTrackedCC(m);
+}
+
+// The followed councillors' doings, read live (the API: their bills and what they said; their council's 質詢
+// recordings where it files them by name), newest first; how many since each was last opened.
+const ccFeeds = new Map();
+async function councilorFeed(code, name) {
+  const k = `${code}:${name}`;
+  if (ccFeeds.has(k) && Date.now() - ccFeeds.get(k).at < 10 * 60_000) return ccFeeds.get(k).p;
+  const p = (async () => {
+    const c = await data(`council/${code}.json`);
+    const x = c.people.find(p => p.n === name);
+    if (!x) return null;
+    const zh = zhName(name) || name;
+    const from = id => (c.sessions || []).find(s => s.id === id)?.from || '';
+    const [bills, said, clips] = await Promise.all([
+      c.gap ? [] : (c.own && !c.own.add ? ownBills(c).then(all => ({ bills: all.filter(b => String(b['提案人']).split('、').includes(zh)) })) : ccJson(ccSearch(c.c, c.term, zh, 40))).then(r => newestBills(theirBills(r.bills || [], zh).map(compactCouncilBill), c.sessions, 40)).catch(() => []),
+      ccJson(ccSpeech(c.c, zh)).then(r => speechesOf(r.meet_transcripts || [], 3)).catch(() => []),
+      c.video?.clips ? data(c.video.clips).then(r => r.people?.[zh] || []).catch(() => []) : []
+    ]);
+    const feed = [
+      ...bills.map(b => ({ k: 'bill', d: b.d || from(b.s), t: b.t, id: b.id, out: b.out })),
+      ...said.map(m => ({ k: 'talk', d: m.d, t: m.t, url: m.url })),
+      // (A recording's name without theirs: 第8次定期會 · 市長施政總質詢.)
+      ...clips.slice(0, 3).map(v => ({ k: 'clip', d: v.d, t: v.n.split(' · ').filter(w => !w.includes(zh)).join(' · ') || v.n, v }))
+      // (A bill the council's data gives no day or session, 基隆's, still shown, never as new.)
+    ].filter(e => e.d || e.k === 'bill').sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+    return { c, x, feed };
+  })();
+  ccFeeds.set(k, { at: Date.now(), p });
+  p.catch(() => ccFeeds.delete(k));
+  return p;
+}
+async function trackedCC(m) {
+  const keys = Object.keys(m.cc || {});
+  const got = (await Promise.all(keys.map(k => councilorFeed(k.slice(0, 3), k.slice(4)).catch(() => null)))).map((r, i) => r && { ...r, key: keys[i] }).filter(Boolean);
+  state.ccNew = Object.fromEntries(got.map(r => [r.key, r.feed.filter(e => e.d && e.d > m.cc[r.key]).length]));
+  state.ccLast = Object.fromEntries(got.map(r => [r.key, state.ccNew[r.key] ? r.feed[0].d : '']));
+  badge();
+  return got;
+}
+async function drawTrackedCC(m) {
+  const got = await trackedCC(m).catch(() => []);
+  if (!got.length || !$('mine-cc')) return;
+  const cards = got.map(({ c, x, feed, key }) => {
+    const seen = m.cc[key];
+    const fresh = state.ccNew[key];
+    const row = e => {
+      const when = e.d ? `<small class="lw-track-d${e.d > seen ? ' new' : ''}">${esc(shortDay(e.d))}</small>` : '<span></span>';
+      if (e.k === 'bill') return `<button type="button" class="lw-track-row" data-cbill="${esc(e.id)}"><span class="lw-track-k indigo">${W('提案', 'Bill')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</button>`;
+      if (e.k === 'clip') return `<button type="button" class="lw-track-row" data-mccvid="${esc(key)}|${esc(e.v.id)}"><span class="lw-track-k orange">${W('質詢', 'Spoke')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</button>`;
+      return `<${e.url ? `a href="${esc(e.url)}" target="_blank" rel="noopener"` : 'div'} class="lw-track-row"><span class="lw-track-k orange">${W('發言', 'Spoke')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</${e.url ? 'a' : 'div'}>`;
+    };
+    const top = ['bill', 'clip', 'talk'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1));
+    return `<div class="lw-track" style="--p:${partyColor(x.party)}"><button type="button" class="lw-track-head" data-mcc="${esc(key)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${c.n} · ${partyShort(x.party)} · ${x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))}`)}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</button>${top.length ? `<div class="lw-track-rows">${top.map(row).join('')}</div>` : `<p class="lw-track-none">${W('這屆還沒有提案或發言紀錄', 'No bills or speeches yet this term')}</p>`}</div>`;
+  });
+  fillLater('mine-cc', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的議員', 'Councillors')}</h2></div><div class="lw-tracks">${cards.join('')}</div></section>`);
 }
 
 // The followed legislators' doings (their files and the votes), and how many
@@ -2908,9 +2966,21 @@ async function drawTracked(m) {
   });
   fillLater('mine-people', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Legislators')}</h2></div><div class="lw-tracks">${cards.join('')}</div></section>`);
 }
-$('panel-mine').addEventListener('click', e => {
+$('panel-mine').addEventListener('click', async e => {
   const b = e.target.closest('#mine-people [data-vote]');
   if (b) voteSheet(Number(b.dataset.vote));
+  // A followed councillor: their sheet, a bill, a recording.
+  const p = e.target.closest('#mine-cc [data-mcc]');
+  if (p) return openCouncilor(p.dataset.mcc.slice(4), p.dataset.mcc.slice(0, 3)).then(() => drawMine());
+  const cb = e.target.closest('#mine-cc [data-cbill]');
+  if (cb) return openCouncilBill(cb.dataset.cbill);
+  const v = e.target.closest('#mine-cc [data-mccvid]');
+  if (v) {
+    const [key, id] = v.dataset.mccvid.split('|');
+    const r = await councilorFeed(key.slice(0, 3), key.slice(4)).catch(() => null);
+    const clip = r?.feed.find(x => x.v?.id === id)?.v;
+    if (clip) ((shownCouncil = r.c), openCouncilVideo(id, -1, clip));
+  }
 });
 
 // ---- 立委 and 表決: who voted how, each legislator's record and speeches ----------------
@@ -3998,11 +4068,16 @@ function councilBillHtml(b) {
 }
 
 // A councillor: their party and district, and the bills they filed this term (read live).
-async function openCouncilor(name) {
-  const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
+// (code: their council, from 我的; else the council shown.)
+async function openCouncilor(name, code = '') {
+  const c = await data(`council/${code || councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   const x = c?.people.find(p => p.n === name);
   if (!x) return;
   const zh = zhName(name) || name;
+  // Followed (☆, into 我的) as their council and name: what they file and say, new since last opened.
+  const key = `${c.c}:${x.n}`;
+  if (state.mine.cc?.[key]) (markSeen(state.mine, 'cc', key), save(), state.ccNew && (state.ccNew[key] = 0), state.ccLast && (state.ccLast[key] = ''), badge());
+  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.cc?.[key] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.cc ||= {}), toggleFollow(state.mine, 'cc', key) && toast(W('已追蹤，動態會出現在「我的」', 'Following: their news shows in Mine')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.cc[key])), haptic()) });
   const counted = c.people.filter(p => p.bills).length * 2 >= c.people.length;
   const billsHead = () => `<h4>${counted ? W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`) : W('本屆提案', 'Bills this term')}</h4>`;
   const skel = '<span class="q-skel" style="display:block;height:120px"></span>';
@@ -4011,14 +4086,14 @@ async function openCouncilor(name) {
   const head = h('div', { class: 'lw-person-head', html: `${personPhoto(x, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span><span class="lw-tag">${esc(`${c.city}${x.area}`)}</span>${x.title ? countTag(x.title, 'indigo') : ''}</div></div>` });
   // Their 質詢 on video, where the council files recordings by councillor (高雄).
   const clipBox = h('div', { class: 'lw-person-sec', html: c.video?.clips ? `<h4>${W('質詢影片', 'Questions on video')}</h4>${skel}` : '' });
-  const s = sheet({ title: W('議員', 'Councillor'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, clipBox, list, talk] });
+  const s = sheet({ title: W('議員', 'Councillor'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, clipBox, list, talk] });
   list.addEventListener('click', e => e.target.closest('[data-cbill]') && openCouncilBill(e.target.closest('[data-cbill]').dataset.cbill));
   if (c.video?.clips) {
     let clips = [];
     data(c.video.clips)
       .then(r => {
         clips = r.people?.[zh] || [];
-        clipBox.innerHTML = clips.length ? `<h4>${W('質詢影片', 'Questions on video')}</h4><div class="lw-list in-sheet wrap">${clips.slice(0, 4).map(vidRow).join('')}</div>` : '';
+        clipBox.innerHTML = clips.length ? `<h4>${W('質詢影片', 'Questions on video')}</h4><div class="lw-list in-sheet wrap">${clips.slice(0, 4).map(v => vidRow({ ...v, n: v.n.split(' · ').filter(w => !w.includes(zh)).join(' · ') || v.n })).join('')}</div>` : '';
       })
       .catch(() => (clipBox.innerHTML = ''));
     clipBox.addEventListener('click', e => {
@@ -4356,6 +4431,7 @@ async function start() {
   ]).then(() => state.tab === 'home' && drawHome());
   // The followed legislators' news, for the badge.
   if (Object.keys(state.mine.people || {}).length && state.tab !== 'mine') trackedFeeds(state.mine).catch(() => {});
+  if (Object.keys(state.mine.cc || {}).length && state.tab !== 'mine') trackedCC(state.mine).catch(() => {});
   const changesReady = data('changes.json')
     .then(c => {
       state.changes = c;

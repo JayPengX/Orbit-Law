@@ -516,6 +516,10 @@ test('mine on the Pass: round trip, newer copy decides, later seen days kept', (
   assert.equal(m.t, 200);
   // Ours newer: ours decides.
   assert.deepEqual(mergeMine(a, { ...theirs, t: 50 }).laws, a.laws);
+  // Councillors followed travel and merge as the rest; an older copy without them reads as none.
+  assert.deepEqual(decodeMine(encodeMine({ ...a, cc: { 'tpe:王小明': '2026-11-10' } })).cc, { 'tpe:王小明': '2026-11-10' });
+  assert.deepEqual(decodeMine(encodeMine(a)).cc, {});
+  assert.deepEqual(mergeMine({ ...a, cc: { 'kee:A': '2026-11-01' } }, { ...theirs, cc: { 'kee:A': '2026-11-09', 'hsq:B': '2026-11-02' } }).cc, { 'kee:A': '2026-11-09', 'hsq:B': '2026-11-02' });
 });
 
 test('問法律: the proxy 404 before the route ships reads as soon', async () => {

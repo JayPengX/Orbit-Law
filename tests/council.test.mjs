@@ -64,6 +64,7 @@ test('council: no sitting on a day off; only councillors in office', () => {
 test('council: a councillor’s bills are only those that list them', () => {
   const rows = [{ 提案人: '王小明、李大華' }, { 提案人: '王小明華' }, { 提案人: '' }];
   assert.equal(theirBills(rows, '王小明').length, 1);
+  assert.equal(theirBills([{ '提案人': '何淑萍議員' }, { '提案人': '韓世昱議員' }], '何淑萍').length, 1, '基隆 writes the title after the name');
 });
 
 test('council: township representatives by county, then township, then district', () => {

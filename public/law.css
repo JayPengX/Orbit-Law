@@ -4962,3 +4962,5 @@ button.lw-turn-cite { border: 0; cursor: pointer; }
 /* 各議會的議程: a council's name heads its sittings, and opens it. */
 button.lw-cc-name { display: flex; align-items: center; gap: 4px; width: 100%; padding: 0; border: 0; background: none; text-align: start; cursor: pointer; }
 button.lw-cc-name svg { width: 8px; height: 13px; opacity: 0.5; }
+/* A followed councillor's card head opens their sheet (a button, where a legislator's is a link). */
+button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; }

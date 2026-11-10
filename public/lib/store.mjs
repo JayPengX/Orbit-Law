@@ -3,7 +3,8 @@
 // a read that fails is empty, a write that fails is dropped (private mode).
 
 const KEY = 'orbit-law.mine.v1';
-const empty = () => ({ laws: {}, items: {}, people: {}, marks: [], recent: [], seenChanges: '' });
+// cc: the councillors and 代表 followed, as `<council or town code>:<name>` (a council's people have no lasting id).
+const empty = () => ({ laws: {}, items: {}, people: {}, cc: {}, marks: [], recent: [], seenChanges: '' });
 
 export function loadMine(store = globalThis.localStorage) {
   try {
@@ -60,12 +61,13 @@ export const billMoved = (it, seen, now) => Boolean(seen) && it.u > seen && it.u
 // What's new among what this device follows, one key per thing (a law, a
 // bill, a legislator), each with the day of its newest change, so a later
 // change is a new key: [ 'l:<pcode>:<day>', 'b:<item>:<day>', 'p:<id>:<day>' ].
-// peopleLast: each followed legislator's newest doing since last opened.
+// peopleLast: each followed legislator's (and councillor's, `cc:<key>`) newest doing since last opened.
 export function newsKeys(mine, items, changes, peopleLast = {}, now) {
   return [
     ...lawsChanged(mine, changes).map(c => `l:${c.p}:${c.seen}`),
     ...(items || []).filter(it => billMoved(it, mine.items[it.k], now)).map(it => `b:${it.k}:${it.u}`),
-    ...Object.entries(peopleLast).filter(([id, d]) => d && mine.people?.[id]).map(([id, d]) => `p:${id}:${d}`)
+    // (A councillor's as `cc:<council>:<name>`.)
+    ...Object.entries(peopleLast).filter(([id, d]) => d && (id.startsWith('cc:') ? mine.cc?.[id.slice(3)] : mine.people?.[id])).map(([id, d]) => `p:${id}:${d}`)
   ];
 }
 
@@ -94,12 +96,12 @@ export function saveTold(keys, store = globalThis.localStorage) {
 // bookmarks and the recent laws, so another phone signed in has them too.
 // The newer copy (by `t`, the last save) decides what's in or out; the
 // days last looked at are the later of the two for what both follow.
-export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, people: m.people || {}, marks: m.marks, recent: m.recent });
+export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, people: m.people || {}, cc: m.cc || {}, marks: m.marks, recent: m.recent });
 export function decodeMine(payload) {
   try {
     const v = JSON.parse(payload);
     if (v?.v !== 1 || typeof v.laws !== 'object' || typeof v.items !== 'object' || !Array.isArray(v.marks) || !Array.isArray(v.recent)) return null;
-    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, people: v.people && typeof v.people === 'object' ? v.people : {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
+    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, people: v.people && typeof v.people === 'object' ? v.people : {}, cc: v.cc && typeof v.cc === 'object' ? v.cc : {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
   } catch {
     return null;
   }
@@ -113,6 +115,7 @@ export function mergeMine(ours, theirs) {
     laws: later(base.laws, other.laws),
     items: later(base.items, other.items),
     people: later(base.people || {}, other.people || {}),
+    cc: later(base.cc || {}, other.cc || {}),
     marks: base.marks,
     recent: [...new Set([...base.recent, ...other.recent])].slice(0, 12)
   };

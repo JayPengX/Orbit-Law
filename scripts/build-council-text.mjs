@@ -8,7 +8,7 @@ import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { args, sleep, prevJson } from './lib.mjs';
-import { billPdfParts, textBucket, TEXT_BUCKETS, HCC } from '../public/lib/council.mjs';
+import { billPdfParts, textBucket, TEXT_BUCKETS, HCC, outcomeOf, sessionBillsFile } from '../public/lib/council.mjs';
 
 const out = new URL('../public/data/council/', import.meta.url).pathname;
 const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
@@ -79,6 +79,27 @@ await Promise.all(Object.keys(SITES).map(async code => {
   }
   await mkdir(`${out}text/${code}`, { recursive: true });
   await Promise.all(buckets.map((b, n) => writeFile(`${out}text/${code}/${n}.json`, JSON.stringify(b))));
+  // How each went, from its PDF's 議決, onto the council's lists (its newest and each session's), which had none.
+  const outOf = id => {
+    const k = known(id);
+    return k?.['議決'] ? outcomeOf(k['議決'], '') : '';
+  };
+  const mark = rows => rows.reduce((n, b) => (!b.out && outOf(b.id) ? ((b.out = outOf(b.id)), n + 1) : n), 0);
+  let marked = 0;
+  const main = await readFile(`${out}${code}.json`, 'utf8').then(JSON.parse, () => null);
+  if (main?.bills) {
+    marked += mark(main.bills);
+    await writeFile(`${out}${code}.json`, JSON.stringify(main));
+    for (const x of main.sessions || []) {
+      const f = `${out}${sessionBillsFile(code, x.id).replace(/^council\//, '')}`;
+      const doc = await readFile(f, 'utf8').then(JSON.parse, () => null);
+      if (doc?.rows) {
+        marked += mark(doc.rows);
+        await writeFile(f, JSON.stringify(doc));
+      }
+    }
+  }
   const have = buckets.reduce((s, b) => s + Object.values(b).filter(x => x.pdf).length, 0);
+  console.log(`council text ${code}: ${marked} rows given their outcome`);
   console.log(`council text ${code}: ${got} read, ${none} without a PDF, ${bad} failed; ${have} of ${list.rows.length} bills have their text, ${Math.round((Date.now() - started) / 1000)}s`);
 }));

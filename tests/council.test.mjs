@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -160,4 +160,18 @@ test('council: bills drawn out of the minutes, how each went from the minutes or
   // A meeting outside every listed session keeps its day alone.
   const [c] = transcriptBills('lie', [{ ...row(1, '其他', '案由:建請爭取經費推動景觀平台。'), 會期代碼: null, 日期: '2026-06-11' }], [{ 代碼: 'lie-8-r6', 開始日期: '2025-11-27', 結束日期: '2025-11-27' }]);
   assert.deepEqual([c['會議代碼'], c['日期']], ['', '2026-06-11']);
+});
+
+test('council: 苗栗縣議會’s meeting records read into bills', () => {
+  const [at] = mccList(`<td><span class="tdbb">2026-11-06</span></td><td><a href="iframcirculatedview.php?menu=1765&typeid=2626&circulated_id=1363" title="第20屆第8次定期會-第23次會議">x</a>`);
+  assert.deepEqual(at, { id: 1363, d: '2026-11-06', title: '第20屆第8次定期會-第23次會議' });
+  assert.equal(mccFiles('<a href="admin/upload/twgov_file_1.pdf" target="_blank">第23次會議臨時動議</a>')[0].url, 'https://www.mcc.gov.tw/admin/upload/twgov_file_1.pdf');
+  const meeting = '范秘書長陽添：\n府第 1 號案\n案由：116 年度本縣總預算案歲入編列 365 億\n2\n元。\n審查會聯席會議決議：\n照原案通過。\n大會決議：修正通過。\n主席(李議長文斌)：';
+  const motions = '苗栗縣議會第 20 屆第 8 次定期會臨時動議案\n動-1\n\n動議人：邱毓興\n\n附議人：陳品安、張志宇\n翁 杰\n\n案\n\n題：有關籃球場損壞一案，建請縣府協\n助修繕，請審議。\n\n決\n\n議：照原案通過。\n\n苗栗縣議會第 20 屆第 8 次定期會臨時動議案\n動 - 2\n\n動議人：張副議長淑芬\n\n附議人：邱毓興\n\n案\n\n題：建請縣府增設匹克球場。\n\n決\n\n議：照原案通過。';
+  const rows = mccBills([{ name: '第23次會議', text: meeting, url: 'a.pdf' }, { name: '第23次會議臨時動議', text: motions, url: 'b.pdf' }], at);
+  assert.equal(rows.length, 3);
+  const [gov, m1, m2] = rows;
+  assert.deepEqual([gov['案號'], gov['案由'], gov['提案單位'], compactCouncilBill(gov).out], ['府第1號', '116年度本縣總預算案歲入編列365億元。', '苗栗縣政府', 'yes']);
+  assert.deepEqual([m1['案號'], m1['連署人'], m1['案由'], m1['會期名稱']], ['動-1', '陳品安、張志宇、翁杰', '有關籃球場損壞一案，建請縣府協助修繕，請審議。', '第20屆第8次定期會']);
+  assert.equal(m2['主提案人'], '張淑芬', 'the post isn’t part of the name');
 });

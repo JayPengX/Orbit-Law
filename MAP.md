@@ -62,10 +62,13 @@ Live: https://orbit.jaypengx.com/law/
   (`transcriptBills`: the 其他 and 程序文字 rows carry 案號, 提案人, 案由,
   審查意見 and 大會決議; else the chair's next words, 報告結果：知悉), each
   linked to its meeting's file.
+  苗栗縣 (the API has none: its site is www.mcc.gov.tw, not mlcc): its
+  會議記錄 pages' PDFs hold text, read with poppler's pdftotext (`mcc*`:
+  府/議 第 N 號案 with 大會決議, 臨時動議 動-N with 動議人, 附議人, 決議),
+  40 records a night, each once (`done`), newest first.
   Sessions the API doesn't list yet sort by the bill's day.
   高雄's 議決 carries date lines (決議日期：…), which `outcomeOf` drops. A council
-  with none at all (苗栗縣: scanned images only and its site refuses readers
-  outside Taiwan) says why (`gap`, from the API's
+  with none at all says why (`gap`, from the API's
   `completenesses`) and lists its newest 議事錄 files. A councillor's sheet
   shows their recent speeches (`meet_transcripts`, read live; `speechesOf`).
   代表會 have no bills or sittings in any open data, so they show their members only. The picked council is this device's

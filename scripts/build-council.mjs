@@ -14,8 +14,10 @@
 // council that can't be read today keeps the last deploy's copy.
 //   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz]
 import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -70,8 +72,62 @@ const OWN = {
   kin: { site: '議會的議事錄', out: true, whole: fromMinutes },
   nwt: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
   lie: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
-  pif: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes }
+  pif: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
+  // 苗栗's meeting records: PDFs with text (the API has none of its bills).
+  mia: { site: '苗栗縣議會網站', out: true, whole: miaoli }
 };
+
+// 苗栗縣議會's 會議記錄, newest first: each record's PDFs read with pdftotext
+// into bills (lib/council.mjs mccBills). 40 records a night, 2 s apart, each
+// read once (`done`), until the term is whole.
+async function miaoli(term, { old }) {
+  const pdf = (() => {
+    try {
+      execFileSync('pdftotext', ['-v'], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (!pdf) throw new Error('no pdftotext');
+  const read = async (url, bytes) => {
+    await sleep(2000);
+    const r = await fetch(url, { signal: AbortSignal.timeout(60_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
+    if (!r.ok) throw new Error(`mia ${r.status} at ${url}`);
+    return bytes ? Buffer.from(await r.arrayBuffer()) : new TextDecoder('big5').decode(await r.arrayBuffer());
+  };
+  const done = new Set(old?.done || []);
+  const rows = [...(old?.rows || [])];
+  const todo = [];
+  // The list, newest first, until the term's records end or 40 pages.
+  for (let page = 0; page < 40 && todo.length < 40; page++) {
+    const list = mccList(await read(`${MIAOLI}iframcirculated_list.php?menu=1765&typeid=2626&Page=${page}`));
+    if (!list.length) break;
+    const mine = list.filter(x => x.title.startsWith(`第${term}屆`));
+    todo.push(...mine.filter(x => !done.has(x.id)));
+    if (mine.length < list.length) break;
+  }
+  const tmp = `${process.env.RUNNER_TEMP || '/tmp'}/mia.pdf`;
+  let stop = '';
+  for (const at of todo.slice(0, 40)) {
+    try {
+      const files = [];
+      for (const f of mccFiles(await read(`${MIAOLI}iframcirculatedview.php?menu=1765&typeid=2626&circulated_id=${at.id}`))) {
+        if (/追認/.test(f.name)) continue;
+        writeFileSync(tmp, await read(f.url, true));
+        files.push({ ...f, text: execFileSync('pdftotext', [tmp, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 }) });
+      }
+      const got = mccBills(files, at);
+      const ids = new Set(got.map(r => r['代碼']));
+      rows.splice(0, rows.length, ...rows.filter(r => !ids.has(r['代碼'])), ...got);
+      done.add(at.id);
+    } catch (e) {
+      stop = e.message;
+      break;
+    }
+  }
+  return { rows: rows.sort((a, b) => (a['日期'] < b['日期'] ? 1 : a['日期'] > b['日期'] ? -1 : 0)), stop, keep: { done: [...done] } };
+}
 
 // A council's minutes since its newest bills in the API (the whole term if none):
 // the 其他 and 程序文字 rows, newest first until older; then, for the meetings

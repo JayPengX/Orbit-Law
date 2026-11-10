@@ -94,7 +94,7 @@ jobs:
         continue-on-error: true
       # 地方議會: the 22 縣市議會 (sittings, bills, councillors) and the 鄉鎮市民代表 (all.cc.govapi.tw).
       - name: Build the local councils
-        run: node scripts/build-council.mjs
+        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
       # Legislators' headshots, mirrored small (the committed ones, plus a newcomer's).

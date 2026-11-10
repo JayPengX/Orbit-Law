@@ -356,6 +356,48 @@ export function transcriptBills(code, rows, sessions = []) {
   return [...out.values()];
 }
 
+// 苗栗縣議會 (www.mcc.gov.tw, not the mlcc.gov.tw that doesn't exist): each
+// meeting's record (會議記錄) is a page of PDFs with text: the meeting itself
+// (府/議 第 N 號案, 案由, 大會決議) and its 臨時動議 (動-N, 動議人, 附議人,
+// 案題, 決議). Read with pdftotext at the build.
+export const MIAOLI = 'https://www.mcc.gov.tw/';
+export function mccList(html) {
+  return [...String(html).matchAll(/<span class="tdbb">(\d{4}-\d{2}-\d{2})<\/span>[\s\S]*?circulated_id=(\d+)" title="([^"]+)"/g)].map(([, d, id, title]) => ({ id: Number(id), d, title: title.trim() }));
+}
+export function mccFiles(html) {
+  return [...String(html).matchAll(/href="(admin\/upload\/[^"]+\.pdf)"[^>]*>([\s\S]*?)<\/a>/gi)].map(([, u, t]) => ({ url: MIAOLI + u, name: tag(t) }));
+}
+const flat = s => String(s || '').replace(/\s+/g, '');
+// 張副議長淑芬 → 張淑芬: a councillor's own name, without the post.
+const bare = x => x.replace(/\s+/g, '').replace(/^(.)(?:副議長|議長|議員)(.+)$/, '$1$2');
+const names = s => String(s || '').split(/[、,，\n]+/).map(bare).filter(Boolean);
+// The text of one record's files → its bills. `at`: { id, d, title } from the list.
+export function mccBills(files, at) {
+  const session = (at.title.match(/^(第\d+屆第[\d、]+次(?:定期會|臨時會))/) || [])[1] || '';
+  const rows = [];
+  for (const { name, text, url } of files) {
+    const body = String(text || '').replace(/\n\s*\d{1,3}\s*\n/g, '\n');
+    if (/臨時動議/.test(name)) {
+      for (const [, n, chunk] of body.matchAll(/動\s*-\s*(\d+)\s*\n([\s\S]*?)(?=\n\s*(?:苗栗縣議會第[^\n]*臨時動議案\s*\n)?動\s*-\s*\d+\s*\n|$)/g)) {
+        const f = flat(chunk);
+        const by = names((f.match(/動議人[:：](.*?)附議人/) || [])[1]).join('、');
+        const co = names((chunk.match(/附議人[:：]([\s\S]*?)\n\s*案\s*\n?\s*題/) || [])[1]);
+        const what = (f.match(/案題[:：](.*?)(?:理由[:：]|辦法[:：]|決議[:：]|$)/) || [])[1] || '';
+        if (!what) continue;
+        rows.push({ 代碼: `mia-p${at.id}-m${n}`, 案號: `動-${n}`, 日期: at.d, 類別: '臨時動議', 案由: what.slice(0, 400), ...(by ? { 提案人: [by, ...co].join('、'), 主提案人: by, 連署人: co.join('、') } : {}), 議決: (f.match(/決議[:：](.*?。)/) || [])[1] || '', 會期名稱: session, 來源網址: url });
+      }
+    } else if (!/追認/.test(name)) {
+      for (const [, who, n, chunk] of body.matchAll(/(府|議)第\s*(\d+)\s*號案\s*\n\s*案由[:：]([\s\S]*?)(?=(?:府|議)第\s*\d+\s*號案\s*\n\s*案由[:：]|$)/g)) {
+        const f = flat(chunk);
+        const what = (f.match(/^(.*?)(?:審查會|說明[:：]|辦法[:：]|理由[:：]|大會決議|主席[(（]|$)/) || [])[1] || '';
+        if (!what) continue;
+        rows.push({ 代碼: `mia-p${at.id}-${who === '府' ? 'g' : 'c'}${n}`, 案號: `${who}第${n}號`, 日期: at.d, 案由: what.slice(0, 400), ...(who === '府' ? { 提案單位: '苗栗縣政府' } : {}), 審查意見: (f.match(/審查會(?:聯席會議)?決議[:：](.*?。)/) || [])[1] || '', 議決: (f.match(/大會決議[:：](.*?。)/) || [])[1] || '', 會期名稱: session, 來源網址: url });
+      }
+    }
+  }
+  return rows;
+}
+
 // Why a council has no bills to show, in plain words (the API's own note, else a plain one).
 export function gapOf(note = '') {
   if (/掃描|OCR|影像/.test(note)) return ['議會只公開掃描的圖檔，沒有文字可以讀，所以這裡沒有提案。', 'The council publishes its records only as scanned images, so there is no text to read.'];

@@ -44,7 +44,10 @@ Live: https://orbit.jaypengx.com/law/
   `council/index.json` (the 22 縣市議會 in a line each: session now, counts),
   `council/<code>.json` (a council's sittings, sessions, councillors in office
   with how many bills carry their name's Chinese part (`zhName`: 宋雨蓁 Nikar．Falong
-  → 宋雨蓁), the newest 240 bills of the term) and
+  → 宋雨蓁), the newest 240 bills of the term, each session's bill count),
+  `council/<code>/s/<session>.json` (every bill of a session, `sessionBillsFile`: the 本屆會期
+  list opens any session whole, `councilSession`, its sittings read live from the API,
+  `ccSittings`, its recordings, its bills by outcome and committee) and
   `council/reps.json` (鄉鎮市民代表 and 山地原住民區民代表: 中選會's 2022 winners
   by county and township). A council that fails keeps the last deploy's copy.
   The API pages only its first 10,000 rows, so `all()` reads the rest sorted

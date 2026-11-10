@@ -21,7 +21,7 @@ import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
 import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -409,6 +409,14 @@ async function council(o) {
     // An own-site row no winner's list holds stays only if a bill names them.
     people.splice(0, people.length, ...people.filter(p => !p.maybe || p.bills).map(({ maybe, ...p }) => p));
     const rows = bills.map(compactCouncilBill);
+    // Every bill of the term, a file a session (council/<code>/s/<session>.json), so any session can be
+    // looked through whole, not only the newest 240.
+    const bySession = new Map();
+    for (const b of rows) if (b.s) bySession.set(b.s, [...(bySession.get(b.s) || []), b]);
+    if (bySession.size) {
+      await mkdir(`${out}${code}/s`, { recursive: true });
+      for (const [id, xs] of bySession) await write(sessionBillsFile(code, id).replace(/^council\//, ''), { built, s: id, rows: xs.sort((a, b) => (Number(b.no) || 0) - (Number(a.no) || 0)) });
+    }
     let video = null;
     if (HINET[code] || YOUTUBE[code] || code === 'khh') {
       try {
@@ -429,7 +437,7 @@ async function council(o) {
       built,
       sittings: sits,
       ...(video ? { video } : {}),
-      sessions: sessions.map(s => ({ id: s['代碼'], n: s['會期名稱'], kind: s['會期類別'], from: s['開始日期'], to: s['結束日期'] || '' })).sort((a, b) => (a.from < b.from ? 1 : -1)),
+      sessions: sessions.map(s => ({ id: s['代碼'], n: s['會期名稱'], kind: s['會期類別'], from: s['開始日期'], to: s['結束日期'] || '', ...(bySession.get(s['代碼'])?.length ? { bills: bySession.get(s['代碼']).length } : {}) })).sort((a, b) => (a.from < b.from ? 1 : -1)),
       people,
       bills: newestBills(rows, sessions, 240),
       ...(own ? { own: { file: `council/${code}-bills.json`, site: OWN[code].site, ...(OWN[code].out ? { out: true } : {}), ...(OWN[code].add ? { add: true } : {}) } } : {}),

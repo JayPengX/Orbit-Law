@@ -41,7 +41,7 @@ import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
-import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket } from './lib/council.mjs';
+import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting } from './lib/council.mjs';
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf } from './lib/council-video.mjs';
@@ -2463,6 +2463,15 @@ function drawBills() {
       const lv = e.target.closest('[data-cclive]');
       if (lv) return openCouncilVideo('', Number(lv.dataset.cclive));
       if (e.target.closest('[data-ccvids]')) return councilVideos();
+      const sall = e.target.closest('[data-ccsessall]');
+      if (sall && shownCouncil) {
+        const list = sall.parentElement.querySelector('[data-ccsesslist]');
+        const day = twNow().day;
+        if (list) list.innerHTML = (shownCouncil.sessions || []).filter(x => x.from && x.from <= day).map(x => `<button type="button" class="lw-row" data-ccsess="${esc(x.id)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.n.replace(/^第\d+屆/, ''))}</span><small>${esc([spanOf(x.from, x.to), x.bills ? W(`提案 ${x.bills.toLocaleString()} 件`, `${x.bills} bills`) : ''].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`).join('');
+        return sall.remove();
+      }
+      const sess = e.target.closest('[data-ccsess]');
+      if (sess && shownCouncil) return councilSession(shownCouncil, shownCouncil.sessions.find(x => x.id === sess.dataset.ccsess));
       const cb = e.target.closest('[data-cbill]');
       if (cb) return openCouncilBill(cb.dataset.cbill);
       const cp = e.target.closest('[data-ccp]');
@@ -3692,6 +3701,10 @@ async function councilList(out) {
   // Coming sittings, and (with recordings) the last ones too: a recorded sitting opens its video.
   const sits = (ahead.length ? section(W('接下來開會', 'Coming sittings'), `<div class="lw-meets">${ahead.slice(0, 6).map(x => sittingRow(x, x.d <= day ? vidOf(x) : null)).join('')}</div>`) : '') + ((!ahead.length || vids.length) && gone.length ? section(W('最近開會', 'Last sittings'), `<div class="lw-meets">${gone.map(x => sittingRow({ ...x, done: true }, vidOf(x))).join('')}</div>`) : '');
   const video = vids.length ? section(W('議會影音', 'Council video'), `<div class="lw-list wrap">${vids.slice(0, 4).map(vidRow).join('')}</div>${vids.length > 4 ? `<button type="button" class="lw-more" data-ccvids>${W(`看更多影音（${vids.length}）`, `More video (${vids.length})`)}</button>` : ''}`) : '';
+  // The term's every session, each opened whole (its sittings, recordings and every bill), not only the newest.
+  const ss = (c.sessions || []).filter(x => x.from && x.from <= day);
+  const sessRow = x => `<button type="button" class="lw-row" data-ccsess="${esc(x.id)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.n.replace(/^第\d+屆/, ''))}</span><small>${esc([spanOf(x.from, x.to), x.bills ? W(`提案 ${x.bills.toLocaleString()} 件`, `${x.bills} bills`) : ''].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`;
+  const sessions = ss.length ? section(W(`本屆會期 ${ss.length}`, `Sessions this term ${ss.length}`), `<div class="lw-list" data-ccsesslist>${ss.slice(0, 5).map(sessRow).join('')}</div>${ss.length > 5 ? `<button type="button" class="lw-more" data-ccsessall>${W(`再顯示 ${ss.length - 5} 個會期`, `Show ${ss.length - 5} more`)}</button>` : ''}`) : '';
   const liveBox = c.video?.live?.length ? '<div class="lw-list lw-cc-livebox" data-cclive-box hidden></div>' : '';
   const shown = c.bills.filter(b => b.t.length >= 8 && (b.t.match(/「/g) || []).length === (b.t.match(/」/g) || []).length);
   const n = 8 + councilMore;
@@ -3711,9 +3724,66 @@ async function councilList(out) {
     if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
-  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[sits + video + bills, 0], [people + towns, 1]])}</div>`;
+  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[sits + video + sessions + bills, 0], [people + towns, 1]])}</div>`;
   paint(out, html);
   councilLive(c, out);
+}
+
+// One session of a council, whole: its sittings (read live from the API, each with its recording where there is
+// one), and every bill it took, by outcome and committee.
+function councilSession(c, x) {
+  if (!x) return;
+  const vids = c.video?.vids || [];
+  const to = x.to || twNow().day;
+  const mine = vids.filter(v => v.d >= x.from && v.d <= to);
+  const sitBox = h('div', { html: section(W('開會', 'Sittings'), '<span class="q-skel" style="display:block;height:96px"></span>') });
+  const billBox = h('div', { html: x.bills ? section(W(`提案 ${x.bills.toLocaleString()}`, `Bills ${x.bills}`), '<span class="q-skel" style="display:block;height:160px"></span>') : '' });
+  const head = h('div', { html: `<h2 class="lw-item-name">${esc(x.n)}</h2><p class="lw-person-line">${esc([c.n, `${shortDay(x.from)}${x.to ? `–${shortDay(x.to)}` : ''}`].join(' · '))}</p>${mine.length ? section(W(`影音 ${mine.length}`, `Video ${mine.length}`), `<div class="lw-list in-sheet wrap">${mine.map(vidRow).join('')}</div>`) : ''}` });
+  const s = sheet({ title: x.n.replace(/^第\d+屆/, ''), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [head, sitBox, billBox] });
+  ccJson(ccSittings(c.c, x.id))
+    .then(r => {
+      const sits = (r.sittings || []).map(compactSitting).filter(Boolean);
+      const row = y => sittingRow({ ...y, done: y.d < twNow().day }, videosOf(vids, y)[0]);
+      sitBox.innerHTML = sits.length ? section(W(`開會 ${sits.length}`, `Sittings ${sits.length}`), `<div class="lw-meets">${sits.slice(0, 6).map(row).join('')}</div>${sits.length > 6 ? `<button type="button" class="lw-more" data-ccsitall>${W(`再顯示 ${sits.length - 6} 場`, `Show ${sits.length - 6} more`)}</button>` : ''}`) : '';
+      sitBox.onclick = e => {
+        const all = e.target.closest('[data-ccsitall]');
+        if (all) ((sitBox.querySelector('.lw-meets').innerHTML = sits.map(row).join('')), all.remove());
+      };
+    })
+    .catch(() => (sitBox.innerHTML = ''));
+  let rows = [];
+  let pick = '';
+  let n = 30;
+  const draw = () => {
+    const outs = [...new Set(rows.map(b => b.out).filter(Boolean))];
+    const cats = [...rows.reduce((m, b) => (b.cat ? m.set(b.cat, (m.get(b.cat) || 0) + 1) : m), new Map())].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
+    const keys = [...outs.map(k => `o:${k}`), ...cats.map(k => `c:${k}`)];
+    const shown = rows.filter(b => !pick || (pick.startsWith('o:') ? b.out === pick.slice(2) : b.cat === pick.slice(2)));
+    const chip = (k, label) => `<button type="button" class="q-chip" data-ccpick="${esc(k)}" aria-pressed="${k === pick}">${esc(label)}</button>`;
+    const chips = keys.length > 1 ? `<div class="q-chips lw-chips">${chip('', W('全部', 'All'))}${outs.map(k => chip(`o:${k}`, OUTCOME[k] ? OUTCOME[k][en ? 1 : 0] : k)).join('')}${cats.map(k => chip(`c:${k}`, k)).join('')}</div>` : '';
+    billBox.innerHTML = section(W(`提案 ${rows.length.toLocaleString()}`, `Bills ${rows.length}`), `${chips}<div class="lw-list in-sheet wrap">${shown.slice(0, n).map(b => cbillRow(c, { ...b, s: '' })).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmorein>${W(`再顯示 ${Math.min(30, shown.length - n)} 件（共 ${shown.length}）`, `Show more (${shown.length})`)}</button>` : ''}`);
+  };
+  if (x.bills)
+    data(sessionBillsFile(c.c, x.id))
+      // As the newest list: a bill whose words the source cut off (too short, a quote left open) left out.
+      .then(r => ((rows = (r.rows || []).filter(b => b.t.length >= 8 && (b.t.match(/「/g) || []).length === (b.t.match(/」/g) || []).length)), draw()))
+      .catch(() => (billBox.innerHTML = section(W('提案', 'Bills'), emptyNote(W('提案讀不到，請稍後再試', 'Couldn’t load the bills')))));
+  billBox.addEventListener('click', e => {
+    const p = e.target.closest('[data-ccpick]');
+    if (p) return ((pick = p.dataset.ccpick), (n = 30), draw());
+    if (e.target.closest('[data-ccmorein]')) return ((n += 30), draw());
+    const b = e.target.closest('[data-cbill]');
+    if (b) openCouncilBill(b.dataset.cbill);
+  });
+  head.addEventListener('click', e => {
+    const v = e.target.closest('[data-ccvid]');
+    if (v) openCouncilVideo(v.dataset.ccvid);
+  });
+  sitBox.addEventListener('click', e => {
+    const v = e.target.closest('[data-ccvid]');
+    if (v) openCouncilVideo(v.dataset.ccvid);
+  });
+  return s;
 }
 
 // The 22 councils to pick from: 直轄市 first, each with its session now.

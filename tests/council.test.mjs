@@ -199,3 +199,10 @@ test('council: 嘉義市議會’s sessions, links, days and a bill’s page', (
   const gov = cyiBill('<span>案由:115年度本市總預算第5次追加預算案。</span><span>提案人:嘉義市政府&nbsp;&nbsp;</span>', 1423);
   assert.equal(gov['提案單位'], '嘉義市政府');
 });
+
+test('council: a session’s every bill sits in its own file, its sittings read live', async () => {
+  const { sessionBillsFile, ccSittings } = await import('../public/lib/council.mjs');
+  assert.equal(sessionBillsFile('tpe', 'tpe-14-r8'), 'council/tpe/s/tpe-14-r8.json');
+  assert.equal(sessionBillsFile('hsq', 'hsq 20/8'), 'council/hsq/s/hsq_20_8.json');
+  assert.match(ccSittings('tpe', 'tpe-14-r8'), /sittings\?.*%E6%9C%83%E6%9C%9F%E4%BB%A3%E7%A2%BC=tpe-14-r8/);
+});

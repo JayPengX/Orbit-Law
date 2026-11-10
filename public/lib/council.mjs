@@ -586,3 +586,7 @@ export function billPdfParts(text, { centred = false } = {}) {
 // Where a bill's text read from its PDF is kept: council/text/<code>/<n>.json, n of 64 by its id (the app reads one).
 export const TEXT_BUCKETS = 64;
 export const textBucket = id => [...String(id)].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7) % TEXT_BUCKETS;
+
+// A session's every bill (the build's council/<code>/s/<id>.json), and its sittings read live from the API.
+export const sessionBillsFile = (code, id) => `council/${code}/s/${String(id).replace(/[^\w-]/g, '_')}.json`;
+export const ccSittings = (code, session) => `${CC_API}sittings?${new URLSearchParams({ 議會代碼: code, 會期代碼: session, sort: '日期<', limit: '300' })}`;

@@ -16,7 +16,7 @@ Live: https://orbit.jaypengx.com/law/
   at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-notices.mjs`
   (each 預告's join.gov.tw record and its 總說明 and 條文對照表 read from the
   公報 PDF with poppler's `pdftotext -bbox`: `bills/notice/<id>.json`), `build-ly.mjs`,
-  `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
+  `build-council.mjs` (地方議會, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
   under `public/img/ly/`; only a newcomer's is fetched), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
   as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
@@ -35,6 +35,19 @@ Live: https://orbit.jaypengx.com/law/
   `bills/items.json` has one item per law per term (every version folded
   in), and `bills/item/<term>-<law>.json` that item's versions. A version's
   對照表 is fetched from the API only when opened in the app.
+- **地方議會** (立法's 議會 door; `lib/council.mjs`, `scripts/build-council.mjs`):
+  歐噴's 地方議會開放 API (all.cc.govapi.tw, each council's own site and
+  內政部's and 中選會's lists, refreshed daily; CORS open). The deploy writes
+  `council/index.json` (the 22 縣市議會 in a line each: session now, counts),
+  `council/<code>.json` (a council's sittings, sessions, councillors in office
+  with how many bills carry their name, the newest 240 bills of the term) and
+  `council/reps.json` (鄉鎮市民代表 and 山地原住民區民代表: 中選會's 2022 winners
+  by county and township). A council that fails keeps the last deploy's copy.
+  The API pages only its first 10,000 rows, so `all()` reads the rest sorted
+  the other way. A bill's text, a search and a councillor's bills are read
+  live from the API when asked. 代表會 have no bills or sittings in any open
+  data, so they show their members only. The picked council is this device's
+  (`orbit-law.council.v1`), first your 我的 city's.
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).
 
@@ -84,7 +97,13 @@ Live: https://orbit.jaypengx.com/law/
   counts sit on the line under it.
 - **Stages** (`lib/bills.mjs`): 提案 → 一讀 → 委員會審查 → 審查完畢 → 黨團協商
   → 二讀 → 三讀 → 總統公布. 總統公布 is when the MOJ copy's 異動日期 is on or
-  after the 三讀. Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.
+  after the 三讀. A passed law 行政院 refused to countersign (不副署, 憲法 37) is
+  never promulgated: `data-src/unsigned.json` lists the known ones with a news
+  source, and each build adds new ones read in 行政院's own news and 院會 RSS
+  (`unsignedIn`, only a name that is a passed, unpromulgated item); the item
+  carries `ns: {d, src}`, its card reads 行政院不副署 and 已通過 groups them
+  apart. A 報告 counts as a bill only when it quotes a law's 草案
+  (`isLawBill`: a committee's report on a budget or a rule is no bill). Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.
   After a 三讀, versions still moving are the item's open round; versions
   that went quiet before it don't count as open, nor do the versions it took
   in (`passedRound`: tied to a passed one by 關連議案 and filed before the vote;
@@ -278,6 +297,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/app.mjs`, `index.html`, `law.css`, `look.css` | The page: five tabs, the reader, 裁判, the sheets; Orbit's own look |
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
+| `public/lib/council.mjs` | 地方議會: councils, sittings, bills' outcomes, councillors, 代表 |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |
@@ -289,6 +309,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
 | `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |
 | `data-src/facts.json` | Figures the news build keeps |
+| `data-src/unsigned.json` | Laws 行政院 refused to countersign, each with its source |
 
 ## Run and test
 

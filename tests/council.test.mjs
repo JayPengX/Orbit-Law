@@ -1,0 +1,68 @@
+// 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState } from '../public/lib/council.mjs';
+
+test('council: an outcome in a word, whichever way a council writes it', () => {
+  assert.equal(outcomeOf('照審查意見通過。'), 'yes');
+  assert.equal(outcomeOf('原案通過'), 'yes');
+  assert.equal(outcomeOf('不予通過'), 'no');
+  assert.equal(outcomeOf('送縣府研究辦理'), 'sent');
+  assert.equal(outcomeOf('存查'), 'noted');
+  assert.equal(outcomeOf('保留'), 'held');
+  // 高雄's 議決 often holds only its date: the 審查意見 speaks then.
+  assert.equal(outcomeOf('決議日期：2026-10-01', '同意照案通過'), 'yes');
+  assert.equal(outcomeOf('', ''), '');
+});
+
+test('council: a bill kept small names its filer and its committee', () => {
+  const b = compactCouncilBill({ 代碼: 'x1', 案號: '第12號', 類別: '交通委員會-交通', 提案人: '王小明、李大華、陳一', 案由: '<一>建請市府增設停車場', 議決: '照案通過', 會議代碼: 's9' });
+  assert.deepEqual(b, { id: 'x1', t: '建請市府增設停車場', by: '王小明等3人', gov: false, cat: '交通', out: 'yes', s: 's9', no: '第12號' });
+  assert.equal(whoOf('', '臺北市政府'), '臺北市政府');
+  const gov = compactCouncilBill({ 代碼: 'x2', 提案單位: '臺北市政府', 案由: '檢送預算' });
+  assert.equal(gov.gov, true);
+});
+
+test('council: newest bills are the latest session’s, higher 案號 first', () => {
+  const sessions = [{ 代碼: 'a', 開始日期: '2026-03-01' }, { 代碼: 'b', 開始日期: '2026-09-01' }];
+  const rows = [{ id: 1, s: 'a', no: '5' }, { id: 2, s: 'b', no: '2' }, { id: 3, s: 'b', no: '10' }, { id: 4, s: 'a', no: '9' }];
+  assert.deepEqual(newestBills(rows, sessions, 3).map(b => b.id), [3, 2, 4]);
+});
+
+test('council: the session a day falls in, the next one, the last one', () => {
+  const s = [{ 代碼: 1, 會期名稱: '第7次定期會', 開始日期: '2026-08-20', 結束日期: '2026-10-02' }, { 代碼: 2, 會期名稱: '第8次定期會', 開始日期: '2026-11-20', 結束日期: '2026-12-31' }];
+  assert.equal(sessionOn(s, '2026-09-01').on.id, 1);
+  const off = sessionOn(s, '2026-11-10');
+  assert.equal(off.on, null);
+  assert.equal(off.next.id, 2);
+  assert.equal(off.last.id, 1);
+  assert.equal(councilState({ on: null, next: off.next, last: off.last }, '2026-11-10').live, false);
+});
+
+test('council: no sitting on a day off; only councillors in office', () => {
+  assert.equal(compactSitting({ 日期: '2026-10-10', 場次類別: '停會' }), null);
+  assert.equal(compactSitting({ 日期: '2026-10-11', 議程說明: '例假日' }), null);
+  assert.equal(compactSitting({ 日期: '2026-10-12', 場次類別: '大會', 議程說明: '市政總質詢' }).what, '市政總質詢');
+  assert.equal(compactCouncilor({ 姓名: '甲', 現況: '已卸任' }), null);
+  const p = compactCouncilor({ 姓名: '乙', 現況: '在任', 黨籍: '無', 參選政黨: '無黨籍及未經政黨推薦', 選區別: '臺北市第1選舉區', 職稱: '議員' });
+  assert.equal(p.party, '無黨籍');
+  assert.equal(p.area, '第1選舉區');
+  assert.equal(p.title, '');
+});
+
+test('council: a councillor’s bills are only those that list them', () => {
+  const rows = [{ 提案人: '王小明、李大華' }, { 提案人: '王小明華' }, { 提案人: '' }];
+  assert.equal(theirBills(rows, '王小明').length, 1);
+});
+
+test('council: township representatives by county, then township, then district', () => {
+  const reps = [
+    { 姓名: '丙', 縣市: '宜蘭縣', 議會代碼: 'ila', 鄉鎮市區: '羅東鎮', 鄉鎮市區代碼: '10002020', 選區別: '第2選舉區', 參選職位: '鄉鎮市民代表', 其他欄位: { 推薦之政黨: '中國國民黨' } },
+    { 姓名: '甲', 縣市: '宜蘭縣', 議會代碼: 'ila', 鄉鎮市區: '宜蘭市', 鄉鎮市區代碼: '10002010', 選區別: '第1選舉區', 參選職位: '鄉鎮市民代表', 其他欄位: {} },
+    { 姓名: '乙', 縣市: '宜蘭縣', 議會代碼: 'ila', 鄉鎮市區: '羅東鎮', 鄉鎮市區代碼: '10002020', 選區別: '第1選舉區', 參選職位: '鄉鎮市民代表', 其他欄位: {} }
+  ].map(compactRep);
+  const [c] = repsByPlace(reps);
+  assert.equal(c.city, '宜蘭縣');
+  assert.deepEqual(c.towns.map(t => t.town), ['宜蘭市', '羅東鎮']);
+  assert.deepEqual(c.towns[1].reps, [['乙', '無黨籍', '第1選舉區'], ['丙', '中國國民黨', '第2選舉區']]);
+});

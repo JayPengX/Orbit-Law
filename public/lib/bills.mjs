@@ -64,7 +64,8 @@ export function billStage(bill) {
   return { stage: Math.max(reached, now.stage), held: Boolean(now.held) && now.stage >= reached };
 }
 
-const passedOn = bill => bill.flow.filter(f => f[1] === PASSED).map(f => f[0]).sort().pop() || '';
+// (A 三讀 the flow leaves out, its status saying so: the day of its last move.)
+const passedOn = bill => bill.flow.filter(f => f[1] === PASSED).map(f => f[0]).sort().pop() || (stageOf(bill.st).stage === PASSED ? bill.u || '' : '');
 
 // A short, file-safe id for a law 立法院 hasn't numbered (FNV-1a, hex).
 export function hash(s) {
@@ -76,10 +77,39 @@ export function hash(s) {
 // The law a bill's title names (「民法部分條文修正草案」 → 民法): the longest
 // known name it starts with, else the shortest 法/條例/通則 it starts with.
 export function lawOfTitle(title, known = new Map()) {
-  const t = String(title || '').replace(/^[「『]/, '');
+  // A committee's report (報告併案審查委員…擬具「民法部分條文修正草案」…) names its law inside its first quote.
+  const inner = /^報告/.test(String(title || '')) && (String(title).match(/「([^」]+?(?:法|條例|通則)[^」]*?草案)」/) || [])[1];
+  const t = String(inner || title || '').replace(/^[「『]/, '');
   let best = '';
   for (let k = Math.min(40, t.length); k >= 2 && !best; k--) if (known.has(t.slice(0, k))) best = t.slice(0, k);
   return best || (t.match(/^(.+?(?:法|條例|通則))(?:部分|第|增訂|修正|草案|施行)/) || [])[1] || '';
+}
+
+// Is it a bill at all? The API files every committee report as 法律案, the
+// ones on a foundation's budget (報告審查客家委員會函送…預算書案) and on a
+// ministry's rules (報告審查教育部函為修正「…辦法」案) too: those change no law.
+export function isLawBill(b) {
+  const t = String(b?.t || '');
+  if (!/^報告/.test(t) || (b.laws || []).length) return true;
+  return /「[^」]*?(?:法|條例|通則)[^」]*?草案」/.test(t);
+}
+
+// 行政院 refusing to countersign (不副署) a law 立法院 passed: the president
+// then never promulgates it, and it stays passed but not law. The refusals
+// (`data-src/unsigned.json`, and 行政院's own news read at deploy): a law's
+// name in 《》 or 「」 next to 不副署 / 不予副署 (never 副署長).
+const lawKey = s => String(s || '').replace(/台/g, '臺').replace(/^中華民國(?!\d)/, '').replace(/\s+/g, '');
+export function unsignedIn(text) {
+  const out = new Set();
+  const s = String(text || '').replace(/<[^>]+>/g, '').replace(/\s+/g, '');
+  for (const m of s.matchAll(/[^。！？；]*不(?:予|與)?副署(?!長)[^。！？；]*/g)) for (const n of m[0].matchAll(/[《「]([^》」]{2,40}?(?:法|條例|通則))(?:第[^》」]*)?(?:修正案|部分條文)?[》」]/g)) out.add(lawKey(n[1]));
+  return [...out];
+}
+// The refusals as one map: law key → { d, src } (the newest refusal of each).
+export function unsignedMap(list = []) {
+  const m = new Map();
+  for (const x of list) if (x?.n && x.d && !(m.get(lawKey(x.n))?.d > x.d)) m.set(lawKey(x.n), { d: x.d, src: x.src || '' });
+  return m;
 }
 
 // One tracked item per law per term (all its versions), the furthest stage
@@ -115,10 +145,11 @@ function passedSummary(bills, passed, parties) {
   return { n: round.length, about: newest.find(b => b.a && !/審查報告$/.test(b.a))?.a || '', by, arts: articlesTouched(round), top: newest[0]?.id || '' };
 }
 
-export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map() } = {}) {
+export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map(), unsigned = new Map() } = {}) {
   const items = new Map();
   const ids = new Map(bills.flatMap(b => b.laws.map((id, i) => [b.names[i], id])));
   for (const b of bills) {
+    if (!isLawBill(b)) continue;
     const named = b.laws.length ? b.laws.map((id, i) => [id, b.names[i] || '']) : [];
     if (!named.length) {
       const name = lawOfTitle(b.t, pcodes);
@@ -138,6 +169,8 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
     const open = openRound(it.bills, passed);
     const ymd = passed.replaceAll('-', '');
     const promulgated = Boolean(passed && it.p && (modified.get(it.p) || '') >= ymd);
+    // Not promulgated, and 行政院 refused to countersign it after this 三讀.
+    const ns = passed && !promulgated ? unsigned.get(lawKey(it.n)) : null;
     let stage = open.length ? Math.max(...open.map(b => billStage(b).stage)) : passed ? (promulgated ? PROMULGATED : PASSED) : Math.max(-1, ...live.map(b => billStage(b).stage));
     const u = it.bills.map(b => b.u).sort().pop() || '';
     return {
@@ -151,6 +184,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       dropped: live.length === 0,
       passed,
       pub: promulgated ? modified.get(it.p) : '',
+      ...(ns && ns.d >= passed ? { ns } : {}),
       open: open.length,
       arts: articlesTouched(open),
       count: it.bills.length,
@@ -218,7 +252,8 @@ export function mergeBills(prev, fresh) {
 // still wait for the next step after the first three (`waiting`). A reviewed
 // version whose law passed on or after its own last move went into that 三讀
 // (立法院 leaves its status at 審查完畢): it no longer waits.
-export function billCounts(bills) {
+export function billCounts(all) {
+  const bills = all.filter(isLawBill);
   const passedBy = new Map();
   for (const b of bills) for (const law of b.laws) passedBy.set(law, [passedBy.get(law) || '', passedOn(b)].sort().pop());
   const reached = [0, 0, 0, 0];

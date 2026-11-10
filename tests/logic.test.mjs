@@ -93,7 +93,7 @@ test('bill sheet: where it stands, what it waits for, which articles', async () 
   ];
   const w = whereNow({ stage: 4, passed: '2025-07-11' }, bills, false, now);
   assert.deepEqual(w, { last: '10/20 排入院會(討論事項)', next: '院會二讀、三讀表決', open: 1, before: '2025/07/11' });
-  assert.equal(whereNow({ stage: 6 }, [], false, now).next, '總統公布');
+  assert.equal(whereNow({ stage: 6 }, [], false, now).next, '總統公布（收到後 10 天內）');
   assert.equal(whereNow({ stage: 2, held: true }, [], false, now).next, '', 'held: no next step');
   const chips = articleChips({ p: 'D1', arts: { 21: 5, '16-1': 1, 2: 1, 16: 2 } });
   assert.deepEqual([...chips.matchAll(/第 ([\d-]+) 條/g)].map(m => m[1]), ['2', '16', '16-1', '21'], 'in the law’s order');
@@ -142,6 +142,31 @@ test('bills: every version on one law in a term is one item; 三讀 then the MOJ
   const e = compactBill(raw('5', { 最新進度日期: '2026-05-01', 議案流程: [{ 狀態: '黨團協商', 日期: ['2026-04-01'] }] }));
   const [again] = foldBills([a, b, e], { pcodes: new Map([['甲法', 'P1']]), modified: new Map([['P1', '20260320']]) });
   assert.deepEqual([again.stage, again.open, again.pub], [4, 1, '20260320'], 'a quiet version from before the vote is not open');
+});
+
+// Jay 2026-11-09: bills passed months ago still read 已通過, and 報告 rows showed as bills.
+test('bills: 行政院不副署 holds a passed law unpromulgated; a committee report on a budget or a rule is no bill', async () => {
+  const { isLawBill, unsignedIn, unsignedMap } = await import('../public/lib/bills.mjs');
+  const { stageShort, toneOf, whereNow } = await import('../public/lib/cards.mjs');
+  const passed = compactBill(raw('2', { 議案狀態: '三讀', 議案流程: [{ 狀態: '三讀', 日期: ['2026-07-31'] }], 法律編號: ['02406'], '法律編號:str': ['廣播電視法'] }));
+  const unsigned = unsignedMap([{ n: '廣播電視法', d: '2026-08-24', src: 'https://example.org/x' }]);
+  const [held] = foldBills([passed], { pcodes: new Map([['廣播電視法', 'P1']]), modified: new Map([['P1', '20180613']]), unsigned });
+  assert.deepEqual([held.stage, held.ns?.d], [PASSED, '2026-08-24']);
+  assert.equal(stageShort(held), '行政院不副署');
+  assert.equal(toneOf(held), 'held');
+  assert.equal(whereNow(held, []).next, '', 'nothing to wait for: it won’t be promulgated');
+  const [law] = foldBills([passed], { pcodes: new Map([['廣播電視法', 'P1']]), modified: new Map([['P1', '20260810']]), unsigned });
+  assert.equal(law.ns, undefined, 'promulgated after all: no 不副署');
+  const [early] = foldBills([passed], { unsigned: unsignedMap([{ n: '廣播電視法', d: '2026-01-01' }]) });
+  assert.equal(early.ns, undefined, 'a refusal from before this 三讀 is an earlier one');
+  assert.deepEqual(unsignedIn('行政院今天宣布不副署《老人福利法》第22條修正案。卓揆與副署長視察《某某法》。不予副署「台灣兒少成長及未來帳戶條例」；另將推動「財政收支劃分法」'), ['老人福利法', '臺灣兒少成長及未來帳戶條例']);
+  const report = t => compactBill(raw('7', { 法律編號: [], '法律編號:str': [], 議案名稱: t }));
+  assert.equal(isLawBill(report('報告審查客家委員會函送財團法人客家公共傳播基金會115年度預算書案。')), false);
+  assert.equal(isLawBill(report('報告審查國家通訊傳播委員會函為修正「電信管理業務規費收費標準第十四條條文」案。')), false);
+  const civil = report('報告併案審查委員吳宗憲等18人分別擬具「民法部分條文修正草案」案。');
+  assert.equal(isLawBill(civil), true);
+  assert.equal(lawOfTitle(civil.t, new Map([['民法', 'B0000001']])), '民法', 'a report folds into the law it reviews');
+  assert.equal(foldBills([report('報告審查司法院函送財團法人法律扶助基金會114年度預算書案。')]).length, 0);
 });
 
 test('bills: titles name their law; merge keeps the newest', () => {
@@ -928,7 +953,7 @@ test('bills: a 這週三讀通過 card opens its passed round, and card and shee
   assert.match(progress(card, false, { labels: true }), /aria-label="三讀"/);
   const w = whereNow(card, round, false, new Date('2026-11-06T06:00:00Z'));
   assert.equal(w.last, '10/30 三讀通過');
-  assert.equal(w.next, '總統公布');
+  assert.equal(w.next, '總統公布（收到後 10 天內）');
   assert.equal(w.later, 1, 'the newer round is named, not shown as this one');
   // The open round's sheet: its latest step agrees with its bar (提案, waiting for 一讀).
   assert.match(progress(it, false, { labels: true }), /aria-label="提案"/);

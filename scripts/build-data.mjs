@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
 import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, historyChange, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
-import { compactBill, foldBills, mergeBills, billCounts, stageOf } from '../public/lib/bills.mjs';
+import { compactBill, foldBills, mergeBills, billCounts, stageOf, unsignedIn, unsignedMap } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 import { delegations, regCount, formerNames } from '../public/lib/deleg.mjs';
@@ -214,7 +214,28 @@ if (args.bills !== 'off') {
   } catch (e) {
     console.warn(`legislators: ${e.message}`);
   }
-  const items = foldBills(all, { pcodes, modified, parties }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
+  // 不副署: the refusals we know (data-src), the last deploy's, and any 行政院's
+  // own news names today (its 本院新聞 and 院會決議 feeds, about a month of each).
+  const seed = JSON.parse(readFileSync(new URL('../data-src/unsigned.json', import.meta.url), 'utf8')).laws;
+  const found = [];
+  for (const type of [3, 6]) {
+    try {
+      const r = await fetch(`https://www.ey.gov.tw/RSS_Content.aspx?ModuleType=${type}`, { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'Mozilla/5.0 (Orbit-Law nightly)' } });
+      for (const item of (await r.text()).split('<item>').slice(1)) {
+        const day = new Date((item.match(/<pubDate>([^<]+)/) || [])[1] || '');
+        const link = ((item.match(/<link>(?:<!\[CDATA\[)?([^<\]]+)/) || [])[1] || '').trim();
+        if (!isNaN(day)) for (const n of unsignedIn(item)) found.push({ n, d: new Date(day.getTime() + 8 * 3600e3).toISOString().slice(0, 10), src: link });
+      }
+    } catch (e) {
+      console.warn(`行政院 news ${type}: ${e.message}`);
+    }
+  }
+  // A name read in the news counts only once it is a law this term passed and MOJ hasn't promulgated since.
+  const passedNames = new Set(foldBills(all, { pcodes, modified }).filter(it => it.passed && !it.pub).map(it => it.n.replace(/台/g, '臺')));
+  const unsignedList = [...seed, ...((await prevJson('bills/unsigned.json'))?.laws || []), ...found.filter(x => passedNames.has(x.n))];
+  const unsigned = unsignedMap(unsignedList);
+  await writeFile(out + 'bills/unsigned.json', JSON.stringify({ built: new Date().toISOString(), laws: [...unsigned].map(([n, x]) => ({ n, ...x })) }));
+  const items = foldBills(all, { pcodes, modified, parties, unsigned }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
   const byId = new Map(all.map(b => [b.id, b]));
   // w: how many of an item's versions are filed but not yet read (提案 in the funnel).
   for (const it of items) it.w = it.ids.filter(id => byId.get(id) && stageOf(byId.get(id).st).stage === 0).length || undefined;

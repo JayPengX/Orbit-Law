@@ -3137,10 +3137,10 @@ details.lw-bud-row[open] > summary {
 .lw-reg-head b { color: var(--q-accent); font: 600 14px/20px var(--q-font); }
 .lw-reg-head span { color: var(--q-label-2); font: 14px/20px var(--q-font); }
 
-/* 立法: five doors across the top (the open one filled). */
+/* 立法: seven doors across the top (the open one filled). */
 .lw-bill-doors {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
   margin: 4px 0 12px;
 }
@@ -3162,6 +3162,7 @@ details.lw-bud-row[open] > summary {
 .lw-bdoor.teal { --c: #0f766e; }
 .lw-bdoor.court { --c: #a16207; }
 .lw-bdoor.red { --c: var(--q-red); }
+.lw-bdoor.purple { --c: var(--q-purple); }
 .lw-door-ic {
   display: grid;
   place-items: center;
@@ -4770,3 +4771,18 @@ a.lw-h-art {
 .lw-news .lw-row-name {
   display: block;
 }
+
+/* 立法 · 議會: the council shown (a tap picks another), its sittings, bills, members, townships. */
+.lw-council { display: grid; gap: 4px; }
+button.lw-council-pick { margin-bottom: 8px; border-radius: var(--q-r-card); background: var(--q-surface); }
+.lw-council-pick .lw-row-name { font-weight: 600; }
+.lw-council-facts .lw-stat b.q-fit { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lw-cc-day { margin: 10px 0 4px; color: var(--q-label-2); font: 600 13px/18px var(--q-font); }
+.lw-cc-day:first-child { margin-top: 0; }
+.lw-cbill { align-items: flex-start; }
+.lw-cbill .lw-row-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; }
+.lw-cbill > .lw-tag { flex: none; margin-top: 2px; }
+button.lw-person { width: 100%; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.lw-party small { margin-left: 4px; opacity: 0.75; font-size: 0.85em; }
+.lw-cbill-body .lw-item-name { font-size: var(--q-t-title3); line-height: 1.35; }
+.lw-cbill-body .q-btn.block { margin-top: 16px; }

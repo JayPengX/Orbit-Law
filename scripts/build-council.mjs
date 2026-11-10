@@ -411,8 +411,14 @@ async function council(o) {
     const rows = bills.map(compactCouncilBill);
     // Every bill of the term, a file a session (council/<code>/s/<session>.json), so any session can be
     // looked through whole, not only the newest 240.
+    // A bill its source files by day only (新竹縣's site) goes to the session that day falls in, else the next one.
+    const spans = sessions.map(x => ({ id: x['代碼'], from: x['開始日期'] || '', to: x['結束日期'] || x['開始日期'] || '' })).filter(x => x.from).sort((a, b) => (a.from < b.from ? -1 : 1));
+    const sessionOn = d => (spans.find(x => x.from <= d && d <= x.to) || spans.find(x => x.from > d))?.id || '';
     const bySession = new Map();
-    for (const b of rows) if (b.s) bySession.set(b.s, [...(bySession.get(b.s) || []), b]);
+    for (const b of rows) {
+      const id = b.s || (b.d ? sessionOn(b.d) : '');
+      if (id) bySession.set(id, [...(bySession.get(id) || []), b.s ? b : { ...b, s: id }]);
+    }
     if (bySession.size) {
       await mkdir(`${out}${code}/s`, { recursive: true });
       for (const [id, xs] of bySession) await write(sessionBillsFile(code, id).replace(/^council\//, ''), { built, s: id, rows: xs.sort((a, b) => (Number(b.no) || 0) - (Number(a.no) || 0)) });

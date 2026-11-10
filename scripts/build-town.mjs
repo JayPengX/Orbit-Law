@@ -44,11 +44,13 @@ async function pdfText(url) {
   await sleep(process.env.FAST ? 0 : 500);
   reads++;
   const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
-  const b = await r.json().catch(() => ({}));
-  if (!r.ok || !b.b64) throw new Error(`${r.status} ${b.error || (b.size ? `${b.size} bytes` : '')}`.trim());
+  // The PDF itself (passed straight through), or a JSON answer saying why not.
+  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '');
+  const b = pdf ? null : await r.json().catch(() => ({}));
+  if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
-  await writeFile(file, Buffer.from(b.b64, 'base64'));
+  await writeFile(file, pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64'));
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
 }
 
@@ -65,36 +67,44 @@ function readPaper(k, text) {
 }
 
 // Each session's papers read from their PDFs: council/town/<tc>/<paperFile>.json, { papers: { url: … } }. Read
-// once (a posted paper doesn't change); one with no text (a scan) or that couldn't be read, again after 7 days. Every
+// once (a posted paper doesn't change); one with no text (a scan) or that couldn't be read, again when there's room. Every
 // file is written again each build (the deploy holds only what the build wrote).
 async function townPapers(tc, sessions) {
   let budget = Number(process.env.TOWN_PDFS || 70);
   const dir = `${out}${tc}/`;
   await mkdir(dir, { recursive: true });
+  // Every session's kept papers, then what's left to read: the unread first (newest session first), then any that
+  // failed before (a scan with no text, a file the door couldn't pass) as the budget allows.
+  const files = [];
+  const jobs = [];
   for (const s of sessions) {
     if (!s.no || !s.items?.length) continue;
     const name = paperFile(s);
     const old = (await prevJson(`council/town/${tc}/${name}.json`))?.papers || {};
     const papers = {};
+    files.push({ s, name, papers });
     for (const i of s.items) {
       if (!READ.has(i.k)) continue;
       for (const f of i.files || []) {
         const was = old[f.url];
-        if (was && !(was.none && was.none < addDays(day, -7))) {
-          papers[f.url] = was;
-          continue;
-        }
-        if (!KEY || budget <= 0) continue;
-        budget--;
-        try {
-          const text = await pdfText(f.url);
-          papers[f.url] = text.replace(/\s/g, '').length > 40 ? { k: i.k, ...readPaper(i.k, text) } : { k: i.k, none: day };
-        } catch (e) {
-          console.log(`town ${tc} ${s.n} ${i.n}: ${e.message}`);
-          papers[f.url] = { k: i.k, none: day };
-        }
+        if (was) papers[f.url] = was;
+        if (!was || was.none) jobs.push({ s, i, f, papers, again: !!was });
       }
     }
+  }
+  jobs.sort((a, b) => a.again - b.again);
+  for (const { s, i, f, papers } of jobs) {
+    if (!KEY || budget <= 0) break;
+    budget--;
+    try {
+      const text = await pdfText(f.url);
+      papers[f.url] = text.replace(/\s/g, '').length > 40 ? { k: i.k, ...readPaper(i.k, text) } : { k: i.k, none: day };
+    } catch (e) {
+      console.log(`town ${tc} ${s.n} ${i.n}: ${e.message}`);
+      papers[f.url] = { k: i.k, none: day };
+    }
+  }
+  for (const { s, name, papers } of files) {
     // What the session's row says of them.
     const all = Object.values(papers);
     s.res = all.reduce((n, p) => n + (p.res?.length || 0), 0) || undefined;

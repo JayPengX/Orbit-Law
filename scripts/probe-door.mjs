@@ -23,10 +23,11 @@ const keep = (name, text) => SAVE && text && writeFileSync(`${SAVE}/${name}`, te
 import { execFileSync } from 'node:child_process';
 async function pdf(url, n) {
   const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
-  const b = await r.json().catch(() => ({}));
-  if (!b.b64) return console.log(JSON.stringify({ url, door: r.status, error: b.error, type: b.type, size: b.size }));
+  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '');
+  const b = pdf ? { size: Number(r.headers.get('Content-Length')) || 0 } : await r.json().catch(() => ({}));
+  if (!pdf && !b.b64) return console.log(JSON.stringify({ url, door: r.status, error: b.error, type: b.type, size: b.size }));
   const file = `${SAVE || '.'}/door-${n}.pdf`;
-  writeFileSync(file, Buffer.from(b.b64, 'base64'));
+  writeFileSync(file, pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64'));
   let text = '';
   try {
     text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });

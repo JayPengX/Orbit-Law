@@ -2,6 +2,7 @@
 // council keeps them. By law (地方立法機關組織準則 §25) every council streams its
 // 大會 live and posts the recordings within 15 days.
 //   HiNet's OTT (ottlive.hinet.net/backend, open JSON; HLS that plays in Safari): 新竹縣, 苗栗, 雲林 (live)
+//   高雄's own IVOD (ivod.kcc.gov.tw/cms/public/api: the chamber's recordings and each councillor's 質詢, HLS on Akamai)
 //   YouTube (each channel's free RSS feed, the newest 15): 臺南, 金門, 連江, 澎湖, 雲林 (南投's feed is its news)
 // The build reads them (scripts/build-council.mjs); the app draws them (app.mjs, the council page).
 
@@ -139,4 +140,32 @@ export function sittingsFromVideo(sittings, vids, day) {
     add.push({ d: v.d, t: v.t, from: '', to: '', kind: /委員會/.test(v.n) ? '委員會' : '大會', room: '', what: v.what || v.n, s: '', video: true });
   }
   return add;
+}
+
+// 高雄市議會's IVOD: its API, and a recording's HLS from its file name (202610KCC0408R1151014090027VIDEOmp4).
+export const KCC_API = 'https://ivod.kcc.gov.tw/cms/public/api';
+export const KCC_SITE = 'https://ivod.kcc.gov.tw/';
+export const kccHls = source => {
+  const m = String(source || '').match(/^(\d{6})KCC(\w+?)VIDEOmp4$/);
+  // The chamber's own takes (0408R…) as they are; an uploaded file in its 720p cut (…_720).
+  return m ? `https://streamkcc.akamaized.net/vod-http/_definst_/${m[1]}/${m[2]}${/^\d{4}R/.test(m[2]) ? '' : '_720'}.mp4/playlist.m3u8` : '';
+};
+// A 高雄 councillor's name without the title it's listed with (康裕成議長 → 康裕成).
+export const kccName = title => String(title || '').replace(/(副議長|議長|議員)$/, '');
+// One of 高雄's recordings, compact; a stub under a minute (a vote's few seconds) left out.
+export function compactKcc(x) {
+  const hls = kccHls(x?.source);
+  if (!hls || Number(x.length) < 60_000) return null;
+  const title = String(x.title || '');
+  const time = (title.match(/\b(\d{1,2}):\d{2}/) || [])[1];
+  const n = cleanTitle(title.replace(/^1\d{2}-\d{2}-\d{2}\s+[\d:]+\s*/, '').replace(/第\d+屆(?=第)/, '').replace(/(定期大?會|臨時會)\s+(?=\S)/, '$1 - '));
+  return {
+    id: `k${x.videoId}`,
+    d: dayOf(title, x.publish_time),
+    t: time ? (+time < 12 ? '上午' : '下午') : '',
+    n: n || String(x.ownerName || ''),
+    hls,
+    ...(x.videoPicture ? { img: x.videoPicture } : {}),
+    ...(x.videoLength ? { len: String(x.videoLength).replace(/^00:/, '') } : {})
+  };
 }

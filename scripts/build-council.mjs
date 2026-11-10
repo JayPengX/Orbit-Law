@@ -7,7 +7,8 @@
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
 //   (in <code>.json) video: its live channels and newest recordings where a council
-//                  keeps them openly (lib/council-video.mjs: HiNet's OTT, YouTube's feeds)
+//                  keeps them openly (lib/council-video.mjs: HiNet's OTT, 高雄's IVOD, YouTube's feeds)
+//   khh-clips.json 高雄's councillors' 質詢 recordings, by name
 //   <code>-bills.json  a council's 議員提案 this term read from its own site where
 //                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣; 彰化縣's newest sessions): for a search,
 //                  a councillor, a bill's page
@@ -19,7 +20,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo } from '../public/lib/council-video.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
@@ -409,13 +410,15 @@ async function council(o) {
     people.splice(0, people.length, ...people.filter(p => !p.maybe || p.bills).map(({ maybe, ...p }) => p));
     const rows = bills.map(compactCouncilBill);
     let video = null;
-    if (HINET[code] || YOUTUBE[code]) {
+    if (HINET[code] || YOUTUBE[code] || code === 'khh') {
       try {
         video = await videoOf(code, c.n);
         if (video) notes.push(`${code}: ${video.vids.length} recordings, ${video.live.length} live channels`);
       } catch (e) {
         notes.push(`${code} video failed: ${e.message}`);
         video = (await prevJson(`council/${code}.json`))?.video || null;
+        const clips = video?.clips && (await prevJson(video.clips));
+        if (clips) await write(`${code}-clips.json`, clips);
       }
     }
     const sits = sittings.map(compactSitting).filter(Boolean);
@@ -454,6 +457,24 @@ async function videoOf(code, name) {
     const page = await readJson(`${HINET_API}/video?sort=createTime,DESC&page=0&size=60&companyId=${co}`);
     v.vids = (page.content || []).map(x => compactHinet(x, name)).filter(Boolean);
     if (v.vids.length) ((v.site = HINET_SITE(co)), (v.total = page.totalElements || v.vids.length));
+  }
+  // 高雄's own IVOD: the chamber's recordings, and each councillor's 質詢 (a file of their own, read with their sheet).
+  if (code === 'khh') {
+    v.vids = ((await readJson(`${KCC_API}/getConvertVideoList/1/80`)) || []).map(compactKcc).filter(Boolean).slice(0, 60);
+    v.site = KCC_SITE;
+    const people = {};
+    for (const m of (await readJson(`${KCC_API}/getMembers`)) || []) {
+      try {
+        const r = await readJson(`${KCC_API}/getConvertVideoMemberList/${encodeURIComponent(m.gid)}/1/8`);
+        const clips = (r.videoQuestion || []).map(compactKcc).filter(Boolean);
+        if (clips.length) people[kccName(m.title)] = clips;
+      } catch {}
+      await sleep(250);
+    }
+    if (Object.keys(people).length) {
+      await write(`${code}-clips.json`, { built, people });
+      v.clips = `council/${code}-clips.json`;
+    }
   }
   if (YOUTUBE[code] && !v.vids.length) {
     const xml = await fetch(ytFeed(YOUTUBE[code]), { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));

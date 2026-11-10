@@ -3599,7 +3599,7 @@ const sittingRow = (x, vid) => {
 };
 const PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" fill="currentColor"/></svg>';
 // A council's recordings: a row each, its picture, what it was and when.
-const vidRow = v => `<button type="button" class="lw-row lw-vid" data-ccvid="${esc(v.id)}">${v.img ? `<img class="lw-vid-img" src="${esc(v.img)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</span><small>${esc([shortDay(v.d), v.t, v.what && v.what !== v.n ? v.what : ''].filter(Boolean).join(' · '))}</small></span></button>`;
+const vidRow = v => `<button type="button" class="lw-row lw-vid" data-ccvid="${esc(v.id)}">${v.img ? `<img class="lw-vid-img" src="${esc(v.img)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</span><small>${esc([shortDay(v.d), v.t, v.len, v.what && v.what !== v.n ? v.what : ''].filter(Boolean).join(' · '))}</small></span></button>`;
 // Which of a council's live channels stream now: each asked once a minute at most (HiNet answers 404 when off air).
 const liveSeen = new Map();
 function liveNow(url) {
@@ -3618,10 +3618,10 @@ async function councilLive(c, out) {
   box.hidden = false;
 }
 // One recording or a live channel, played here: HiNet's HLS in the phone's own player, YouTube's in its frame.
-async function openCouncilVideo(id, live = -1) {
+async function openCouncilVideo(id, live = -1, given = null) {
   const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   const ch = live >= 0 ? c?.video?.live?.[live] : null;
-  const v = ch ? null : c?.video?.vids?.find(x => x.id === id);
+  const v = ch ? null : given || c?.video?.vids?.find(x => x.id === id);
   if (!ch && !v) return;
   const body = h('div', { class: 'lw-clip-sheet' });
   const site = c.video.site;
@@ -3763,8 +3763,24 @@ async function openCouncilor(name) {
   const list = h('div', { class: 'lw-person-sec', html: c.gap ? '' : `${billsHead()}${skel}` });
   const talk = h('div', { class: 'lw-person-sec', html: `<h4>${W('最近質詢和發言', 'Recent speeches')}</h4>${skel}` });
   const head = h('div', { class: 'lw-person-head', html: `${personPhoto(x, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta"><span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span><span class="lw-tag">${esc(`${c.city}${x.area}`)}</span>${x.title ? countTag(x.title, 'indigo') : ''}</div></div>` });
-  const s = sheet({ title: W('議員', 'Councillor'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, list, talk] });
+  // Their 質詢 on video, where the council files recordings by councillor (高雄).
+  const clipBox = h('div', { class: 'lw-person-sec', html: c.video?.clips ? `<h4>${W('質詢影片', 'Questions on video')}</h4>${skel}` : '' });
+  const s = sheet({ title: W('議員', 'Councillor'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, clipBox, list, talk] });
   list.addEventListener('click', e => e.target.closest('[data-cbill]') && openCouncilBill(e.target.closest('[data-cbill]').dataset.cbill));
+  if (c.video?.clips) {
+    let clips = [];
+    data(c.video.clips)
+      .then(r => {
+        clips = r.people?.[zh] || [];
+        clipBox.innerHTML = clips.length ? `<h4>${W('質詢影片', 'Questions on video')}</h4><div class="lw-list in-sheet wrap">${clips.slice(0, 4).map(vidRow).join('')}</div>` : '';
+      })
+      .catch(() => (clipBox.innerHTML = ''));
+    clipBox.addEventListener('click', e => {
+      const b = e.target.closest('[data-ccvid]');
+      const v = b && clips.find(x => x.id === b.dataset.ccvid);
+      if (v) openCouncilVideo(v.id, -1, v);
+    });
+  }
   // What they said in the chamber: the API's transcripts of the 議事錄, a meeting a row.
   ccJson(ccSpeech(c.c, zh))
     .then(r => {

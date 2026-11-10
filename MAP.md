@@ -91,7 +91,9 @@ Live: https://orbit.jaypengx.com/law/
   **Video** (`lib/council-video.mjs`; `video` in `council/<code>.json`): each night the
   build reads a council's live channels and 60 newest recordings where it keeps them
   openly: HiNet's OTT (ottlive.hinet.net/backend: 新竹縣 `hcc`, 苗栗 `mcc`, 雲林's live
-  `ylcc`; HLS that Safari plays, hls.js elsewhere) or YouTube's RSS feed (臺南, 金門,
+  `ylcc`; HLS that Safari plays, hls.js elsewhere), 高雄's own IVOD (its API; HLS on
+  Akamai from each file's name, `kccHls`; each councillor's 質詢 in
+  `council/khh-clips.json`, shown on their sheet) or YouTube's RSS feed (臺南, 金門,
   連江, 澎湖, 雲林). A sitting with a recording that day and part opens it; 議會影音
   lists the newest; 直播中 shows when the phone finds a live channel's playlist (asked
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)

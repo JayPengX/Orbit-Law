@@ -1,7 +1,7 @@
 // A council's video (public/lib/council-video.mjs): each council's way of naming a recording, read the same way.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayOf, partOf, cleanTitle, compactHinet, ytVideos, videosOf, sittingsFromVideo } from '../public/lib/council-video.mjs';
+import { dayOf, partOf, cleanTitle, compactHinet, ytVideos, videosOf, sittingsFromVideo, kccHls, kccName, compactKcc } from '../public/lib/council-video.mjs';
 
 test('council video: the day of a recording, however its title writes it', () => {
   assert.equal(dayOf('新竹縣議會第20屆第8次定期會11/6下午', '2026-11-06 16:30:56'), '2026-11-06');
@@ -55,4 +55,15 @@ test('council video: a sitting finds its recording; days past the council’s li
   assert.deepEqual(add.map(x => [x.d, x.t, x.what]), [['2026-11-06', '下午', '審議縣府及議員提案'], ['2026-11-05', '', '第8次定期會']]);
   // Never a day after today.
   assert.deepEqual(sittingsFromVideo([], vids, '2026-11-01').map(x => x.d), ['2026-10-30']);
+});
+
+test('council video: 高雄\u2019s recordings, its HLS from the file name; a stub under a minute left out', () => {
+  assert.equal(kccHls('202610KCC0408R1151014090027VIDEOmp4'), 'https://streamkcc.akamaized.net/vod-http/_definst_/202610/0408R1151014090027.mp4/playlist.m3u8');
+  assert.equal(kccHls('202611KCC179367762341555VIDEOmp4'), 'https://streamkcc.akamaized.net/vod-http/_definst_/202611/179367762341555_720.mp4/playlist.m3u8');
+  assert.equal(kccHls('nonsense'), '');
+  assert.equal(kccName('康裕成議長'), '康裕成');
+  assert.equal(kccName('曾俊傑副議長'), '曾俊傑');
+  const v = compactKcc({ videoId: '19550', title: '115-10-22 11:13:48 第4屆第8次定期會 二、三讀會', source: '202610KCC0408R1151022111348VIDEOmp4', length: 1334000, publish_time: '2026-11-01 10:00:00', videoLength: '00:22:14' });
+  assert.deepEqual([v.id, v.d, v.t, v.n, v.len], ['k19550', '2026-10-22', '上午', '第8次定期會 · 二、三讀會', '22:14']);
+  assert.equal(compactKcc({ videoId: '1', title: '115-10-22 16:24:56 第4屆第8次定期會 二、三讀會', source: '202610KCC0408R1151022162456VIDEOmp4', length: 17000 }), null);
 });

@@ -5,6 +5,7 @@
 //   高雄's own IVOD (ivod.kcc.gov.tw/cms/public/api: the chamber's recordings and each councillor's 質詢, HLS on Akamai)
 //   YouTube (each channel's pages and its RSS feed, the whole term): 17 councils
 //   基隆's own site (vod.kmc.gov.tw: the chamber's recordings and each councillor's 總質詢, MP4 on Akamai)
+//   臺北's own site (tccvideo.tcc.gov.tw, Taiwan only, through Law's door: every sitting and 質詢 day, each group's turn; HLS on its Wowza)
 // The build reads them (scripts/build-council.mjs); the app draws them (app.mjs, the council page).
 
 export const HINET = { hsq: 'hcc', mia: 'mcc', yun: 'ylcc' };
@@ -292,7 +293,31 @@ export function compactTcc(id, r, segs = []) {
   const urls = r?.ProxyUrls || [];
   const hls = (urls.find(x => x.label === '720p') || urls[0])?.src;
   if (!at || !hls) return null;
-  const n = String(r.Title || '').replace(/^第\d+屆/, '').replace(/第0(\d)次/g, '第$1次').trim();
-  const what = String(r.Content || '').split(/<br\s*\/?>/i).map(x => x.replace(/<[^>]+>/g, '').trim()).filter(x => x && !/^第\d+次會議$|主席宣告開會|報告今日議程|宣讀.*會議紀錄/.test(x)).map(x => x.replace(/^\d+\./, '')).join('；').replace(/：；/g, '：');
+  const n = String(r.Title || '').replace(/^第\d+屆/, '').replace(/第0(\d)次/g, '第$1次').replace(/(大會)(?=\S)/, '$1 · ').trim();
+  // (A 質詢 day's: its groups, 第14質詢組：闕枚莎,陳炳甫 → 第14組：闕枚莎、陳炳甫; their minutes left out.)
+  const what = String(r.Content || '').split(/<br\s*\/?>/i).map(x => x.replace(/<[^>]+>/g, '').trim()).filter(x => x && !/^第\d+次會議$|主席宣告開會|報告今日議程|宣讀.*會議紀錄|^計\d+位/.test(x)).map(x => x.replace(/^\d+\./, '').replace(/^第(\d+)質詢組：(.+)$/, (m, g, ns) => `第${g}組：${ns.split(/[,，、]/).map(w => w.trim()).filter(Boolean).join('、')}`)).join('；').replace(/：；/g, '：');
   return { id: `t${id.slice(0, 8)}`, tid: id, d: at.d, t: at.t, n: n || r.Type || '大會', hls, ...(what ? { what: what.slice(0, 300) } : {}), ...(at.from ? { from: at.from, to: at.to } : {}), ...(segs.length ? { segs } : {}) };
 }
+// Its lists (Front/HistoryMP/GetMP, HistoryQues/GetQues, HistoryVideo/GetVideos): [{Name, Date, Url}], each Url a
+// further list's (its mp and category) or a recording's (VideoContent/Index?id=). The sessions and categories
+// as their list's query, the recordings as {tid, d, n}.
+export const tccQuery = url => Object.fromEntries(new URL(String(url || ''), TCC_VIDEO).searchParams);
+export const tccRows = rows => (Array.isArray(rows) ? rows : []).map(x => ({ tid: tccId(x?.Url), d: String(x?.Date || '').replace(/\//g, '-'), n: String(x?.Name || '') })).filter(x => x.tid && /^\d{4}-\d{2}-\d{2}$/.test(x.d));
+// A 質詢 day's turns (VideoContent/Segment_Read): each group's councillors and where in the recording it starts (s).
+export const tccSegs = rows => (Array.isArray(rows) ? rows : []).map(x => ({ at: Math.max(0, Math.round(Number(x?.VideoTime) || 0)), who: String(x?.Name || '').replace(/^[^：:]*[：:]/, '').split(/[,，、]/).map(w => w.trim()).filter(w => /^[\u3400-\u9fff·．]{2,8}$/.test(w)) })).filter(x => x.who.length);
+// Each councillor's turns: their name → the recording with where their group starts (people as 高雄's and 基隆's clips).
+export function tccPeople(vids) {
+  const people = {};
+  for (const v of vids || []) {
+    const turns = v.segs?.length ? v.segs : groupsOf(v.what);
+    turns.forEach((g, i) => {
+      for (const n of g.who) {
+        const with_ = g.who.filter(w => w !== n);
+        (people[n] ||= []).push({ id: `${v.id}-${i}`, d: v.d, t: v.t, n: v.n, hls: v.hls, ...(g.at ? { at: g.at } : {}), ...(with_.length ? { what: `同組：${with_.join('、')}` } : {}) });
+      }
+    });
+  }
+  return people;
+}
+// (A recording without segments: its groups as its agenda names them, no start.)
+const groupsOf = what => String(what || '').split('；').map(x => x.match(/^第\d+組：(.+)$/)).filter(Boolean).map(m => ({ who: m[1].split('、') }));

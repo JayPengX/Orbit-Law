@@ -21,7 +21,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, videosOf, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids } from '../public/lib/council-video.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, videosOf, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids, TCC_VIDEO, compactTcc, tccSegs, tccPeople, tccRows, tccQuery } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile, agendaOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
@@ -427,7 +427,7 @@ async function council(o) {
       for (const [id, xs] of bySession) await write(sessionBillsFile(code, id).replace(/^council\//, ''), { built, s: id, rows: xs.sort((a, b) => (Number(b.no) || 0) - (Number(a.no) || 0)) });
     }
     let video = null;
-    if (HINET[code] || YOUTUBE[code] || code === 'khh' || code === 'kee') {
+    if (HINET[code] || YOUTUBE[code] || code === 'khh' || code === 'kee' || code === 'tpe') {
       try {
         video = await videoOf(code, c.n, c.term);
         if (video) notes.push(`${code}: ${video.vids.length} recordings, ${video.live.length} live channels`);
@@ -554,6 +554,56 @@ async function videoOf(code, name, term = '') {
       await write(`${code}-clips.json`, { built, people });
       v.clips = `council/${code}-clips.json`;
     }
+  }
+  // 臺北's own video site (serving only Taiwan: read through Law's door, its JSON as it came): each session's lists
+  // (a 定期大會's by kind: each 部門質詢, 市政總質詢, its sittings; a 臨時大會's one), then each recording not kept yet
+  // (its day, HLS and agenda; a 質詢 day's turns, where each group starts), newest first, at most 120 a night.
+  if (code === 'tpe') {
+    const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
+    const tcc = async path => {
+      await sleep(300);
+      const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(TCC_VIDEO + path)}`, { headers: { 'X-Build-Key': process.env.LAW_BUILD_KEY || '' }, signal: AbortSignal.timeout(60_000) });
+      if (!r.ok || !/json/i.test(r.headers.get('Content-Type') || '')) throw new Error(`${r.status} ${path}`);
+      return r.json();
+    };
+    const kept = (await prevJson('council/tpe-video.json'))?.vids || [];
+    const have = new Set(kept.map(x => x.tid).filter(Boolean));
+    // (Sessions over and read whole are not listed again; the newest two of each kind always are.)
+    const done = new Set((await prevJson('council/tpe-tcc.json'))?.done || []);
+    const rows = [];
+    const read = new Set();
+    for (const cat of ['Regular', 'Temp']) {
+      const mps = (await tcc(`Front/HistoryMP/GetMP?mj=${term}&categoryId=${cat}`)).map(x => tccQuery(x.Url).mp).filter(Boolean).sort().reverse();
+      for (const [i, mp] of mps.entries()) {
+        const key = `${cat[0]}${mp}`;
+        if (i >= 2 && done.has(key)) continue;
+        const kinds = cat === 'Temp' ? [{ mtypeCategoryId: 'Temp' }] : (await tcc(`Front/HistoryQues/GetQues?mj=${term}&mp=${mp}&categoryId=Regular`)).map(x => ({ mtypeCategoryId: 'Regular', quesCategoryId: tccQuery(x.Url).quesCategoryId })).filter(x => x.quesCategoryId);
+        for (const k of kinds) rows.push(...tccRows(await tcc(`Front/HistoryVideo/GetVideos?${new URLSearchParams({ mj: term, mp, ...k })}`)).map(x => ({ ...x, key, old: i >= 2 })));
+        read.add(key);
+      }
+    }
+    const fresh = [];
+    const todo = [...new Map(rows.filter(x => !have.has(x.tid)).map(x => [x.tid, x])).values()].sort((a, b) => (a.d < b.d ? 1 : -1));
+    for (const x of todo.slice(0, 120)) {
+      try {
+        const r = await tcc(`Front/VideoContent/Read?id=${x.tid}`);
+        const segs = /質詢/.test(x.n) ? tccSegs(await tcc(`Front/VideoContent/Segment_Read?id=${x.tid}`).catch(() => [])) : [];
+        const one = compactTcc(x.tid, r, segs);
+        if (one) fresh.push(one);
+      } catch {}
+    }
+    const got = new Set(fresh.map(x => x.tid));
+    // A session over is done once every recording it lists is kept.
+    for (const key of read) if (rows.some(x => x.key === key && x.old) && rows.filter(x => x.key === key).every(x => have.has(x.tid) || got.has(x.tid))) done.add(key);
+    await write('tpe-tcc.json', { built, done: [...done].sort() });
+    v.vids = mergeVids(fresh, kept);
+    v.site = `${TCC_VIDEO}Front/Home/Index`;
+    const people = tccPeople(v.vids);
+    if (Object.keys(people).length) {
+      await write(`${code}-clips.json`, { built, people });
+      v.clips = `council/${code}-clips.json`;
+    }
+    notes.push(`tpe: ${rows.length} listed, ${fresh.length} read (${Math.max(0, todo.length - 120)} left)`);
   }
   if (YOUTUBE[code] && !v.vids.length) {
     const known = new Set(((await prevJson(`council/${code}-video.json`))?.vids || []).map(x => x.id));

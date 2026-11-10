@@ -98,7 +98,11 @@ Live: https://orbit.jaypengx.com/law/
   Akamai from each file's name, `kccHls`; each councillor's 質詢 in
   `council/khh-clips.json`, shown on their sheet), 基隆's own site (vod.kmc.gov.tw: each list one
   POST with its form's token, `kmcVids`; MP4 files on Akamai, played as they are; each councillor's
-  市長施政總質詢 in `council/kee-clips.json`, a caucus's turn under each of its names, `kmcWho`) or the council's YouTube channels
+  市長施政總質詢 in `council/kee-clips.json`, a caucus's turn under each of its names, `kmcWho`), 臺北's own
+  site (tccvideo.tcc.gov.tw, Taiwan only: its JSON through Law's door, `file=1`; each session's lists, then
+  each recording not kept yet, 120 a night, `compactTcc`; a 質詢 day's groups and where each starts,
+  `tccSegs`, so each councillor's turn plays from its start, `tccPeople` → `council/tpe-clips.json`;
+  sessions over and read whole in `council/tpe-tcc.json`) or the council's YouTube channels
   (`YOUTUBE`: all but 臺北, 基隆, 高雄, 新竹縣, 苗栗; their /videos and /streams lists read page by
   page as YouTube's web client asks, `ytInitial`, `ytLockups`, `ytItems`, back to the term's start the
   first time, then until a page holds nothing new; plus the RSS feed). Every build's read is merged

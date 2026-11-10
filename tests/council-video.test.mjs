@@ -106,8 +106,31 @@ test('臺北: a recording read from its own site, its day and hours, its 720p HL
     Content: '第5次會議<br/>1.主席宣告開會<br/>2.報告今日議程<br/>6.一讀會：宣讀議員提案<br/>8.三讀會：<br/>（1）審議115年度追加預算案',
     ProxyUrls: [{ src: 'https://w/480.m3u8', label: '480p' }, { src: 'https://w/720.m3u8', label: '720p' }]
   });
-  assert.equal(v.n, '第13次臨時大會第5次會議');
+  assert.equal(v.n, '第13次臨時大會 · 第5次會議');
   assert.equal(v.hls, 'https://w/720.m3u8');
   assert.equal(v.what, '一讀會：宣讀議員提案；三讀會：（1）審議115年度追加預算案');
   assert.equal(compactTcc('x', { MeetTime: '2026/10/27 14:50', ProxyUrls: [] }), null, 'no stream, no row');
+});
+
+test('臺北: a 質詢 day’s groups read out, each councillor’s turn where their group starts', async () => {
+  const { compactTcc, tccSegs, tccPeople, tccRows, tccQuery } = await import('../public/lib/council-video.mjs');
+  const r = {
+    Title: '第14屆第08次定期大會民政部門質詢',
+    MeetTime: '2026/08/28 13:08~16:50',
+    Content: '第14質詢組：闕枚莎,陳炳甫<br/>計2位時間36分鐘 <br/>第15質詢組：顏若芳<br/>計1位時間18分鐘 <br/>',
+    ProxyUrls: [{ src: 'https://w/720.m3u8', label: '720p' }]
+  };
+  const segs = tccSegs([{ Name: '第14組：闕枚莎,陳炳甫', VideoTime: 1304.9 }, { Name: '第15組：顏若芳', VideoTime: 5849.07 }]);
+  assert.deepEqual(segs, [{ at: 1305, who: ['闕枚莎', '陳炳甫'] }, { at: 5849, who: ['顏若芳'] }]);
+  const v = compactTcc('367a01bd-6e7c-4c2e-b212-c0d63384e0e8', r, segs);
+  assert.equal(v.n, '第8次定期大會 · 民政部門質詢');
+  assert.equal(v.what, '第14組：闕枚莎、陳炳甫；第15組：顏若芳');
+  const p = tccPeople([v]);
+  assert.deepEqual(p['陳炳甫'], [{ id: 't367a01bd-0', d: '2026-08-28', t: '下午', n: v.n, hls: 'https://w/720.m3u8', at: 1305, what: '同組：闕枚莎' }]);
+  assert.deepEqual(p['顏若芳'][0].at, 5849);
+  // (No segments: the groups from the agenda, the recording from its start.)
+  const q = tccPeople([compactTcc('367a01bd-x', r)]);
+  assert.equal(q['顏若芳'][0].at, undefined);
+  assert.deepEqual(tccRows([{ Name: 'x', Date: '2026/08/28', Url: 'https://tccvideo.tcc.gov.tw/Front/VideoContent/Index?id=367a01bd-6e7c-4c2e-b212-c0d63384e0e8' }, { Name: 'y', Date: null, Url: '' }]), [{ tid: '367a01bd-6e7c-4c2e-b212-c0d63384e0e8', d: '2026-08-28', n: 'x' }]);
+  assert.equal(tccQuery('https://tccvideo.tcc.gov.tw/Front/HistoryVideo/Index?mj=14&mp=08&mtypeCategoryId=Regular&quesCategoryId=AL').quesCategoryId, 'AL');
 });

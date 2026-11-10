@@ -3720,6 +3720,8 @@ async function openCouncilVideo(id, live = -1, given = null) {
   const el = body.querySelector('video');
   // Straight from the council's own CDN (never through Orbit's servers); started at once.
   if (el) {
+    // (A councillor's turn in a whole day's recording: from where their group starts.)
+    if (v?.at) el.addEventListener('loadedmetadata', () => el.currentTime < v.at - 5 && (el.currentTime = v.at), { once: true });
     playHls(el, ch ? ch.url : v.hls).then(() => el.paused && el.play?.()?.catch(() => {})).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
     // Safari's own HLS took the address at once: play inside the tap.
     if (el.src) el.play?.()?.catch(() => {});

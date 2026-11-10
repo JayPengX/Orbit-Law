@@ -240,6 +240,10 @@ Live: https://orbit.jaypengx.com/law/
   speakers signed up, and the clips of who has spoken (the API's `/ivods`,
   each appearing as a speech ends). A bill's sheet shows the next meeting
   that takes it up (by 議案編號, law id, or its name in the 事由).
+  看法案 (the family's links, Jay 11-10; `billNews`): it lists Orbit News'
+  Taiwan stories whose headlines speak of changing it (Orbit-Core's
+  `builders/news-laws.js`, `/data/news/laws.json` `bills`), each opening
+  the story in News (`#s=<id>`); Orbit News' story sheet links back here.
 - **One id, one link** for everything on the three sides: a law `#law=<pcode>`,
   an article `&a=<key>` (`184`, `39-1`), a ruling `#r=<id>` (`s748` 釋字第748號,
   `j111-10` 111年憲判字第10號, else the 司法院 JID), a bill `#item=<term>-<law>`.

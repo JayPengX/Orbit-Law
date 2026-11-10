@@ -2879,6 +2879,26 @@ async function openNotice(id) {
 // newest version's 對照表, changed words marked), its steps and versions.
 // `round: 'passed'` (a 這週三讀通過 card): the round its last 三讀 passed, as the
 // card showed it (stage, who, versions, articles), with a way on to the newer one.
+// 看法案 (the plan's family links, Jay 11-10): the news about a bill, Orbit
+// News' Taiwan stories whose headlines speak of changing it (Orbit-Core's
+// builders/news-laws.js, /data/news/laws.json), newest first, each opening
+// its story in News. Nothing when there's none, or the file can't be read.
+function billNews(k, box) {
+  if (!kit.packJson) return;
+  kit
+    .packJson('news/laws.json', { ttl: 600_000, timeout: 15_000 })
+    .then(raw => {
+      const rows = (raw?.bills?.[k] || []).filter(r => Array.isArray(r) && /^\w+$/.test(String(r[0])) && typeof r[1] === 'string' && r[1]);
+      if (!rows.length) return;
+      const day = at => (Number.isFinite(at) ? `${new Date(at).getMonth() + 1}/${new Date(at).getDate()}` : '');
+      box.replaceChildren(
+        h('h4', { text: W(`新聞（${rows.length}）`, `In the news (${rows.length})`) }),
+        h('div', { class: 'q-list' }, rows.map(([id, title, at]) => kitUI.cell({ title, sub: day(at), chevron: true, onClick: () => q.go('news', `s=${id}`) })))
+      );
+    })
+    .catch(() => {});
+}
+
 async function openItem(k, { round } = {}) {
   const item = state.items.find(x => x.k === k);
   if (!item) return;
@@ -2900,8 +2920,10 @@ async function openItem(k, { round } = {}) {
   votesOn(it.p, it.n).then(list => list.length && votes.replaceChildren(h('h4', { text: W(`院會表決（${list.length}）`, `Floor votes (${list.length})`) }), voteList(list)));
   const rul = h('div', { class: 'lw-item-who' });
   billRulings(it).then(html => html && (rul.innerHTML = html));
+  const news = h('div', { class: 'lw-item-who lw-item-news' });
+  billNews(k, news);
   const progWait = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true }) + '<div class="lw-now"><span class="q-skel" style="display:block;height:120px"></span></div>' });
-  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, progWait, who, arts, rul, why, changes, votes, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
+  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, progWait, who, arts, rul, news, why, changes, votes, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
   let bills;
   try {
     bills = await data(`bills/item/${encodeURIComponent(k.replace(':', '-'))}.json`);

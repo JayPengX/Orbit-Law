@@ -15,3 +15,4 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - 立委 by county or party, independents' alignment — `public/app.mjs`: `peopleBy`, `alignment`
 - 議程 and 直播中 from IVOD — `public/app.mjs`, `public/lib/agenda.mjs`: `law-live`, `直播中`, `meetState`
 - 地方法規 for the reader's city — `public/lib/chat.mjs`: `地方法規`
+- 看法案: a bill's 新聞, Orbit News' stories about changing it, each opening in News — `public/app.mjs`: `billNews`, `news/laws.json`

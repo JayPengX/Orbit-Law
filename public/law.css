@@ -5018,3 +5018,6 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 :root.q-wide .lw-topics.lw-kinds > :nth-child(n) {
   grid-column: span 1;
 }
+
+/* 看法案: the bill's news, drawn only when there is some. */
+.lw-item-news:empty { display: none; }

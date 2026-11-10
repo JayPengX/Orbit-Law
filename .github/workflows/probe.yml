@@ -18,6 +18,10 @@ on:
         description: '1: every link on each page, not only those about bills'
         required: false
         default: '0'
+      grep:
+        description: 'A regex: the HTML around each match on each page'
+        required: false
+        default: ''
       raw:
         description: '1: each page as it came (scripts, JSON), saved whole'
         required: false
@@ -43,6 +47,7 @@ jobs:
           URLS: ${{ inputs.urls }}
           TEXT: ${{ inputs.text }}
           LINKS: ${{ inputs.links }}
+          GREP: ${{ inputs.grep }}
           RAW: ${{ inputs.raw }}
           SAVE: pages
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}

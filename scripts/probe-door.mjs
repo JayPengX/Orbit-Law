@@ -12,6 +12,8 @@ const sum = html => ({
   sample: (html.match(/[^\n]{0,120}Categor[^\n]{0,200}/i) || [''])[0].slice(0, 320),
   // Where a council keeps its bills: links whose words or address speak of them.
   links: [...new Set([...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]{0,120}?)<\/a>/gi)].filter(([, u, t]) => process.env.LINKS === '1' || /提案|議案|議決|議事|Bill|propos|agenda/i.test(u + t)).map(([, u, t]) => `${t.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 30)} ${u}`))].slice(0, process.env.LINKS === '1' ? 200 : 30),
+  // GREP=<regex>: the page's own HTML around each match (how a list's rows are written).
+  grep: process.env.GREP ? [...html.matchAll(new RegExp(`[\\s\\S]{0,160}(?:${process.env.GREP})[\\s\\S]{0,240}`, 'g'))].slice(0, 12).map(m => m[0].replace(/\s+/g, ' ')) : undefined,
   text: html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, Number(process.env.TEXT || 0))
 });
 // SAVE=dir keeps each page whole (door-N.html, direct-N.html) for the workflow's artifact.

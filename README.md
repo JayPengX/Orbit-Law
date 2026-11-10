@@ -51,10 +51,11 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 - **裁判 Rulings:** every 大法官解釋 and 憲判字, the top courts' judgments by article and month, and the other courts' judgments by law, cause and court, three years back; a judgment opens with its outcome first, and AI explains any top ruling in plain words, each point citing its own paragraphs.
 - **立法 Bills:** each bill in 立法院 stage by stage (提案 → 一讀 → 委員會 → 院會 → 三讀 → 公布), every version folded into one item, the 對照表 side by side, and a funnel of how far bills got.
 - **議程 and live video:** the day's sittings, the speakers, clips of who has spoken, and IVOD's live stream of a meeting in session.
+- **議會 Councils:** all 22 city and county councils and 竹北市民代表會: each term's sessions, sittings and bills, votes by name from the minutes, councillors' 質詢 and every council's open video (live and recordings); bills and papers in PDFs read into rows in the app.
 - **The three sides link:** an article shows its rulings and the bills open on it; a ruling the articles it rules on; a bill the rulings that named it.
 - **Also:** ministries' 行政規則, every city's 地方法規, 政府公告 and 預告, budgets, legislators by 縣市 and their votes (an independent set against the caucus they sit in).
 - **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app; past chats kept by day (今天, 昨天, 過去 7 天, by month), each with what it came to. A question is split into its ideas, each in the law's own words, so the right article is found far more often.
-- **One search** across names, short names, article numbers and full text; a law named outright (預算法, 刑法) comes first with its first article; works offline once opened.
+- **One search** across names, short names, article numbers and full text; a law named outright (預算法, 刑法) comes first with its first article; works offline once opened. Laws passed but never promulgated (行政院 refused to countersign, 不副署) are held apart and say so.
 - **Every screen, either way up:** on a phone on its side, a tablet or a computer each tab is two or three columns, with bills, votes and meetings in grids.
 
 ## Tech stack

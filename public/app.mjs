@@ -3422,6 +3422,9 @@ const meetRow = (x, live = null) => {
 let agendaDay = null;
 let agendaDays = [];
 const agendaRec = {};
+// The 90 days before (agenda-past.json), read once someone opens 議程: the day bar then goes back.
+let lyAgendaPast = null;
+const agendaPastData = () => (lyAgendaPast ||= data('ly/agenda-past.json').catch(() => ({ meets: [] })));
 async function agendaList(out) {
   if (!out.querySelector('.lw-meets')) out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
   let a;
@@ -3433,17 +3436,24 @@ async function agendaList(out) {
   if (billFilter !== 'agenda') return;
   const { day } = twNow();
   const words = billQuery ? expand(billQuery) : [];
-  const all = sittings(a.meets).filter(x => x.d >= day && (!words.length || words.some(w => `${x.m.room}${x.m.title}${x.m.why}`.includes(w))));
+  // The past joins once read (the first draw doesn't wait for it).
+  const past = await Promise.race([agendaPastData(), new Promise(r => setTimeout(r, 0))]);
+  if (!past) agendaPastData().then(() => billFilter === 'agenda' && document.contains(out) && agendaList(out));
+  const ids = new Set(a.meets.map(m => m.id));
+  const meets = [...(past?.meets || []).filter(m => !ids.has(m.id)), ...a.meets];
+  const all = sittings(meets).filter(x => (past || x.d >= day) && (!words.length || words.some(w => `${x.m.room}${x.m.title}${x.m.why}`.includes(w))));
   const live = all.filter(x => ['live', 'break'].includes(liveState(x, a.live)));
   const row = x => meetRow(x, a.live);
   const days = [...new Set(all.map(x => x.d))].sort();
   const none = emptyNote(W(words.length ? '議程裡沒有符合的會議' : '接下來還沒有排會議', words.length ? 'Nothing on the agenda matches' : 'No meetings scheduled yet'));
   agendaDays = words.length ? [] : days;
   if (words.length || !days.length) {
-    const html = days.map(d => section(meetDay(d), `<div class="lw-meets">${all.filter(x => x.d === d).map(row).join('')}</div>`)).join('');
+    // A search: what's coming first, then the past, newest first.
+    const html = [...days.filter(d => d >= day), ...days.filter(d => d < day).reverse()].map(d => section(meetDay(d), `<div class="lw-meets">${all.filter(x => x.d === d).map(row).join('')}</div>`)).join('');
     return void (out.innerHTML = html || none);
   }
-  if (!days.includes(agendaDay)) agendaDay = days[0];
+  // First today, else the next day with meetings, else the last one before.
+  if (!days.includes(agendaDay)) agendaDay = days.find(d => d >= day) || days.at(-1);
   const rest = all.filter(x => x.d === agendaDay && !live.includes(x));
   const now = agendaDay === day && live.length;
   out.innerHTML = now ? section(W('現在開會中', 'Meeting now'), `<div class="lw-meets">${live.map(row).join('')}</div>`) + (rest.length ? section(W('稍後', 'Later'), `<div class="lw-meets">${rest.map(row).join('')}</div>`) : '') : `<div class="lw-meets">${rest.map(row).join('')}</div>`;

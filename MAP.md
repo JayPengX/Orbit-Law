@@ -163,7 +163,7 @@ Live: https://orbit.jaypengx.com/law/
   the funnel and a bill's bar. A card's line under the name is the newest
   version's purpose (`aboutOf`, the 案由's 為… clause), also searched.
 - **議程** (`lib/agenda.mjs`): a day's sittings at a time on the family's strip of days (the kit's dayBar, swiped too; a search lists every day's). 立法院's meetings from the API's `/meets`
-  (`ly/agenda.json`, three days back on; today's read again in the app, its
+  (`ly/agenda.json`, three days back on; `ly/agenda-past.json` the 90 days before, read once 議程 opens, so the day bar goes back; today's read again in the app, its
   發言名單 filling in on the day). The live video is IVOD's own stream for
   that meeting: the proxy's `/law-live` (Orbit-Core `law-live.js`, on
   demand, kept 60 s at the edge; no cron, nothing stored) reads IVOD's live

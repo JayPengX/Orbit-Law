@@ -232,16 +232,21 @@ const budgetData = budget ? await step('budget build', () => {
   return { term, built, budgets: budgetGroups(budget, words) };
 }) : null;
 
-// ---- Agenda: the meetings from three days back on (what's live: the proxy's /law-live) ----
+// ---- Agenda: the meetings from three days back on (what's live: the proxy's /law-live);
+// the 90 days before in agenda-past.json, read only when someone steps back (Jay 11-10) ----
+let agendaPast = null;
 const agenda = await step('agenda', async () => {
   const since = twNow(new Date(Date.now() - 3 * 864e5)).day;
+  const back = twNow(new Date(Date.now() - 93 * 864e5)).day;
   const rows = [];
-  for (let page = 1; page <= 4; page++) {
+  for (let page = 1; page <= 15; page++) {
     const r = await get('meets', { limit: '100', page: String(page) });
     rows.push(...(r.meets || []));
-    if (!(r.meets || []).length || (r.meets || []).every(m => [].concat(m['日期'] || []).every(d => d < since))) break;
+    if (!(r.meets || []).length || (r.meets || []).every(m => [].concat(m['日期'] || []).every(d => d < back))) break;
   }
-  return rows.map(compactMeet).filter(m => m.days.some(d => d.d >= since));
+  const all = rows.map(compactMeet);
+  agendaPast = all.filter(m => !m.days.some(d => d.d >= since) && m.days.some(d => d.d >= back));
+  return all.filter(m => m.days.some(d => d.d >= since));
 });
 // ---- Write, or carry over ----
 async function carry(path) {
@@ -256,6 +261,8 @@ if (budgetData) await write('budget.json', budgetData);
 else await carry('budget.json');
 if (agenda) await write('agenda.json', { built, meets: agenda });
 else await carry('agenda.json');
+if (agendaPast?.length) await write('agenda-past.json', { built, meets: agendaPast });
+else await carry('agenda-past.json');
 if (people) await write('people.json', { term, built, people });
 else {
   const old = await carry('people.json');

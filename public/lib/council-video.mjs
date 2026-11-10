@@ -9,12 +9,26 @@
 export const HINET = { hsq: 'hcc', mia: 'mcc', yun: 'ylcc' };
 export const HINET_API = 'https://ottlive.hinet.net/backend';
 export const HINET_SITE = company => `https://ottlive.hinet.net/webapp/${company}/vod`;
+// Each council's own YouTube channels of its sittings (the chamber's; 彰化's committees on a second), found by
+// name on YouTube and checked by their uploads (2026-11-10). 臺北, 基隆: none on YouTube.
 export const YOUTUBE = {
-  tnn: 'UCdA-WnlDKDfJol0SJhsf63g',
-  kin: 'UCssU97D8roqOPbnU4I-OsOw',
-  lie: 'UCLFeXjIoUzY-FiVlWvL6b8Q',
-  pen: 'UCRMf06ok5zVx53oBonoqCFw',
-  yun: 'UCKRtSYQyMpnuXd_Sg6qMR6A'
+  nwt: ['UCQQkVSFtshjaiNfka2iNomQ'],
+  txg: ['UCuid2UrRsZMXd-xIeeI8yFA'],
+  tnn: ['UCdA-WnlDKDfJol0SJhsf63g'],
+  tao: ['UCPiXFDOZkDuwZ6K96nbC78g'],
+  ila: ['UCKfnvVz8FEART5zwDLwm_zg'],
+  hsz: ['UCnit-yB80zHt800dSTr42Vw'],
+  cha: ['UCNWh1ZPg_dkTiDSitjVLrrQ', 'UCoGdv7MEscA-AnliPIc_mGw'],
+  nan: ['UCSylXMliCfhIWaO-zgCCaWA'],
+  yun: ['UCKRtSYQyMpnuXd_Sg6qMR6A'],
+  cyq: ['UCAG1JNCI1Ply3wG0dIkMShg'],
+  cyi: ['UC3TajrZx0yDuZDrEc7HerLQ'],
+  pif: ['UC-j_LTfJ6Kr-5gS3kZgmZ6g'],
+  ttt: ['UC9wSWy75F34BodMExSBE3Rw'],
+  hua: ['UCUXQVsKr0OGPkBPYnJfBMoQ'],
+  pen: ['UCRMf06ok5zVx53oBonoqCFw'],
+  kin: ['UCssU97D8roqOPbnU4I-OsOw'],
+  lie: ['UCLFeXjIoUzY-FiVlWvL6b8Q']
 };
 export const ytFeed = id => `https://www.youtube.com/feeds/videos.xml?channel_id=${id}`;
 export const ytSite = id => `https://www.youtube.com/channel/${id}/videos`;
@@ -28,6 +42,13 @@ export function dayOf(title, at = '') {
   const s = String(title || '');
   const atDay = String(at).slice(0, 10);
   let m;
+  // Written out: 115年09月29日, 2026年11月9日
+  if ((m = s.match(/(?<!\d)(1\d{2}|20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/))) {
+    const y = +m[1] < 1000 ? +m[1] + 1911 : +m[1];
+    if (ok(y, +m[2], +m[3])) return iso(y, +m[2], +m[3]);
+  }
+  // 西元 with separators: 2026.10.1, 2026-10-01
+  if ((m = s.match(/(?<!\d)(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})(?!\d)/)) && ok(+m[1], +m[2], +m[3])) return iso(+m[1], +m[2], +m[3]);
   // 民國 with separators: (115.11.2), 115-10-28, 115/10/28
   if ((m = s.match(/(?<!\d)(1\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})(?!\d)/)) && ok(+m[1] + 1911, +m[2], +m[3])) return iso(+m[1] + 1911, +m[2], +m[3]);
   // 西元 run together: 20261105121348, 20261110
@@ -66,6 +87,8 @@ export function cleanTitle(title, council = '') {
   s = s
     .replace(/^[\s\-–—|｜:：]+/, '')
     .replace(/第[\d一二三四五六七八九十]+屆(?=第)/, '')
+    .replace(/[([（]?(1\d{2}|20\d{2})\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日[)\]）]?/g, ' ')
+    .replace(/[([（]?20\d{2}[.\-/]\d{1,2}[.\-/]\d{1,2}[)\]）]?/g, ' ')
     .replace(/[([（]?1\d{2}[.\-/]\d{1,2}[.\-/]\d{1,2}[)\]）]?/g, ' ')
     .replace(/(?<!\d)20\d{6,12}(?!\d)/g, ' ')
     .replace(/\[?(?<!\d)1\d{6}(?!\d)(AM|PM)?\]?/gi, ' ')
@@ -73,6 +96,7 @@ export function cleanTitle(title, council = '') {
     .replace(/(上午|下午)/g, ' ')
     .replace(/[(（]\s*[)）]/g, '')
     .replace(/議事日程表/g, ' ')
+    .replace(/『[^』]*』/g, ' ')
     .replace(/\s*-\s*$/, '')
     .replace(/-(\d)$/, '（$1）')
     .replace(/\s*-\s*/g, ' · ')
@@ -106,7 +130,7 @@ export function compactHinet(x, council = '') {
 }
 
 // A meeting's recording, not the council's news clips or campaign events.
-export const isSitting = title => /(定期會|臨時會|大會|委員會|審查|質詢|議程|會議|開議|開幕|閉幕|延會)/.test(title) && !/(新聞|專訪|宣導|競選|活動花絮)/.test(title);
+export const isSitting = title => /(定期會|臨時會|大會|委員會|審查|審議|提案|質詢|議程|議事|會議|開議|開幕|閉幕|延會)/.test(title) && !/(新聞|專訪|宣導|競選|活動花絮)/.test(title);
 
 const unxml = s => String(s || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 // A channel's RSS feed: its meeting recordings, newest first.
@@ -122,6 +146,60 @@ export function ytVideos(xml, council = '') {
     out.push({ id: `y${id}`, d: dayOf(title, twAt), t: partOf(title), n: cleanTitle(title, council) || title, yt: id, img: `https://i.ytimg.com/vi/${id}/mqdefault.jpg` });
   }
   return out.sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+}
+
+// A channel's page (/videos, /streams) as YouTube draws it: its initial data and the client version to ask for more.
+export function ytInitial(html) {
+  const m = String(html || '').match(/var ytInitialData = (\{.*?\});<\/script>/s);
+  const ver = (String(html || '').match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)/) || [])[1] || '';
+  try {
+    return m ? { data: JSON.parse(m[1]), ver } : null;
+  } catch {
+    return null;
+  }
+}
+// The videos in a page of a channel's list (its first, or one asked for with `cont`), and the token for the next.
+export function ytLockups(data) {
+  const items = [];
+  let cont = '';
+  const badge = x => {
+    if (!x || typeof x !== 'object') return '';
+    if (x.thumbnailBadgeViewModel?.text) return x.thumbnailBadgeViewModel.text;
+    for (const k in x) {
+      const t = badge(x[k]);
+      if (t) return t;
+    }
+    return '';
+  };
+  const walk = o => {
+    if (!o || typeof o !== 'object') return;
+    if (o.lockupViewModel) {
+      const v = o.lockupViewModel;
+      const t = v.metadata?.lockupMetadataViewModel?.title?.content;
+      if (v.contentId && t) items.push({ id: v.contentId, title: t, len: badge(v.contentImage) });
+      return;
+    }
+    if (o.continuationItemRenderer && !cont) cont = (JSON.stringify(o.continuationItemRenderer).match(/"token":"([^"]+)"/) || [])[1] || '';
+    for (const k in o) walk(o[k]);
+  };
+  walk(data);
+  return { items, cont };
+}
+// Those that are sittings, as recordings (the day from the title: a channel's list says only "3 days ago").
+export function ytItems(items, council = '') {
+  return items
+    .filter(x => isSitting(x.title))
+    .map(x => ({ id: `y${x.id}`, d: dayOf(x.title), t: partOf(x.title), n: cleanTitle(x.title, council) || x.title, yt: x.id, img: `https://i.ytimg.com/vi/${x.id}/mqdefault.jpg`, ...(/^\d{1,2}(:\d\d){1,2}$/.test(x.len) ? { len: x.len } : {}), ...(/直播/.test(x.title) ? { live: 1 } : {}) }))
+    .filter(v => v.d);
+}
+// The term's recordings, newest first: this read over the last, one an id; a day's 直播 copy dropped where the day has
+// its own recording.
+export function mergeVids(fresh, old, from = '') {
+  const by = new Map();
+  for (const v of [...(old || []), ...(fresh || [])]) if (v?.id && (!from || v.d >= from)) by.set(v.id, v);
+  const all = [...by.values()];
+  const kept = new Set(all.filter(v => !v.live).map(v => v.d));
+  return all.filter(v => !v.live || !kept.has(v.d)).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : a.id < b.id ? -1 : 1));
 }
 
 // The recordings of one sitting (its day, and its part when both say one).

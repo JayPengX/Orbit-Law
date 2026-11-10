@@ -20,7 +20,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
@@ -434,6 +434,13 @@ async function council(o) {
         const clips = video?.clips && (await prevJson(video.clips));
         if (clips) await write(`${code}-clips.json`, clips);
       }
+      // The term's every recording in a file of its own (each build's read over the last's); the council's file the 60 newest.
+      if (video) {
+        const kept = await prevJson(`council/${code}-video.json`);
+        const all = mergeVids(video.vids, kept?.vids, c.from || '');
+        await write(`${code}-video.json`, { built, vids: all });
+        video = { ...video, vids: all.slice(0, 60), all: `council/${code}-video.json`, total: Math.max(video.total || 0, all.length) };
+      }
     }
     const sessionDays = sessions.map(s => ({ id: s['代碼'], from: s['開始日期'], to: s['結束日期'] || '' }));
     const sits = saneSittings(sittings.map(compactSitting).filter(Boolean), sessionDays).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
@@ -461,6 +468,30 @@ async function council(o) {
     }
   }
 }
+// A YouTube channel's sittings: its /videos and /streams lists page by page (YouTube's own web client, as a
+// browser asks), until a page holds nothing new (what the last build kept) or the term's first months are reached;
+// a first read goes back the whole term (at most 40 pages a list), then a page or two a night.
+async function ytChannel(ch, name, known) {
+  const got = [];
+  for (const tab of ['videos', 'streams']) {
+    const page = ytInitial(await fetch(`https://www.youtube.com/channel/${ch}/${tab}`, { headers: { 'Accept-Language': 'zh-TW', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : '')));
+    if (!page) continue;
+    let { items, cont } = ytLockups(page.data);
+    for (let n = 0; ; n++) {
+      const vids = ytItems(items, name);
+      got.push(...vids);
+      if (!cont || n >= 40 || (items.length && items.every(x => known.has(`y${x.id}`))) || vids.some(v => v.d < '2023-01-01')) break;
+      await sleep(400);
+      const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' }, body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: page.ver, hl: 'zh-TW' } }, continuation: cont }), signal: AbortSignal.timeout(20_000) });
+      if (!r.ok) break;
+      ({ items, cont } = ytLockups(await r.json()));
+    }
+  }
+  // (The feed too: the newest, with their posting day for titles that carry none.)
+  const xml = await fetch(ytFeed(ch), { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : ''), () => '');
+  return mergeVids(ytVideos(xml, name), got);
+}
+
 // A council's video: its live channels and its 60 newest recordings (both sources where it has two).
 const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
 const readJson = url => fetch(url, { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))));
@@ -492,9 +523,10 @@ async function videoOf(code, name) {
     }
   }
   if (YOUTUBE[code] && !v.vids.length) {
-    const xml = await fetch(ytFeed(YOUTUBE[code]), { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
-    v.vids = ytVideos(xml, name);
-    v.site = ytSite(YOUTUBE[code]);
+    const known = new Set(((await prevJson(`council/${code}-video.json`))?.vids || []).map(x => x.id));
+    for (const ch of YOUTUBE[code]) v.vids.push(...(await ytChannel(ch, name, known)));
+    v.vids = mergeVids(v.vids, []);
+    v.site = ytSite(YOUTUBE[code][0]);
   }
   return v.live.length || v.vids.length ? v : null;
 }

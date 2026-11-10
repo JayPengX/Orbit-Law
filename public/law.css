@@ -4951,3 +4951,4 @@ button.lw-meet {
 button.lw-turn-cite { border: 0; cursor: pointer; }
 .lw-wq { display: grid; gap: 12px; margin: 12px 0 4px; }
 .lw-wq .lw-block h4 { margin: 0 0 6px; font: var(--q-t-subhead); font-weight: 600; color: var(--q-label-2); }
+.lw-vid-group { margin: 16px 0 6px; font: var(--q-t-subhead); font-weight: 600; color: var(--q-label-2); }

@@ -3636,7 +3636,7 @@ let shownCouncil = null;
 async function openCouncilVideo(id, live = -1, given = null) {
   const c = shownCouncil?.video ? shownCouncil : await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   const ch = live >= 0 ? c?.video?.live?.[live] : null;
-  const v = ch ? null : given || c?.video?.vids?.find(x => x.id === id);
+  const v = ch ? null : given || c?.video?.vids?.find(x => x.id === id) || termVids.get(c?.c)?.find(x => x.id === id);
   if (!ch && !v) return;
   const body = h('div', { class: 'lw-clip-sheet' });
   const site = c.video.site;
@@ -3653,13 +3653,67 @@ async function openCouncilVideo(id, live = -1, given = null) {
     if (el.src) el.play?.()?.catch(() => {});
   }
 }
-// All of a council's newest recordings, in a sheet.
+// A council's every recording of the term (council/<code>-video.json), once read.
+const termVids = new Map();
+async function councilTermVids(c) {
+  if (termVids.has(c.c)) return termVids.get(c.c);
+  const all = c.video?.all ? (await data(c.video.all).catch(() => null))?.vids : null;
+  const vids = all?.length ? all : c.video?.vids || [];
+  termVids.set(c.c, vids);
+  return vids;
+}
+// What a recording was, for the filter: the chamber's 質詢, its committees and reviews, or the rest of its sittings.
+const vidKind = v => (/質詢/.test(v.n) ? 'ask' : /委員會|審查|小組/.test(v.n) ? 'room' : 'floor');
+// All of a council's recordings of the term, by session, filtered by kind and searched by words.
 async function councilVideos() {
   const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   if (!c?.video?.vids?.length) return;
-  const body = h('div', { html: `<div class="lw-list in-sheet wrap">${c.video.vids.map(vidRow).join('')}</div>${c.video.site ? `<a class="q-more q-more-go lw-out" href="${esc(c.video.site)}" target="_blank" rel="noopener" data-out><span>${c.video.total > c.video.vids.length ? W(`議會的影音網站（共 ${c.video.total} 段）`, `The council’s video site (${c.video.total} in all)`) : W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
-  const s = sheet({ title: W(`${c.n}影音`, 'Council video'), closeLabel: W('關閉', 'Close'), body: [body] });
+  shownCouncil = c;
+  const vids = await councilTermVids(c);
+  const sessions = (c.sessions || []).slice().sort((a, b) => (a.from < b.from ? 1 : -1));
+  const sessionOf = v => sessions.find(x => v.d >= x.from && v.d <= (x.to || '9999')) || null;
+  const kinds = [['', W('全部', 'All')], ['floor', W('大會', 'Floor')], ['ask', W('質詢', 'Questions')], ['room', W('委員會', 'Committees')]].filter(([k]) => !k || vids.some(v => vidKind(v) === k));
+  let pick = '';
+  let words = '';
+  let shown = 40;
+  const input = search({ placeholder: W('找影音：質詢、預算、議員…', 'Find: a topic, a councillor…'), onInput: v => ((words = v), (shown = 40), draw()) });
+  const chips = h('div', { class: 'q-chips lw-chips', html: kinds.length > 2 ? kinds.map(([k, n]) => `<button type="button" class="q-chip" data-vk="${k}" aria-pressed="${k === pick}">${esc(n)}</button>`).join('') : '' });
+  const list = h('div');
+  const draw = () => {
+    const q = words.trim();
+    const got = vids.filter(v => (!pick || vidKind(v) === pick) && (!q || `${v.n} ${v.what || ''}`.includes(q)));
+    let html = '';
+    let at = null;
+    for (const v of got.slice(0, shown)) {
+      const x = sessionOf(v);
+      const key = x?.id || v.d.slice(0, 7);
+      if (key !== at) {
+        if (at !== null) html += '</div>';
+        html += `<h4 class="lw-vid-group">${esc(x ? x.n.replace(/^第\d+屆/, '') : v.d.slice(0, 7).replace('-', ' / '))}</h4><div class="lw-list in-sheet wrap">`;
+        at = key;
+      }
+      // (Its session said once, in the heading: 第8次定期會(第14次會議) reads 第14次會議.)
+      const short = x ? x.n.replace(/^第\d+屆/, '') : '';
+      const n = short && v.n.startsWith(short) ? v.n.slice(short.length).replace(/^[\s·(（]+/, '').replace(/^([^()（）]*)[)）]$/, '$1').trim() : '';
+      html += vidRow(n ? { ...v, n } : v);
+    }
+    if (at !== null) html += '</div>';
+    list.innerHTML = got.length ? `${html}${got.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再看 ${Math.min(40, got.length - shown)} 段（共 ${got.length}）`, `${Math.min(40, got.length - shown)} more (${got.length} in all)`)}</button>` : ''}` : `<p class="lw-none">${W('沒有符合的影音', 'Nothing matches')}</p>`;
+  };
+  draw();
+  const foot = c.video.site ? h('a', { class: 'q-more q-more-go lw-out', href: c.video.site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }) : null;
+  const head = h('p', { class: 'lw-person-line', text: W(`本屆 ${vids.length.toLocaleString()} 段錄影`, `${vids.length.toLocaleString()} recordings this term`) });
+  const body = h('div', {}, [head, input, chips, list, foot].filter(Boolean));
+  const s = sheet({ title: W(`${c.n}影音`, 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
   body.addEventListener('click', e => {
+    const k = e.target.closest('[data-vk]');
+    if (k) {
+      pick = k.dataset.vk;
+      shown = 40;
+      chips.querySelectorAll('[data-vk]').forEach(b => b.setAttribute('aria-pressed', String(b === k)));
+      return draw();
+    }
+    if (e.target.closest('[data-vmore]')) return ((shown += 40), draw());
     const b = e.target.closest('[data-ccvid]');
     if (b) openCouncilVideo(b.dataset.ccvid);
   });
@@ -3731,14 +3785,15 @@ async function councilList(out) {
 
 // One session of a council, whole: its sittings (read live from the API, each with its recording where there is
 // one), and every bill it took, by outcome and committee.
-function councilSession(c, x) {
+async function councilSession(c, x) {
   if (!x) return;
-  const vids = c.video?.vids || [];
+  shownCouncil = c;
+  const vids = c.video?.vids?.length ? await councilTermVids(c) : [];
   const to = x.to || twNow().day;
   const mine = vids.filter(v => v.d >= x.from && v.d <= to);
   const sitBox = h('div', { html: section(W('開會', 'Sittings'), '<span class="q-skel" style="display:block;height:96px"></span>') });
   const billBox = h('div', { html: x.bills ? section(W(`提案 ${x.bills.toLocaleString()}`, `Bills ${x.bills}`), '<span class="q-skel" style="display:block;height:160px"></span>') : '' });
-  const head = h('div', { html: `<h2 class="lw-item-name">${esc(x.n)}</h2><p class="lw-person-line">${esc([c.n, `${shortDay(x.from)}${x.to ? `–${shortDay(x.to)}` : ''}`].join(' · '))}</p>${mine.length ? section(W(`影音 ${mine.length}`, `Video ${mine.length}`), `<div class="lw-list in-sheet wrap">${mine.map(vidRow).join('')}</div>`) : ''}` });
+  const head = h('div', { html: `<h2 class="lw-item-name">${esc(x.n)}</h2><p class="lw-person-line">${esc([c.n, `${shortDay(x.from)}${x.to ? `–${shortDay(x.to)}` : ''}`].join(' · '))}</p>${mine.length ? section(W(`影音 ${mine.length}`, `Video ${mine.length}`), `<div class="lw-list in-sheet wrap">${mine.slice(0, 6).map(vidRow).join('')}</div>${mine.length > 6 ? `<button type="button" class="lw-more" data-ccvids>${W(`看全部影音（${mine.length}）`, `All video (${mine.length})`)}</button>` : ''}`) : ''}` });
   const s = sheet({ title: x.n.replace(/^第\d+屆/, ''), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [head, sitBox, billBox] });
   ccJson(ccSittings(c.c, x.id))
     .then(r => {
@@ -3776,6 +3831,8 @@ function councilSession(c, x) {
     if (b) openCouncilBill(b.dataset.cbill);
   });
   head.addEventListener('click', e => {
+    const all = e.target.closest('[data-ccvids]');
+    if (all) return ((all.previousElementSibling.innerHTML = mine.map(vidRow).join('')), all.remove());
     const v = e.target.closest('[data-ccvid]');
     if (v) openCouncilVideo(v.dataset.ccvid);
   });

@@ -67,3 +67,17 @@ test('council video: 高雄\u2019s recordings, its HLS from the file name; a stu
   assert.deepEqual([v.id, v.d, v.t, v.n, v.len], ['k19550', '2026-10-22', '上午', '第8次定期會 · 二、三讀會', '22:14']);
   assert.equal(compactKcc({ videoId: '1', title: '115-10-22 16:24:56 第4屆第8次定期會 二、三讀會', source: '202610KCC0408R1151022162456VIDEOmp4', length: 17000 }), null);
 });
+test('council video: a YouTube channel list read page by page, its sittings dated by their titles, merged over the term', async () => {
+  const { ytLockups, ytItems, mergeVids } = await import('../public/lib/council-video.mjs');
+  const lock = (id, t, len) => ({ lockupViewModel: { contentId: id, contentImage: { thumbnailViewModel: { overlays: [{ thumbnailBottomOverlayViewModel: { badges: [{ thumbnailBadgeViewModel: { text: len } }] } }] } }, metadata: { lockupMetadataViewModel: { title: { content: t } } } } });
+  const page = { contents: [{ richItemRenderer: { content: lock('a1', '臺中市議會第4屆第8次定期會(市政總質詢) 115年09月29日', '4:27:37') } }, { richItemRenderer: { content: lock('a2', '議長盃路跑活動花絮', '1:00') } }, { continuationItemRenderer: { continuationEndpoint: { continuationCommand: { token: 'T1' } } } }] };
+  const { items, cont } = ytLockups(page);
+  assert.equal(cont, 'T1');
+  const v = ytItems(items, '臺中市議會');
+  assert.deepEqual(v.map(x => [x.id, x.d, x.n, x.len]), [['ya1', '2026-09-29', '第8次定期會(市政總質詢)', '4:27:37']]);
+  assert.equal(dayOf('花蓮縣議會第20屆第8次定期大會 2026年11月9日下午議程'), '2026-11-09');
+  assert.equal(dayOf('2026.10.1 桃園市議會第3屆第8次定期會'), '2026-10-01');
+  const live = { id: 'yL', d: '2026-09-29', live: 1 };
+  const kept = mergeVids([...v, live, { id: 'yL2', d: '2026-09-30', live: 1 }], [{ id: 'yOld', d: '2022-12-01' }, { id: 'yB', d: '2026-01-02' }], '2022-12-25');
+  assert.deepEqual(kept.map(x => x.id), ['yL2', 'ya1', 'yB']);
+});

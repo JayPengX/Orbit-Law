@@ -96,8 +96,14 @@ Live: https://orbit.jaypengx.com/law/
   openly: HiNet's OTT (ottlive.hinet.net/backend: 新竹縣 `hcc`, 苗栗 `mcc`, 雲林's live
   `ylcc`; HLS that Safari plays, hls.js elsewhere), 高雄's own IVOD (its API; HLS on
   Akamai from each file's name, `kccHls`; each councillor's 質詢 in
-  `council/khh-clips.json`, shown on their sheet) or YouTube's RSS feed (臺南, 金門,
-  連江, 澎湖, 雲林). A sitting with a recording that day and part opens it; 議會影音
+  `council/khh-clips.json`, shown on their sheet) or the council's YouTube channels
+  (`YOUTUBE`: all but 臺北, 基隆, 高雄, 新竹縣, 苗栗; their /videos and /streams lists read page by
+  page as YouTube's web client asks, `ytInitial`, `ytLockups`, `ytItems`, back to the term's start the
+  first time, then until a page holds nothing new; plus the RSS feed). Every build's read is merged
+  over the last (`mergeVids`) into `council/<code>-video.json`, the term's every recording;
+  `council/<code>.json` keeps the 60 newest and `video.all`. 議會影音 (`councilVideos`) browses the
+  whole term by session, by kind (大會, 質詢, 委員會: `vidKind`) and by words; a session's sheet shows
+  its own. A sitting with a recording that day and part opens it; 議會影音
   lists the newest; 直播中 shows when the phone finds a live channel's playlist (asked
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)
   become sittings (`sittingsFromVideo`). Bare stamps (苗栗's test takes) are dropped.

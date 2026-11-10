@@ -12,6 +12,8 @@
 //          two deep; a link that doesn't name its session takes its page's.
 //   forms: a 公所's own site on the "Parser" CMS (鹿港: www.lukang.gov.tw/form/index?Parser=2,6,52): lists a
 //          kind each, ten a page (`formList`), files under df_ufiles/ named as the paper.
+//   wp:    a 代表會 posting on WordPress (名間's own site, 大武's on its 公所's): its posts whose titles name a
+//          session (`wpUrl`, `wpPost`), each holding its files (PDF, Word, MP3s by day, Drive).
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
 
 import { cnNum } from './town-site.mjs';
@@ -51,7 +53,7 @@ export function sessionOf(name, term) {
 // What a paper is, from its name.
 export function paperKind(name) {
   const s = String(name);
-  if (/日程/.test(s)) return '議事日程表';
+  if (/日程|議程/.test(s)) return '議事日程表';
   if (/提案/.test(s)) return '提案';
   if (/決議/.test(s)) return '決議案';
   if (/質詢/.test(s)) return '總質詢';
@@ -136,12 +138,12 @@ export function pdfSpan(text) {
   }
   const y = +(s.match(/民國\s*(1\d{2})\s*年/) || s.match(/(1\d{2})\s*年(?!度)/) || [])[1];
   // (Every sitting's 時間 line in a 議事錄, 時間：民國 115 年 04 月 24 日 … 04 月 30 日、05 月 04 日: the session's days.)
-  const lines = [...s.matchAll(/^\s*時\s*間\s*[：:][^\n]*月[^\n]*/gm)].map(m => m[0]);
+  const lines = [...s.matchAll(/^\s*(?:[一二三四五六七八九十]+、\s*)?時\s*間\s*[：:][^\n]*月[^\n]*/gm)].map(m => m[0]);
   const line = (s.match(/時\s*間\s*[：:][^\n]*月[^\n]*/) || [])[0];
-  // (Else its 日程表's rows, 05 月 04 日 一 1 代表報到, which a 議事錄 may open with ahead of one 時間 line.)
+  // (Its 日程表's rows first, 05 月 04 日 一 1 代表報到, which a 議事錄 may open with ahead of its 時間 lines.)
   const head = s.slice(0, Math.min(8000, line ? s.indexOf(line) : 8000));
   const rows = [...head.matchAll(/^ ?\d{1,2} ?月 ?\d{1,2}(?!\d)(?: ?日)? +(?:[一二三四五六日] |[^\d\s])[^\n]*/gm)].map(m => m[0]);
-  const src = lines.length > 1 && y && within(spanIn(y, mds(lines.join('\n'))), 45) ? lines.join('\n') : rows.length > 1 ? rows.join('\n') : line || s.slice(0, 4000);
+  const src = rows.length > 1 ? rows.join('\n') : lines.length > 1 && y && within(spanIn(y, mds(lines.join('\n'))), 45) ? lines.join('\n') : line || s.slice(0, 4000);
   const ok = ([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31;
   let ds = mds(src);
   // (A table with 月 and 日 as its heads: 4  15  三  1 代表報到…)
@@ -224,4 +226,41 @@ export function formList(html, base) {
   }
   const pages = +(String(html).match(/共\s*(\d+)\s*頁/) || [])[1] || 1;
   return { links, pages };
+}
+
+// A 代表會's posts on WordPress (its REST API): those whose titles have 屆第 in them, newest first.
+export const wpUrl = (base, q, pg = 1) => `${base}wp-json/wp/v2/posts?search=${encodeURIComponent(q)}&per_page=100&page=${pg}&_fields=date,title,content`;
+const fileName = url => {
+  try {
+    return decodeURIComponent(url.split(/[?#]/)[0].split('/').pop()).replace(/\.\w+$/, '');
+  } catch {
+    return '';
+  }
+};
+// A post: its title, its day and its files ({ n: the file's own name, url }); a 議事錄's cover (封面) left out.
+export function wpPost(p) {
+  const links = [];
+  const pics = [];
+  for (const [, href] of String(p?.content?.rendered || '').matchAll(/(?:href|src)="([^"]+)"/g)) {
+    let url;
+    try {
+      url = new URL(href.replace(/&amp;/g, '&').replace(/\?_=\d+$/, '')).href;
+    } catch {
+      continue;
+    }
+    // (A post that is only a picture, 名間's 議程表: the picture.)
+    if (/\/uploads\/.+\.(webp|jpe?g|png)$/i.test(url) && !pics.some(l => l.url === url)) pics.push({ n: fileName(url), url });
+    if (!/\.(pdf|docx?|odt|mp3|m4a)$/i.test(url) && !/drive\.google\.com\/(file\/d\/|drive\/(u\/\d+\/)?folders\/)|youtu/.test(url)) continue;
+    const n = fileName(url);
+    if (/封面/.test(n) || links.some(l => l.url === url)) continue;
+    links.push({ n, url });
+  }
+  return { title: text(p?.title?.rendered), date: String(p?.date || '').slice(0, 10), links: links.length ? links : pics.slice(0, 2) };
+}
+// A recording named by its month and day (22-8定期會10月19日錄音檔): that day, in the year of the post it's in.
+export function wpDay(name, posted) {
+  const m = String(name).match(/(\d{1,2})月(\d{1,2})日/);
+  if (!m || !posted) return '';
+  const y = +posted.slice(0, 4) - (+m[1] > +posted.slice(5, 7) + 1 ? 1 : 0);
+  return `${y}-${pad(m[1])}-${pad(m[2])}`;
 }

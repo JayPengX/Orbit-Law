@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -329,6 +329,25 @@ async function chcgTown(tc, site) {
         }
         if (!mine) break;
       }
+    // A 代表會 on WordPress (名間's): its posts naming a session, each a paper of the title's kind or recordings.
+    if (c.wp)
+      for (let pg = 1, pages = 1; pg <= Math.min(pages, 4); pg++) {
+        const r = await fetch(wpUrl(c.wp, '屆第', pg), { signal: AbortSignal.timeout(60_000) });
+        const posts = await r.json().catch(() => null);
+        if (!r.ok || !Array.isArray(posts)) throw new Error(`${c.wp}: ${r.status}`);
+        pages = +r.headers.get('X-WP-TotalPages') || 1;
+        for (const w of posts.map(wpPost)) {
+          const x = /^[［[【]/.test(w.title) ? null : at(w.title);
+          if (!x) continue;
+          const k = /錄音|音檔/.test(w.title) ? '錄音' : paperKind(w.title);
+          for (const l of w.links) {
+            const audio = /\.(mp3|m4a)$/i.test(l.url);
+            // (A recording named by its month and day: that day, 1151019 as the sites write it.)
+            const d = audio && wpDay(l.n, w.date);
+            put(x.s, x.ext, audio || k === '錄音' ? '錄音' : k, d ? `${+d.slice(0, 4) - 1911}${d.slice(5, 7)}${d.slice(8)}` : audio ? l.n : w.title, l.url);
+          }
+        }
+      }
     // Menus: a page a session.
     if (c.menus) {
       const menu = chcgMenu(await page(chcgUrl(site, Object.keys(areas)[0] || Object.keys(c.lists || {})[0] || ''), true));
@@ -408,7 +427,7 @@ async function chcgTown(tc, site) {
     else if (was?.md) s.md = was.md;
     else {
       // (Its agenda, else its minutes: 秀水's agendas are Word files, not read.)
-      const pdf = u => !/\.(docx?|odt|xlsx?)$/i.test(u);
+      const pdf = u => !/\.(docx?|odt|xlsx?|webp|jpe?g|png)$/i.test(u);
       const fs = [s.agenda.find(a => !/延長/.test(a.n) && pdf(a.url))?.url, s.items.find(i => i.k === '會議紀錄' && pdf(i.files[0].url))?.files[0].url].filter(Boolean);
       for (const f of fs) {
         if (pdfs-- <= 0 || late()) break;

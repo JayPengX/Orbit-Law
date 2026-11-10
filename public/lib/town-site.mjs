@@ -104,7 +104,9 @@ export const TOWN_SITES = {
   10007200: { n: '二林鎮民代表會', home: 'https://www.chcg.gov.tw/TSO/erlin/07other/main.aspx?main_id=3571', term: 22, ends: '2026-12-25', chcg: { tso: 'erlin', pages: [3571] } },
   10007220: { n: '埤頭鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/pitou/07other/main.aspx?main_id=31440', term: 22, ends: '2026-12-25', chcg: { tso: 'pitou', pages: [31440, 31849, 31442, 31443] } },
   10007240: { n: '大城鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/dacheng/07other/main.aspx?main_id=31070', term: 22, ends: '2026-12-25', chcg: { tso: 'dacheng', pages: [31070, 31071, 32713] } },
-  10007250: { n: '竹塘鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/zhutang/07other/main.aspx?main_id=30492', term: 22, ends: '2026-12-25', chcg: { tso: 'zhutang', pages: [30492, 30493, 26407, 26408] } }
+  10007250: { n: '竹塘鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/zhutang/07other/main.aspx?main_id=30492', term: 22, ends: '2026-12-25', chcg: { tso: 'zhutang', pages: [30492, 30493, 26407, 26408] } },
+  // 南投縣名間鄉: its own site on WordPress (lib/town-chcg.mjs `wp`).
+  10008060: { n: '名間鄉民代表會', home: 'https://mjtc.sweb.tw/', term: 22, ends: '2026-12-25', chcg: { wp: 'https://mjtc.sweb.tw/' } }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

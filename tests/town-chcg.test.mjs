@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -99,4 +99,12 @@ test('town chcg: 永靖, 田尾, 秀水: days in a paper’s name, recordings on
   assert.equal(formUrl(b, '2,6,52', 1), 'https://www.lukang.gov.tw/form/index?Parser=2,6,52,,,,,,,,1');
   const f = formList(`<ul class="list"><li class="list_date"><span class="list_word text_le "><a href="/df_ufiles/052/第22屆第7次定期會議事錄.pdf" target="_blank">第22屆第7次定期會議事錄</a></span></li><li class="list_date"><span><a href="https://gofile.me/7ZkLt/KVm9" title="x">【第22屆】第22屆第8次定期會錄音檔連結</a></span></li></ul>【所在頁數：第1頁／共4頁】`, b);
   assert.deepEqual(f, { links: [{ n: '第22屆第7次定期會議事錄', url: 'https://www.lukang.gov.tw/df_ufiles/052/%E7%AC%AC22%E5%B1%86%E7%AC%AC7%E6%AC%A1%E5%AE%9A%E6%9C%9F%E6%9C%83%E8%AD%B0%E4%BA%8B%E9%8C%84.pdf' }, { n: '第22屆第8次定期會錄音檔連結', url: 'https://gofile.me/7ZkLt/KVm9' }], pages: 4 });
+  // (名間's posts on WordPress: a file a post, a picture when that's all it holds, a 議事錄's cover left out.)
+  const w = wpPost({ date: '2026-11-07T10:00:00', title: { rendered: '第22屆第8次定期會錄音檔' }, content: { rendered: '<audio src="https://x.tw/wp-content/uploads/2026/11/22-8定期會10月19日錄音檔.mp3?_=1"></audio><a href="https://x.tw/wp-content/uploads/2026/01/議事錄封面.pdf">封面</a>' } });
+  assert.deepEqual(w.links.map(l => l.n), ['22-8定期會10月19日錄音檔']);
+  assert.equal(wpDay(w.links[0].n, w.date), '2026-10-19');
+  assert.equal(wpDay('114年12月10日錄音檔', '2026-01-02'), '2025-12-10');
+  assert.deepEqual(wpPost({ title: { rendered: '第22屆第19次臨時會議日程表' }, content: { rendered: '<p><img src="https://mjtc.sweb.tw/wp-content/uploads/第22屆19次臨時會議程表.webp" /></p>' } }).links.map(l => l.n), ['第22屆19次臨時會議程表']);
+  assert.equal(paperKind('第22屆第9次臨時會議程表'), '議事日程表');
+  assert.deepEqual(pdfSpan('一、時 間：中華民國 115 年 5 月 4 日上午 9 時起\n一、時 間：中華民國 115 年 5 月 15 日上午 9 時起'), { from: '2026-05-04', to: '2026-05-15' });
 });

@@ -43,6 +43,7 @@ import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName } from './lib/council.mjs';
 import { videosOf } from './lib/council-video.mjs';
+import { TOWN_SITES, sessionState, drivePlayer, drivePage } from './lib/town-site.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -3697,7 +3698,7 @@ async function councilList(out) {
   let towns = '';
   try {
     const r = (await repsData()).places.find(p => p.city === c.city || p.cc === c.c);
-    if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表`, `${t.reps.length} members`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
+    if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
   const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[sits + video + bills, 0], [people + towns, 1]])}</div>`;
@@ -3804,15 +3805,106 @@ async function openCouncilor(name) {
   return s;
 }
 
-// A township's 代表會: its members by district.
+// A township's 代表會: its members by district; where its own site is read (lib/town-site.mjs), its sessions,
+// each with its days' recordings and its papers (會議紀錄, 施政報告, 總質詢, 決議案), its members' photos and its news.
 async function openTown(tc) {
   const r = await repsData().catch(() => null);
   const t = r?.places.flatMap(p => p.towns.map(x => ({ ...x, city: p.city }))).find(x => x.tc === tc);
   if (!t) return;
+  const own = TOWN_SITES[tc] ? await data(`council/town/${tc}.json`).catch(() => null) : null;
+  if (own?.sessions?.length || own?.people?.length) return townSheet(t, own);
   const areas = new Map();
   for (const [n, party, area] of t.reps) areas.set(area, [...(areas.get(area) || []), [n, party]]);
   const html = `<h2 class="lw-item-name">${esc(`${t.city}${t.town}民代表會`)}</h2><p class="lw-person-line">${esc(W(`${t.reps.length} 位代表，2022 年選出，任期到 2026 年 12 月。`, `${t.reps.length} members, elected in 2022, serving to December 2026.`))}</p>${[...areas].map(([area, xs]) => `<div class="lw-item-who"><h4>${esc(area.replace(/^.+?(第\d+選舉區)$/, '$1').replace(/選舉區$/, W('選區', ' district')))}</h4><div class="lw-parties">${xs.map(([n, party]) => `<span class="lw-party" style="--p:${partyColor(party)}">${esc(n)}<small>${esc(partyShort(party))}</small></span>`).join('')}</div></div>`).join('')}<p class="lw-hint-sm">${W('代表會的提案和議事錄沒有開放資料，請看鄉鎮市公所或代表會網站。', 'Township councils publish no bills or minutes as open data.')}</p>`;
   sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('div', { html })] });
+}
+
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const mdOf = d => (d ? `${+d.slice(5, 7)}/${+d.slice(8, 10)}` : '');
+const spanOf = (a, b) => (a && b && a !== b ? `${mdOf(a)}–${mdOf(b)}` : mdOf(a || b));
+const dayLabel = d => `${mdOf(d)}${en ? '' : `（${WEEK[new Date(`${d}T00:00:00Z`).getUTCDay()]}）`}`;
+const PAPERS = [
+  ['議事日程表', 'Agenda'],
+  ['施政報告', 'Mayor’s report'],
+  ['總質詢', 'Questions to the mayor'],
+  ['決議案', 'Resolutions'],
+  ['會議紀錄', 'Minutes'],
+  ['致詞', 'Speeches'],
+  ['附錄', 'Appendix'],
+  ['其他', 'Other']
+];
+const PDF_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 1.5V5H13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+const paperRow = (n, url, small = '') => `<a class="lw-row lw-paper" href="${esc(url)}" target="_blank" rel="noopener" data-out><span class="lw-paper-ic">${PDF_ICON}</span><span class="lw-row-text"><span class="lw-row-name">${esc(n)}</span>${small ? `<small>${esc(small)}</small>` : ''}</span>${CHEVRON}</a>`;
+// What a session holds, in a line.
+const sessionLine = s => {
+  const q = s.items?.filter(i => i.k === '總質詢').length || 0;
+  return [spanOf(s.from, s.ext?.to || s.to), s.days?.length ? W(`${s.days.length} 天錄音`, `${s.days.length} days recorded`) : '', q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
+};
+
+async function townSheet(t, own) {
+  const day = twNow().day;
+  const party = new Map(t.reps.map(([n, p]) => [n, p]));
+  const sessions = own.sessions || [];
+  const now = sessions.find(s => sessionState(s, day) === 'on') || [...sessions].reverse().find(s => sessionState(s, day) === 'ahead');
+  const name = `${t.city}${t.town}民代表會`;
+  const people = (own.people || []).map(p => ({ ...p, party: party.get(p.n) || '', photo: p.img }));
+  const lead = ['主席', '副主席'];
+  people.sort((a, b) => (lead.indexOf(a.title) + 1 || 9) - (lead.indexOf(b.title) + 1 || 9));
+  const ends = own.ends ? W(`任期到 ${+own.ends.slice(0, 4)} 年 ${+own.ends.slice(5, 7)} 月 ${+own.ends.slice(8, 10)} 日`, `serving to ${own.ends}`) : '';
+  const sessionRow = (s, i) => `<button type="button" class="lw-row" data-townsess="${i}"><span class="lw-row-text"><span class="lw-row-name">${esc(W(`第${own.term}屆${s.n}`, `Term ${own.term} ${s.n}`))}</span><small>${esc(sessionLine(s))}</small></span>${CHEVRON}</button>`;
+  const shown = 6;
+  const nowCard = now
+    ? `<button type="button" class="lw-row lw-town-now" data-townsess="${sessions.indexOf(now)}"><span class="lw-row-text"><span class="lw-row-name">${sessionState(now, day) === 'on' ? `<span class="lw-live">${W('開會中', 'In session')}</span>` : `<span class="lw-town-soon">${W('下次開會', 'Next')}</span>`} ${esc(now.n)}</span><small>${esc([spanOf(now.from, now.to), now.ext ? W(`延長會 ${spanOf(now.ext.from, now.ext.to)}`, `extended ${spanOf(now.ext.from, now.ext.to)}`) : '', now.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`
+    : '';
+  const person = x => `<button type="button" class="lw-person" data-townp="${esc(x.url || '')}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc([x.title !== '代表' ? x.title : '', partyShort(x.party), x.area.replace(/選區$/, W('區', ' district'))].filter(Boolean).join(' · '))}</small></span></button>`;
+  const news = (own.news || []).slice(0, 6);
+  const html = `<h2 class="lw-item-name">${esc(name)}</h2><p class="lw-person-line">${esc([W(`${people.length || t.reps.length} 位代表`, `${people.length || t.reps.length} members`), W(`第${own.term}屆`, `term ${own.term}`), ends].filter(Boolean).join(W('，', ', ')))}</p>${nowCard ? `<div class="lw-list in-sheet">${nowCard}</div>` : ''}${
+    sessions.length
+      ? section(W('會期', 'Sessions'), `<div class="lw-list in-sheet" data-townlist>${sessions.slice(0, shown).map(sessionRow).join('')}</div>${sessions.length > shown ? `<button type="button" class="lw-more" data-townall>${W(`再顯示 ${sessions.length - shown} 個會期`, `Show ${sessions.length - shown} more`)}</button>` : ''}`)
+      : ''
+  }${people.length ? section(W(`代表 ${people.length}`, `Members ${people.length}`), `<div class="lw-people q-rows-full q-rows-keep">${people.map(person).join('')}</div>`) : ''}${
+    news.length ? section(W('代表會消息', 'News'), `<div class="lw-list in-sheet wrap">${news.map(x => `<button type="button" class="lw-row" data-townp="${esc(x.url)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.t)}</span></span>${CHEVRON}</button>`).join('')}</div>`) : ''
+  }<a class="q-more q-more-go lw-out" href="${esc(own.site)}" target="_blank" rel="noopener" data-out><span>${W('代表會網站', 'The council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a><p class="lw-hint-sm">${W('議事錄、日程表和錄音都讀自代表會網站；文件是 PDF，網站只在台灣打得開。', 'Read from the council’s own site; its papers are PDFs, and the site opens only in Taiwan.')}</p>`;
+  const body = h('div', { html });
+  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  body.addEventListener('click', e => {
+    const all = e.target.closest('[data-townall]');
+    if (all) {
+      body.querySelector('[data-townlist]').innerHTML = sessions.map(sessionRow).join('');
+      return all.remove();
+    }
+    const b = e.target.closest('[data-townsess]');
+    if (b) return townSession(own, sessions[+b.dataset.townsess]);
+    const p = e.target.closest('[data-townp]');
+    if (p?.dataset.townp) openPage(p.dataset.townp);
+  });
+  return s;
+}
+
+// One session: its days (each with its recording), then its papers by kind.
+function townSession(own, s) {
+  if (!s) return;
+  const items = s.items || [];
+  const papers = PAPERS.map(([k, en1]) => {
+    const rows = k === '議事日程表' ? (s.agenda || []).map(a => paperRow(/延長會/.test(a.n) ? W('延長會議事日程表', 'Agenda (extension)') : W('議事日程表', 'Agenda'), a.url)) : items.filter(i => i.k === k && i.files?.length).flatMap(i => i.files.map((f, j) => paperRow(i.files.length > 1 ? `${i.n}（${j + 1}）` : i.n === k ? W(k, en1) : i.n, f.url, f.size || '')));
+    return rows.length ? `<h4>${W(k, en1)}</h4><div class="lw-list in-sheet">${rows.join('')}</div>` : '';
+  }).join('');
+  const days = (s.days || []).map((d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(dayLabel(d.d))}</span><small>${d.ext ? W('延長會 · 會議錄音', 'Extension · sitting audio') : W('會議錄音', 'Sitting audio')}</small></span></button>`).join('');
+  const waiting = !items.length && !s.days?.length;
+  const html = `<h2 class="lw-item-name">${esc(W(`第${own.term}屆${s.n}`, `Term ${own.term} ${s.n}`))}</h2><p class="lw-person-line">${esc([spanOf(s.from, s.to), s.ext ? W(`延長會 ${spanOf(s.ext.from, s.ext.to)}`, `extended ${spanOf(s.ext.from, s.ext.to)}`) : ''].filter(Boolean).join(W('，', ', ')))}</p>${days ? section(W('錄音', 'Audio'), `<div class="lw-list in-sheet">${days}</div>`) : ''}${papers ? section(W('議事錄', 'Papers'), papers) : ''}${waiting ? `<p class="lw-none">${W('代表會還沒放上這個會期的議事錄。', 'The council hasn’t posted this session’s papers yet.')}</p>` : ''}`;
+  const body = h('div', { html });
+  sheet({ title: s.n, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-townday]');
+    if (b) townAudio(own, s, s.days[+b.dataset.townday]);
+  });
+}
+
+// A sitting's recording, in Google Drive's own player.
+function townAudio(own, s, d) {
+  if (!d) return;
+  const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video lw-drive"><iframe src="${esc(drivePlayer(d.drive))}" title="${esc(`${s.n} ${d.d}`)}" allow="autoplay; encrypted-media"></iframe></div><h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, dayLabel(d.d)].join(' · '))}</p><a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  sheet({ title: W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
 }
 
 async function start() {

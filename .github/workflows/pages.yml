@@ -97,6 +97,14 @@ jobs:
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
+      # 鄉鎮市民代表會 from their own sites (竹北 first): members, sessions, 議事錄 PDFs, each day's recording.
+      # They serve only Taiwan: read through the proxy's door with the build's key.
+      - name: Build the township councils from their own sites
+        run: node scripts/build-town.mjs
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       # Councillors' photos, mirrored small: kept between builds (only newcomers are fetched).
       - uses: actions/cache@v4
         with:

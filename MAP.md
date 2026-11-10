@@ -16,7 +16,7 @@ Live: https://orbit.jaypengx.com/law/
   at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-notices.mjs`
   (each 預告's join.gov.tw record and its 總說明 and 條文對照表 read from the
   公報 PDF with poppler's `pdftotext -bbox`: `bills/notice/<id>.json`), `build-ly.mjs`,
-  `build-council.mjs` (地方議會, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
+  `build-council.mjs` (地方議會, below), `build-town.mjs` (代表會 from their own sites, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
   under `public/img/ly/`; only a newcomer's is fetched; then the 縣市議員's, below), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
   as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
@@ -98,7 +98,16 @@ Live: https://orbit.jaypengx.com/law/
   lists the newest; 直播中 shows when the phone finds a live channel's playlist (asked
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)
   become sittings (`sittingsFromVideo`). Bare stamps (苗栗's test takes) are dropped.
-  代表會 have no bills or sittings in any open data, so they show their members only. The picked council is this device's
+  代表會 have no bills or sittings in any open data, so most show their members only.
+  **A 代表會's own site** (`lib/town-site.mjs` `TOWN_SITES`, `scripts/build-town.mjs` →
+  `council/town/<tc>.json`; first 竹北市民代表會, whose site moved into 竹北市公所's at
+  www.zhubei.gov.tw/jbc/): its 公所's "twgov" CMS, Big5, Taiwan-only, read through the
+  proxy's door with the build's key, a page every ½ s, what's settled kept from the last
+  deploy. Members with photos; each session of the term (議事錄) with every sitting's
+  會議紀錄, 施政報告, 總質詢 by day, 決議案, 附錄 (PDFs), each day's recording (Google
+  Drive, played by Drive's own player), its 議事日程表; the news sets a session's days
+  before it meets (`sessionNews`), so 下次開會 and 開會中 show. Its sheet is `townSheet`.
+  The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).
@@ -357,6 +366,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/council.mjs` | 地方議會: councils, sittings, bills' outcomes, councillors, 代表 |
+| `public/lib/council-video.mjs`, `town-site.mjs` | Councils' live and recorded video; a 代表會's own site (竹北) |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |

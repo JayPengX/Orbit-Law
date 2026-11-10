@@ -4888,3 +4888,42 @@ button.lw-meet {
 .lw-cc-live .lw-live {
   flex: none;
 }
+/* A 代表會 read from its own site (竹北): its session now, a day's recording, its papers. */
+.lw-vid .lw-vid-img.lw-aud {
+  width: 44px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--q-fill-2);
+  color: var(--q-label);
+}
+.lw-video.lw-drive {
+  aspect-ratio: 16 / 9;
+}
+.lw-town-now .lw-row-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.lw-town-soon {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--q-fill-3);
+  color: var(--q-label);
+  font: 600 12px/1 var(--q-font);
+}
+.lw-paper-ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--q-label-2);
+}
+.lw-paper-ic svg {
+  width: 18px;
+  height: 18px;
+}

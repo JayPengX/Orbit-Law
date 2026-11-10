@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -80,4 +80,23 @@ test('town chcg: a 公所 site’s page: its files, the pages under it, its list
   assert.equal(dayIn('綜合質詢114.5.9'), '2025-05-09');
   // (Days written 115.8.12.)
   assert.deepEqual(pdfSpan('第 19 次臨時會議事日程表\n115.8.12   三   1  報到\n115.8.14   五   3  閉會'), { from: '2026-08-12', to: '2026-08-14' });
+});
+
+test('town chcg: 永靖, 田尾, 秀水: days in a paper’s name, recordings on HiNet, a 議事錄 opening with its 日程表', () => {
+  assert.deepEqual(nameSpan('第22屆第1次定期會議事日程表(112.5.15-5.26)'), { from: '2023-05-15', to: '2023-05-26' });
+  // (Its last day's year mistyped; over the new year.)
+  assert.deepEqual(nameSpan('第22屆第3次定期會-議事錄(113.5.13-112.5.24)'), { from: '2024-05-13', to: '2024-05-24' });
+  assert.deepEqual(nameSpan('第22屆第9次臨時會(114.12.29-1.2)'), { from: '2025-12-29', to: '2026-01-02' });
+  assert.equal(nameSpan('第22屆第7次定期會議事錄'), null);
+  const page = `<div class="table-type-1-block mb-4 editor-block"><p><a href="https://ottlive.hinet.net/webapp/tianwei_town/watch?v=2307" target="_blank"><font>第22屆第1次定期會議事錄音</font></a></p><p><a href="https://drive.google.com/drive/u/1/folders/13Pom">第22屆第13次臨時會錄音檔</a></p></div>`;
+  assert.deepEqual(chcgLinks(page).map(l => l.n), ['第22屆第1次定期會議事錄音', '第22屆第13次臨時會錄音檔']);
+  // (Every sitting's 時間 line.)
+  assert.deepEqual(pdfSpan('第 7 次定期會議事錄\n時 間 ：民國 115 年 04 月 24 日\n出席：\n時 間 ：民國 115 年 04 月 28 日~04 月 29 日\n時 間 ：民國 115 年 04 月 30 日、05 月 04 日\n'), { from: '2026-04-24', to: '2026-05-04' });
+  // (Its 日程表 first, rows split by the layout, then one 時間 line and talk of other days.)
+  assert.deepEqual(pdfSpan('議事日程表\n民國 115 年 09: 00\n04 月 30            報 到\n           四   1\n05 月 01 日 五    2 勞動節國定假日\n05 月 11 日 一   12 討論提案\n一、時 間：民國 115 年 5 月 4 日上午九時\n 5 月 25 日華龍宮王爺的聖誕'), { from: '2026-04-30', to: '2026-05-11' });
+  // (鹿港's lists on its 公所's site.)
+  const b = 'https://www.lukang.gov.tw/';
+  assert.equal(formUrl(b, '2,6,52', 1), 'https://www.lukang.gov.tw/form/index?Parser=2,6,52,,,,,,,,1');
+  const f = formList(`<ul class="list"><li class="list_date"><span class="list_word text_le "><a href="/df_ufiles/052/第22屆第7次定期會議事錄.pdf" target="_blank">第22屆第7次定期會議事錄</a></span></li><li class="list_date"><span><a href="https://gofile.me/7ZkLt/KVm9" title="x">【第22屆】第22屆第8次定期會錄音檔連結</a></span></li></ul>【所在頁數：第1頁／共4頁】`, b);
+  assert.deepEqual(f, { links: [{ n: '第22屆第7次定期會議事錄', url: 'https://www.lukang.gov.tw/df_ufiles/052/%E7%AC%AC22%E5%B1%86%E7%AC%AC7%E6%AC%A1%E5%AE%9A%E6%9C%9F%E6%9C%83%E8%AD%B0%E4%BA%8B%E9%8C%84.pdf' }, { n: '第22屆第8次定期會錄音檔連結', url: 'https://gofile.me/7ZkLt/KVm9' }], pages: 4 });
 });

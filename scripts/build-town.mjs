@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, yearOf, tsoUrl, tsoPage, folderOf } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -49,9 +49,13 @@ let tmp;
 async function pdfText(url) {
   await sleep(process.env.FAST ? 0 : 500);
   reads++;
-  const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
+  // (A PDF on Google Drive, 線西's: from Drive itself; the rest through the door.)
+  const drive = driveId(url);
+  const r = drive
+    ? await fetch(`https://drive.usercontent.google.com/download?id=${drive}&export=download`, { signal: AbortSignal.timeout(90_000) })
+    : await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
   // The PDF itself (passed straight through), or a JSON answer saying why not.
-  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '');
+  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok);
   const b = pdf ? null : await r.json().catch(() => ({}));
   if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
@@ -282,6 +286,9 @@ async function chcgTown(tc, site) {
   };
   const put = (s, ext, k, n, url) => {
     if (folderOf(url)) return s.folders.some(f => f.url === url) || s.folders.push({ url });
+    // (Its days in its name, 議事日程表(112.5.15-5.26): read from there, no PDF.)
+    const sp = k !== '錄音' && nameSpan(n);
+    if (sp) (s.spans ||= []).push({ ...sp, agenda: k === '議事日程表', ext: k === '議事日程表' && /延長|延會/.test(n) });
     if (k === '錄音') {
       const d = dayIn(n);
       const drive = driveId(url);
@@ -290,11 +297,14 @@ async function chcgTown(tc, site) {
       if (drive && d) s.days.push({ d, drive, ext, ...(what && !/^\d+$/.test(what) ? { what } : {}) });
       else if (/\.(mp3|m4a|wav)$/i.test(url)) s.days.push({ ...(d ? { d } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url });
       else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
+      // (A session's recording on a video site, 田尾's on HiNet: opened there.)
+      else s.folders.some(f => f.url === url) || s.folders.push({ url });
       return;
     }
     if (k === '議事日程表') return s.agenda.some(a => a.url === url) || s.agenda.push({ n: ext || /延長|延會/.test(n) ? '延長會議事日程表' : '議事日程表', url });
     if (s.items.some(i => i.files[0].url === url)) return;
-    const nm = n.replace(/^.*?(定期會|臨時會)(延長會|延會)?/, '').replace(/_\d{4}$/, '').trim();
+    // (Its name past the session: 會期-議事錄(115.9.29-10.1) → 議事錄; 定期大會議事錄 → 議事錄.)
+    const nm = n.replace(/^.*?(定期|臨時)大?會(延長會|延會)?/, '').replace(/_\d{4}$/, '').replace(/[(（][\d.\-~～－及、\s]+[)）]/g, '').replace(/^[-_\s]+/, '').trim();
     // (議事錄 and 會議紀錄 are both a session's minutes; a site with both keeps their names apart.)
     const named = k !== '會議紀錄' ? nm : /^(議事錄)?$/.test(nm) ? '議事錄' : /^(會議)?[紀記]錄$/.test(nm) ? '會議紀錄' : nm;
     s.items.push({ k, n: named || n, files: [{ url }] });
@@ -307,6 +317,18 @@ async function chcgTown(tc, site) {
         if (x) put(x.s, x.ext, kind === '錄音' ? kind : paperKind(l.n) === '議事日程表' ? '議事日程表' : kind, l.n, l.url);
       }
     }
+    // A 公所 site's lists ("Parser" CMS, 鹿港's): ten a page, newest first, read until a page holds none of this term.
+    for (const [parser, kind] of Object.entries(c.forms || {}))
+      for (let pg = 0, pages = 1; pg < Math.min(pages, 8); pg++) {
+        const r = formList(await page(formUrl(c.cms, parser, pg), true), c.cms);
+        pages = r.pages;
+        let mine = 0;
+        for (const l of r.links) {
+          const x = at(l.n);
+          if (x && ++mine) put(x.s, x.ext, kind === '錄音' ? kind : paperKind(l.n) === '議事日程表' ? '議事日程表' : kind, l.n, l.url);
+        }
+        if (!mine) break;
+      }
     // Menus: a page a session.
     if (c.menus) {
       const menu = chcgMenu(await page(chcgUrl(site, Object.keys(areas)[0] || Object.keys(c.lists || {})[0] || ''), true));
@@ -376,17 +398,30 @@ async function chcgTown(tc, site) {
   let pdfs = 40;
   for (const s of by.values()) {
     const was = before.get(s.key);
-    if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
+    const named = s.spans?.find(x => x.agenda && !x.ext) || s.spans?.find(x => !x.ext);
+    const more = s.spans?.find(x => x.ext);
+    delete s.spans;
+    if (named) {
+      Object.assign(s, { from: named.from, to: named.to });
+      if (more && more.from > named.to) s.ext = { from: more.from, to: more.to };
+    } else if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
     else if (was?.md) s.md = was.md;
     else {
-      const f = s.agenda.find(a => !/延長/.test(a.n))?.url || s.items.find(i => i.k === '會議紀錄')?.files[0].url;
-      if (f && pdfs-- > 0 && !late())
+      // (Its agenda, else its minutes: 秀水's agendas are Word files, not read.)
+      const pdf = u => !/\.(docx?|odt|xlsx?)$/i.test(u);
+      const fs = [s.agenda.find(a => !/延長/.test(a.n) && pdf(a.url))?.url, s.items.find(i => i.k === '會議紀錄' && pdf(i.files[0].url))?.files[0].url].filter(Boolean);
+      for (const f of fs) {
+        if (pdfs-- <= 0 || late()) break;
         try {
           const span = pdfSpan(await pdfText(f));
-          if (span) Object.assign(s, span);
+          if (span) {
+            Object.assign(s, span);
+            break;
+          }
         } catch (e) {
           notes.push(`${s.n} days: ${e.message}`);
         }
+      }
     }
   }
   // (Again, as those placed place their neighbours.)

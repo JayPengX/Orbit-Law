@@ -10,6 +10,8 @@
 //   tso:   the rest publish on their 公所's site (www.chcg.gov.tw/TSO/<dir>/07other/main.aspx: 大村, 埤頭, 竹塘…):
 //          a few pages to start from, each listing files (getFile.aspx) and pages under it (`tsoPage`), followed
 //          two deep; a link that doesn't name its session takes its page's.
+//   forms: a 公所's own site on the "Parser" CMS (鹿港: www.lukang.gov.tw/form/index?Parser=2,6,52): lists a
+//          kind each, ten a page (`formList`), files under df_ufiles/ named as the paper.
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
 
 import { cnNum } from './town-site.mjs';
@@ -61,10 +63,12 @@ export function paperKind(name) {
 // A page's attachments and links (its 附件下載 and 相關連結 lists): { n, url }.
 export function chcgLinks(html) {
   const out = [];
-  for (const [, block] of String(html).matchAll(/class="att-data"[^>]*>([\s\S]*?)<\/ul>/g))
+  // (The attachments' list, or links written into the page's own text: 田尾's recordings on HiNet's 影音.)
+  const blocks = [...String(html).matchAll(/class="att-data"[^>]*>([\s\S]*?)<\/ul>|class="[^"]*editor-block[^"]*"[^>]*>([\s\S]*?)<\/div>/g)].map(m => m[1] || m[2]);
+  for (const block of blocks)
     for (const [, href, name] of block.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
       const url = abs(href);
-      if (!/\/files\/.+\.\w+$|drive\.google\.com\/file\/d\/|youtu/.test(url) || out.some(x => x.url === url)) continue;
+      if (!/\/files\/.+\.\w+$|drive\.google\.com\/(file\/d\/|drive\/(u\/\d\/)?folders\/)|youtu|ottlive\.hinet\.net\/.+watch/.test(url) || out.some(x => x.url === url)) continue;
       out.push({ n: text(name), url });
     }
   return out;
@@ -110,6 +114,18 @@ export const driveId = url => (String(url).match(/drive\.google\.com\/file\/d\/(
 // A session's first and last day, from its 議事日程表 (民國 115 年 … 05 月 04 日 … 05 月 15 日) or its 議事錄's
 // 時間 line (時間：中華民國 115 年 5 月 19 日起至 5 月 26 止), or a table headed 月, 日 (115 年 … 4  15  三), or
 // days written 115.8.12.
+// A session's days as its paper's name gives them: 第22屆第1次定期會議事日程表(112.5.15-5.26).
+export function nameSpan(name) {
+  const m = String(name || '').match(/(?<![\d.])(1\d{2})\.(\d{1,2})\.(\d{1,2})\s*[-~～－]\s*(?:(1\d{2})\.)?(\d{1,2})\.(\d{1,2})(?![\d.])/);
+  if (!m || +m[2] > 12 || +m[5] > 12) return null;
+  const from = roc(m[1], m[2], m[3]);
+  // (Its last day's year when it says one that fits, else the first's, or the next past December.)
+  let to = roc(m[4] || m[1], m[5], m[6]);
+  if (to < from) to = roc(+m[1] + (+m[5] < +m[2] ? 1 : 0), m[5], m[6]);
+  return to < addMonths(from, 2) ? { from, to } : null;
+}
+const addMonths = (d, n) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1 + n, +d.slice(8, 10))).toISOString().slice(0, 10);
+
 export function pdfSpan(text) {
   const s = String(text || '').replace(/[ \t　]+/g, ' ');
   // (The 民國 year where it says so: a 臨時會 in December may be about next year's 115年度 budget.)
@@ -119,10 +135,15 @@ export function pdfSpan(text) {
     return { from: days[0], to: days.at(-1) };
   }
   const y = +(s.match(/民國\s*(1\d{2})\s*年/) || s.match(/(1\d{2})\s*年(?!度)/) || [])[1];
+  // (Every sitting's 時間 line in a 議事錄, 時間：民國 115 年 04 月 24 日 … 04 月 30 日、05 月 04 日: the session's days.)
+  const lines = [...s.matchAll(/^\s*時\s*間\s*[：:][^\n]*月[^\n]*/gm)].map(m => m[0]);
   const line = (s.match(/時\s*間\s*[：:][^\n]*月[^\n]*/) || [])[0];
-  const src = line || s.slice(0, 4000);
+  // (Else its 日程表's rows, 05 月 04 日 一 1 代表報到, which a 議事錄 may open with ahead of one 時間 line.)
+  const head = s.slice(0, Math.min(8000, line ? s.indexOf(line) : 8000));
+  const rows = [...head.matchAll(/^ ?\d{1,2} ?月 ?\d{1,2}(?!\d)(?: ?日)? +(?:[一二三四五六日] |[^\d\s])[^\n]*/gm)].map(m => m[0]);
+  const src = lines.length > 1 && y && within(spanIn(y, mds(lines.join('\n'))), 45) ? lines.join('\n') : rows.length > 1 ? rows.join('\n') : line || s.slice(0, 4000);
   const ok = ([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31;
-  let ds = [...src.matchAll(/(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})(?!\d)\s*日?/g)].map(m => [+m[1], +m[2]]).filter(ok);
+  let ds = mds(src);
   // (A table with 月 and 日 as its heads: 4  15  三  1 代表報到…)
   if (!ds.length) ds = [...src.matchAll(/^\s*(\d{1,2})\s+(\d{1,2})\s+[一二三四五六日]\s/gm)].map(m => [+m[1], +m[2]]).filter(ok);
   if (!ds.length) return null;
@@ -130,7 +151,10 @@ export function pdfSpan(text) {
   if (!y) return { md: ds };
   return spanIn(y, ds);
 }
+const mds = src => [...src.matchAll(/(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})(?!\d)\s*日?/g)].map(m => [+m[1], +m[2]]).filter(([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31);
+const within = (span, days) => span && (Date.parse(span.to) - Date.parse(span.from)) / 864e5 <= days;
 const spanIn = (y, ds) => {
+  if (!ds.length) return null;
   const first = ds[0][0];
   // (A session over the new year: its January days in the next year.)
   const days = ds.map(([m, d]) => roc(m < first - 6 ? y + 1 : y, m, d)).sort();
@@ -181,3 +205,23 @@ export function tsoPage(html, url) {
   return { title, links, kids, more };
 }
 export const folderOf = url => /drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(String(url));
+
+// A list on the "Parser" CMS many 公所 sites run (鹿港's): its items ({ n, url }) and how many pages it has.
+export const formUrl = (base, parser, pg = 0) => `${base}form/index?Parser=${parser}${pg ? `,,,,,,,,${pg}` : ''}`;
+export function formList(html, base) {
+  const links = [];
+  for (const [, li] of String(html).matchAll(/<li class="list_date">([\s\S]*?)<\/li>/g)) {
+    const [, href] = li.match(/href="([^"]+)"/) || [];
+    if (!href || /^javascript/i.test(href)) continue;
+    let url;
+    try {
+      url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    } catch {
+      continue;
+    }
+    const n = text(li).replace(/^【[^】]*】\s*/, '').replace(/\s*\(另開視窗\)$/, '');
+    if (n && !links.some(l => l.url === url)) links.push({ n, url });
+  }
+  const pages = +(String(html).match(/共\s*(\d+)\s*頁/) || [])[1] || 1;
+  return { links, pages };
+}

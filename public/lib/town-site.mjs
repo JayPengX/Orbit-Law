@@ -2,7 +2,7 @@
 // iframdeputy_list, iframcirculated_list, iframmeeting_list…), so that other 代表會 on it come with a line each.
 //   竹北市民代表會: its site moved into 竹北市公所's (www.zhubei.gov.tw/jbc/; jbc.gov.tw is gone). It serves only
 //   Taiwan, in Big5: the build reads it through the proxy's door (Orbit-Core law-page.js, which decodes it).
-// (彰化's 和美, 伸港, 福興 are on their county's platform instead: lib/town-chcg.mjs.)
+// (彰化's 代表會 are on their county's platform or their 公所's sites instead: lib/town-chcg.mjs.)
 // What it has: the members by district with photos; each session of the term (議事錄): every sitting's 會議紀錄,
 // 致詞, 施政報告, 市政總質詢 by day, 決議案, 附錄 (PDFs) and each sitting day's recording (錄音檔, Google Drive);
 // the 議事日程表 (PDF); the news, where each session's days are announced before it meets.
@@ -53,6 +53,44 @@ export const TOWN_SITES = {
     term: 22,
     ends: '2026-12-25',
     chcg: { act: 174, lists: { 24811: '會議紀錄', 24809: '議事日程表', 29562: '會議紀錄' }, menus: { 議事錄音檔: '錄音' } }
+  },
+  10007040: {
+    n: '線西鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=452',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 452, lists: { 34119: '議事日程表', 34120: '錄音', 34121: '會議紀錄' } }
+  },
+  10007070: {
+    n: '秀水鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=410',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 410, lists: { 30463: '議事日程表', 30464: '錄音', 30465: '會議紀錄', 29606: '決議案' } }
+  },
+  // (永靖's names carry each session's days: 議事日程表(112.5.15-5.26).)
+  10007160: {
+    n: '永靖鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=407',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 407, lists: { 29109: '議事日程表', 29110: '會議紀錄', 31482: '會議紀錄' } }
+  },
+  // (田尾's recordings are on HiNet's 影音, a session each.)
+  10007210: {
+    n: '田尾鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=409',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 409, lists: { 43210: '會議紀錄', 43211: '會議紀錄', 43846: '錄音', 43213: '錄音' } }
+  },
+  // (鹿港's on its 公所's own site, the "Parser" CMS; its recordings a shared folder a session.)
+  10007020: {
+    n: '鹿港鎮民代表會',
+    home: 'https://www.lukang.gov.tw/content/index?Parser=1,6,44',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { cms: 'https://www.lukang.gov.tw/', forms: { '28,6,51': '議事日程表', '2,6,52': '會議紀錄', '28,6,53': '會議紀錄', '28,6,54': '錄音' } }
   },
   // The rest on their 公所's site (07other pages to start from).
   10007090: { n: '芬園鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/fenyuan/07other/main.aspx?main_id=28292', term: 22, ends: '2026-12-25', chcg: { tso: 'fenyuan', pages: [28292, 29561] } },

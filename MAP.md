@@ -151,8 +151,12 @@ Live: https://orbit.jaypengx.com/law/
   (getFile.aspx), the pages under it and its list's other pages; the build follows them two deep, a link that
   doesn't name its session taking its page's, a page's kind (議事日程表(第三屆)) its links'. A recording named
   with its day and what the sitting did (綜合質詢114.5.9) shows both; one kept as a Drive folder (`folders`)
-  opens in Drive. Scanned papers have no text, so those sessions have no days. 花壇 (members only), 芳苑 (one
-  Drive folder), 鹿港, 彰化市, 線西, 秀水, 埔鹽, 永靖, 田尾, 溪州: nothing found to read.
+  opens in Drive. Scanned papers have no text, so those sessions have no days. Also on the platform: 線西 (452:
+  papers on Drive, read from Drive itself), 秀水 (410: 決議案; Word agendas, so days from its 議事錄), 永靖 (407: days
+  in each paper's name, `nameSpan`), 田尾 (409: a session's recording on HiNet's 影音, a `folders` link). 鹿港
+  publishes on its 公所's own site, the "Parser" CMS (`cms` + `forms`, `formList`: ten a page, df_ufiles/ PDFs;
+  recordings a gofile.me share a session). A 議事錄's days: every sitting's 時間 line, else the 日程表 it opens
+  with. 花壇 (members only), 芳苑 (one Drive folder), 彰化市, 埔鹽, 溪州: nothing found to read.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the
@@ -451,7 +455,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/council.mjs` | 地方議會: councils, sittings, bills' outcomes, councillors, 代表 |
-| `public/lib/council-video.mjs`, `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs` | Councils' live and recorded video; a 代表會's own site (竹北), 彰化's on the county's platform and its 公所's sites; 代表會's YouTube channels |
+| `public/lib/council-video.mjs`, `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs` | Councils' live and recorded video; a 代表會's own site (竹北), 彰化's on the county's platform and its 公所's sites (TSO, Parser CMS); 代表會's YouTube channels |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |

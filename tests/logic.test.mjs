@@ -155,8 +155,10 @@ test('bills: 行政院不副署 holds a passed law unpromulgated; a committee re
   assert.equal(stageShort(held), '行政院不副署');
   assert.equal(toneOf(held), 'held');
   assert.equal(whereNow(held, []).next, '', 'nothing to wait for: it won’t be promulgated');
-  const [law] = foldBills([passed], { pcodes: new Map([['廣播電視法', 'P1']]), modified: new Map([['P1', '20260810']]), unsigned });
+  const [law] = foldBills([passed], { pcodes: new Map([['廣播電視法', 'P1']]), modified: new Map([['P1', '20260901']]), unsigned });
   assert.equal(law.ns, undefined, 'promulgated after all: no 不副署');
+  const [touched] = foldBills([passed], { pcodes: new Map([['廣播電視法', 'P1']]), modified: new Map([['P1', '20260805']]), unsigned });
+  assert.deepEqual([touched.stage, touched.pub, touched.ns?.d], [PASSED, '', '2026-08-24'], 'the MOJ record touched before the refusal is no promulgation');
   const [early] = foldBills([passed], { unsigned: unsignedMap([{ n: '廣播電視法', d: '2026-01-01' }]) });
   assert.equal(early.ns, undefined, 'a refusal from before this 三讀 is an earlier one');
   assert.deepEqual(unsignedIn('行政院今天宣布不副署《老人福利法》第22條修正案。卓揆與副署長視察《某某法》。不予副署「台灣兒少成長及未來帳戶條例」；另將推動「財政收支劃分法」'), ['老人福利法', '臺灣兒少成長及未來帳戶條例']);

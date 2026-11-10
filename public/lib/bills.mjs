@@ -168,9 +168,13 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
     // the last 三讀 (the ones that went quiet before it were folded into it or left behind).
     const open = openRound(it.bills, passed);
     const ymd = passed.replaceAll('-', '');
-    const promulgated = Boolean(passed && it.p && (modified.get(it.p) || '') >= ymd);
-    // Not promulgated, and 行政院 refused to countersign it after this 三讀.
-    const ns = passed && !promulgated ? unsigned.get(lawKey(it.n)) : null;
+    // 行政院 refused to countersign it after this 三讀: an MOJ change before that day is
+    // something else (財政收支劃分法: passed 11/21, its record touched 12/3, refused 12/15).
+    const refused = passed ? unsigned.get(lawKey(it.n)) : null;
+    const held = refused && refused.d >= passed ? refused : null;
+    const changed = (it.p && modified.get(it.p)) || '';
+    const promulgated = Boolean(passed && it.p && changed >= ymd && !(held && changed < held.d.replaceAll('-', '')));
+    const ns = held && !promulgated ? held : null;
     let stage = open.length ? Math.max(...open.map(b => billStage(b).stage)) : passed ? (promulgated ? PROMULGATED : PASSED) : Math.max(-1, ...live.map(b => billStage(b).stage));
     const u = it.bills.map(b => b.u).sort().pop() || '';
     return {
@@ -184,7 +188,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       dropped: live.length === 0,
       passed,
       pub: promulgated ? modified.get(it.p) : '',
-      ...(ns && ns.d >= passed ? { ns } : {}),
+      ...(ns ? { ns } : {}),
       open: open.length,
       arts: articlesTouched(open),
       count: it.bills.length,

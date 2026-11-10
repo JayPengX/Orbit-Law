@@ -33,7 +33,7 @@ export const stepOf = stage => [0, 1, 2, 3, 3, 3, 4, 5][Math.max(0, Math.min(7, 
 // (moving indigo, held orange, passed green, withdrawn grey). `counts`: how
 // many open versions stand at each step, shown under its name (an item with
 // many versions: the bar is the furthest one, the numbers say where the rest are).
-export const toneOf = item => (item.dropped ? 'dropped' : item.held || (item.ns && item.stage < PROMULGATED) ? 'held' : item.stage >= PASSED ? 'passed' : 'moving');
+export const toneOf = item => (item.dropped ? 'dropped' : item.held || (item.ns && item.stage === PASSED) ? 'held' : item.stage >= PASSED ? 'passed' : 'moving');
 export function progress(item, en = false, { labels = false, counts = null } = {}) {
   const step = stepOf(item.stage);
   const tone = toneOf(item);
@@ -51,7 +51,7 @@ export function stageShort(item, en = false) {
   if (item.held) return en ? 'On hold' : '暫停審查';
   const s = item.stage;
   if (s >= PROMULGATED) return en ? 'Now law' : '已公布';
-  if (s >= PASSED && item.ns) return en ? 'Not countersigned' : '行政院不副署';
+  if (s === PASSED && item.ns) return en ? 'Not countersigned' : '行政院不副署';
   if (s >= PASSED) return en ? 'Passed' : '已通過';
   return [['剛提出', 'Just filed'], ['等委員會審', 'Awaiting committee'], ['委員會審查中', 'In committee'], ['等院會討論', 'Awaiting the floor'], ['政黨協商中', 'Party talks'], ['院會表決中', 'Floor vote']][Math.max(0, s)][en ? 1 : 0];
 }
@@ -104,7 +104,7 @@ export function whereNow(it, bills = [], en = false, now = new Date()) {
   let last = null;
   for (const b of round.length ? round : bills) for (const [d, , raw] of [...(b.flow || []), [b.u, 0, b.st]]) if (d && raw && (!last || d > last.d)) last = { d, raw };
   const s = it.stage;
-  const next = it.dropped || it.held || s >= PROMULGATED || s < 0 || (s >= PASSED && it.ns) ? '' : (en ? NEXT_EN : NEXT)[s === 3 || s === 4 ? 5 : s + 1];
+  const next = it.dropped || it.held || s >= PROMULGATED || s < 0 || (s === PASSED && it.ns) ? '' : (en ? NEXT_EN : NEXT)[s === 3 || s === 4 ? 5 : s + 1];
   const said = raw => (/^排入(院會|程序)/.test(raw) && stageOf(raw).stage === 0 ? (en ? 'on the floor agenda, for 1st reading' : '排入院會，等一讀') : raw.replace(/\s+/g, ''));
   return {
     last: last ? `${/^排入/.test(last.raw) ? shortDay(last.d, now) : dayOf(last.d, en, now)} ${said(last.raw)}` : '',

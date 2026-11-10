@@ -2524,7 +2524,7 @@ function drawBillList() {
   // Grouped by the step reached, furthest first; held and withdrawn last.
   const groups = new Map();
   for (const it of [...items].sort((a, b) => (a.u < b.u ? 1 : -1))) {
-    const g = billStep === 0 && state.billCounts?.reached ? 'filed' : it.dropped ? 'dropped' : it.held ? 'held' : it.ns && it.stage < PROMULGATED ? 'unsigned' : String(stepOf(it.stage));
+    const g = billStep === 0 && state.billCounts?.reached ? 'filed' : it.dropped ? 'dropped' : it.held ? 'held' : it.ns && it.stage === PASSED ? 'unsigned' : String(stepOf(it.stage));
     groups.set(g, [...(groups.get(g) || []), it]);
   }
   const order = ['filed', '4', 'unsigned', '5', '3', '2', '1', '0', 'held', 'dropped'];
@@ -2651,7 +2651,7 @@ async function openItem(k, { round } = {}) {
   // for them with nothing on screen: about a second on a phone).
   const topic = itemTopic(it);
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
-  const tone = it.dropped ? '' : it.held || (it.ns && it.stage < PROMULGATED) ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
+  const tone = it.dropped ? '' : it.held || (it.ns && it.stage === PASSED) ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
   const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
   const artsBox = x => (html => (html ? h('div', { class: 'lw-item-who', html: `<h4>${it.round === 'passed' ? W(`改了哪幾條（${Object.keys(x.arts).length}）`, `Articles it changed (${Object.keys(x.arts).length})`) : W(`要改哪幾條（${Object.keys(x.arts).length}）`, `Articles it changes (${Object.keys(x.arts).length})`)}</h4><div class="lw-parties">${html}</div>` }) : null))(articleChips(x, en));
   let arts = artsBox(it);

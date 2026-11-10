@@ -4932,3 +4932,17 @@ button.lw-meet {
   width: 100%;
   margin: 4px 0 12px;
 }
+
+/* A 代表會's papers read into the app: a paper's text, and 總質詢 as it was said (each member's turns marked in
+   their party's colour, the chair's quieter). */
+.lw-paper-text { display: grid; gap: 10px; margin-top: 14px; font: var(--q-t-body); }
+.lw-paper-text h5 { margin: 8px 0 0; font: 600 15px/20px var(--q-font); }
+.lw-paper-text p { margin: 0; }
+.lw-pt-f { display: grid; grid-template-columns: 4.5em 1fr; gap: 8px; }
+.lw-pt-f b { font-weight: 400; color: var(--q-label-2); }
+.lw-turns { display: grid; gap: 14px; margin: 14px 0 4px; }
+.lw-turn > b { display: flex; gap: 6px; align-items: baseline; font: 600 15px/20px var(--q-font); color: var(--q-label); }
+.lw-turn > b small { font: var(--q-t-caption); color: var(--q-label-2); }
+.lw-turn .lw-prose { margin-top: 4px; }
+.lw-turn-ask { padding-left: 10px; border-left: 3px solid var(--p, var(--q-fill-1)); }
+.lw-turn-chair .lw-prose { color: var(--q-label-2); }

@@ -5,7 +5,10 @@
 // What it has: the members by district with photos; each session of the term (議事錄): every sitting's 會議紀錄,
 // 致詞, 施政報告, 市政總質詢 by day, 決議案, 附錄 (PDFs) and each sitting day's recording (錄音檔, Google Drive);
 // the 議事日程表 (PDF); the news, where each session's days are announced before it meets.
-// The build (scripts/build-town.mjs) writes council/town/<tc>.json; the app draws it (app.mjs openTown).
+// The build (scripts/build-town.mjs) writes council/town/<tc>.json and each session's papers read from their
+// PDFs (council/town/<tc>/<paperFile>.json: 決議案 as rows, 總質詢 as who said what, the rest as text); the app
+// draws them (app.mjs openTown).
+import { billPdfParts, cjkTight } from './council.mjs';
 
 export const TOWN_SITES = {
   // 新竹縣竹北市 (內政部's town code)
@@ -171,3 +174,170 @@ export const sessionState = (x, day) => (x.from && x.from <= day && day <= (x.ex
 export const driveFile = id => `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download`;
 export const drivePlayer = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const drivePage = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;
+
+// Where a session's papers, read from their PDFs, are kept: council/town/<tc>/<this>.json (t10-8r: 定期會, -e: 臨時會).
+export const paperFile = s => `t${s.term}-${s.no}${s.kind === '定期會' ? 'r' : 'e'}`;
+
+const CJK = /[㐀-鿿]/;
+const ymd = s => {
+  const m = String(s).replace(/\s+/g, '').match(/(?:中華民國)?(1\d{2})年(\d{1,2})月(\d{1,2})日/);
+  return m ? roc(m[1], m[2], m[3]) : '';
+};
+
+// A 決議案 PDF: one form a resolution. Each: 案號 (甲字 from the 公所, 乙字 from members, 動議字 moved in the
+// chamber), 類別, 提案人, 附署人, 案由, 說明, 辦法, 議決, its day, and whether the 延長會 passed it.
+export function resolutions(text) {
+  const out = [];
+  const forms = String(text || '').replace(/\f/g, '\n').split(/\n(?=[^\n]*代表會第\s*\d+\s*屆[^\n]*決議案\s*\n)/);
+  for (const form of forms) {
+    const lines = form.split('\n');
+    if (!/決議案\s*$/.test(lines[0])) continue;
+    const at = lines.findIndex(l => /提案人/.test(l) && /類\s*別/.test(l));
+    if (at < 0) continue;
+    const l = lines[at];
+    const by = l.indexOf('提案人');
+    const co = l.search(/附\s*署\s*人/);
+    const no = l.search(/案\s*號/);
+    const catFrom = l.match(/類\s*別/).index + l.match(/類\s*別/)[0].length;
+    // The row's columns: its own line, and a word above or below it where a cell holds two (警政 / 交通; two
+    // proposers one above the other).
+    const cols = [[catFrom, by], [by + 3, co > 0 ? co : no > 0 ? no : l.length], [co > 0 ? co + l.slice(co).match(/附\s*署\s*人/)[0].length : -1, no > 0 ? no : l.length]];
+    const fragment = x => x && x.trim() && x.replace(/\s/g, '').length <= 15 && !/[號：:。]|決議案|字第/.test(x) && !/^\s*(案\s*由|說\s*明)/.test(x);
+    const above = fragment(lines[at - 1]) ? lines[at - 1] : '';
+    const below = fragment(lines[at + 1]) ? lines[at + 1] : '';
+    const cell = ([a, b]) =>
+      a < 0
+        ? ''
+        : [above, l, below]
+            .map(x => cjkTight(x.slice(a, b).trim()))
+            .filter(Boolean)
+            .join('、');
+    const r = {};
+    const num = form.match(/(?:案\s*號|編\s*號\s*[：:])\s*(\S*?字\s*第\s*\d+\s*號)/);
+    if (num) r['案號'] = num[1].replace(/\s+/g, '');
+    const kind = cell(cols[0]).replace(/(公用|文化|社會)、(事業|觀光|福利)/g, '$1$2');
+    if (kind) r['類別'] = kind;
+    const who = cell(cols[1]);
+    if (who) r['提案人'] = who;
+    const also = cell(cols[2]);
+    if (also) r['附署人'] = also;
+    // The table below the row of names, read as a council's bill form is.
+    const body = billPdfParts(['提案人', '', ...lines.slice(at + 1 + (below ? 1 : 0))].join('\n'), { centred: true });
+    for (const k of ['案由', '說明', '辦法', '議決']) if (body[k] && !/^如案由[。.]?$/.test(body[k])) r[k] = body[k];
+    if (!r['案由']) continue;
+    const d = ymd(lines.slice(lines.findIndex(x => /^\s*備\s*註/.test(x))).join(' '));
+    if (d) r.d = d;
+    if (/延長會/.test(lines[0])) r.ext = true;
+    out.push(r);
+  }
+  return out;
+}
+
+// Who speaks in a 代表會's transcript: 林主席啟賢 → 林啟賢, 主席.
+const ROLES = ['主任秘書', '副主席', '主席', '代表', '副市長', '市長', '秘書', '代理主任', '主任', '所長', '課長', '隊長', '園長', '館長', '管理員', '組員', '主計', '人事', '政風'];
+export function speaker(s) {
+  for (const r of ROLES) if (s.slice(1).startsWith(r) && s.length > r.length + 1) return { w: s[0] + s.slice(1 + r.length), r };
+  return { w: s, r: '' };
+}
+
+// A 總質詢 PDF (逐字稿): its day and its turns, each { w (name), r (role), t (paragraphs, \n between) }. Short
+// back-and-forth set in brackets ((何代表:…)) are turns too.
+export function transcript(text) {
+  const lines = String(text || '').replace(/\f/g, '\n').split('\n').filter(l => !/^\s*\d{1,3}\s*$/.test(l));
+  const head = lines.slice(0, 12).join('\n');
+  const d = ymd((head.match(/時\s*間\s*[:：]\s*([^\n(（]+)/) || [])[1] || '');
+  const nth = (head.match(/[(（](第[一二三四五六七八九十]+天)[)）]/) || [])[1] || '';
+  const turns = [];
+  const short = new Map();
+  let cur = null;
+  let open = false;
+  const said = (t, fresh) => {
+    if (!cur) return;
+    t = t.trim();
+    if (!t) return;
+    if (fresh || !cur.p.length) cur.p.push(t);
+    else cur.p[cur.p.length - 1] += t;
+  };
+  for (const l of lines) {
+    const main = l.match(/^\s*([㐀-鿿]{3,9})[:：]\s*$/);
+    if (main && !/如下|方式|時間|地點/.test(main[1])) {
+      const who = speaker(main[1]);
+      if (who.r) short.set(main[1][0] + who.r, who.w);
+      turns.push((cur = { ...who, p: [] }));
+      open = false;
+      continue;
+    }
+    const aside = l.match(/^\s*[(（]([㐀-鿿]{2,6})[:：](.*)$/);
+    if (aside && cur) {
+      const s = aside[1];
+      const who = short.get(s) ? { w: short.get(s), r: s.slice(1) } : speaker(s);
+      turns.push((cur = { ...who, p: [] }));
+      open = true;
+      said(aside[2].replace(/[)）]\s*$/, ''), true);
+      if (/[)）]\s*$/.test(aside[2])) open = false;
+      continue;
+    }
+    if (open && /[)）]\s*$/.test(l)) {
+      said(l.replace(/[)）]\s*$/, ''));
+      open = false;
+      continue;
+    }
+    said(l, /^\s{2,}/.test(l) && !open);
+  }
+  const out = turns.filter(x => x.p.length).map(({ w, r, p }) => ({ w, r, t: p.map(cjkTight).join('\n') }));
+  return { d, nth, turns: out };
+}
+
+// The day's questions: from a member's first word to the next member's, each { w (who asked), from, to (turns),
+// gist (what about, their first sentence past the greetings) }.
+const ASKS = new Set(['代表', '副主席']);
+export function questions(turns) {
+  const out = [];
+  turns.forEach((x, i) => {
+    if (!ASKS.has(x.r)) return;
+    const last = out.at(-1);
+    if (last && last.w === x.w) return void (last.to = i);
+    if (last) last.to = Math.max(last.to, i - 1);
+    out.push({ w: x.w, from: i, to: i, gist: gist(x.t) });
+  });
+  if (out.length) out.at(-1).to = turns.length - 1;
+  // A block runs to the turn before the next one's chair call.
+  for (let k = 0; k < out.length - 1; k++) {
+    let end = out[k + 1].from - 1;
+    while (end > out[k].from && turns[end].r === '主席' && turns[end - 1]?.r !== '主席' && end === out[k + 1].from - 1) end--;
+    out[k].to = Math.max(out[k].to, end);
+  }
+  return out;
+}
+export function gist(t) {
+  let s = String(t).replace(/\n/g, '');
+  s = s.replace(/^.{0,220}?(?:大家早安、大家好|大家午安、大家好|大家好|大家早安|大家午安|大家早)[，,。！!、]*/, '');
+  s = s.replace(/^(?:謝謝主席|感謝主席|主席)[，,、]*/, '');
+  // The opening words (第一次質詢, 我延續…, 我想詢問一下) aren't what it's about.
+  const parts = s.split(/(?<=[，,；;])/);
+  while (parts.length > 1 && parts[0].length < 26 && /第[一二三四五六七八九十\d]+次|質詢|發言|延續|趁這個機會|詢問一下|請問一下|問一下|請教|想問|在這邊|再延伸/.test(parts[0])) parts.shift();
+  s = parts.join('').replace(/^(?:那|因為|就是|然後)+/, '');
+  const m = s.match(/^.{8,}?[。？?！!]/);
+  s = m ? m[0] : s;
+  return s.length > 80 ? `${s.slice(0, 78)}…` : s;
+}
+
+// Any other paper (會議紀錄, 致詞, 施政報告): its text in paragraphs, the page numbers and the PDF's breaks gone.
+export function paperText(text) {
+  const lines = String(text || '').replace(/\f/g, '\n').split('\n').filter(l => !/^\s*[-－]?\s*\d{1,3}\s*[-－]?\s*$/.test(l));
+  const paras = [];
+  let gap = true;
+  for (const l of lines) {
+    const t = l.trim();
+    if (!t) {
+      gap = true;
+      continue;
+    }
+    // A new paragraph: after a blank, an item (一、 (一) 1.), a label (時 間：), or a line indented after one that ended.
+    const fresh = gap || /^([壹貳參肆伍陸柒捌玖拾]+、|[一二三四五六七八九十]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、])/.test(t) || /^[㐀-鿿](\s*[㐀-鿿]){1,5}\s*[：:]/.test(t) || (/^\s{2,}/.test(l) && /[。：:！？]$/.test(paras.at(-1) || ''));
+    if (fresh || !paras.length) paras.push(t);
+    else paras[paras.length - 1] += t;
+    gap = false;
+  }
+  return paras.map(p => cjkTight(p).replace(/^([㐀-鿿])\s+([㐀-鿿])\s*([：:])/, '$1$2$3')).filter(p => CJK.test(p) || p.length > 3).join('\n');
+}

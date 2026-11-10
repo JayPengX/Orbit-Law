@@ -45,7 +45,7 @@ import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sitt
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf } from './lib/council-video.mjs';
-import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile } from './lib/town-site.mjs';
+import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -3759,12 +3759,17 @@ async function openCouncilBill(id) {
   } catch {
     return void (box.innerHTML = emptyNote(W('這件提案讀不到，請稍後再試', 'Couldn’t load this bill')));
   }
+  box.innerHTML = councilBillHtml(b);
+}
+// A bill, as its parts: what it asks, its outcome, who, why, how, and what was decided (a council's, or a 代表會's
+// 決議案 read from its PDF); the PDF or the council's page below.
+function councilBillHtml(b) {
   // A part said only by pointing at the others (辦法: 如案由及說明) adds nothing.
   const part = (title, text, after = '') => (String(text || '').trim() && !/^(案由|議決|說明|辦法|審查意見|如(案由|說明|案由及說明|案由、說明)。?)$/.test(String(text).trim()) ? `<div class="lw-item-why"><h4>${esc(title)}</h4>${proseHtml(String(text))}${after}</div>` : '');
   const decided = b['議決會議'] || b['議決日期'] ? `<p class="lw-clip-meta">${esc([b['議決會議'], b['議決日期'] && shortDay(b['議決日期'])].filter(Boolean).join(' · '))}</p>` : '';
   const out = outcomeOf(b['議決'], b['審查意見']);
-  const fields = fieldsHtml([[W('案號', 'No.'), b['案號']], [W('類別', 'Type'), b['類別']], [W('會期', 'Session'), b['會期名稱']], [W('提案人', 'Filed by'), b['提案人']], [W('連署人', 'Co-signers'), b['連署人']], [W('提案單位', 'From'), b['提案人'] ? '' : b['提案單位']]]);
-  box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2>${out ? `<div class="lw-meta">${outcomeTag(out)}</div>` : ''}${fields}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'], decided)}${b.pdf ? `<a class="q-more q-more-go lw-out" href="${esc(b.pdf)}" target="_blank" rel="noopener" data-out><span>${W('原始提案 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : b['來源網址'] ? `<a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>` : ''}`;
+  const fields = fieldsHtml([[W('案號', 'No.'), b['案號']], [W('類別', 'Type'), b['類別']], [W('會期', 'Session'), b['會期名稱']], [W('提案人', 'Filed by'), b['提案人']], [W('連署人', 'Co-signers'), b['連署人']], [W('附署人', 'Co-signers'), b['附署人']], [W('提案單位', 'From'), b['提案人'] ? '' : b['提案單位']]]);
+  return `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2>${out ? `<div class="lw-meta">${outcomeTag(out)}</div>` : ''}${fields}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'], decided)}${b.pdf ? `<a class="q-more q-more-go lw-out" href="${esc(b.pdf)}" target="_blank" rel="noopener" data-out><span>${W(b.pdfName || '原始提案 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : b['來源網址'] ? `<a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>` : ''}`;
 }
 
 // A councillor: their party and district, and the bills they filed this term (read live).
@@ -3853,7 +3858,7 @@ const paperRow = (n, url, small = '') => `<a class="lw-row lw-paper" href="${esc
 // What a session holds, in a line.
 const sessionLine = s => {
   const q = s.items?.filter(i => i.k === '總質詢').length || 0;
-  return [spanOf(s.from, s.ext?.to || s.to), s.days?.length ? W(`${s.days.length} 天錄音`, `${s.days.length} days recorded`) : '', q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
+  return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', s.days?.length ? W(`${s.days.length} 天錄音`, `${s.days.length} days recorded`) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
 };
 
 async function townSheet(t, own) {
@@ -3889,30 +3894,121 @@ async function townSheet(t, own) {
       return all.remove();
     }
     const b = e.target.closest('[data-townsess]');
-    if (b) return townSession(own, sessions[+b.dataset.townsess]);
+    if (b) return townSession(own, sessions[+b.dataset.townsess], party);
     const p = e.target.closest('[data-townp]');
     if (p?.dataset.townp) openPage(p.dataset.townp);
   });
   return s;
 }
 
-// One session: its days (each with its recording), then its papers by kind.
-function townSession(own, s) {
+// One session: its days (each with its recording), then its papers by kind. Papers read from their PDFs at
+// build (lib/town-site.mjs) come in as the app's own: 決議案 a row each, 總質詢 by who asked what, the rest as text.
+function townSession(own, s, party = new Map()) {
   if (!s) return;
   const items = s.items || [];
-  const papers = PAPERS.map(([k, en1]) => {
-    const rows = k === '議事日程表' ? (s.agenda || []).map(a => paperRow(/延長會/.test(a.n) ? W('延長會議事日程表', 'Agenda (extension)') : W('議事日程表', 'Agenda'), a.url)) : items.filter(i => i.k === k && i.files?.length).flatMap(i => i.files.map((f, j) => paperRow(i.files.length > 1 ? `${i.n}（${j + 1}）` : i.n === k ? W(k, en1) : i.n, f.url, f.size || '')));
-    return rows.length ? `<h4>${W(k, en1)}</h4><div class="lw-list in-sheet">${rows.join('')}</div>` : '';
-  }).join('');
+  const term = W(`第${own.term}屆${s.n}`, `Term ${own.term} ${s.n}`);
+  let papers = {};
+  const read = (f, k) => papers[f.url]?.k === k && !papers[f.url].none && papers[f.url];
+  const drawPapers = () =>
+    PAPERS.map(([k, en1]) => {
+      const head = W(k, en1);
+      if (k === '議事日程表') {
+        const rows = (s.agenda || []).map(a => paperRow(/延長會/.test(a.n) ? W('延長會議事日程表', 'Agenda (extension)') : W('議事日程表', 'Agenda'), a.url));
+        return rows.length ? `<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>` : '';
+      }
+      const mine = items.filter(i => i.k === k && i.files?.length);
+      const files = mine.flatMap(i => i.files.map((f, j) => ({ i, f, j })));
+      if (!files.length) return '';
+      if (k === '決議案') {
+        const res = files.flatMap(({ f }) => (read(f, k)?.res || []).map((r, n) => ({ r, url: f.url, n })));
+        if (res.length)
+          return `<h4>${W(`決議案 ${res.length}`, `Resolutions ${res.length}`)}</h4><div class="lw-list in-sheet wrap">${res.map(({ r, url, n }) => `<button type="button" class="lw-row lw-cbill" data-townres="${esc(url)}|${n}"><span class="lw-row-text"><span class="lw-row-name">${esc(r['案由'])}</span><small>${esc([r['提案人'], r['類別'], r['案號']].filter(Boolean).join(' · '))}</small></span>${outcomeTag(outcomeOf(r['議決'], ''))}</button>`).join('')}</div>`;
+      }
+      if (k === '總質詢') {
+        const days = files.map(({ i, f }) => ({ i, f, p: read(f, k) }));
+        if (days.some(x => x.p?.asks?.length))
+          return days
+            .map(({ i, f, p }) =>
+              p?.asks?.length
+                ? `<h4>${esc([i.n.replace(/^總質詢\s*/, W('總質詢 ', 'Questions, ')), p.d ? dayLabel(p.d) : ''].filter(Boolean).join(' · '))}</h4><div class="lw-list in-sheet wrap">${p.asks.map((q, n) => `<button type="button" class="lw-row" data-townask="${esc(f.url)}|${n}"><span class="lw-row-text"><span class="lw-row-name">${esc(q.gist || q.w)}</span><small>${esc([q.w, partyShort(party.get(q.w) || '')].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`).join('')}<button type="button" class="lw-row" data-townask="${esc(f.url)}|all"><span class="lw-row-text"><span class="lw-row-name">${W('整天的逐字稿', 'The whole day’s transcript')}</span><small>${esc(W(`${p.turns.length} 段發言`, `${p.turns.length} turns`))}</small></span>${CHEVRON}</button></div>`
+                : `<h4>${esc(i.n)}</h4><div class="lw-list in-sheet">${paperRow(i.n, f.url, f.size || '')}</div>`
+            )
+            .join('');
+      }
+      const rows = files.map(({ i, f, j }) => {
+        const n = i.files.length > 1 ? `${i.n}（${j + 1}）` : i.n === k ? head : i.n;
+        const p = read(f, k);
+        if (!p?.text) return paperRow(n, f.url, f.size || '');
+        const first = p.text.split('\n').find(x => /^時\s*間[：:]/.test(x))?.replace(/^時\s*間[：:]\s*/, '') || '';
+        return `<button type="button" class="lw-row" data-towntext="${esc(f.url)}" data-name="${esc(n)}"><span class="lw-row-text"><span class="lw-row-name">${esc(n)}</span><small>${esc(first || W(`${p.text.length.toLocaleString()} 字`, `${p.text.length.toLocaleString()} characters`))}</small></span>${CHEVRON}</button>`;
+      });
+      return `<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>`;
+    }).join('');
   const days = (s.days || []).map((d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(dayLabel(d.d))}</span><small>${d.ext ? W('延長會 · 會議錄音', 'Extension · sitting audio') : W('會議錄音', 'Sitting audio')}</small></span></button>`).join('');
   const waiting = !items.length && !s.days?.length;
-  const html = `<h2 class="lw-item-name">${esc(W(`第${own.term}屆${s.n}`, `Term ${own.term} ${s.n}`))}</h2><p class="lw-person-line">${esc([spanOf(s.from, s.to), s.ext ? W(`延長會 ${spanOf(s.ext.from, s.ext.to)}`, `extended ${spanOf(s.ext.from, s.ext.to)}`) : ''].filter(Boolean).join(W('，', ', ')))}</p>${days ? section(W('錄音', 'Audio'), `<div class="lw-list in-sheet">${days}</div>`) : ''}${papers ? section(W('議事錄', 'Papers'), papers) : ''}${waiting ? `<p class="lw-none">${W('代表會還沒放上這個會期的議事錄。', 'The council hasn’t posted this session’s papers yet.')}</p>` : ''}`;
+  const first = drawPapers();
+  const box = h('div', { html: first ? section(W('議事錄', 'Papers'), first) : '' });
+  const html = `<h2 class="lw-item-name">${esc(term)}</h2><p class="lw-person-line">${esc([spanOf(s.from, s.to), s.ext ? W(`延長會 ${spanOf(s.ext.from, s.ext.to)}`, `extended ${spanOf(s.ext.from, s.ext.to)}`) : ''].filter(Boolean).join(W('，', ', ')))}</p>${days ? section(W('錄音', 'Audio'), `<div class="lw-list in-sheet">${days}</div>`) : ''}${waiting ? `<p class="lw-none">${W('代表會還沒放上這個會期的議事錄。', 'The council hasn’t posted this session’s papers yet.')}</p>` : ''}`;
   const body = h('div', { html });
+  body.append(box);
   sheet({ title: s.n, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  // The papers read in: drawn in place once here (the PDFs' rows until then).
+  if (s.read && own.tc)
+    data(`council/town/${own.tc}/${paperFile(s)}.json`)
+      .then(r => {
+        papers = r.papers || {};
+        const html = drawPapers();
+        if (html) box.innerHTML = section(W('議事錄', 'Papers'), html);
+      })
+      .catch(() => {});
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-townday]');
-    if (b) townAudio(own, s, s.days[+b.dataset.townday]);
+    if (b) return townAudio(own, s, s.days[+b.dataset.townday]);
+    const r = e.target.closest('[data-townres]');
+    if (r) {
+      const [url, n] = r.dataset.townres.split('|');
+      const x = papers[url]?.res?.[+n];
+      if (!x) return;
+      const body = h('div', { class: 'lw-cbill-body', html: councilBillHtml({ ...x, 會期名稱: `${term}${x.ext ? W('延長會', ' (extension)') : ''}`, 議決日期: x.d, pdf: url, pdfName: '決議案 PDF' }) });
+      return sheet({ title: W('決議案', 'Resolution'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
+    }
+    const q = e.target.closest('[data-townask]');
+    if (q) {
+      const [url, n] = q.dataset.townask.split('|');
+      const p = papers[url];
+      if (p) townTranscript(own, s, p, n === 'all' ? null : p.asks[+n], url, party);
+      return;
+    }
+    const t = e.target.closest('[data-towntext]');
+    if (t) {
+      const p = papers[t.dataset.towntext];
+      if (!p?.text) return;
+      const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(`${s.n} ${t.dataset.name}`)}</h2><p class="lw-clip-meta">${esc(`${own.n} · ${term}`)}</p>${paperHtml(p.text)}<a class="q-more q-more-go lw-out" href="${esc(t.dataset.towntext)}" target="_blank" rel="noopener" data-out><span>${W('原始 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+      sheet({ title: t.dataset.name, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
+    }
   });
+}
+
+// A paper's text (會議紀錄, 致詞, 施政報告): its labelled lines (時間：…) as rows, its numbered heads as heads.
+const paperHtml = text =>
+  `<div class="lw-paper-text">${String(text)
+    .split('\n')
+    .map(p => {
+      const f = p.match(/^([㐀-鿿]{1,6})[：:]\s*(.*)$/);
+      if (f) return `<p class="lw-pt-f"><b>${esc(f[1])}</b><span>${esc(f[2])}</span></p>`;
+      if (p.length < 24 && !/[。，]/.test(p) && /^([壹貳參肆伍陸柒捌玖拾]+、|第.+[次條章]|[一二三四五六七八九十]+、)/.test(p)) return `<h5>${esc(p)}</h5>`;
+      return `<p>${esc(p)}</p>`;
+    })
+    .join('')}</div>`;
+
+// A day of 總質詢 as it was said: one member's questions and the answers to them, or the whole day.
+function townTranscript(own, s, p, ask, url, party) {
+  const turns = ask ? p.turns.slice(ask.from, ask.to + 1) : p.turns;
+  const asks = new Set(['代表', '副主席']);
+  const turn = x => `<div class="lw-turn${asks.has(x.r) ? ' lw-turn-ask' : x.r === '主席' ? ' lw-turn-chair' : ''}"${asks.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${esc(x.w)}<small>${esc(x.r)}</small></b>${proseHtml(x.t)}</div>`;
+  const title = ask ? W(`${ask.w}的質詢`, `${ask.w}’s questions`) : W('總質詢逐字稿', 'Transcript');
+  const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(ask ? ask.gist || ask.w : `${s.n} ${p.nth || ''}`)}</h2><p class="lw-clip-meta">${esc([own.n, s.n, p.nth, p.d && dayLabel(p.d)].filter(Boolean).join(' · '))}</p><div class="lw-turns">${turns.map(turn).join('')}</div><a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始逐字稿 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  sheet({ title, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
 }
 
 // A sitting's recording, in Google Drive's own player.

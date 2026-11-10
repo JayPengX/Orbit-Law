@@ -110,8 +110,14 @@ Live: https://orbit.jaypengx.com/law/
   proxy's door with the build's key, a page every ½ s, what's settled kept from the last
   deploy. Members with photos; each session of the term (議事錄) with every sitting's
   會議紀錄, 施政報告, 總質詢 by day, 決議案, 附錄 (PDFs), each day's recording (Google
-  Drive, played by Drive's own player), its 議事日程表; the news sets a session's days
-  before it meets (`sessionNews`), so 下次開會 and 開會中 show. Its sheet is `townSheet`.
+  Drive, streamed by the phone, Drive's player if that fails), its 議事日程表; the news sets
+  a session's days before it meets (`sessionNews`), so 下次開會 and 開會中 show. Its sheet is
+  `townSheet`. The papers are read into the app (`townPapers`: each PDF's bytes through the
+  door's `file=1`, poppler's pdftotext, 70 a build, kept once read) into
+  `council/town/<tc>/<paperFile>.json`: 決議案 a row each (`resolutions`, drawn by
+  `councilBillHtml` as a council's bill), 總質詢 as who said what (`transcript`) and each
+  member's questions (`questions`, `townTranscript`), 會議紀錄, 致詞 and 施政報告 as text
+  (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
 - **Reading costs nothing:** static files on Cloudflare, kept by the service

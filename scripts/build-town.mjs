@@ -6,9 +6,11 @@
 // from the last deploy, so a night reads only what's new). Never fails the deploy: a site that can't be
 // read keeps the last copy.
 //   node scripts/build-town.mjs [--prev https://orbit.jaypengx.com/law/data/]
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
-import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews } from '../public/lib/town-site.mjs';
+import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText } from '../public/lib/town-site.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -34,6 +36,73 @@ async function page(url, fresh = false) {
       await sleep(3000);
     }
   }
+}
+
+// A PDF's text: its bytes through the door (file=1, never kept at the edge), then poppler's pdftotext.
+let tmp;
+async function pdfText(url) {
+  await sleep(process.env.FAST ? 0 : 500);
+  reads++;
+  const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
+  const b = await r.json().catch(() => ({}));
+  if (!r.ok || !b.b64) throw new Error(`${r.status} ${b.error || (b.size ? `${b.size} bytes` : '')}`.trim());
+  tmp ||= await mkdtemp(`${tmpdir()}/town-`);
+  const file = `${tmp}/p.pdf`;
+  await writeFile(file, Buffer.from(b.b64, 'base64'));
+  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+}
+
+// What a paper says, by its kind: 決議案 → its resolutions; 總質詢 → the day's turns and questions; 會議紀錄,
+// 致詞, 施政報告 → text. 附錄 (tables of attendance) and the 議事日程表 stay PDFs.
+const READ = new Set(['決議案', '總質詢', '會議紀錄', '致詞', '施政報告']);
+function readPaper(k, text) {
+  if (k === '決議案') return { res: resolutions(text) };
+  if (k === '總質詢') {
+    const t = transcript(text);
+    return { ...t, asks: questions(t.turns).map(({ w, from, to, gist }) => ({ w, from, to, gist })) };
+  }
+  return { text: paperText(text) };
+}
+
+// Each session's papers read from their PDFs: council/town/<tc>/<paperFile>.json, { papers: { url: … } }. Read
+// once (a posted paper doesn't change); one with no text (a scan) or that couldn't be read, again after 7 days. Every
+// file is written again each build (the deploy holds only what the build wrote).
+async function townPapers(tc, sessions) {
+  let budget = Number(process.env.TOWN_PDFS || 70);
+  const dir = `${out}${tc}/`;
+  await mkdir(dir, { recursive: true });
+  for (const s of sessions) {
+    if (!s.no || !s.items?.length) continue;
+    const name = paperFile(s);
+    const old = (await prevJson(`council/town/${tc}/${name}.json`))?.papers || {};
+    const papers = {};
+    for (const i of s.items) {
+      if (!READ.has(i.k)) continue;
+      for (const f of i.files || []) {
+        const was = old[f.url];
+        if (was && !(was.none && was.none < addDays(day, -7))) {
+          papers[f.url] = was;
+          continue;
+        }
+        if (!KEY || budget <= 0) continue;
+        budget--;
+        try {
+          const text = await pdfText(f.url);
+          papers[f.url] = text.replace(/\s/g, '').length > 40 ? { k: i.k, ...readPaper(i.k, text) } : { k: i.k, none: day };
+        } catch (e) {
+          console.log(`town ${tc} ${s.n} ${i.n}: ${e.message}`);
+          papers[f.url] = { k: i.k, none: day };
+        }
+      }
+    }
+    // What the session's row says of them.
+    const all = Object.values(papers);
+    s.res = all.reduce((n, p) => n + (p.res?.length || 0), 0) || undefined;
+    s.asks = all.reduce((n, p) => n + (p.asks?.length || 0), 0) || undefined;
+    s.read = all.filter(p => !p.none).length || undefined;
+    if (all.length) await writeFile(`${dir}${name}.json`, JSON.stringify({ built, tc, n: s.n, papers }));
+  }
+  if (tmp) await rm(tmp, { recursive: true, force: true });
 }
 
 async function town(tc, site) {
@@ -169,11 +238,19 @@ for (const [tc, site] of Object.entries(TOWN_SITES)) {
       console.log(`town ${tc}: nothing (no key, no last copy)`);
       continue;
     }
+    try {
+      await townPapers(tc, t.sessions);
+    } catch (e) {
+      console.log(`town ${tc} papers: ${e.message}`);
+    }
     await writeFile(`${out}${tc}.json`, JSON.stringify(t));
-    console.log(`town ${tc} ${site.n}: ${t.people.length} members, ${t.sessions.length} sessions, ${t.sessions.reduce((n, s) => n + (s.days?.length || 0), 0)} recorded days, ${reads} pages, ${Math.round((Date.now() - started) / 1000)}s`);
+    console.log(`town ${tc} ${site.n}: ${t.people.length} members, ${t.sessions.length} sessions, ${t.sessions.reduce((n, s) => n + (s.days?.length || 0), 0)} recorded days, ${t.sessions.reduce((n, s) => n + (s.read || 0), 0)} papers read (${t.sessions.reduce((n, s) => n + (s.res || 0), 0)} resolutions, ${t.sessions.reduce((n, s) => n + (s.asks || 0), 0)} questions), ${reads} pages, ${Math.round((Date.now() - started) / 1000)}s`);
   } catch (e) {
     console.log(`town ${tc}: ${e.message}`);
     const old = await prevJson(`council/town/${tc}.json`);
-    if (old) await writeFile(`${out}${tc}.json`, JSON.stringify(old));
+    if (old) {
+      await writeFile(`${out}${tc}.json`, JSON.stringify(old));
+      await townPapers(tc, old.sessions).catch(() => {});
+    }
   }
 }

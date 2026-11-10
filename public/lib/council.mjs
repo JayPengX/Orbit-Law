@@ -480,13 +480,13 @@ export function speechesOf(rows = [], n = 6) {
 //   and under the table 本案於 Y 年 M 月 D 日 … 第N屆第N次定期會第N次會議決議.
 // Either way a row's name is centred, so its text runs above and below it: a row is told from the next by a
 // blank line, a new 一、, or 案由's 。 (案由 is one sentence).
-const ROWS = { 案: '案由', 由: '案由', 說: '說明', 明: '說明', 辦: '辦法', 法: '辦法', 決: '議決', 議: '議決', 案由: '案由', 說明: '說明', 辦法: '辦法', 大會決議: '議決', 決議: '議決', 審查意見: '審查意見' };
+const ROWS = { 案: '案由', 由: '案由', 說: '說明', 明: '說明', 辦: '辦法', 法: '辦法', 決: '議決', 議: '議決', 案由: '案由', 說明: '說明', 辦法: '辦法', 大會決議: '議決', 大會議決: '議決', 決議: '議決', 審查意見: '審查意見' };
 const ROW_ORDER = ['案由', '說明', '辦法', '審查意見', '議決'];
 const rowOf = l => {
-  const m = l.match(/^\s{0,3}(案\s*由|說\s*明|辦\s*法|大會決議|審查意見|決\s{2,}議|[案由說明辦法決議])(?=\s|$)/);
+  const m = l.match(/^\s{0,3}(案\s*由|說\s*明|辦\s*法|大\s*會\s*(?:決\s*議|議\s*決)|審查意見|決\s{2,}議|[案由說明辦法決議])(?=\s|$)/);
   return m ? { row: ROWS[m[1].replace(/\s+/g, '')], t: l.slice(m[0].length) } : { row: '', t: l };
 };
-const cjkTight = s => s.replace(/(?<=[㐀-鿿\d])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=\d)/g, '');
+export const cjkTight = s => s.replace(/(?<=[㐀-鿿\d])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=\d)/g, '');
 const joinLines = lines => {
   const paras = [];
   const indent = l => l.match(/^\s*/)[0].length;
@@ -501,7 +501,8 @@ const joinLines = lines => {
   }
   return paras.map(p => cjkTight(p).replace(/^([一二三四五六七八九十]+、)\s+/, '$1')).join('\n');
 };
-export function billPdfParts(text) {
+// centred: a row's name sits in the middle of its text (竹北's 決議案): as many lines as follow its name precede it.
+export function billPdfParts(text, { centred = false } = {}) {
   const lines = String(text || '').replace(/\f/g, '\n').split('\n');
   const out = {};
   const head = lines.slice(0, 12).join(' ');
@@ -529,12 +530,24 @@ export function billPdfParts(text) {
   rows.forEach((r, i) => r.row && ((at[r.row] ||= [i, i])[1] = i));
   const named = ROW_ORDER.filter(r => at[r]);
   if (!named.length) return out;
+  const force = [];
+  if (centred)
+    for (const r of named) {
+      const i = at[r][0];
+      if (at[r][1] !== i) continue;
+      let m = 0;
+      while (rows[i + 1 + m] && !rows[i + 1 + m].row && rows[i + 1 + m].t.trim()) m++;
+      // Only a block that ends on its own (a blank after it), not one running into the next row's name.
+      if (rows[i + 1 + m]?.row) continue;
+      for (let k = 1; k <= m && rows[i - k] && !rows[i - k].row && rows[i - k].t.trim(); k++) force[i - k] = r;
+    }
   const body = Object.fromEntries(named.map(r => [r, []]));
   let cur = named[0];
   let sawNumber = false;
   rows.forEach((r, i) => {
     const t = r.t.trim();
     if (r.row) cur = r.row;
+    else if (force[i]) cur = force[i];
     else {
       // Past this row's name, before the next one's: does the next row start here?
       const k = named.indexOf(cur);

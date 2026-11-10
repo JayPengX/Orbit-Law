@@ -291,10 +291,12 @@ Live: https://orbit.jaypengx.com/law/
   finds what a question needs in this site's data: articles of every law
   and regulation, similar judgments and 釋字 (their 主文 and reasons read),
   行政規則, bills, budgets, legislators, votes, meetings, 政府公告, and the
-  reader's own follows (sent only with a question about them). Flash then
-  applies it to the reader's facts (who is likely right, penalties,
+  reader's own follows (sent only with a question about them). Claude
+  Sonnet (Gemini when it fails) then applies it to the reader's facts (who is likely right, penalties,
   remedies, next steps), each point citing an article, a judgment or a
-  rule; each opens in the app. Under an answer only the judgments and
+  rule; each opens in the app. A follow-up sends the last 8 questions and
+  answers back (`historyOf`; each answer as `answerText`: verdict, answer,
+  facts, points). Under an answer only the judgments and
   rules it cites; a city's 地方法規 only for the reader's city (問法律's
   地方法規 row, else the county of the family's shared places) or one the
   question names. 司法院's judgment pages serve only Taiwan: the proxy reads

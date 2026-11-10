@@ -475,7 +475,7 @@ test('before/after: the changed characters marked, long sameness shortened', () 
   assert.equal(diffBlocks(null, '新條文\n一、甲'), '<p class="lw-dl"><ins>新條文</ins></p><p class="lw-dl k"><ins>一、甲</ins></p>');
 });
 
-import { cleanChat, historyOf, chatLaw, mineOf } from '../public/lib/chat.mjs';
+import { cleanChat, historyOf, chatLaw, mineOf, answerText, answerCites } from '../public/lib/chat.mjs';
 test('問法律: only cites among its sources; soon when the route isn’t there', async () => {
   const c = cleanChat({ covered: true, answer: ' a ', sources: [{ p: 'B0000001', n: '民法', key: '421' }, { p: 'bad', key: '1' }], points: [{ text: 'x', cites: ['B0000001:421', 'B0000001:999'] }, { text: 'y', cites: ['C0000001:1'] }], consequences: [{ text: 'fine', cites: [] }], next: ['存證信函', 3], followups: ['f'] });
   assert.deepEqual(c.points, [{ text: 'x', cites: ['B0000001:421'] }]);
@@ -485,7 +485,7 @@ test('問法律: only cites among its sources; soon when the route isn’t there
   assert.deepEqual(c.next, ['存證信函']);
   assert.equal(c.sources.length, 1);
   assert.equal(cleanChat({ covered: true, points: [] }).covered, false);
-  assert.equal(historyOf(Array.from({ length: 9 }, (_, i) => ({ role: 'user', text: String(i) }))).length, 6);
+  assert.equal(historyOf(Array.from({ length: 20 }, (_, i) => ({ role: 'user', text: String(i) }))).length, 16);
   const r = await chatLaw({ q: 'x' }, { fetcher: async () => ({ ok: false, status: 404, json: async () => ({}) }) });
   assert.equal(r.error, 'soon');
 });
@@ -980,4 +980,13 @@ test('bills: 這週三讀通過 cards and the bill sheet go through the passed r
   assert.match(src, /openItem\(p\.get\('item'\)\.replace\('-', ':'\), \{ round: p\.get\('round'\) \}\)/, 'the route passes &round=');
   assert.match(src, /round === 'passed' && item\.passed \? passedView\(item\)/, 'the sheet draws the same view as the card');
   assert.match(src, /bills = passedRoundOf\(bills, it\.passed\)/, 'the sheet lists the card’s versions');
+});
+
+test('a follow-up sends each answer back as its verdict, answer, facts and points, with their cites', () => {
+  const r = { verdict: '最重 3 年', answer: '酒駕成立公共危險罪。', facts: [{ k: '罰鍰', v: '3.6 萬起' }], points: [{ text: '吐氣 0.25 以上即成罪', cites: ['C0000001:185-3'] }], consequences: [{ text: '吊扣駕照', cites: ['K0040012:35'] }] };
+  assert.equal(answerText(r), '最重 3 年\n酒駕成立公共危險罪。\n罰鍰：3.6 萬起\n・吐氣 0.25 以上即成罪\n・吊扣駕照');
+  assert.deepEqual(answerCites(r), ['C0000001:185-3', 'K0040012:35']);
+  // (An answer kept by an older app, only its answer: still sent.)
+  assert.equal(answerText({ answer: '可以。' }), '可以。');
+  assert.ok(answerText({ answer: 'x'.repeat(900) }).length <= 700);
 });

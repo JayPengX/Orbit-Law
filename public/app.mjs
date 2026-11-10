@@ -46,7 +46,7 @@ import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sitt
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf } from './lib/council-video.mjs';
 import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
-import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
+import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf, answerText as chatAnswerText, answerCites } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
 import { parseHistory } from './lib/history.mjs';
@@ -1980,7 +1980,7 @@ async function ask(text) {
     drawAsk();
   }
   chat.busy = true;
-  const history = chat.turns.filter(t => t.role === 'user' || t.r).map(t => (t.role === 'user' ? { role: 'user', text: t.text } : { role: 'model', text: t.r.answer, cites: t.r.points.flatMap(p => p.cites) }));
+  const history = chat.turns.filter(t => t.role === 'user' || t.r).map(t => (t.role === 'user' ? { role: 'user', text: t.text } : { role: 'model', text: chatAnswerText(t.r), cites: answerCites(t.r) }));
   chat.turns.push({ role: 'user', text }, { role: 'model', wait: true });
   drawChat();
   [...document.querySelectorAll('#chat .lw-msg.me')].pop()?.scrollIntoView({ block: 'start', behavior: 'smooth' });

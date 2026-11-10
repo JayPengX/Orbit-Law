@@ -3,13 +3,13 @@
 // legislators, votes, meetings, 政府公告, and what the reader follows) and
 // answers from that only, applied to the reader's facts, each point citing
 // an article ('p:key'), a judgment (its id) or a rule (its id). The app keeps
-// the conversation (a few turns) and shows what the answer cites as chips
+// the conversation (its last 8 questions and answers) and shows what the answer cites as chips
 // that open it in the app.
 import { ASK_URL } from './ask.mjs';
 
 export const CHAT_URL = ASK_URL.replace(/law-ask$/, 'law-chat');
 export const MAX_CHAT_Q = 500;
-export const MAX_TURNS = 6;
+export const MAX_TURNS = 16;
 
 const CITE = /^[A-Z]\d{7}:\d{1,4}(-\d{1,3})?$/;
 // A 司法院 judgment id (TPSV,114,台上,2031,20260514,1), a 釋字 or 憲判字 (s748, j111-10), a rule's id (教育部:FL001).
@@ -54,6 +54,18 @@ export function cleanChat(j) {
     left: Number.isFinite(j?.left) ? j.left : null
   };
 }
+
+// An answer as a follow-up sends it back: its verdict, its answer, its facts
+// and its points (the reasoning a next question builds on: 「那機車呢？」 needs
+// the penalty the last answer gave), at most 700 characters; the cites apart.
+export function answerText(r) {
+  const lines = [str(r?.verdict), str(r?.answer)];
+  const facts = list(r?.facts, 4).map(f => (str(f?.k) && str(f?.v) ? `${str(f.k)}：${str(f.v)}` : '')).filter(Boolean);
+  if (facts.length) lines.push(facts.join('；'));
+  for (const p of [...list(r?.points, 5), ...list(r?.consequences, 3)]) lines.push(`・${str(p?.text)}`);
+  return lines.filter(x => x && x !== '・').join('\n').slice(0, 700);
+}
+export const answerCites = r => [...list(r?.points, 6), ...list(r?.consequences, 6)].flatMap(p => list(p?.cites, 12));
 
 // The turns sent back with a follow-up: the last MAX_TURNS, text cut short.
 export const historyOf = turns => turns.slice(-MAX_TURNS).map(t => ({ role: t.role, text: String(t.text).slice(0, 1500), ...(t.cites?.length ? { cites: [...new Set(t.cites.filter(c => CITE.test(c)))].slice(0, 12) } : {}) }));

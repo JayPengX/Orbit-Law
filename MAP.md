@@ -159,6 +159,8 @@ Live: https://orbit.jaypengx.com/law/
   with. 花壇 (members only), 芳苑 (one Drive folder), 彰化市, 埔鹽, 溪州: nothing found to read.
   **Beyond 彰化**: 南投's 名間 posts on its own WordPress site (`wp`: the REST API's posts naming a session,
   `wpPost`; 議事錄 on Drive, 議程表 as pictures; MP3s named by month and day take the post's year, `wpDay`).
+  臺東's 東河 on its 公所's Joomla site (`joomla`: category lists `?start=`, an article a paper or a session's Drive
+  recordings, `joomlaList`, `joomlaArticle`; up to 80 articles a build).
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

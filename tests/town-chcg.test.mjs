@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -107,4 +107,9 @@ test('town chcg: 永靖, 田尾, 秀水: days in a paper’s name, recordings on
   assert.deepEqual(wpPost({ title: { rendered: '第22屆第19次臨時會議日程表' }, content: { rendered: '<p><img src="https://mjtc.sweb.tw/wp-content/uploads/第22屆19次臨時會議程表.webp" /></p>' } }).links.map(l => l.n), ['第22屆19次臨時會議程表']);
   assert.equal(paperKind('第22屆第9次臨時會議程表'), '議事日程表');
   assert.deepEqual(pdfSpan('一、時 間：中華民國 115 年 5 月 4 日上午 9 時起\n一、時 間：中華民國 115 年 5 月 15 日上午 9 時起'), { from: '2026-05-04', to: '2026-05-15' });
+  // (東河's Joomla: a category's articles, an article's attachments and Drive recordings.)
+  const jb = 'https://www.donghe.gov.tw', jp = '/home/index.php/x/y';
+  assert.deepEqual(joomlaList(`<a href="${jp}/6997-22-48">第22屆第19次臨時會錄音</a><a href="/home/index.php/z">議事日程表</a>`, jb, jp), [{ n: '第22屆第19次臨時會錄音', url: `${jb}${jp}/6997-22-48` }]);
+  const art = `<div itemprop="articleBody"><a class="at_icon" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf"><img/></a><a class="at_url" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf">第22屆第7次定期會議事日程表.pdf</a><a href="https://drive.google.com/file/d/1eSw/view?usp=drive_link">第22屆第19次臨時會錄音1</a></div></article><a href="x.pdf">footer</a>`;
+  assert.deepEqual(joomlaArticle(art, jb).map(l => l.n), ['第22屆第7次定期會議事日程表', '第22屆第19次臨時會錄音1']);
 });

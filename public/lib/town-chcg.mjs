@@ -14,6 +14,8 @@
 //          kind each, ten a page (`formList`), files under df_ufiles/ named as the paper.
 //   wp:    a 代表會 posting on WordPress (名間's own site, 大武's on its 公所's): its posts whose titles name a
 //          session (`wpUrl`, `wpPost`), each holding its files (PDF, Word, MP3s by day, Drive).
+//   joomla: a 公所 site on Joomla (臺東's 東河): category lists (?start=10…) of articles named by session, each
+//          article's attachments and Drive files (`joomlaList`, `joomlaArticle`).
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
 
 import { cnNum } from './town-site.mjs';
@@ -263,4 +265,37 @@ export function wpDay(name, posted) {
   if (!m || !posted) return '';
   const y = +posted.slice(0, 4) - (+m[1] > +posted.slice(5, 7) + 1 ? 1 : 0);
   return `${y}-${pad(m[1])}-${pad(m[2])}`;
+}
+
+// A Joomla category's articles ({ n, url }): the links under its own path.
+export function joomlaList(html, base, path) {
+  const arts = [];
+  for (const [, href, name] of String(html).matchAll(/<a [^>]*href="([^"]+)"[^>]*>([^<]{2,80})<\/a>/g)) {
+    if (!href.startsWith(`${path}/`)) continue;
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    if (!arts.some(a => a.url === url)) arts.push({ n: text(name), url });
+  }
+  return arts;
+}
+// A Joomla article's files: its attachments, PDFs, Drive files, recordings ({ n, url }).
+export function joomlaArticle(html, base) {
+  const h = String(html);
+  const i = h.indexOf('itemprop="articleBody"');
+  if (i < 0) return [];
+  const end = h.indexOf('</article>', i);
+  const links = [];
+  for (const [, href, name] of h.slice(i, end > 0 ? end : undefined).matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    let url;
+    try {
+      url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    } catch {
+      continue;
+    }
+    if (!/\.(pdf|docx?|odt|mp3|m4a)$/i.test(url) && !/drive\.google\.com\/(file\/d\/|drive\/(u\/\d+\/)?folders\/)|youtu/.test(url)) continue;
+    const n = text(name).replace(/\.\w{2,4}$/, '');
+    const was = links.find(l => l.url === url);
+    if (was) was.n ||= n;
+    else links.push({ n, url });
+  }
+  return links.map(l => ({ n: l.n || fileName(l.url), url: l.url }));
 }

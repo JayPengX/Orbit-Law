@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -348,6 +348,24 @@ async function chcgTown(tc, site) {
           }
         }
       }
+    // A 公所 site on Joomla (東河's): its lists' articles named by session, ten a page, each read for its files.
+    if (c.joomla) {
+      let arts = 0;
+      for (const path of c.joomla.lists)
+        for (let start = 0; start < 100; start += 10) {
+          const list = joomlaList(await page(`${c.joomla.base}${path}?start=${start}`, true), c.joomla.base, path);
+          let mine = 0;
+          for (const a of list) {
+            const x = at(a.n);
+            if (!x || arts >= 80 || late()) continue;
+            mine++;
+            arts++;
+            const k = /錄音|音檔/.test(a.n) ? '錄音' : paperKind(a.n);
+            for (const l of joomlaArticle(await page(a.url), c.joomla.base)) put(x.s, x.ext, k, k === '錄音' ? l.n : a.n, l.url);
+          }
+          if (!mine) break;
+        }
+    }
     // Menus: a page a session.
     if (c.menus) {
       const menu = chcgMenu(await page(chcgUrl(site, Object.keys(areas)[0] || Object.keys(c.lists || {})[0] || ''), true));

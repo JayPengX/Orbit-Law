@@ -106,7 +106,15 @@ export const TOWN_SITES = {
   10007240: { n: '大城鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/dacheng/07other/main.aspx?main_id=31070', term: 22, ends: '2026-12-25', chcg: { tso: 'dacheng', pages: [31070, 31071, 32713] } },
   10007250: { n: '竹塘鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/zhutang/07other/main.aspx?main_id=30492', term: 22, ends: '2026-12-25', chcg: { tso: 'zhutang', pages: [30492, 30493, 26407, 26408] } },
   // 南投縣名間鄉: its own site on WordPress (lib/town-chcg.mjs `wp`).
-  10008060: { n: '名間鄉民代表會', home: 'https://mjtc.sweb.tw/', term: 22, ends: '2026-12-25', chcg: { wp: 'https://mjtc.sweb.tw/' } }
+  10008060: { n: '名間鄉民代表會', home: 'https://mjtc.sweb.tw/', term: 22, ends: '2026-12-25', chcg: { wp: 'https://mjtc.sweb.tw/' } },
+  // 臺東縣東河鄉: on its 公所's Joomla site (`joomla`: 議事日程表, 議事錄 and recordings, an article each).
+  10014070: {
+    n: '東河鄉民代表會',
+    home: 'https://www.donghe.gov.tw/home/index.php/2020-05-28-08-11-47',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { joomla: { base: 'https://www.donghe.gov.tw', lists: ['/home/index.php/2020-05-28-08-11-47/2020-05-28-08-33-38', '/home/index.php/2020-05-28-08-11-47/2020-05-28-08-34-00'] } }
+  }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

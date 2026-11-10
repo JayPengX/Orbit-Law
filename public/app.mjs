@@ -42,6 +42,7 @@ import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs'
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName } from './lib/council.mjs';
+import { videosOf } from './lib/council-video.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -2454,6 +2455,11 @@ function drawBills() {
       // 議會: change council, more bills, a bill, a councillor, a township.
       if (e.target.closest('[data-pickcc]')) return councilPicker();
       if (e.target.closest('[data-ccmore]')) return ((councilMore += 20), drawBillList());
+      const vid = e.target.closest('[data-ccvid]');
+      if (vid) return openCouncilVideo(vid.dataset.ccvid);
+      const lv = e.target.closest('[data-cclive]');
+      if (lv) return openCouncilVideo('', Number(lv.dataset.cclive));
+      if (e.target.closest('[data-ccvids]')) return councilVideos();
       const cb = e.target.closest('[data-cbill]');
       if (cb) return openCouncilBill(cb.dataset.cbill);
       const cp = e.target.closest('[data-ccp]');
@@ -3586,7 +3592,59 @@ function councilLine(c, day) {
   if (st.s.from > day) return W(`休會中 · ${shortDay(st.s.from)} 開${st.s.kind || '會'}`, `In recess · sits ${shortDay(st.s.from)}`);
   return W(`休會中 · 上次${st.s.n.replace(/^第\d+屆/, '')}（${span(st.s)}）`, `In recess · last session ${span(st.s)}`);
 }
-const sittingRow = x => `<div class="lw-meet${x.done ? ' done' : ''}"><span class="lw-meet-time"><b>${esc(shortDay(x.d))}</b><small>${esc(x.from || x.t || '')}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(x.room || x.kind || W('會議', 'Sitting'))}</b>${x.room && x.kind ? countTag(x.kind) : ''}</span>${x.what && x.what !== x.kind ? `<span class="lw-meet-what">${esc(x.what)}</span>` : ''}</span></div>`;
+// A sitting with its recording opens it (the first of the day's part).
+const sittingRow = (x, vid) => {
+  const tag = vid ? 'button type="button"' : 'div';
+  return `<${tag} class="lw-meet${x.done ? ' done' : ''}${vid ? ' has-vid' : ''}"${vid ? ` data-ccvid="${esc(vid.id)}"` : ''}><span class="lw-meet-time"><b>${esc(shortDay(x.d))}</b><small>${esc(x.from || x.t || '')}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(x.room || x.kind || W('會議', 'Sitting'))}</b>${x.room && x.kind ? countTag(x.kind) : ''}${vid ? `<span class="lw-vid-tag">${PLAY}${W('影片', 'Video')}</span>` : ''}</span>${x.what && x.what !== x.kind ? `<span class="lw-meet-what">${esc(x.what)}</span>` : ''}</span></${vid ? 'button' : 'div'}>`;
+};
+const PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" fill="currentColor"/></svg>';
+// A council's recordings: a row each, its picture, what it was and when.
+const vidRow = v => `<button type="button" class="lw-row lw-vid" data-ccvid="${esc(v.id)}">${v.img ? `<img class="lw-vid-img" src="${esc(v.img)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</span><small>${esc([shortDay(v.d), v.t, v.what && v.what !== v.n ? v.what : ''].filter(Boolean).join(' · '))}</small></span></button>`;
+// Which of a council's live channels stream now: each asked once a minute at most (HiNet answers 404 when off air).
+const liveSeen = new Map();
+function liveNow(url) {
+  const old = liveSeen.get(url);
+  if (old && Date.now() - old.at < 60_000) return old.p;
+  const p = fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(6_000) }).then(r => (r.ok ? r.text().then(t => t.includes('#EXTM3U')) : false)).catch(() => false);
+  liveSeen.set(url, { at: Date.now(), p });
+  return p;
+}
+async function councilLive(c, out) {
+  const box = out.querySelector('[data-cclive-box]');
+  if (!box || !c.video?.live?.length) return;
+  const on = (await Promise.all(c.video.live.map(async ch => ((await liveNow(ch.url)) ? ch : null)))).filter(Boolean);
+  if (!on.length || !box.isConnected) return;
+  box.innerHTML = on.map((ch, i) => `<button type="button" class="lw-row lw-cc-live" data-cclive="${c.video.live.indexOf(ch)}"><span class="lw-live">${W('直播中', 'Live')}</span><span class="lw-row-text"><span class="lw-row-name">${esc(ch.n || c.n)}</span><small>${W('點這裡看議場直播', 'Watch the chamber live')}</small></span>${CHEVRON}</button>`).join('');
+  box.hidden = false;
+}
+// One recording or a live channel, played here: HiNet's HLS in the phone's own player, YouTube's in its frame.
+async function openCouncilVideo(id, live = -1) {
+  const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
+  const ch = live >= 0 ? c?.video?.live?.[live] : null;
+  const v = ch ? null : c?.video?.vids?.find(x => x.id === id);
+  if (!ch && !v) return;
+  const body = h('div', { class: 'lw-clip-sheet' });
+  const site = c.video.site;
+  const meta = ch ? `<div class="lw-meta"><span class="lw-live">${W('直播中', 'Live')}</span></div><h2 class="lw-item-name">${esc(ch.n || c.n)}</h2>` : `<h2 class="lw-item-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</h2><p class="lw-clip-meta">${esc([c.n, shortDay(v.d), v.t].filter(Boolean).join(' · '))}</p>${v.what && v.what !== v.n ? `<p class="lw-meet-why">${esc(v.what)}</p>` : ''}`;
+  if (v?.yt) body.innerHTML = `<div class="lw-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.yt)}?playsinline=1&rel=0" title="${esc(v.n)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>${meta}`;
+  else body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"${v?.img ? ` poster="${esc(v.img)}"` : ''}></video>${meta}`;
+  if (site) body.append(h('a', { class: 'q-more q-more-go lw-out', href: site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }));
+  sheet({ title: ch ? W('議場直播', 'Live') : W('議會影音', 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  const el = body.querySelector('video');
+  if (el) playHls(el, ch ? ch.url : v.hls).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
+}
+// All of a council's newest recordings, in a sheet.
+async function councilVideos() {
+  const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
+  if (!c?.video?.vids?.length) return;
+  const body = h('div', { html: `<div class="lw-list in-sheet wrap">${c.video.vids.map(vidRow).join('')}</div>${c.video.site ? `<a class="q-more q-more-go lw-out" href="${esc(c.video.site)}" target="_blank" rel="noopener" data-out><span>${c.video.total > c.video.vids.length ? W(`議會的影音網站（共 ${c.video.total} 段）`, `The council’s video site (${c.video.total} in all)`) : W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
+  const s = sheet({ title: W(`${c.n}影音`, 'Council video'), closeLabel: W('關閉', 'Close'), body: [body] });
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-ccvid]');
+    if (b) openCouncilVideo(b.dataset.ccvid);
+  });
+  return s;
+}
 
 async function councilList(out) {
   if (!out.querySelector('.lw-council')) out.innerHTML = `<div class="lw-grid">${'<span class="lw-bill q-skel"></span>'.repeat(3)}</div>`;
@@ -3618,7 +3676,12 @@ async function councilList(out) {
     return;
   }
   const { ahead, gone } = sittingsAround(c.sittings, day, 4);
-  const sits = ahead.length ? section(W('接下來開會', 'Coming sittings'), `<div class="lw-meets">${ahead.slice(0, 6).map(sittingRow).join('')}</div>`) : gone.length ? section(W('最近開會', 'Last sittings'), `<div class="lw-meets">${gone.map(x => sittingRow({ ...x, done: true })).join('')}</div>`) : '';
+  const vids = c.video?.vids || [];
+  const vidOf = x => videosOf(vids, x)[0];
+  // Coming sittings, and (with recordings) the last ones too: a recorded sitting opens its video.
+  const sits = (ahead.length ? section(W('接下來開會', 'Coming sittings'), `<div class="lw-meets">${ahead.slice(0, 6).map(x => sittingRow(x, x.d <= day ? vidOf(x) : null)).join('')}</div>`) : '') + ((!ahead.length || vids.length) && gone.length ? section(W('最近開會', 'Last sittings'), `<div class="lw-meets">${gone.map(x => sittingRow({ ...x, done: true }, vidOf(x))).join('')}</div>`) : '');
+  const video = vids.length ? section(W('議會影音', 'Council video'), `<div class="lw-list wrap">${vids.slice(0, 4).map(vidRow).join('')}</div>${vids.length > 4 ? `<button type="button" class="lw-more" data-ccvids>${W(`看更多影音（${vids.length}）`, `More video (${vids.length})`)}</button>` : ''}`) : '';
+  const liveBox = c.video?.live?.length ? '<div class="lw-list lw-cc-livebox" data-cclive-box hidden></div>' : '';
   const shown = c.bills.filter(b => b.t.length >= 8 && (b.t.match(/「/g) || []).length === (b.t.match(/」/g) || []).length);
   const n = 8 + councilMore;
   const bills = c.gap
@@ -3637,8 +3700,9 @@ async function councilList(out) {
     if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表`, `${t.reps.length} members`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
-  const html = `<div class="lw-council">${pick}${facts}${cols([[sits + bills, 0], [people + towns, 1]])}</div>`;
+  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[sits + video + bills, 0], [people + towns, 1]])}</div>`;
   paint(out, html);
+  councilLive(c, out);
 }
 
 // The 22 councils to pick from: 直轄市 first, each with its session now.

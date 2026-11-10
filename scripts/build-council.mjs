@@ -6,6 +6,8 @@
 //   index.json     every council in one line: its session now, next sitting, counts
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
+//   (in <code>.json) video: its live channels and newest recordings where a council
+//                  keeps them openly (lib/council-video.mjs: HiNet's OTT, YouTube's feeds)
 //   <code>-bills.json  a council's 議員提案 this term read from its own site where
 //                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣; 彰化縣's newest sessions): for a search,
 //                  a councillor, a bill's page
@@ -17,6 +19,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
@@ -405,10 +408,24 @@ async function council(o) {
     // An own-site row no winner's list holds stays only if a bill names them.
     people.splice(0, people.length, ...people.filter(p => !p.maybe || p.bills).map(({ maybe, ...p }) => p));
     const rows = bills.map(compactCouncilBill);
+    let video = null;
+    if (HINET[code] || YOUTUBE[code]) {
+      try {
+        video = await videoOf(code, c.n);
+        if (video) notes.push(`${code}: ${video.vids.length} recordings, ${video.live.length} live channels`);
+      } catch (e) {
+        notes.push(`${code} video failed: ${e.message}`);
+        video = (await prevJson(`council/${code}.json`))?.video || null;
+      }
+    }
+    const sits = sittings.map(compactSitting).filter(Boolean);
+    // Sitting days the recordings know and the API doesn't yet (it lags by weeks).
+    if (video) sits.unshift(...sittingsFromVideo(sits, video.vids, day).sort((a, b) => (a.d < b.d ? 1 : -1)));
     await write(`${code}.json`, {
       ...c,
       built,
-      sittings: sittings.map(compactSitting).filter(Boolean),
+      sittings: sits,
+      ...(video ? { video } : {}),
       sessions: sessions.map(s => ({ id: s['代碼'], n: s['會期名稱'], kind: s['會期類別'], from: s['開始日期'], to: s['結束日期'] || '' })).sort((a, b) => (a.from < b.from ? 1 : -1)),
       people,
       bills: newestBills(rows, sessions, 240),
@@ -426,6 +443,26 @@ async function council(o) {
     }
   }
 }
+// A council's video: its live channels and its 60 newest recordings (both sources where it has two).
+const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
+const readJson = url => fetch(url, { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))));
+async function videoOf(code, name) {
+  const v = { live: [], vids: [], site: '' };
+  if (HINET[code]) {
+    const co = HINET[code];
+    v.live = ((await readJson(`${HINET_API}/channel?company=${co}`)) || []).filter(ch => /^https:\/\//.test(ch.url || '')).map(ch => ({ n: ch.title === name ? '' : String(ch.title || '').replace(name, ''), url: ch.url }));
+    const page = await readJson(`${HINET_API}/video?sort=createTime,DESC&page=0&size=60&companyId=${co}`);
+    v.vids = (page.content || []).map(x => compactHinet(x, name)).filter(Boolean);
+    if (v.vids.length) ((v.site = HINET_SITE(co)), (v.total = page.totalElements || v.vids.length));
+  }
+  if (YOUTUBE[code] && !v.vids.length) {
+    const xml = await fetch(ytFeed(YOUTUBE[code]), { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
+    v.vids = ytVideos(xml, name);
+    v.site = ytSite(YOUTUBE[code]);
+  }
+  return v.live.length || v.vids.length ? v : null;
+}
+
 const queue = [...overviews];
 await Promise.all(Array.from({ length: 4 }, async () => {
   while (queue.length) await council(queue.shift());

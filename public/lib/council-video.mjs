@@ -1,0 +1,142 @@
+// A council's video: its live channels and its recordings, from where each
+// council keeps them. By law (地方立法機關組織準則 §25) every council streams its
+// 大會 live and posts the recordings within 15 days.
+//   HiNet's OTT (ottlive.hinet.net/backend, open JSON; HLS that plays in Safari): 新竹縣, 苗栗, 雲林 (live)
+//   YouTube (each channel's free RSS feed, the newest 15): 臺南, 金門, 連江, 澎湖, 雲林 (南投's feed is its news)
+// The build reads them (scripts/build-council.mjs); the app draws them (app.mjs, the council page).
+
+export const HINET = { hsq: 'hcc', mia: 'mcc', yun: 'ylcc' };
+export const HINET_API = 'https://ottlive.hinet.net/backend';
+export const HINET_SITE = company => `https://ottlive.hinet.net/webapp/${company}/vod`;
+export const YOUTUBE = {
+  tnn: 'UCdA-WnlDKDfJol0SJhsf63g',
+  kin: 'UCssU97D8roqOPbnU4I-OsOw',
+  lie: 'UCLFeXjIoUzY-FiVlWvL6b8Q',
+  pen: 'UCRMf06ok5zVx53oBonoqCFw',
+  yun: 'UCKRtSYQyMpnuXd_Sg6qMR6A'
+};
+export const ytFeed = id => `https://www.youtube.com/feeds/videos.xml?channel_id=${id}`;
+export const ytSite = id => `https://www.youtube.com/channel/${id}/videos`;
+
+const pad = n => String(n).padStart(2, '0');
+const ok = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 2000 && y <= 2100;
+const iso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+
+// The day a recording is of, from its title (councils write it every way), else the day it was posted (`at`, ISO).
+export function dayOf(title, at = '') {
+  const s = String(title || '');
+  const atDay = String(at).slice(0, 10);
+  let m;
+  // 民國 with separators: (115.11.2), 115-10-28, 115/10/28
+  if ((m = s.match(/(?<!\d)(1\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})(?!\d)/)) && ok(+m[1] + 1911, +m[2], +m[3])) return iso(+m[1] + 1911, +m[2], +m[3]);
+  // 西元 run together: 20261105121348, 20261110
+  if ((m = s.match(/(?<!\d)(20\d{2})(\d{2})(\d{2})/)) && ok(+m[1], +m[2], +m[3])) return iso(+m[1], +m[2], +m[3]);
+  // 民國 run together: 1151110
+  if ((m = s.match(/(?<!\d)(1\d{2})(\d{2})(\d{2})(?!\d)/)) && ok(+m[1] + 1911, +m[2], +m[3])) return iso(+m[1] + 1911, +m[2], +m[3]);
+  // Month and day alone: 11/6 (the year of posting, the one before if that lands after it)
+  if ((m = s.match(/(?<![\d/])(\d{1,2})\/(\d{1,2})(?![\d/])/)) && atDay) {
+    let y = +atDay.slice(0, 4);
+    if (ok(y, +m[1], +m[2])) {
+      if (iso(y, +m[1], +m[2]) > atDay) y--;
+      return iso(y, +m[1], +m[2]);
+    }
+  }
+  return atDay;
+}
+
+// 上午 or 下午, as a sitting says it.
+// A bare stamp (苗栗縣議會20261105121348) by its hour.
+export function partOf(title) {
+  const s = String(title || '');
+  if (/上午|\bAM\b|\dAM/i.test(s)) return '上午';
+  if (/下午|\bPM\b|\dPM/i.test(s)) return '下午';
+  const m = s.match(/(?<!\d)20\d{6}(\d{2})\d{4}(?!\d)/);
+  return m ? (+m[1] < 12 ? '上午' : '下午') : '';
+}
+
+// A title without the council's name, its term, its date and its part of the day: what the sitting was.
+export function cleanTitle(title, council = '') {
+  let s = String(title || '')
+    .replace(/\s+/g, ' ')
+    .replace(/(?<=[㐀-鿿]) (?=[\d㐀-鿿])|(?<=\d) (?=[㐀-鿿])/g, '')
+    .replace(/\s*、\s*/g, '、')
+    .replace(/(?<=\d) (?=\d)/g, '');
+  if (council) s = s.split(council).join('');
+  s = s
+    .replace(/^[\s\-–—|｜:：]+/, '')
+    .replace(/第[\d一二三四五六七八九十]+屆(?=第)/, '')
+    .replace(/[([（]?1\d{2}[.\-/]\d{1,2}[.\-/]\d{1,2}[)\]）]?/g, ' ')
+    .replace(/(?<!\d)20\d{6,12}(?!\d)/g, ' ')
+    .replace(/\[?(?<!\d)1\d{6}(?!\d)(AM|PM)?\]?/gi, ' ')
+    .replace(/(?<![\d/])\d{1,2}\/\d{1,2}(?![\d/])/g, ' ')
+    .replace(/(上午|下午)/g, ' ')
+    .replace(/[(（]\s*[)）]/g, '')
+    .replace(/議事日程表/g, ' ')
+    .replace(/\s*-\s*$/, '')
+    .replace(/-(\d)$/, '（$1）')
+    .replace(/\s*-\s*/g, ' · ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // A word said twice at the end (縣政總質詢縣政總質詢).
+  s = s.replace(/(\S{3,8})\1$/, '$1');
+  return s.replace(/^[-–—·]\s*|\s*[-–—·]$/g, '').trim();
+}
+
+// One of HiNet's recordings, compact: its day and part, what it was, the HLS address and its picture.
+export function compactHinet(x, council = '') {
+  const hls = x?.streamingJob?.endpoint_set?.[0];
+  if (!hls || x.vodDisplayStatus === 'Hide') return null;
+  const title = String(x.title || '');
+  const d = dayOf(title, x.createTime) || dayOf(x.description, x.createTime);
+  const what = String(x.description || '').trim();
+  const n = cleanTitle(title, council);
+  // A bare stamp (苗栗縣議會20261105121348) is the channel's test or a stray take: nothing to say what it is.
+  if (!n) return null;
+  return {
+    id: `h${x.id}`,
+    d,
+    t: partOf(title),
+    n,
+    ...(what && what !== title && !/^\S*議會\d{8,}$/.test(what) && cleanTitle(what, council) !== n ? { what: cleanTitle(what, council) } : {}),
+    tags: (x.terms || []).filter(t => t.taxonomy === 'TAG').map(t => t.name),
+    hls,
+    ...(x.streamingJob.thumbnail_endpoint ? { img: x.streamingJob.thumbnail_endpoint } : {})
+  };
+}
+
+// A meeting's recording, not the council's news clips or campaign events.
+export const isSitting = title => /(定期會|臨時會|大會|委員會|審查|質詢|議程|會議|開議|開幕|閉幕|延會)/.test(title) && !/(新聞|專訪|宣導|競選|活動花絮)/.test(title);
+
+const unxml = s => String(s || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+// A channel's RSS feed: its meeting recordings, newest first.
+export function ytVideos(xml, council = '') {
+  const out = [];
+  for (const [, e] of String(xml || '').matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+    const id = (e.match(/<yt:videoId>([^<]+)/) || [])[1];
+    const title = unxml((e.match(/<title>([^<]*)/) || [])[1]);
+    const at = (e.match(/<published>([^<]+)/) || [])[1] || '';
+    if (!id || !isSitting(title)) continue;
+    // Posted in UTC: its day in Taiwan.
+    const twAt = at ? new Date(Date.parse(at) + 8 * 3600e3).toISOString() : '';
+    out.push({ id: `y${id}`, d: dayOf(title, twAt), t: partOf(title), n: cleanTitle(title, council) || title, yt: id, img: `https://i.ytimg.com/vi/${id}/mqdefault.jpg` });
+  }
+  return out.sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+}
+
+// The recordings of one sitting (its day, and its part when both say one).
+export const videosOf = (vids, x) => (vids || []).filter(v => v.d === x.d && (!v.t || !x.t || v.t === x.t));
+
+// Sittings the recordings know and the council's list doesn't yet (it lags weeks): after its newest day, a row
+// a day and part, from the recordings that say what they were (a bare stamp says nothing).
+export function sittingsFromVideo(sittings, vids, day) {
+  const newest = (sittings || []).reduce((m, x) => (x.d > m ? x.d : m), '');
+  const seen = new Set();
+  const add = [];
+  for (const v of vids || []) {
+    if (!v.n || v.d <= newest || v.d > day) continue;
+    if (seen.has(`${v.d}|${v.t}`) || (!v.t && [...seen].some(k => k.startsWith(`${v.d}|`)))) continue;
+    seen.add(`${v.d}|${v.t}`);
+    add.push({ d: v.d, t: v.t, from: '', to: '', kind: /委員會/.test(v.n) ? '委員會' : '大會', room: '', what: v.what || v.n, s: '', video: true });
+  }
+  return add;
+}

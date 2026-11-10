@@ -4836,3 +4836,55 @@ button.lw-person { width: 100%; border: 0; font: inherit; text-align: left; curs
 .lw-cbill-body .lw-page-dl { margin-top: 14px; }
 .lw-cbill-body .lw-hint-sm { margin-top: 12px; }
 .lw-council-gap { margin: 0; padding: 14px 16px; border-radius: var(--q-r-cell); background: var(--nv-card, var(--q-grouped-2)); color: var(--q-label-2); font: var(--q-t-subhead); }
+/* 議會影音: a council's recordings (a picture, what, when), a sitting that opens its video, 直播中. */
+button.lw-meet {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lw-meet.done.has-vid {
+  opacity: 1;
+}
+.lw-meet.done.has-vid .lw-meet-time,
+.lw-meet.done.has-vid .lw-meet-top b {
+  opacity: 0.7;
+}
+.lw-vid-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--q-fill-3);
+  color: var(--q-label);
+  font: 600 12px/1 var(--q-font);
+}
+.lw-vid-tag svg {
+  width: 9px;
+  height: 9px;
+}
+.lw-vid .lw-vid-img {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 80px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  object-fit: cover;
+}
+.lw-vid .lw-vid-img svg {
+  width: 16px;
+  height: 16px;
+}
+.lw-cc-livebox {
+  margin: 0 0 12px;
+}
+.lw-cc-live .lw-live {
+  flex: none;
+}

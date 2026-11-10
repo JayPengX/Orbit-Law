@@ -525,7 +525,7 @@ test('問法律: the proxy 404 before the route ships reads as soon', async () =
   assert.equal(c.error, 'cap');
 });
 
-import { passFetch, askBill, askDiff, askRuling } from '../public/lib/ask.mjs';
+import { passFetch, askBill, askDiff, askRuling, askTown } from '../public/lib/ask.mjs';
 test('AI calls carry the Law Pass session, a 401 asked once more with a new token', async () => {
   const urls = [];
   let n = 0;
@@ -552,6 +552,15 @@ test('a ruling explained: the body sent, a point kept only with a paragraph that
   assert.deepEqual([r.held, r.who, r.covered, r.left], ['h', ['業者'], true, 3]);
   assert.equal((await askRuling({ id: 's1' }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'ruling' }) }))).error, 'ruling');
   assert.match(askError('ruling'), /裁判/);
+});
+test('a member\'s 總質詢 summed up: the body sent, a point kept only with a turn that came back quoted', async () => {
+  let sent;
+  const r = await askTown({ tc: 10004010, file: 't10-8r', url: 'https://www.zhubei.gov.tw/a.pdf', n: '3' }, async (u, init) => ((sent = JSON.parse(init.body)), { ok: true, json: async () => ({ answer: ' a ', points: [{ text: 'x', cites: ['2', '7'] }, { text: 'y', cites: ['5'] }], promised: '會後研議', quotes: { 2: ['林市長', '市長', '會研議'] }, covered: true, left: 9 }) }));
+  assert.deepEqual(sent, { mode: 'town', tc: '10004010', file: 't10-8r', url: 'https://www.zhubei.gov.tw/a.pdf', n: 3, lang: 'zh' });
+  assert.deepEqual(r.points, [{ text: 'x', cites: ['2'] }]);
+  assert.deepEqual([r.answer, r.promised, r.covered, r.left], ['a', '會後研議', true, 9]);
+  assert.equal((await askTown({ tc: '1', file: 'f', url: 'u', n: 0 }, async () => ({ ok: false, status: 404, json: async () => ({ error: 'town' }) }))).error, 'town');
+  assert.match(askError('town'), /質詢/);
 });
 
 import { lawCounts, latestRulings } from '../public/lib/rulings.mjs';

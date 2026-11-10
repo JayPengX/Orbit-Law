@@ -28,7 +28,7 @@ import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabe
 import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
-import { askLaw, askBill, askDiff, askRuling, askError, passFetch, MAX_Q } from './lib/ask.mjs';
+import { askLaw, askBill, askDiff, askRuling, askTown, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel } from './lib/rulings.mjs';
 import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE } from './lib/cons.mjs';
@@ -1312,13 +1312,13 @@ function explainRuling(id, title) {
 }
 
 // An AI explanation on a tap: the button, then the answer in its place.
-function aiBox(label, run) {
+function aiBox(label, run, note = W('AI 依條文回答，不是法律意見', 'AI, from the text only. Not legal advice')) {
   const el = h('div', { class: 'lw-ai' });
   const btn = h('button', { type: 'button', class: 'lw-ai-btn', html: `${ICON_SPARK}<span>${esc(label)}</span>` });
   btn.addEventListener('click', async () => {
     el.innerHTML = `<div class="lw-msg ai"><div class="lw-typing"><i></i><i></i><i></i></div></div>`;
     const r = await run();
-    el.innerHTML = r.error ? `<div class="lw-msg ai thin"><p class="lw-none">${esc(askError(r.error, en))}</p></div>` : `<div class="lw-msg ai${r.covered ? '' : ' thin'}">${r.html}<p class="lw-srcs">${W('AI 依條文回答，不是法律意見', 'AI, from the text only. Not legal advice')}${r.left != null ? ` · ${W(`今天還能問 ${r.left} 次`, `${r.left} left today`)}` : ''}</p></div>`;
+    el.innerHTML = r.error ? `<div class="lw-msg ai thin"><p class="lw-none">${esc(askError(r.error, en))}</p></div>` : `<div class="lw-msg ai${r.covered ? '' : ' thin'}">${r.html}<p class="lw-srcs">${esc(note)}${r.left != null ? ` · ${W(`今天還能問 ${r.left} 次`, `${r.left} left today`)}` : ''}</p></div>`;
   });
   el.append(btn);
   return el;
@@ -4046,7 +4046,7 @@ function townSession(own, s, party = new Map()) {
     if (q) {
       const [url, n] = q.dataset.townask.split('|');
       const p = papers[url];
-      if (p) townTranscript(own, s, p, n === 'all' ? null : p.asks[+n], url, party);
+      if (p) townTranscript(own, s, p, n === 'all' ? null : +n, url, party);
       return;
     }
     const t = e.target.closest('[data-towntext]');
@@ -4072,12 +4072,42 @@ const paperHtml = text =>
     .join('')}</div>`;
 
 // A day of 總質詢 as it was said: one member's questions and the answers to them, or the whole day.
-function townTranscript(own, s, p, ask, url, party) {
+// One member's: a 重點摘要 on a tap (/law-ask 'town'), each point citing the turns it rests on (a tap: that turn).
+function townTranscript(own, s, p, n, url, party) {
+  const ask = n == null ? null : p.asks?.[n];
+  if (n != null && !ask) return;
   const turns = ask ? p.turns.slice(ask.from, ask.to + 1) : p.turns;
   const asks = new Set(['代表', '副主席']);
-  const turn = x => `<div class="lw-turn${asks.has(x.r) ? ' lw-turn-ask' : x.r === '主席' ? ' lw-turn-chair' : ''}"${asks.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${esc(x.w)}<small>${esc(x.r)}</small></b>${proseHtml(x.t)}</div>`;
+  const turn = (x, i) => `<div class="lw-turn${asks.has(x.r) ? ' lw-turn-ask' : x.r === '主席' ? ' lw-turn-chair' : ''}" data-k="${i + 1}"${asks.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${esc(x.w)}<small>${esc(x.r)}</small></b>${proseHtml(x.t)}</div>`;
   const title = ask ? W(`${ask.w}的質詢`, `${ask.w}’s questions`) : W('總質詢逐字稿', 'Transcript');
   const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(ask ? ask.gist || ask.w : `${s.n} ${p.nth || ''}`)}</h2><p class="lw-clip-meta">${esc([own.n, s.n, p.nth, p.d && dayLabel(p.d)].filter(Boolean).join(' · '))}</p><div class="lw-turns">${turns.map(turn).join('')}</div><a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始逐字稿 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  if (ask && own.tc)
+    body.querySelector('.lw-clip-meta').after(
+      aiBox(
+        W('重點摘要', 'Sum it up'),
+        async () => {
+          const r = await askTown({ tc: own.tc, file: paperFile(s), url, n, lang: en ? 'en' : 'zh' }, ai);
+          if (r.error) return r;
+          const chip = k => {
+            const [w, role] = r.quotes[k] || ['', ''];
+            return `<button type="button" class="lw-cite lw-turn-cite" data-tk="${esc(k)}"><span>${esc(w || role || k)}</span></button>`;
+          };
+          const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(chip).join('')}</li>`).join('');
+          return { ...r, html: r.covered ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}${points ? `<ul class="lw-points">${points}</ul>` : ''}${r.promised ? `<div class="lw-block blue"><h4><i>${MENU_ICON.gov}</i>${W('公所答應的事', 'What the office promised')}</h4><p>${esc(r.promised)}</p></div>` : ''}` : `<p>${esc(r.answer || W('這段質詢讀不出重點。', 'Nothing clear to sum up.'))}</p>` };
+        },
+        W('AI 只依這段逐字稿整理', 'AI, from this transcript only')
+      )
+    );
+  // A cited turn: the transcript scrolls to it, marked a moment.
+  body.addEventListener('click', e => {
+    const c = e.target.closest('[data-tk]');
+    const t = c && body.querySelector(`.lw-turn[data-k="${c.dataset.tk}"]`);
+    if (!t) return;
+    t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    t.classList.remove('lw-flash');
+    void t.offsetWidth;
+    t.classList.add('lw-flash');
+  });
   sheet({ title, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
 }
 

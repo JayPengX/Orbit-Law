@@ -119,7 +119,8 @@ Live: https://orbit.jaypengx.com/law/
   door's `file=1`, poppler's pdftotext, 70 a build, kept once read) into
   `council/town/<tc>/<paperFile>.json`: 決議案 a row each (`resolutions`, drawn by
   `councilBillHtml` as a council's bill), 總質詢 as who said what (`transcript`) and each
-  member's questions (`questions`, `townTranscript`), 會議紀錄, 致詞 and 施政報告 as text
+  member's questions (`questions`, `townTranscript`; 重點摘要 on a tap: the proxy's `/law-ask`
+  mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 會議紀錄, 致詞 and 施政報告 as text
   (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.

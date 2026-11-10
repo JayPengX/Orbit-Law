@@ -4946,3 +4946,6 @@ button.lw-meet {
 .lw-turn .lw-prose { margin-top: 4px; }
 .lw-turn-ask { padding-left: 10px; border-left: 3px solid var(--p, var(--q-fill-1)); }
 .lw-turn-chair .lw-prose { color: var(--q-label-2); }
+.lw-turn.lw-flash { margin-inline: -6px; padding-inline: 6px; border-radius: 8px; }
+.lw-turn-ask.lw-flash { margin-left: 0; padding-left: 10px; }
+button.lw-turn-cite { border: 0; cursor: pointer; }

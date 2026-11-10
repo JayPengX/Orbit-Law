@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -141,4 +141,23 @@ test('council: 彰化縣議會’s sessions, counts, lists and a bill’s page',
 <br />楊子賢
 <br /> </span></li><li><span class="tabulation_tt w20">類別</span><span class="tabulation_word w80">衛生</span></li>`);
   assert.deepEqual([f['連署人'], f['類別']], ['賴清美、藍駿宇、楊子賢', '衛生']);
+});
+
+test('council: bills drawn out of the minutes, how each went from the minutes or the chair', () => {
+  const row = (n, kind, t, extra = {}) => ({ 會議代碼: 'm1', 日期: '2025-12-23', 會期代碼: 'kin-8-r6', 順序: n, 身分類別: kind, 發言內容: t, ...extra });
+  const bills = transcriptBills('kin', [
+    row(3, '程序文字', '一、獎勵導正。審查意見:送縣府研辦。大會決議:送縣府研辦。'),
+    row(2, '其他', '提案人:許玉昭連署人:許大鴻、吳佩雯案由:建請文化局精進「四季文化走讀」等推廣活動。'),
+    row(4, '其他', '第7案案由：有關市府檢送原住民族行政局115年度預算附帶決議之書面資料，報請本會備查。'),
+    row(5, '主席', '報告結果：知悉。繼續，來。'),
+    row(6, '其他', '第7案案由：有關市府檢送原住民族行政局115年度預算附帶決議之書面資料，報請本會備查。'),
+    row(7, '主席', '該案由誰說明？')
+  ]);
+  assert.equal(bills.length, 2, 'the same bill read twice is one; the chair’s words are no bill');
+  const [a, b] = bills;
+  assert.deepEqual([a['主提案人'], a['連署人'], a['議決'], compactCouncilBill(a).out], ['許玉昭', '許大鴻、吳佩雯', '送縣府研辦。', 'sent']);
+  assert.deepEqual([b['案號'], b['議決'], compactCouncilBill(b).out], ['7', '知悉。', 'noted']);
+  // A meeting outside every listed session keeps its day alone.
+  const [c] = transcriptBills('lie', [{ ...row(1, '其他', '案由:建請爭取經費推動景觀平台。'), 會期代碼: null, 日期: '2026-06-11' }], [{ 代碼: 'lie-8-r6', 開始日期: '2025-11-27', 結束日期: '2025-11-27' }]);
+  assert.deepEqual([c['會議代碼'], c['日期']], ['', '2026-06-11']);
 });

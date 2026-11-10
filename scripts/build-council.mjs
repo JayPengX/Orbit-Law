@@ -15,7 +15,7 @@
 //   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz]
 import { mkdir, writeFile } from 'node:fs/promises';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -64,8 +64,44 @@ const OWN = {
   // 花蓮's search gives a whole term of each kind in one answer, decisions and all.
   hua: { site: '花蓮縣議會網站', out: true, whole: hualien },
   // 彰化's sessions the API hasn't read yet, added to the API's (`add`).
-  cha: { site: '彰化縣議會網站', out: true, add: true, whole: changhua }
+  cha: { site: '彰化縣議會網站', out: true, add: true, whole: changhua },
+  // Bills drawn out of the minutes the API holds (lib/council.mjs transcriptBills):
+  // 金門's whole term; 新北's, 連江's and 屏東's sessions since its last bills.
+  kin: { site: '議會的議事錄', out: true, whole: fromMinutes },
+  nwt: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
+  lie: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes },
+  pif: { site: '議會的議事錄', out: true, add: true, whole: fromMinutes }
 };
+
+// A council's minutes since its newest bills in the API (the whole term if none):
+// the 其他 and 程序文字 rows, newest first until older; then, for the meetings
+// that hold bills, the chair's words (some minutes say only there how it went).
+async function fromMinutes(term, { code, have, sessions, since }) {
+  const rows = [];
+  for (const kind of ['其他', '程序文字']) {
+    for (let page = 1; page <= 10; page++) {
+      const r = await get('meet_transcripts', { 議會代碼: code, 屆: String(term), 身分類別: kind, sort: '日期>', limit: '1000', page: String(page) });
+      const got = (r.meet_transcripts || []).filter(x => x['日期'] >= since);
+      rows.push(...got);
+      if (got.length < (r.meet_transcripts || []).length || page >= (r.total_page || 0)) break;
+    }
+  }
+  const meets = [...new Set(rows.filter(r => /案由[:：]/.test(r['發言內容'] || '')).map(r => r['會議代碼']))].slice(0, 80);
+  for (const m of meets) {
+    try {
+      rows.push(...((await get('meet_transcripts', { 議會代碼: code, 會議代碼: m, 身分類別: '主席', limit: '1000' })).meet_transcripts || []));
+    } catch {}
+  }
+  // Each meeting's file (its 議事錄) as the bill's source.
+  const files = new Map();
+  try {
+    for (const x of (await get('meets', { 議會代碼: code, 屆: String(term), limit: '1000' })).meets || []) if (x['來源網址']) files.set(x['代碼'], x['來源網址']);
+  } catch {}
+  const named = new Map(sessions.map(x => [x['代碼'], x['會期名稱']]));
+  return transcriptBills(code, rows, sessions)
+    .filter(b => !have.has(named.get(b['會議代碼'])))
+    .map(({ 會議: m, ...b }) => ({ ...b, 會期名稱: named.get(b['會議代碼']) || '', 來源網址: files.get(m) || '' }));
+}
 
 // 彰化縣議會: its 議事日程's sessions (with days), each session's count of bills
 // by kind, and the lists of those the API lacks, ten a page, 2 s apart; a
@@ -211,7 +247,10 @@ for (const o of overviews) {
         let got;
         if (OWN[code].whole) {
           const named = new Map(sessions.map(x => [x['代碼'], x['會期名稱']]));
-          const r = await OWN[code].whole(term, { have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
+          // Where the API's bills stop: the start of their newest session (the term's start if none).
+          const from = new Map(sessions.map(x => [x['代碼'], x['開始日期']]));
+          const since = bills.map(b => from.get(b['會議代碼']) || '').sort().pop() || o['就職日'] || '2022-12-25';
+          const r = await OWN[code].whole(term, { code, sessions, since, have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
           got = Array.isArray(r) ? { rows: r, next: 0, stop: '' } : { next: 0, stop: '', ...r };
         } else got = await ownBills(code, term, o['就職日'] || '2022-12-25');
         // Sessions the council's site lists and the API doesn't yet.
@@ -227,7 +266,7 @@ for (const o of overviews) {
       }
       // Its own rows stand in for the API's when they hold more (or join them, `add`); each finds its session by name.
       const byName = new Map(sessions.map(x => [x['會期名稱'], x['代碼']]));
-      const placed = (own || []).map(r => ({ ...r, 會議代碼: byName.get(r['會期名稱']) || byName.get(String(r['會期名稱'] || '').replace(/大會$/, '會')) || '' }));
+      const placed = (own || []).map(r => ({ ...r, 會議代碼: byName.get(r['會期名稱']) || byName.get(String(r['會期名稱'] || '').replace(/大會$/, '會')) || r['會議代碼'] || '' }));
       if (OWN[code].add && placed.length) {
         // The API holds some of them without their session (彰化's 7th 定期會): those go, ours stay.
         const same = b => `${String(b['案號'] || '').replace(/\D/g, '')}|${String(b['案由'] || '').replace(/\s+/g, '').slice(0, 16)}`;

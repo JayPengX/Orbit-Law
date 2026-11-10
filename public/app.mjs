@@ -3647,7 +3647,7 @@ async function openCouncilBill(id) {
       b = (await ownBills(c)).find(x => x['代碼'] === id);
       if (!b) throw new Error('gone');
       // 新竹's sites list the bill only; 花蓮's carries its decision, drawn as the API's are.
-      if (!b['議決']) {
+      if (!b['議決'] && !c.own?.out) {
         const who = `${b['主提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}`;
         return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2><div class="lw-meta">${b['類別'] ? countTag(b['類別']) : ''}${countTag(shortDay(b['日期']))}</div><p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p><p class="lw-hint-sm">${esc(W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
       }

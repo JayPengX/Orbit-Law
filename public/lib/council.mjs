@@ -299,6 +299,63 @@ export function chaSessions(html) {
   return out;
 }
 
+// Bills read back out of a council's 議事錄 as the API holds it (its
+// transcripts: the 程序文字 and 其他 rows carry each bill's 案號, 提案人, 案由,
+// 審查意見 and 大會決議; where the minutes don't, the chair's next words say how
+// it went, 報告結果：知悉). For councils whose bills the API hasn't drawn out
+// (金門's whole term) or not lately (新北, 連江, 屏東). `sessions` places a
+// meeting without its session code by its day.
+const LABEL = '(?:提案人|連署人|提案單位|提案機關|案由|說明|辦法|理由|審查意見|大會決議|決議)[:：]';
+export function transcriptBills(code, rows, sessions = []) {
+  const byMeet = new Map();
+  for (const r of rows) (byMeet.get(r['會議代碼']) || byMeet.set(r['會議代碼'], []).get(r['會議代碼'])).push(r);
+  const inSession = d => sessions.find(x => (x['開始日期'] ?? x.from) <= d && d <= ((x['結束日期'] ?? x.to) || d))?.['代碼'] ?? sessions.find(x => (x['開始日期'] ?? x.from) <= d && d <= ((x['結束日期'] ?? x.to) || d))?.id;
+  const out = new Map();
+  for (const [meet, rs] of byMeet) {
+    rs.sort((a, b) => (a['順序'] ?? 0) - (b['順序'] ?? 0));
+    // One text a meeting; the chair's lines marked so they're never read as the minutes'.
+    const text = rs.map(r => (r['身分類別'] === '主席' ? `〔主席〕${String(r['發言內容'] || '').replace(/\n/g, ' ')}` : String(r['發言內容'] || ''))).join('\n');
+    const at = [...text.matchAll(/案由[:：]/g)].map(x => x.index).filter(i => !/〔主席〕[^\n]*$/.test(text.slice(Math.max(0, i - 200), i)));
+    const starts = at.map(i => {
+      const back = text.slice(Math.max(0, i - 160), i);
+      const h = back.search(/(?:第\s*\d+\s*案|提案人[:：]|提案單位[:：])(?![\s\S]*(?:第\s*\d+\s*案|提案人[:：]|提案單位[:：]))/);
+      return h >= 0 && !/[。\n]/.test(back.slice(h)) ? i - back.length + h : i;
+    });
+    const first = rs[0];
+    // A meeting outside every listed session (the API's list lags) keeps its day alone.
+    const session = first['會期代碼'] || inSession(first['日期']) || '';
+    starts.forEach((st, k) => {
+      const chunk = text.slice(st, starts[k + 1] ?? text.length);
+      const minutes = chunk.split('\n').filter(l => !l.startsWith('〔主席〕')).join('\n');
+      const f = l => (minutes.match(new RegExp(`${l}[:：]\\s*([\\s\\S]*?)(?=${LABEL}|\\n|$)`)) || [])[1]?.trim() || '';
+      const what = f('案由').replace(/\.{3,}|…+$/, '').trim();
+      if (what.length < 6) return;
+      const said = (minutes.match(/(?:大會決議|決議)[:：]\s*([^。\n]*。?)/) || [])[1] || '';
+      // The chair's first words after it, if they decide it.
+      const chair = chunk.split('\n').slice(1, 4).find(l => l.startsWith('〔主席〕') && /報告結果|決議|通過|知悉|保留|擱置|研辦|研議|不予/.test(l)) || '';
+      const decided = said || chair.replace(/^〔主席〕/, '').replace(/^.*?(?:報告結果|決議)[:：]/, '').replace(/(繼續|來|好)[，。、]?.*$/, '').trim();
+      const by = f('提案人'), co = f('連署人'), unit = f('提案單位') || f('提案機關');
+      const no = (chunk.match(/^第\s*(\d+)\s*案/) || [])[1] || '';
+      const key = `${session}|${no}|${what.slice(0, 18)}`;
+      const row = {
+        代碼: `${code}-p${hashOf(key)}`,
+        案號: no,
+        日期: first['日期'] || '',
+        案由: what.slice(0, 400),
+        ...(by ? { 提案人: [by, co].filter(Boolean).join('、'), 主提案人: by, 連署人: co } : unit ? { 提案單位: unit } : {}),
+        審查意見: (minutes.match(/審查意見[:：]\s*([^。\n]*。?)/) || [])[1] || '',
+        議決: decided,
+        會議代碼: session,
+        會議: meet
+      };
+      const had = out.get(key);
+      // The same bill read twice (a 讀會 and its minutes): the fuller one stays.
+      if (!had || (row['議決'] && !had['議決']) || (row['案由'].length > had['案由'].length && !(had['議決'] && !row['議決']))) out.set(key, { ...had, ...row, 議決: row['議決'] || had?.['議決'] || '' });
+    });
+  }
+  return [...out.values()];
+}
+
 // Why a council has no bills to show, in plain words (the API's own note, else a plain one).
 export function gapOf(note = '') {
   if (/掃描|OCR|影像/.test(note)) return ['議會只公開掃描的圖檔，沒有文字可以讀，所以這裡沒有提案。', 'The council publishes its records only as scanned images, so there is no text to read.'];

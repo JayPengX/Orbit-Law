@@ -57,10 +57,15 @@ Live: https://orbit.jaypengx.com/law/
   sessions the API lacks, then 80 bill pages a night for the whole text), which
   joins the API's bills (`own.add`: search and a councillor's bills still ask
   the API, plus the file) and replaces the API's rows it repeats.
+  金門縣 (its whole term), 新北, 連江 and 屏東 (their sessions since the API's
+  newest bills) get bills drawn out of the minutes the API holds
+  (`transcriptBills`: the 其他 and 程序文字 rows carry 案號, 提案人, 案由,
+  審查意見 and 大會決議; else the chair's next words, 報告結果：知悉), each
+  linked to its meeting's file.
   Sessions the API doesn't list yet sort by the bill's day.
   高雄's 議決 carries date lines (決議日期：…), which `outcomeOf` drops. A council
   with none at all (苗栗縣: scanned images only and its site refuses readers
-  outside Taiwan; 金門縣: none this term) says why (`gap`, from the API's
+  outside Taiwan) says why (`gap`, from the API's
   `completenesses`) and lists its newest 議事錄 files. A councillor's sheet
   shows their recent speeches (`meet_transcripts`, read live; `speechesOf`).
   代表會 have no bills or sittings in any open data, so they show their members only. The picked council is this device's

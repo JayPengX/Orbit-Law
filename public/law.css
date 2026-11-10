@@ -4786,3 +4786,4 @@ button.lw-person { width: 100%; border: 0; font: inherit; text-align: left; curs
 .lw-party small { margin-left: 4px; opacity: 0.75; font-size: 0.85em; }
 .lw-cbill-body .lw-item-name { font-size: var(--q-t-title3); line-height: 1.35; }
 .lw-cbill-body .q-btn.block { margin-top: 16px; }
+.lw-council-gap { margin: 0; padding: 14px 16px; border-radius: var(--q-r-cell); background: var(--nv-card, var(--q-grouped-2)); color: var(--q-label-2); font: var(--q-t-subhead); }

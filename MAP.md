@@ -45,8 +45,15 @@ Live: https://orbit.jaypengx.com/law/
   by county and township). A council that fails keeps the last deploy's copy.
   The API pages only its first 10,000 rows, so `all()` reads the rest sorted
   the other way. A bill's text, a search and a councillor's bills are read
-  live from the API when asked. 代表會 have no bills or sittings in any open
-  data, so they show their members only. The picked council is this device's
+  live from the API when asked. 新竹縣議會 has no bills in the API, so the
+  build reads its own site's 議員提案 list (`hccRows`, www.hcc.gov.tw; only
+  new pages after the first run) into `council/hsq-bills.json`, which its search,
+  a councillor's bills and a bill's page read (no outcomes there). A council
+  with none at all (苗栗縣: scanned images only and its site refuses readers
+  outside Taiwan; 金門縣: none this term) says why (`gap`, from the API's
+  `completenesses`) and lists its newest 議事錄 files. A councillor's sheet
+  shows their recent speeches (`meet_transcripts`, read live; `speechesOf`).
+  代表會 have no bills or sittings in any open data, so they show their members only. The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).

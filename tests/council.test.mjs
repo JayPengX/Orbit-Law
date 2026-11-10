@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -65,4 +65,40 @@ test('council: township representatives by county, then township, then district'
   assert.equal(c.city, '宜蘭縣');
   assert.deepEqual(c.towns.map(t => t.town), ['宜蘭市', '羅東鎮']);
   assert.deepEqual(c.towns[1].reps, [['乙', '無黨籍', '第1選舉區'], ['丙', '中國國民黨', '第2選舉區']]);
+});
+
+test('council: 新竹縣議會’s own list of 議員提案 read into the API’s shape', () => {
+  const html = `<ul class="schedule-detail-container__box sch-det--color flex">
+    <li class="schedule-det-detail schedule-det-detail--width sch-det01">
+      2026.11.10</li>
+    <li class="schedule-det-detail schedule-det-detail--width sch-det02">交通類</li>
+    <li class="schedule-det-detail sch-det03">建請於台鐵北湖站附近評估劃設汽機車停車位之可行性。</li>
+    <li class="schedule-det-detail schedule-det-detail--width sch-det04">
+      羅美文</li>
+    <li class="schedule-det-detail schedule-det-detail--width sch-det05">
+      何智達、陳栢誠</li>
+    <li class="schedule-det-detail schedule-det-detail--width sch-det06"><a
+        href="proposal-detail?article=5988" title="內容">內容</a> </li>
+  </ul><ul class="schedule-detail-container__box sch-det--color flex"><li class="schedule-det-detail sch-det01">日期</li></ul>`;
+  const [r, ...rest] = hccRows(html);
+  assert.equal(rest.length, 0, 'the header row is no bill');
+  assert.deepEqual([r['代碼'], r['日期'], r['類別'], r['提案人'], r['主提案人']], ['hsq-p5988', '2026-11-10', '交通類', '羅美文、何智達、陳栢誠', '羅美文']);
+  const b = compactCouncilBill(r);
+  assert.deepEqual([b.by, b.d, b.out], ['羅美文等3人', '2026-11-10', '']);
+  assert.equal(theirBills([r], '陳栢誠').length, 1, 'a co-signer counts');
+  assert.deepEqual(newestBills([{ id: 1, d: '2026-01-02' }, { id: 2, d: '2026-03-01' }], []).map(x => x.id), [2, 1], 'no session: the later day first');
+});
+
+test('council: a gap said plainly; speeches a meeting a row', () => {
+  assert.match(gapOf('原始文件是掃描影像檔，需要文字辨識（OCR）技術才能讀取')[0], /掃描/);
+  assert.match(gapOf(null)[0], /還沒公開/);
+  const said = speechesOf([
+    { 會議代碼: 'm1', 日期: '2026-05-04', 身分類別: '議員', 順序: 2, 發言內容: '好。' },
+    { 會議代碼: 'm1', 日期: '2026-05-04', 身分類別: '議員', 順序: 1, 發言內容: '現在第1題要問交通處，大型重機停車格的議題。', 來源網址: 'https://x/a.pdf' },
+    { 會議代碼: 'm1', 日期: '2026-05-04', 身分類別: '主席', 職稱: '議長', 順序: 0, 發言內容: '請議員質詢。' },
+    { 會議代碼: 'm0', 日期: '2026-03-01', 身分類別: '其他', 發言內容: '出席議員名單' }
+  ]);
+  assert.equal(said.length, 1, 'only what councillors said');
+  assert.deepEqual([said[0].d, said[0].n, said[0].url], ['2026-05-04', 2, 'https://x/a.pdf'], 'the chair’s words aren’t theirs');
+  assert.match(said[0].t, /大型重機/);
 });

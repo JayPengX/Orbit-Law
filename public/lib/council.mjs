@@ -111,18 +111,19 @@ export function compactCouncilBill(b) {
     cat: String(b['類別'] || '').replace(/^.+委員會-/, ''),
     out: outcomeOf(b['議決'], b['審查意見']),
     s: b['會議代碼'] || '',
-    no: String(b['案號'] || '')
+    no: String(b['案號'] || ''),
+    ...(b['日期'] ? { d: String(b['日期']) } : {})
   };
 }
 
 // The newest `n` bills: the latest session first (by its start), then the
-// higher 案號 first, else the order the council listed them.
+// later day, the higher 案號, else the order the council listed them.
 export function newestBills(rows, sessions = [], n = 240) {
   const from = new Map(sessions.map(s => [s['代碼'] ?? s.id, s['開始日期'] ?? s.from ?? '']));
   const num = b => Number((String(b.no).match(/\d+/g) || []).pop() || 0);
   return rows
     .map((b, i) => [b, i])
-    .sort(([a, i], [b, j]) => ((from.get(b.s) || '') < (from.get(a.s) || '') ? -1 : (from.get(b.s) || '') > (from.get(a.s) || '') ? 1 : num(b) - num(a) || j - i))
+    .sort(([a, i], [b, j]) => ((from.get(b.s) || '') < (from.get(a.s) || '') ? -1 : (from.get(b.s) || '') > (from.get(a.s) || '') ? 1 : (b.d || '') < (a.d || '') ? -1 : (b.d || '') > (a.d || '') ? 1 : num(b) - num(a) || j - i))
     .slice(0, n)
     .map(([b]) => b);
 }
@@ -171,3 +172,51 @@ export const ccBill = id => `${CC_API}bills/${encodeURIComponent(id)}`;
 // A councillor's bills: the full-text search finds the name anywhere; only
 // those that list them among the proposers count.
 export const theirBills = (rows, name) => rows.filter(b => String(b['提案人'] || '').split(/[,、，\s]+/).includes(name));
+
+// 新竹縣議會 publishes no bills to the API, but lists every 議員提案 on its
+// own site (www.hcc.gov.tw/porposal, six a page): read into the API's shape,
+// the 連署人 among the 提案人 as other councils list them.
+export const HCC = 'https://www.hcc.gov.tw/';
+export function hccRows(html) {
+  const text = s => String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+  const rows = [];
+  for (const [, ul] of String(html).matchAll(/<ul class="schedule-detail-container__box[^"]*"[^>]*>([\s\S]*?)<\/ul>/g)) {
+    const cell = n => text((ul.match(new RegExp(`sch-det0${n}">([\\s\\S]*?)</li>`)) || [])[1]);
+    const id = (ul.match(/proposal-detail\?article=(\d+)/) || [])[1];
+    const day = cell(1).replace(/^(\d{4})\.(\d{2})\.(\d{2})$/, '$1-$2-$3');
+    if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const by = cell(4), co = cell(5);
+    rows.push({ 代碼: `hsq-p${id}`, 日期: day, 類別: cell(2), 案由: cell(3), 提案人: [by, co].filter(Boolean).join('、'), 主提案人: by, 連署人: co, 來源網址: `${HCC}proposal-detail?article=${id}` });
+  }
+  return rows;
+}
+
+// Why a council has no bills to show, in plain words (the API's own note, else a plain one).
+export function gapOf(note = '') {
+  if (/掃描|OCR|影像/.test(note)) return ['議會只公開掃描的圖檔，沒有文字可以讀，所以這裡沒有提案。', 'The council publishes its records only as scanned images, so there is no text to read.'];
+  return ['議會還沒公開本屆提案的資料，所以這裡沒有提案。', 'The council hasn’t published this term’s bills as data.'];
+}
+
+// A councillor's recent speeches (質詢, 發言), read from the API's transcripts:
+// one row a meeting, newest first, its longest turn as the gist.
+export const ccSpeech = (code, name, limit = 120) => `${CC_API}meet_transcripts?${new URLSearchParams({ 議會代碼: code, 姓名: name, sort: '日期>', limit: String(limit) })}`;
+export function speechesOf(rows = [], n = 6) {
+  const meets = new Map();
+  for (const r of rows) {
+    // Their own turns, not the chair's (the 議長 presiding is 主席).
+    if (!r['發言內容'] || (r['身分類別'] ? r['身分類別'] !== '議員' : !/議員/.test(r['職稱'] || ''))) continue;
+    const k = r['會議代碼'] || r['日期'];
+    if (!meets.has(k)) meets.set(k, { d: r['日期'] || '', url: '', turns: [] });
+    const m = meets.get(k);
+    m.url ||= r['來源網址'] || '';
+    m.turns.push(r);
+  }
+  return [...meets.values()]
+    .sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0))
+    .slice(0, n)
+    .map(m => {
+      const turns = m.turns.sort((a, b) => (a['順序'] ?? 0) - (b['順序'] ?? 0));
+      const gist = turns.map(t => String(t['發言內容'])).sort((a, b) => b.length - a.length)[0];
+      return { d: m.d, url: m.url, n: turns.length, t: clip(gist, 160) };
+    });
+}

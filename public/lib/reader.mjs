@@ -238,7 +238,7 @@ export function unwrap(t) {
 }
 
 const END = /^(相關(內容|新聞|連結|資訊|文章|法規)|延伸閱讀|回上一頁|回上頁|上一則|下一則|上一篇|下一篇|友善列印|分享至?|列印)\s*[:：]?$/;
-const GENERIC = /全球資訊網|^首頁|歡迎(蒞臨|光臨)|入口網|^法規內容$|查詢結果|資料庫$|共用系統/;
+const GENERIC = /全球資訊(中文)?網|資訊中文網|^首頁|歡迎(蒞臨|光臨)|入口網|^法規內容$|查詢結果|資料庫$|共用系統/;
 export function readPage(html, url = '') {
   const page = String(html || '');
   const part = mainPart(page);
@@ -249,6 +249,9 @@ export function readPage(html, url = '') {
   // Past "相關內容", "上一則" and the like is the site, not the page.
   const end = blocks.findIndex((b, i) => i > 0 && b.t && END.test(b.t));
   if (end > 0) blocks.length = end;
+  // A lone date line at the top is the page's date, not its text.
+  let lone = '';
+  if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(blocks[0]?.t || '')) lone = blocks.shift().t.replace(/[/.]/g, '-').replace(/-(\d)(?=-|$)/g, '-0$1');
   // A site's name is no title: the page's first short line is.
   if (!title || GENERIC.test(title)) {
     const named = blocks[0]?.rows?.find(r => /名稱|標題|主旨/.test(r[0] || ''))?.[1];
@@ -271,7 +274,52 @@ export function readPage(html, url = '') {
   if (!judgment && !files.length)
     for (const m of clean(page).matchAll(/<(div|ul|section)\b[^>]*class\s*=\s*["'][^"']*(file|download|attach)[^"']*["'][^>]*>/gi)) files.push(...filesOf(element(clean(page), m.index), url));
   files = files.filter((f, i) => files.findIndex(g => g.url === f.url) === i).slice(0, 30);
-  return { title, date: dateOf(page), blocks: body.map(b => (b.t ? { ...b, t: unwrap(b.t) } : b)), files };
+  // A link that is one of the attachments is drawn once, in their list (and a heading left over it goes).
+  const filed = new Set(files.map(f => f.url));
+  const kept = body.filter(b => !(b.k === 'link' && filed.has(b.url)));
+  while (kept.length && kept[kept.length - 1].k === 'h') kept.pop();
+  return { title, date: lone || dateOf(page), blocks: fieldRows(kept.map(b => (b.t ? { ...b, t: unwrap(b.t) } : b))), files };
+}
+
+// A form's lines (案 別： / 一般議案 / 提 案 人： / 蔡志環, or 案別：一般議案 on one
+// line) as one list of fields: { k: 'dl', rows: [[label, value]] }. Only a run of
+// two or more is one; a lone "說明：" stays a paragraph.
+const LABEL = /^([\u3400-\u9fff](?:\s*[\u3400-\u9fff]){0,6})\s*[：:]\s*$/;
+const INLINE = /^([\u3400-\u9fff](?:\s*[\u3400-\u9fff]){0,5})\s*[：:]\s*(\S.{0,200})$/s;
+export function fieldRows(blocks) {
+  const pairs = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.k !== 'p' && b.k !== 'h') continue;
+    const t = String(b.t || '').trim();
+    const next = blocks[i + 1];
+    const label = t.match(LABEL)?.[1];
+    if (label && next && next.k === 'p' && !LABEL.test(String(next.t || '').trim())) pairs.push({ at: i, n: 2, row: [label.replace(/\s+/g, ''), String(next.t).trim()] });
+    else if (b.k === 'p' && INLINE.test(t)) {
+      const [, l, v] = t.match(INLINE);
+      pairs.push({ at: i, n: 1, row: [l.replace(/\s+/g, ''), v.trim()] });
+    }
+    if (pairs.at(-1)?.at === i && pairs.at(-1).n === 2) i++;
+  }
+  const out = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const run = [];
+    let j = i;
+    for (let p = pairs.find(x => x.at === j); p; p = pairs.find(x => x.at === j)) run.push(p), (j += p.n);
+    if (run.length >= 2) {
+      out.push({ k: 'dl', rows: run.map(p => p.row) });
+      i = j;
+    } else out.push(blocks[i++]);
+  }
+  return out;
+}
+
+// A field that names people (提案人, 連署人…) or lists short names: its names, one by one.
+export function namesIn(label, value) {
+  const parts = String(value || '').split(/[、，,\s]+/).filter(Boolean);
+  if (parts.length && parts.every(x => /^[\u3400-\u9fff]{2,4}$/.test(x)) && (/人|議員|委員|代表/.test(label) || parts.length >= 2)) return parts;
+  return null;
 }
 
 // A page worth showing: some words beyond its title.

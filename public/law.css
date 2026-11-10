@@ -1358,6 +1358,7 @@ a.lw-art-chip {
   transform: rotate(-135deg) translateY(-2px);
 }
 .lw-item-sheet .q-btn.block {
+  box-sizing: border-box;
   margin: 16px 0 calc(16px + env(safe-area-inset-bottom));
 }
 .lw-timeline {
@@ -2803,6 +2804,49 @@ details.lw-bud-row[open] > summary {
   background: var(--q-surface);
   font: 400 15px/1.75 var(--q-font);
   white-space: pre-wrap;
+}
+/* A form's fields (案別, 類別, 提案人…): one card, a label beside each value; a long value under its label. */
+.lw-page-dl {
+  display: grid;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: var(--q-r-cell);
+  background: var(--q-surface);
+}
+.lw-page-dl > div {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--q-separator, rgba(128, 128, 128, 0.2));
+}
+.lw-page-dl > div:last-child {
+  border-bottom: 0;
+}
+.lw-page-dl > div.long {
+  grid-template-columns: minmax(0, 1fr);
+}
+.lw-page-dl dt {
+  color: var(--q-label-2);
+  font: var(--q-t-subhead);
+}
+.lw-page-dl dd {
+  margin: 0;
+  color: var(--q-label);
+  font: 400 16px/1.6 var(--q-font);
+  overflow-wrap: anywhere;
+}
+.lw-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lw-names > span {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--q-fill-3);
+  font: 500 15px/24px var(--q-font);
 }
 .lw-page-wait {
   height: 18px;
@@ -4789,4 +4833,6 @@ button.lw-person { width: 100%; border: 0; font: inherit; text-align: left; curs
 .lw-party small { margin-left: 4px; opacity: 0.75; font-size: 0.85em; }
 .lw-cbill-body .lw-item-name { font-size: var(--q-t-title3); line-height: 1.35; }
 .lw-cbill-body .q-btn.block { margin-top: 16px; }
+.lw-cbill-body .lw-page-dl { margin-top: 14px; }
+.lw-cbill-body .lw-hint-sm { margin-top: 12px; }
 .lw-council-gap { margin: 0; padding: 14px 16px; border-radius: var(--q-r-cell); background: var(--nv-card, var(--q-grouped-2)); color: var(--q-label-2); font: var(--q-t-subhead); }

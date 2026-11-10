@@ -38,7 +38,7 @@ import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref } from './lib/cards.mjs';
-import { readable, pageUrl, readPage, hasText } from './lib/reader.mjs';
+import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName } from './lib/council.mjs';
@@ -1368,6 +1368,15 @@ function fetchPage(u) {
   return pageCache.get(u);
 }
 
+// A form's fields as one card: a label beside each value, people's names as chips, a long value under its label.
+const fieldsHtml = rows =>
+  `<dl class="lw-page-dl">${rows
+    .filter(([, v]) => String(v || '').trim())
+    .map(([l, v]) => {
+      const names = namesIn(l, v);
+      return `<div class="${!names && String(v).length > 24 ? 'long' : ''}"><dt>${esc(l)}</dt><dd>${names ? `<span class="lw-names">${names.map(n => `<span>${esc(n)}</span>`).join('')}</span>` : esc(v)}</dd></div>`;
+    })
+    .join('')}</dl>`;
 const fileKind = u => (u.match(/\.(pdf|docx?|odt|xlsx?|ods|pptx?|zip)(?:$|[?#])/i)?.[1] || 'file').toUpperCase();
 function blocksHtml(blocks) {
   let out = '';
@@ -1379,6 +1388,7 @@ function blocksHtml(blocks) {
     if (b.k === 'h') out += `<h4>${esc(b.t)}</h4>`;
     else if (b.k === 'p') out += proseHtml(b.t, state.names);
     else if (b.k === 'pre') out += `<div class="lw-page-pre">${proseHtml(b.t, state.names)}</div>`;
+    else if (b.k === 'dl') out += fieldsHtml(b.rows);
     else if (b.k === 'table') out += `<div class="lw-page-table"><table>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
     else if (b.k === 'img') out += `<figure>${b.href && readable(b.href) ? `<a href="${esc(b.href)}" target="_blank" rel="noopener">` : ''}<img src="${esc(b.src)}" alt="${esc(b.alt)}" loading="lazy" referrerpolicy="no-referrer">${b.href && readable(b.href) ? '</a>' : ''}${b.alt ? `<figcaption>${esc(b.alt)}</figcaption>` : ''}</figure>`;
     else if (b.k === 'link') out += `<a class="lw-page-link" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.t)}</a>`;
@@ -3640,7 +3650,8 @@ async function councilPicker() {
 // One bill, read whole from the API: what's asked, why, how, the review and the decision, the council's own page.
 async function openCouncilBill(id) {
   const box = h('div', { class: 'lw-cbill-body', html: '<span class="q-skel" style="display:block;height:160px"></span>' });
-  sheet({ title: W('議會提案', 'Council bill'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [box] });
+  // Large: over a councillor's sheet it covers it whole, not half (Jay 11-10).
+  sheet({ title: W('議會提案', 'Council bill'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [box] });
   let b;
   try {
     // One read from the council's own site (新竹縣, 新竹市, 花蓮縣): what's asked, who, and its page there.
@@ -3651,8 +3662,7 @@ async function openCouncilBill(id) {
       if (!b) throw new Error('gone');
       // 新竹's sites list the bill only; 花蓮's carries its decision, drawn as the API's are.
       if (!b['議決'] && !c.own?.out) {
-        const who = `${b['主提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}`;
-        return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2><div class="lw-meta">${b['類別'] ? countTag(b['類別']) : ''}${countTag(shortDay(b['日期']))}</div><p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p><p class="lw-hint-sm">${esc(W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
+        return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2>${fieldsHtml([[W('類別', 'Type'), b['類別']], [W('日期', 'Date'), shortDay(b['日期'])], [W('提案人', 'Filed by'), b['主提案人'] ?? b['提案人']], [W('連署人', 'Co-signers'), b['連署人']]])}<p class="lw-hint-sm">${esc(W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
       }
       b = { ...b, 提案人: b['主提案人'] ?? b['提案人'] ?? '' };
     } else b = (await ccJson(ccBill(id))).data;
@@ -3660,9 +3670,9 @@ async function openCouncilBill(id) {
     return void (box.innerHTML = emptyNote(W('這件提案讀不到，請稍後再試', 'Couldn’t load this bill')));
   }
   const part = (title, text) => (String(text || '').trim() && !/^(案由|議決|說明|辦法|審查意見)$/.test(String(text).trim()) ? `<div class="lw-item-why"><h4>${esc(title)}</h4>${proseHtml(String(text))}</div>` : '');
-  const who = b['提案人'] ? `${b['提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}` : b['提案單位'] || '';
   const out = outcomeOf(b['議決'], b['審查意見']);
-  box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2><div class="lw-meta">${outcomeTag(out)}${b['類別'] ? countTag(b['類別']) : ''}${b['縣市'] ? countTag(b['縣市']) : ''}</div>${who ? `<p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p>` : ''}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'])}${b['來源網址'] ? `<a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>` : ''}`;
+  const fields = fieldsHtml([[W('案號', 'No.'), b['案號']], [W('類別', 'Type'), b['類別']], [W('會期', 'Session'), b['會期名稱']], [W('提案人', 'Filed by'), b['提案人']], [W('連署人', 'Co-signers'), b['連署人']], [W('提案單位', 'From'), b['提案人'] ? '' : b['提案單位']]]);
+  box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2>${out ? `<div class="lw-meta">${outcomeTag(out)}</div>` : ''}${fields}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'])}${b['來源網址'] ? `<a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>` : ''}`;
 }
 
 // A councillor: their party and district, and the bills they filed this term (read live).

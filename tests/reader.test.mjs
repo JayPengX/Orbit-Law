@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readable, readPage, unwrap, hasText } from '../public/lib/reader.mjs';
+import { readable, readPage, unwrap, hasText, fieldRows, namesIn } from '../public/lib/reader.mjs';
 
 test('readable: government sites only', () => {
   assert.equal(readable('https://www.mol.gov.tw/1607/x'), true);
@@ -48,4 +48,23 @@ test('readPage: tables stay tables, a rule named by its info table', () => {
 
 test('unwrap: fixed-width lines join, new items do not', () => {
   assert.equal(unwrap('一、為維護金融機構財務健全，上市上櫃之金融機構依據證券交易法第二\n十八條之二規定辦理。\n二、下一點。\n三、再一點。'), '一、為維護金融機構財務健全，上市上櫃之金融機構依據證券交易法第二十八條之二規定辦理。\n二、下一點。\n三、再一點。');
+});
+
+test('reader: a form’s label and value lines are one card of fields', () => {
+  const p = t => ({ k: 'p', t });
+  const rows = fieldRows([p('案 別：'), p('一般議案'), p('提 案 人：'), p('蔡志環'), p('連署人：邱坤楠、上官秋燕'), p('案 由：'), p('建請縣府協調交通部公路局。')]);
+  assert.equal(rows.length, 1);
+  assert.deepEqual(rows[0].rows.map(r => r[0]), ['案別', '提案人', '連署人', '案由']);
+  // A lone "說明：" line stays as it is.
+  assert.deepEqual(fieldRows([p('說明：'), p('一、本案…')]).map(b => b.k), ['p', 'p']);
+  assert.deepEqual(namesIn('連署人', '邱坤楠、上官秋燕'), ['邱坤楠', '上官秋燕']);
+  assert.equal(namesIn('案由', '建請縣府協調交通部公路局'), null);
+});
+
+test('reader: a site-named page takes its first heading as title and a lone date line as its date', () => {
+  const html = '<html><head><title>新竹縣議會全球資訊中文網</title></head><body><main><p>2026-11-10</p><h3>行政類乙29號</h3><p>案 別：</p><p>一般議案</p><p>類 別：</p><p>行政類</p><p>案 由：</p><p>針對紀錄片於本縣播映遭到跨境恐嚇，建請縣府採取積極保護措施。</p></main></body></html>';
+  const r = readPage(html, 'https://www.hcc.gov.tw/proposal-detail?article=5999');
+  assert.equal(r.title, '行政類乙29號');
+  assert.equal(r.date, '2026-11-10');
+  assert.equal(r.blocks[0].k, 'dl');
 });

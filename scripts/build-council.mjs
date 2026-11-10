@@ -38,11 +38,12 @@ async function get(path, query = {}, fields = []) {
     await sleep(200);
     try {
       const r = await fetch(`${API}${path}?${q}`, { signal: AbortSignal.timeout(90_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
-      if (!r.ok) throw new Error(`${path} ${r.status}`);
+      if (!r.ok) throw Object.assign(new Error(`${path} ${r.status}`), { slow: r.status === 429 });
       return await r.json();
     } catch (e) {
-      if (tries >= 2) throw e;
-      await sleep(4000 * (tries + 1));
+      // (Asked too often, 429: the API's minute passes, so wait longer, and once more.)
+      if (tries >= (e.slow ? 4 : 2)) throw e;
+      await sleep((e.slow ? 20_000 : 4000) * (tries + 1));
     }
   }
 }

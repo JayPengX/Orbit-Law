@@ -10,6 +10,10 @@ on:
       certs:
         description: Hosts whose certificate chain to show, space separated
         required: false
+      text:
+        description: Characters of each page's text to show
+        required: false
+        default: '0'
 
 permissions:
   contents: read
@@ -28,6 +32,7 @@ jobs:
       - run: node scripts/probe-door.mjs $URLS
         env:
           URLS: ${{ inputs.urls }}
+          TEXT: ${{ inputs.text }}
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       # A host that shows no chain is the answer, not a failed run (no mail).
       - name: Certificate chains

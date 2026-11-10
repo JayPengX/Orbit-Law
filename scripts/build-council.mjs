@@ -6,15 +6,16 @@
 //   index.json     every council in one line: its session now, next sitting, counts
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
-//   hsq-bills.json 新竹縣議會's 議員提案 this term, read from its own site (the
-//                  API has none): for a search, a councillor, a bill's page
+//   <code>-bills.json  a council's 議員提案 this term read from its own site where
+//                  the API has none or few (OWN: 新竹縣, 新竹市, 花蓮縣): for a search,
+//                  a councillor, a bill's page
 // A bill's whole text, a search and a councillor's bills are read from the
 // API by the app when asked (lib/council.mjs). Never fails the deploy: a
 // council that can't be read today keeps the last deploy's copy.
-//   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/]
+//   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz]
 import { mkdir, writeFile } from 'node:fs/promises';
 import { args, sleep, prevJson } from './lib.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, gapOf } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, compactCouncilor, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, gapOf } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -55,21 +56,43 @@ async function all(path, key, query, fields, limit = 2000, id = '代碼') {
   return rows;
 }
 
-// 新竹縣議會's 議員提案 from its own pages (six a page, newest first), gently: a
-// page every 2 s, at most 150 a night. New pages from the top until one holds
-// nothing new; then, until the term is whole, on from where the last night
-// stopped (`next`). A refusal ends the night with what was read.
-async function hccBills(since) {
-  const old = await prevJson('council/hsq-bills.json');
+// Councils whose own site lists more of this term's bills than the API holds:
+// the address of its list's page n, and how a page reads (lib/council.mjs).
+const OWN = {
+  hsq: { site: '新竹縣議會網站', page: () => n => `${HCC}porposal?program=197&page=${n}`, rows: () => hccRows },
+  hsz: { site: '新竹市議會網站', page: term => n => `${HSINCHU_CITY}TC/proposal.aspx?pn=${n}&mid=42&cc=${term}&r=5`, rows: term => html => hszRows(html, term) },
+  // 花蓮's search gives a whole term of each kind in one answer, decisions and all.
+  hua: { site: '花蓮縣議會網站', out: true, whole: hualien }
+};
+
+// 花蓮縣議會: 縣府提案 (1), 議員提案 (2), 本會提案 (4) (臨時動議, 3, holds none), this term's each in one POST, 5 s apart.
+async function hualien(term) {
+  const rows = [];
+  for (const kind of [1, 2, 4]) {
+    await sleep(5000);
+    const r = await fetch(`${HUALIEN}proposal_data_search${kind}.php`, { method: 'POST', body: new URLSearchParams({ proposal_section: String(term), keyword: '', search: 'y' }), signal: AbortSignal.timeout(120_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
+    if (!r.ok) throw new Error(`hua ${r.status} for kind ${kind}`);
+    rows.push(...hlcRows(await r.text(), kind));
+  }
+  return rows.sort((a, b) => (a['日期'] < b['日期'] ? 1 : a['日期'] > b['日期'] ? -1 : 0));
+}
+
+// A council's 議員提案 from its own pages (newest first), gently: a page every
+// 2 s, at most 150 a night. New pages from the top until one holds nothing
+// new; then, until the term is whole, on from where the last night stopped
+// (`next`). A refusal ends the night with what was read.
+async function ownBills(code, term, since) {
+  const url = OWN[code].page(term), parse = OWN[code].rows(term);
+  const old = await prevJson(`council/${code}-bills.json`);
   const known = new Set((old?.rows || []).map(r => r['代碼']));
   const fresh = [];
   let budget = 150;
   const page = async n => {
     budget--;
     await sleep(2000);
-    const r = await fetch(`${HCC}porposal?program=197&page=${n}`, { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
-    if (!r.ok) throw new Error(`hcc ${r.status} at page ${n}`);
-    return hccRows(await r.text()).filter(r => r['日期'] >= since);
+    const r = await fetch(url(n), { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' } });
+    if (!r.ok) throw new Error(`${code} ${r.status} at page ${n}`);
+    return parse(await r.text()).filter(r => r['日期'] >= since);
   };
   let next = old ? old.next || 0 : 1;
   let stop = '';
@@ -114,7 +137,7 @@ const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 
 let overviews = [];
 try {
-  overviews = (await get('overviews', { limit: '100' })).overviews.filter(o => o['現存']);
+  overviews = (await get('overviews', { limit: '100' })).overviews.filter(o => o['現存'] && (!args.only || args.only.split(',').includes(o['代碼'])));
 } catch (e) {
   notes.push(`overviews failed: ${e.message}`);
 }
@@ -130,19 +153,25 @@ for (const o of overviews) {
       await all('councilors', 'councilors', { 議會代碼: code, 屆次: String(term) }, ['姓名', '黨籍', '參選政黨', '選區別', '職稱', '照片', '現況', '人物代碼', '屆次'], 200, '姓名'),
       await all('bills', 'bills', { 議會代碼: code, 屆: String(term) }, ['代碼', '案號', '類別', '提案人', '提案單位', '案由', '議決', '審查意見', '會議代碼'])
     ];
-    // 新竹縣: its own site's 議員提案 (the API's are none).
-    if (code === 'hsq' && !bills.length) {
+    // Its own site's 提案 where the API holds none or few (新竹縣, 新竹市, 花蓮縣).
+    let own = null;
+    if (OWN[code]) {
       try {
-        const own = await hccBills(o['就職日'] || '2022-12-25');
-        if (!own.rows.length) throw new Error(own.stop || 'none');
-        await write('hsq-bills.json', { built, src: `${HCC}porposal?program=197`, next: own.next, rows: own.rows });
-        bills.push(...own.rows);
-        notes.push(`hsq: ${own.rows.length} bills from hcc.gov.tw${own.next ? `, page ${own.next} next` : ''}${own.stop ? ` (${own.stop})` : ''}`);
+        const got = OWN[code].whole ? { rows: await OWN[code].whole(term), next: 0, stop: '' } : await ownBills(code, term, o['就職日'] || '2022-12-25');
+        if (!got.rows.length) throw new Error(got.stop || 'none');
+        await write(`${code}-bills.json`, { built, next: got.next, rows: got.rows });
+        own = got.rows;
+        notes.push(`${code}: ${got.rows.length} bills from its site${got.next ? `, page ${got.next} next` : ''}${got.stop ? ` (${got.stop})` : ''}`);
       } catch (e) {
-        notes.push(`hsq own bills failed: ${e.message}`);
-        const old = await prevJson('council/hsq-bills.json');
-        if (old) (await write('hsq-bills.json', old), bills.push(...old.rows));
+        notes.push(`${code} own bills failed: ${e.message}`);
+        const old = await prevJson(`council/${code}-bills.json`);
+        if (old) (await write(`${code}-bills.json`, old), (own = old.rows));
       }
+      // Its own rows stand in for the API's when they hold more; each finds its session by name.
+      if (own && own.length > bills.length) {
+        const byName = new Map(sessions.map(x => [x['會期名稱'], x['代碼']]));
+        bills.splice(0, bills.length, ...own.map(r => ({ ...r, 會議代碼: byName.get(r['會期名稱']) || byName.get(String(r['會期名稱'] || '').replace(/大會$/, '會')) || '' })));
+      } else own = null;
     }
     // A council with no bills: why, and its newest 議事錄 (the API's meetings, each with its file).
     let records = [];
@@ -164,7 +193,7 @@ for (const o of overviews) {
       sessions: sessions.map(s => ({ id: s['代碼'], n: s['會期名稱'], kind: s['會期類別'], from: s['開始日期'], to: s['結束日期'] || '' })).sort((a, b) => (a.from < b.from ? 1 : -1)),
       people,
       bills: newestBills(rows, sessions, 240),
-      ...(code === 'hsq' && rows.length ? { own: { file: 'council/hsq-bills.json', site: '新竹縣議會網站' } } : {}),
+      ...(own ? { own: { file: `council/${code}-bills.json`, site: OWN[code].site, ...(OWN[code].out ? { out: true } : {}) } } : {}),
       ...(!rows.length ? { gap: gapOf(gaps.get(code)?.bill || ''), records } : {})
     });
     index.push({ ...c, people: people.length });
@@ -178,7 +207,7 @@ for (const o of overviews) {
     }
   }
 }
-if (index.length) await write('index.json', { built, day, councils: index });
+if (args.only) {} else if (index.length) await write('index.json', { built, day, councils: index });
 else if (prevIndex) await write('index.json', prevIndex);
 
 // 鄉鎮市民代表 and 山地原住民區民代表 in office: 中選會's 2022 winners.

@@ -45,10 +45,15 @@ Live: https://orbit.jaypengx.com/law/
   by county and township). A council that fails keeps the last deploy's copy.
   The API pages only its first 10,000 rows, so `all()` reads the rest sorted
   the other way. A bill's text, a search and a councillor's bills are read
-  live from the API when asked. 新竹縣議會 has no bills in the API, so the
-  build reads its own site's 議員提案 list (`hccRows`, www.hcc.gov.tw; only
-  new pages after the first run) into `council/hsq-bills.json`, which its search,
-  a councillor's bills and a bill's page read (no outcomes there). A council
+  live from the API when asked. Where the API holds none or few of the term's
+  bills, the build reads the council's own site (`OWN` in the builder) into
+  `council/<code>-bills.json`, which the council's search, a councillor's bills
+  and a bill's page read: 新竹縣 (`hccRows`, www.hcc.gov.tw) and 新竹市
+  (`hszRows`, www.hsinchu-cc.gov.tw) page by page, gently (2 s a page, 150 a
+  night, on from `next`; no outcomes there); 花蓮縣 (`hlcRows`,
+  www.hlcc.gov.tw's search: a whole term of each kind in one POST, with its
+  大會決議, `own.out`). Sessions the API doesn't list yet sort by the bill's day.
+  高雄's 議決 carries date lines (決議日期：…), which `outcomeOf` drops. A council
   with none at all (苗栗縣: scanned images only and its site refuses readers
   outside Taiwan; 金門縣: none this term) says why (`gap`, from the API's
   `completenesses`) and lists its newest 議事錄 files. A councillor's sheet

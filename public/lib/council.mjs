@@ -74,7 +74,8 @@ export function compactCouncilor(p) {
 // What the council decided, in a word: each council writes it its own way
 // (照審查意見通過。/ 原案通過 / 送縣府研究辦理 / 存查 / 決議日期：…).
 export function outcomeOf(decided, review) {
-  const words = [decided, review].map(x => String(x || '').replace(/\s+/g, '')).map(x => (/^(決議大會屆次|決議日期|審查日期)/.test(x) ? '' : x));
+  // 高雄's carry their dates on lines of their own (決議日期：…, 審查日期：…): the rest is the decision.
+  const words = [decided, review].map(x => String(x || '').split(/\n/).filter(l => !/^\s*(決議大會屆次|決議日期|審查日期|決議\/交付日期)\s*[：:]/.test(l)).join('').replace(/\s+/g, ''));
   const s = words[0] || words[1];
   if (!s) return '';
   if (/不予|不通過|否決|未通過|不同意/.test(s)) return 'no';
@@ -121,9 +122,11 @@ export function compactCouncilBill(b) {
 export function newestBills(rows, sessions = [], n = 240) {
   const from = new Map(sessions.map(s => [s['代碼'] ?? s.id, s['開始日期'] ?? s.from ?? '']));
   const num = b => Number((String(b.no).match(/\d+/g) || []).pop() || 0);
+  // A session the API doesn't list yet (a council's own site is ahead) starts on the bill's own day.
+  const start = b => from.get(b.s) || b.d || '';
   return rows
     .map((b, i) => [b, i])
-    .sort(([a, i], [b, j]) => ((from.get(b.s) || '') < (from.get(a.s) || '') ? -1 : (from.get(b.s) || '') > (from.get(a.s) || '') ? 1 : (b.d || '') < (a.d || '') ? -1 : (b.d || '') > (a.d || '') ? 1 : num(b) - num(a) || j - i))
+    .sort(([a, i], [b, j]) => (start(b) < start(a) ? -1 : start(b) > start(a) ? 1 : (b.d || '') < (a.d || '') ? -1 : (b.d || '') > (a.d || '') ? 1 : num(b) - num(a) || j - i))
     .slice(0, n)
     .map(([b]) => b);
 }
@@ -187,6 +190,64 @@ export function hccRows(html) {
     if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
     const by = cell(4), co = cell(5);
     rows.push({ 代碼: `hsq-p${id}`, 日期: day, 類別: cell(2), 案由: cell(3), 提案人: [by, co].filter(Boolean).join('、'), 主提案人: by, 連署人: co, 來源網址: `${HCC}proposal-detail?article=${id}` });
+  }
+  return rows;
+}
+
+// 新竹市議會's own list (www.hsinchu-cc.gov.tw/TC/proposal.aspx, ten a page):
+// the API holds only one session of this term. Its 案號 is the id, its
+// session's name finds the session, its day is in 民國 years.
+export const HSINCHU_CITY = 'https://www.hsinchu-cc.gov.tw/';
+export function hszRows(html, term = 11) {
+  const text = s => String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+  const rows = [];
+  for (const [, ul] of String(html).matchAll(/<ul[^>]*class="proposal-information-content__box01[^"]*"[^>]*>([\s\S]*?)<\/ul>/g)) {
+    const cell = n => text((ul.match(new RegExp(`proposal-li0${n}[^"]*">([\\s\\S]*?)</li>`)) || [])[1]);
+    const no = cell(3);
+    const [, y, m, d] = cell(4).match(/^(\d{2,3})-(\d{1,2})-(\d{1,2})$/) || [];
+    if (!no || !y) continue;
+    const pdf = (ul.match(/href="([^"]+\.pdf)"/i) || [])[1];
+    const by = cell(6), co = cell(7);
+    rows.push({ 代碼: `hsz-p${no}`, 案號: no, 日期: `${Number(y) + 1911}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`, 類別: (no.match(/^(.+?類)/) || [])[1] || '', 案由: cell(5), 提案人: [by, co].filter(Boolean).join('、'), 主提案人: by, 連署人: co, 會期名稱: `第${term}屆${cell(2)}`, 來源網址: pdf ? new URL(pdf, HSINCHU_CITY).href : `${HSINCHU_CITY}TC/proposal.aspx?mid=42` });
+  }
+  return rows;
+}
+
+// 花蓮縣議會's search (proposal_data_search1|2|4.php, one POST a kind for a
+// whole term): each bill a table of label and value, its 大會決議 too.
+export const HUALIEN = 'https://www.hlcc.gov.tw/';
+const tag = s => String(s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+const hashOf = s => {
+  let h = 5381;
+  for (const ch of s) h = ((h * 33) ^ ch.codePointAt(0)) >>> 0;
+  return h.toString(36);
+};
+export function hlcRows(html, kind = 2) {
+  const rows = [], seen = new Set();
+  for (const [, table] of String(html).matchAll(/<table width="90%"[^>]*>([\s\S]*?)<\/table>/g)) {
+    const f = {};
+    for (const [, k, v] of table.matchAll(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/g)) f[tag(k).replace(/\s+/g, '')] = tag(v);
+    const what = f['案由'], when = f['決議日期'] || '';
+    if (!what || !/^\d{4}-\d{2}-\d{2}$/.test(when)) continue;
+    const [, cat = '', no = ''] = (f['類別案號'] || '').match(/^(.*?)\s*(?:[(（][^)）]*[)）])?\s*案號\s*(\S*)$/) || [];
+    const by = f['提案人'] || '', co = f['連署人'] || '';
+    const session = (f['會別'] || '').replace(/\s+/g, '');
+    const id = `hua-p${hashOf([session, f['類別案號'], f['議案分類'], what.slice(0, 60)].join('|'))}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const pdf = (table.match(/href="([^"]+\.pdf)"/i) || [])[1];
+    rows.push({
+      代碼: id,
+      案號: no,
+      日期: when,
+      類別: (cat.match(/財政|保安|農業|教育|建設|民政|交通|社會|衛生|環保|觀光/) || [cat.trim()])[0],
+      案由: what,
+      ...(by ? { 提案人: [by, co].filter(Boolean).join('、'), 主提案人: by, 連署人: co } : { 提案單位: f['提案單位'] || '' }),
+      審查意見: f['審查意見'] || '',
+      議決: f['大會決議'] || '',
+      會期名稱: session,
+      來源網址: pdf ? new URL(pdf, HUALIEN).href : `${HUALIEN}proposal_data_search${kind}.php`
+    });
   }
   return rows;
 }

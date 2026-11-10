@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, gapOf, speechesOf } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, gapOf, speechesOf } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -12,6 +12,7 @@ test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('保留'), 'held');
   // 高雄's 議決 often holds only its date: the 審查意見 speaks then.
   assert.equal(outcomeOf('決議日期：2026-10-01', '同意照案通過'), 'yes');
+  assert.equal(outcomeOf('決議大會屆次：第4屆第5次定期大會\n決議日期：2025-05-29\n送請市政府研究辦理。', '審查日期：2025-05-21\n決議/交付日期：\n送請市政府研究辦理。'), 'sent');
   assert.equal(outcomeOf('', ''), '');
 });
 
@@ -101,4 +102,20 @@ test('council: a gap said plainly; speeches a meeting a row', () => {
   assert.equal(said.length, 1, 'only what councillors said');
   assert.deepEqual([said[0].d, said[0].n, said[0].url], ['2026-05-04', 2, 'https://x/a.pdf'], 'the chair’s words aren’t theirs');
   assert.match(said[0].t, /大型重機/);
+});
+
+test('council: 花蓮縣議會’s search read whole, its decision kept', () => {
+  const card = (no, by, out) => `<table width="90%" border="1"><tr bgcolor="#eeeeee"><td width="80">會 別</td><td>第 20 屆 第 23 次 臨時大會</td></tr>
+    <tr><td>決議日期</td><td>2026-09-04</td></tr><tr><td>類別案號</td><td>保安 案號${no}</td></tr><tr><td>議案分類</td><td>議員提案 / 一般提案</td></tr>
+    <tr><td>提案人</td><td>${by}</td></tr><tr><td>連署人</td><td>韓林梅、林正福</td></tr><tr><td>案 由</td><td>針對遠山區設置地方救災設施。</td></tr>
+    <tr><td>審查意見</td><td></td></tr><tr><td>大會決議</td><td>${out}</td></tr></table>`;
+  const rows = hlcRows(card(3, '鍾素政', '照案通過。') + card(3, '鍾素政', '照案通過。') + card(4, '傅國淵', '保留'), 2);
+  assert.equal(rows.length, 2, 'the same bill listed twice is one');
+  const [a, b] = rows.map(compactCouncilBill);
+  assert.deepEqual([a.by, a.cat, a.no, a.out, a.d], ['鍾素政等3人', '保安', '3', 'yes', '2026-09-04']);
+  assert.equal(b.out, 'held');
+  assert.equal(rows[0]['會期名稱'], '第20屆第23次臨時大會');
+  assert.equal(theirBills(rows, '林正福').length, 2);
+  // A session the API doesn't list yet sorts by the bill's own day.
+  assert.deepEqual(newestBills([{ id: 1, s: 'old', d: '2026-03-01' }, { id: 2, s: '', d: '2026-09-04' }], [{ 代碼: 'old', 開始日期: '2026-02-20' }]).map(x => x.id), [2, 1]);
 });

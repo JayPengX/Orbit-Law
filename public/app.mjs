@@ -3537,7 +3537,7 @@ let councilIdx = null, councilReps = null, councilMore = 0, councilFound = null,
 const councilsData = () => (councilIdx ||= data('council/index.json').catch(e => ((councilIdx = null), Promise.reject(e))));
 const repsData = () => (councilReps ||= data('council/reps.json').catch(e => ((councilReps = null), Promise.reject(e))));
 const COUNCIL_KEY = 'orbit-law.council.v1';
-// A council whose bills come from its own site (新竹縣): the whole term in one file, read when asked.
+// A council whose bills come from its own site (新竹縣, 新竹市, 花蓮縣): the whole term in one file, read when asked.
 const ownBills = c => data(c.own.file).then(r => r.rows || []);
 const ownFind = (rows, words) => rows.filter(b => words.some(w => String(b['案由']).includes(w) || String(b['提案人']).includes(w)));
 // The council shown: the one picked on this phone, else the reader's city's, else 臺北市's.
@@ -3600,7 +3600,7 @@ async function councilList(out) {
   const n = 8 + councilMore;
   const bills = c.gap
     ? section(W('提案', 'Bills'), `<p class="lw-council-gap">${esc(W(...c.gap))}</p>`) + (c.records?.length ? section(W('議事錄', 'Minutes'), `<div class="lw-list">${c.records.map(r => `<a class="lw-row" href="${esc(r.url)}" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(r.what || W('會議紀錄', 'Minutes'))}</span><small>${esc(shortDay(r.d))}</small></span>${CHEVRON}</a>`).join('')}</div>`) : '')
-    : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own ? `<p class="lw-hint-sm">${esc(W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
+    : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own ? `<p class="lw-hint-sm">${esc(c.own.out ? W(`開放資料的提案不完整，這裡讀自${c.own.site}。`, 'Read from the council’s own site, which holds more than the open data.') : W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
   const person = x => `<button type="button" class="lw-person" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n.replace(/\s*[(（].*$/, '').replace(/[A-Za-z][A-Za-z·．.'\s-]*$/, '') || x.n)}</b><small>${esc([partyShort(x.party), x.title || x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${d}區`, `D${d}`))].filter(Boolean).join(' · '))}</small></span>${c.gap ? '' : `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>`}</button>`;
   const byArea = new Map();
   for (const x of [...c.people].sort((a, b) => (Number(a.area.match(/\d+/)?.[0]) || 99) - (Number(b.area.match(/\d+/)?.[0]) || 99))) byArea.set(x.area, [...(byArea.get(x.area) || []), x]);
@@ -3640,15 +3640,19 @@ async function openCouncilBill(id) {
   sheet({ title: W('議會提案', 'Council bill'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [box] });
   let b;
   try {
-    // 新竹縣's, read from its own site: what's asked, who, and its page there.
-    if (id.startsWith('hsq-p')) {
-      const c = await data('council/hsq.json');
+    // One read from the council's own site (新竹縣, 新竹市, 花蓮縣): what's asked, who, and its page there.
+    const own = id.match(/^([a-z]{3})-p/);
+    if (own) {
+      const c = await data(`council/${own[1]}.json`);
       b = (await ownBills(c)).find(x => x['代碼'] === id);
       if (!b) throw new Error('gone');
-      const who = `${b['主提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}`;
-      return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2><div class="lw-meta">${b['類別'] ? countTag(b['類別']) : ''}${countTag(shortDay(b['日期']))}</div><p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p><p class="lw-hint-sm">${W('新竹縣議會網站只列提案，沒有議決結果；說明和辦法在議會的附件裡。', 'The council’s site lists the bill only; its reasons and outcome are in its attachment.')}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
-    }
-    b = (await ccJson(ccBill(id))).data;
+      // 新竹's sites list the bill only; 花蓮's carries its decision, drawn as the API's are.
+      if (!b['議決']) {
+        const who = `${b['主提案人']}${b['連署人'] ? W(`（連署：${b['連署人']}）`, ` (with ${b['連署人']})`) : ''}`;
+        return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2><div class="lw-meta">${b['類別'] ? countTag(b['類別']) : ''}${countTag(shortDay(b['日期']))}</div><p class="lw-person-line">${esc(W(`提案：${who}`, `Filed by ${who}`))}</p><p class="lw-hint-sm">${esc(W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
+      }
+      b = { ...b, 提案人: b['主提案人'] || '' };
+    } else b = (await ccJson(ccBill(id))).data;
   } catch {
     return void (box.innerHTML = emptyNote(W('這件提案讀不到，請稍後再試', 'Couldn’t load this bill')));
   }

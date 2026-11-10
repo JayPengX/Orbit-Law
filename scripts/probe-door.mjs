@@ -9,7 +9,10 @@ const sum = html => ({
   categories: [...html.matchAll(/CategoryID[^"'&]{0,4}["'=]?(\d+)/gi)].length,
   ids: [...new Set([...html.matchAll(/id="cbCategoryID(\w+)"/g)].map(m => m[1]))].slice(0, 80).join(' '),
   marks: [...new Set([...html.matchAll(/(?:id|name)="([^"]*Categ[^"]*)"/gi)].map(m => m[1]))].slice(0, 6),
-  sample: (html.match(/[^\n]{0,120}Categor[^\n]{0,200}/i) || [''])[0].slice(0, 320)
+  sample: (html.match(/[^\n]{0,120}Categor[^\n]{0,200}/i) || [''])[0].slice(0, 320),
+  // Where a council keeps its bills: links whose words or address speak of them.
+  links: [...new Set([...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]{0,120}?)<\/a>/gi)].filter(([, u, t]) => /提案|議案|議決|議事|Bill|propos|agenda/i.test(u + t)).map(([, u, t]) => `${t.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 30)} ${u}`))].slice(0, 30),
+  text: html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, Number(process.env.TEXT || 0))
 });
 for (const url of process.argv.slice(2)) {
   try {

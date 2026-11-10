@@ -4401,6 +4401,7 @@ const PAPERS = [
   ['議事日程表', 'Agenda'],
   ['施政報告', 'Mayor’s report'],
   ['總質詢', 'Questions to the mayor'],
+  ['提案', 'Proposals'],
   ['決議案', 'Resolutions'],
   ['會議紀錄', 'Minutes'],
   ['致詞', 'Speeches'],
@@ -4412,7 +4413,7 @@ const paperRow = (n, url, small = '') => `<a class="lw-row lw-paper" href="${esc
 // What a session holds, in a line.
 const sessionLine = s => {
   const q = s.items?.filter(i => i.k === '總質詢').length || 0;
-  return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : '', s.wq ? W(`書面質詢 ${s.wq} 件`, `${s.wq} written questions`) : !s.asks && q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', s.days?.length ? W(`${s.days.length} 天錄音`, `${s.days.length} days recorded`) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
+  return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : '', s.wq ? W(`書面質詢 ${s.wq} 件`, `${s.wq} written questions`) : !s.asks && q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', s.days?.length ? (s.days[0].d ? W(`${new Set(s.days.map(d => d.d)).size} 天錄音`, `${new Set(s.days.map(d => d.d)).size} days recorded`) : W(`錄音 ${s.days.length} 段`, `${s.days.length} audio parts`)) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
 };
 
 async function townSheet(t, own, vids = []) {
@@ -4421,7 +4422,8 @@ async function townSheet(t, own, vids = []) {
   const sessions = own.sessions || [];
   const now = sessions.find(s => sessionState(s, day) === 'on') || [...sessions].reverse().find(s => sessionState(s, day) === 'ahead');
   const name = `${t.city}${t.town}民代表會`;
-  const people = (own.people || []).map(p => ({ ...p, party: party.get(p.n) || '', photo: p.img }));
+  // (A site without its members' page: the elected members, by district.)
+  const people = (own.people?.length ? own.people : t.reps.map(([n, , area]) => ({ n, title: '代表', area: area.replace(/^.*?第0?(\d+)選舉區$/, (_, d) => `第${'一二三四五六七八九'[d - 1] || d}選區`) }))).map(p => ({ ...p, party: party.get(p.n) || '', photo: p.img }));
   const lead = ['主席', '副主席'];
   people.sort((a, b) => (lead.indexOf(a.title) + 1 || 9) - (lead.indexOf(b.title) + 1 || 9));
   const ends = own.ends ? W(`任期到 ${+own.ends.slice(0, 4)} 年 ${+own.ends.slice(5, 7)} 月 ${+own.ends.slice(8, 10)} 日`, `serving to ${own.ends}`) : '';
@@ -4438,7 +4440,7 @@ async function townSheet(t, own, vids = []) {
       : ''
   }${people.length ? section(W(`代表 ${people.length}`, `Members ${people.length}`), `<div class="lw-people q-rows-full q-rows-keep">${people.map(person).join('')}</div>`) : ''}${
     news.length ? section(W('代表會消息', 'News'), `<div class="lw-list in-sheet wrap">${news.map(x => `<button type="button" class="lw-row" data-townp="${esc(x.url)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.t)}</span></span>${CHEVRON}</button>`).join('')}</div>`) : ''
-  }<a class="q-more q-more-go lw-out" href="${esc(own.site)}" target="_blank" rel="noopener" data-out><span>${W('代表會網站', 'The council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a><p class="lw-hint-sm">${W('議事錄、日程表和錄音都讀自代表會網站；文件是 PDF，網站只在台灣打得開。', 'Read from the council’s own site; its papers are PDFs, and the site opens only in Taiwan.')}</p>`;
+  }<a class="q-more q-more-go lw-out" href="${esc(own.site)}" target="_blank" rel="noopener" data-out><span>${W('代表會網站', 'The council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a><p class="lw-hint-sm">${/chcg\.gov\.tw/.test(own.site) ? W('議事錄、日程表和錄音都讀自代表會在彰化縣政府的網站；文件是 PDF。', 'Read from the council’s pages on the county’s site; its papers are PDFs.') : W('議事錄、日程表和錄音都讀自代表會網站；文件是 PDF，網站只在台灣打得開。', 'Read from the council’s own site; its papers are PDFs, and the site opens only in Taiwan.')}</p>`;
   const body = h('div', { html });
   const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   // (Its own site's sessions first: their days, papers and recordings; the YouTube channel's after.)
@@ -4502,7 +4504,7 @@ function townSession(own, s, party = new Map()) {
       });
       return `<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>`;
     }).join('');
-  const days = (s.days || []).map((d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(dayLabel(d.d))}</span><small>${d.ext ? W('延長會 · 會議錄音', 'Extension · sitting audio') : W('會議錄音', 'Sitting audio')}</small></span></button>`).join('');
+  const days = (s.days || []).map((d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc([d.d && dayLabel(d.d), d.n && W(`第 ${d.n} 段`, `part ${d.n}`)].filter(Boolean).join(' · '))}</span><small>${d.ext ? W('延長會 · 會議錄音', 'Extension · sitting audio') : W('會議錄音', 'Sitting audio')}</small></span></button>`).join('');
   const waiting = !items.length && !s.days?.length;
   const first = drawPapers();
   const box = h('div', { html: first ? section(W('議事錄', 'Papers'), first) : '' });
@@ -4617,16 +4619,16 @@ function townTranscript(own, s, p, n, url, party) {
   sheet({ title, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
 }
 
-// A sitting's recording, in Google Drive's own player.
+// A sitting's recording: a Google Drive file (its own player when Drive won't hand it over), or the site's own MP3.
 function townAudio(own, s, d) {
   if (!d) return;
-  const body = h('div', { class: 'lw-clip-sheet', html: `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(driveFile(d.drive))}"></audio><h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, dayLabel(d.d)].join(' · '))}</p><a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  const body = h('div', { class: 'lw-clip-sheet', html: `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(d.src || driveFile(d.drive))}"></audio><h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, d.d && dayLabel(d.d), d.n && W(`第 ${d.n} 段`, `part ${d.n}`)].filter(Boolean).join(' · '))}</p>${d.drive ? `<a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   sheet({ title: W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   // The file itself, streamed by the phone (Drive answers ranges, open to any page); started within the tap.
   // A file Drive won't hand over directly (past its scan size, it answers a page) falls back to Drive's own player.
   const a = body.querySelector('audio');
   const viaDrive = () => a.isConnected && a.replaceWith(h('div', { class: 'lw-video lw-drive', html: `<iframe src="${esc(drivePlayer(d.drive))}" title="${esc(`${s.n} ${d.d}`)}" allow="autoplay; encrypted-media"></iframe>` }));
-  a.addEventListener('error', viaDrive, { once: true });
+  if (d.drive) a.addEventListener('error', viaDrive, { once: true });
   a.play?.()?.catch(() => {});
 }
 

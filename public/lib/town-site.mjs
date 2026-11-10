@@ -2,6 +2,7 @@
 // iframdeputy_list, iframcirculated_list, iframmeeting_list…), so that other 代表會 on it come with a line each.
 //   竹北市民代表會: its site moved into 竹北市公所's (www.zhubei.gov.tw/jbc/; jbc.gov.tw is gone). It serves only
 //   Taiwan, in Big5: the build reads it through the proxy's door (Orbit-Core law-page.js, which decodes it).
+// (彰化's 和美, 伸港, 福興 are on their county's platform instead: lib/town-chcg.mjs.)
 // What it has: the members by district with photos; each session of the term (議事錄): every sitting's 會議紀錄,
 // 致詞, 施政報告, 市政總質詢 by day, 決議案, 附錄 (PDFs) and each sitting day's recording (錄音檔, Google Drive);
 // the 議事日程表 (PDF); the news, where each session's days are announced before it meets.
@@ -23,6 +24,28 @@ export const TOWN_SITES = {
     record: [1412, 1452],
     agenda: [1412, 1422],
     news: [1411, 1420]
+  },
+  // 彰化縣's 代表會 on the county's platform (lib/town-chcg.mjs: what each page holds).
+  10007030: {
+    n: '和美鎮民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/main.aspx?act_id=23',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 23, page: 'main.aspx', areas: { 5336: '第一選區', 5337: '第二選區', 5338: '第三選區', 5339: '第四選區' }, lists: { 31342: '議事日程表', 31343: '錄音', 31891: '會議紀錄' } }
+  },
+  10007050: {
+    n: '伸港鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=41',
+    term: 21,
+    ends: '2026-12-25',
+    chcg: { act: 41, areas: {}, lists: { 48320: '議事日程表', 48323: '會議紀錄', 48324: '會議紀錄' } }
+  },
+  10007060: {
+    n: '福興鄉民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=24',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 24, areas: { 5784: '第一選區', 5785: '第二選區', 5786: '第三選區' }, menus: { 會議相關資訊: 'papers', 代表會錄音檔: '錄音' } }
   }
 };
 

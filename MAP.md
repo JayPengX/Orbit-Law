@@ -139,6 +139,13 @@ Live: https://orbit.jaypengx.com/law/
   mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 書面質詢 (a day's
   paper that's forms: `written`, who asked which office what, and the 公所's reply from its 函), 會議紀錄, 致詞 and 施政報告 as text
   (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
+  **彰化's 代表會 on the county's platform** (`lib/town-chcg.mjs`, `chcgTown`; TOWN_SITES entries with `chcg`):
+  和美 (act 23: 議事日程, Drive recordings by day, 議事錄 lists), 福興 (act 24: a menu page a session with its
+  日程表, 提案表 and 議事錄, another with its MP3s by day and part), 伸港 (act 41: 議事錄 lists). Every link
+  names its session (`sessionOf`), so sessions are gathered from the links; a session's days from its
+  日程表 or its 議事錄's 時間 line (`pdfSpan`, read once). Members with photos from the district pages
+  (`chcgMembers`); none listed (伸港), the sheet shows the elected members. Same JSON and sheet as 竹北's
+  (提案 a paper kind; a recording `src` an MP3 or `drive`).
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the
@@ -437,7 +444,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/council.mjs` | 地方議會: councils, sittings, bills' outcomes, councillors, 代表 |
-| `public/lib/council-video.mjs`, `town-site.mjs`, `town-video.mjs` | Councils' live and recorded video; a 代表會's own site (竹北); 代表會's YouTube channels |
+| `public/lib/council-video.mjs`, `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs` | Councils' live and recorded video; a 代表會's own site (竹北), 彰化's on the county's platform (和美, 福興, 伸港); 代表會's YouTube channels |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |

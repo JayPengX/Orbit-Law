@@ -164,7 +164,9 @@ Live: https://orbit.jaypengx.com/law/
   page (`ccms`, `ccmsPage`: file blocks by title, Download.ashx's base64 path read as the file's own address;
   MP3s by day under a bold line naming the session). A recording or paper dated inside another session's days
   goes to that one (頭城 names one session's line twice), and a session's days are its agenda's, else the days
-  most of its papers' names give.
+  most of its papers' names give. 宜蘭's 壯圍 on its own "boxlists" site (`box`: a list a kind, `boxList`; a line
+  the file or a page of files, `boxFiles`, the 議事錄 with its sittings' recordings named by the Western day,
+  `westDay`; a 預定 agenda only when there's no other). A deadline in an agenda's notes (9 月 8 日前) isn't a day.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

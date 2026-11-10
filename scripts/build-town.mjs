@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -377,6 +377,37 @@ async function chcgTown(tc, site) {
       for (const a of p.audio) {
         const x = at(a.head);
         if (x) put(x.s, x.ext, '錄音', a.n, a.url);
+      }
+    }
+    // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
+    // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
+    // its session has no other.)
+    if (c.box) {
+      const got = [];
+      let reads = 0;
+      for (const [menu, kind] of Object.entries(c.box.menus))
+        for (let pg = 1, pages = 1; pg <= Math.min(pages, 6); pg++) {
+          const r = boxList(await page(`${c.box.base}boxlists?menu_id=${menu}${pg > 1 ? `&page=${pg}` : ''}`, true), c.box.base);
+          pages = r.pages;
+          let mine = 0;
+          for (const l of r.links) {
+            const x = at(l.n);
+            if (!x) continue;
+            mine++;
+            if (!l.files) got.push({ x, n: l.n, url: l.url, kind });
+            else if (reads++ < 60 && !late())
+              // (A recording named by the time it began, 11_14_18: its place among them.)
+              boxFiles(await page(l.url, true), c.box.base).forEach((f, i) => {
+                const audio = /\.(mp3|m4a|wav)$/i.test(f.url);
+                got.push({ x: at(f.n) || x, n: audio ? westDay(f.n) || (dayIn(f.n) ? f.n : `錄音檔${i + 1}`) : f.n, url: f.url, kind: audio ? '錄音' : kind });
+              });
+          }
+          if (!mine) break;
+        }
+      for (const g of got) {
+        const k = g.kind === '錄音' ? '錄音' : paperKind(g.n) === '議事日程表' ? '議事日程表' : g.kind;
+        if (k === '議事日程表' && /預定/.test(g.n) && got.some(o => o.x.s === g.x.s && o !== g && paperKind(o.n) === '議事日程表' && !/預定/.test(o.n))) continue;
+        put(g.x.s, g.x.ext, k, g.n, g.url);
       }
     }
     // Menus: a page a session.

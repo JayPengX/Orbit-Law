@@ -18,6 +18,8 @@
 //          article's attachments and Drive files (`joomlaList`, `joomlaArticle`).
 //   ccms:  pages on e-land's CCMS (宜蘭's 頭城): file blocks titled by paper and recordings under a line naming the
 //          session (`ccmsPage`); a recording dated in another session's days goes to that one.
+//   box:   a 代表會's own "boxlists" site (宜蘭's 壯圍): a list a kind (`boxList`), each line a file or a page of
+//          files (`boxFiles`: the 議事錄 and its sittings' recordings named by day, `westDay`).
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
 
 import { cnNum } from './town-site.mjs';
@@ -157,7 +159,8 @@ export function pdfSpan(text) {
   if (!y) return { md: ds };
   return spanIn(y, ds);
 }
-const mds = src => [...src.matchAll(/(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})(?!\d)\s*日?/g)].map(m => [+m[1], +m[2]]).filter(([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31);
+// (Not a deadline in its notes: 如有提案請於 9 月 8 日前…)
+const mds = src => [...src.matchAll(/(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})(?!\d)(?!\s*日?\s*以?前)\s*日?/g)].map(m => [+m[1], +m[2]]).filter(([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31);
 const within = (span, days) => span && (Date.parse(span.to) - Date.parse(span.from)) / 864e5 <= days;
 const spanIn = (y, ds) => {
   if (!ds.length) return null;
@@ -207,7 +210,7 @@ export function tsoPage(html, url) {
     else if (/getFile\.aspx|\/files\/.+\.\w+$|drive\.google\.com\/(file|drive)|youtu/.test(u) && n && !links.some(l => l.url === u)) links.push({ n, url: u });
   }
   // (A long list's other pages: &page=2…)
-  const more = [...new Set([...body.matchAll(/[?&]page=(\d+)/g)].map(m => +m[1]).filter(n => n > 1))].sort((a, b) => a - b);
+  const more = [...new Set([...body.matchAll(/[?&;]page=(\d+)/g)].map(m => +m[1]).filter(n => n > 1))].sort((a, b) => a - b);
   return { title, links, kids, more };
 }
 export const folderOf = url => /drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(String(url));
@@ -341,3 +344,32 @@ export function ccmsPage(html, base) {
   }
   return { files, audio };
 }
+
+// A 代表會's own site on the "boxlists" CMS (宜蘭's 壯圍: juanwei.e-land.gov.tw/boxlists?menu_id=14): a list a kind,
+// each line its day and a link, 【會議記錄】 and the paper's name, either the file itself (/uploads/boxlists/…) or a
+// page of files (/boxlists/1105: 議事錄 and its sittings' recordings, 20260915.WAV); ?page=2… ({ links, pages }).
+export function boxList(html, base) {
+  const h = String(html);
+  const links = [];
+  for (const [, href, name] of h.matchAll(/<a href="(\/(?:uploads\/boxlists?\/[^"]+|boxlists\/\d+[^"]*))"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    const n = text(name).replace(/^【[^】]*】\s*/, '');
+    if (n && !links.some(l => l.url === url)) links.push({ n, url, files: /\/boxlists\/\d+/.test(href) });
+  }
+  const pages = Math.max(1, ...[...h.matchAll(/[?&;]page=(\d+)/g)].map(m => +m[1]));
+  return { links, pages };
+}
+// A boxlists page's files ({ n, url }): its 相關附件.
+export function boxFiles(html, base) {
+  const h = String(html);
+  const i = h.indexOf('相關附件');
+  if (i < 0) return [];
+  const end = h.indexOf('回上頁', i);
+  return [...h.slice(i, end > 0 ? end : undefined).matchAll(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, href, name]) => ({ n: text(name).replace(/\.\w{2,4}$/, ''), url: new URL(href.replace(/&amp;/g, '&'), base).href }));
+}
+// A recording's file named by its day as the West writes it (20260511112647, 20260915, 20251007第一日): that day as
+// the sites write it, 1150511 (and the rest of its name).
+export const westDay = name => {
+  const m = String(name).match(/^(20\d{2})(\d{2})(\d{2})(?:\d{6})?(?!\d)(.*)$/);
+  return m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31 ? `${+m[1] - 1911}${m[2]}${m[3]}${m[4]}` : '';
+};

@@ -117,7 +117,9 @@ export const TOWN_SITES = {
   },
   // 宜蘭縣頭城鎮: its page on the 公所's site (e-land's CCMS, `ccms`): every session's 日程表 and minutes, and its
   // sittings' recordings.
-  10002040: { n: '頭城鎮民代表會', home: 'https://toucheng.e-land.gov.tw/cp.aspx?n=8894', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://toucheng.e-land.gov.tw/cp.aspx?n=8894'] } }
+  10002040: { n: '頭城鎮民代表會', home: 'https://toucheng.e-land.gov.tw/cp.aspx?n=8894', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://toucheng.e-land.gov.tw/cp.aspx?n=8894'] } },
+  // 宜蘭縣壯圍鄉: its own site ("boxlists", `box`): 議事日程, 會議記錄, 議事錄下載 (with its sittings' recordings).
+  10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

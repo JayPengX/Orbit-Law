@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -134,4 +134,24 @@ test('town chcg: e-land’s CCMS page (頭城): its papers by title, its recordi
     ['22屆第3次定期大會錄音', '113.05.15錄音檔', '2024-05-15']
   ]);
   assert.equal(k(p.audio[0].head), '第22屆第3次定期會');
+});
+
+test('town chcg: a "boxlists" site (壯圍): its lists, a page’s files, recordings named by the Western day', () => {
+  const base = 'https://juanwei.e-land.gov.tw/';
+  const list = `<div class="tab-content mt-3" id="pills-tabContent"> 2026-10-01 <a href="/boxlists/1103?menu_id=13" target=""> 【議事日程】 壯圍鄉民代表會22屆第19次臨時會預定議事日程表及議事日程表 </a> <hr> 2026-06-17 <a href="/uploads/boxlists/add_1781679174_3jF8GP3oop.pdf" target=""> 【議事日程】 壯圍鄉民代表會22屆第18次臨時會議事日程表 <i class="fas fa-download"></i> </a><a href="https://juanwei.e-land.gov.tw/boxlists?menu_id=13&amp;page=3">3</a>`;
+  assert.deepEqual(boxList(list, base), {
+    links: [
+      { n: '壯圍鄉民代表會22屆第19次臨時會預定議事日程表及議事日程表', url: `${base}boxlists/1103?menu_id=13`, files: true },
+      { n: '壯圍鄉民代表會22屆第18次臨時會議事日程表', url: `${base}uploads/boxlists/add_1781679174_3jF8GP3oop.pdf`, files: false }
+    ],
+    pages: 3
+  });
+  const files = `<b>相關附件：</b><br> <a href="/uploads/boxlist/file_1_a.wav" target="_blank"><i class="fas fa-download"></i> 20260915.WAV</a><br> <a href="/uploads/boxlist/file_1_b.pdf" target="_blank"><i></i> 壯圍鄉民代表會第22屆第19次臨時會議事錄.pdf</a><br> </div> </p> <a class="text-center" href="/boxlists/?menu_id=15">回上頁</a>`;
+  assert.deepEqual(boxFiles(files, base).map(f => f.n), ['20260915', '壯圍鄉民代表會第22屆第19次臨時會議事錄']);
+  assert.equal(westDay('20260511112647'), '1150511');
+  assert.equal(westDay('20251007第一日'), '1141007第一日');
+  assert.equal(dayIn(westDay('20260915')), '2026-09-15');
+  assert.equal(westDay('壯圍'), '');
+  // (A deadline in an agenda's notes isn't one of its days.)
+  assert.deepEqual(pdfSpan('宜蘭縣壯圍鄉民代表會第 22 屆第 19 次臨時會議事日程表\n 115 年 9 月 15 日 115 年 9 月 16 日 115 年 9 月 17 日\n 一、如有提案請於 9 月 8 日前將提案逕送本會彙集。'), { from: '2026-09-15', to: '2026-09-17' });
 });

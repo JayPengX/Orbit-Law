@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, yearOf, tsoUrl, tsoPage, folderOf } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -22,6 +22,10 @@ const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(Date.parse(d) + n * 86_400e3).toISOString().slice(0, 10);
 
 let reads = 0;
+// The build's time (the deploy's step allows 20 minutes): past it, no more PDFs are read and the towns not yet
+// built keep their last copies. Towns take turns going first, a day each, so none waits behind the others.
+const ENDS = Date.now() + Number(process.env.TOWN_MINUTES || 14) * 60e3;
+const late = () => Date.now() > ENDS;
 // A page through the door. Lists carry the day (the door keeps a page a day: a list read today is today's).
 async function page(url, fresh = false) {
   const u = fresh ? `${url}&ob=${day.replace(/-/g, '')}` : url;
@@ -53,7 +57,7 @@ async function pdfText(url) {
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
   await writeFile(file, pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64'));
-  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
 // What a paper says, by its kind: 決議案 → its resolutions; 總質詢 → the day's turns and questions; 會議紀錄,
@@ -100,7 +104,7 @@ async function townPapers(tc, sessions) {
   }
   jobs.sort((a, b) => a.again - b.again);
   for (const { s, i, f, papers } of jobs) {
-    if (!KEY || budget <= 0) break;
+    if (!KEY || budget <= 0 || late()) break;
     budget--;
     try {
       const text = await pdfText(f.url);
@@ -255,11 +259,12 @@ async function chcgTown(tc, site) {
   const old = await prevJson(`council/town/${tc}.json`);
   if (!KEY) return old;
   const c = site.chcg;
+  const areas = c.areas || {};
   const notes = [];
   let people = [];
   try {
-    for (const [id, area] of Object.entries(c.areas)) people.push(...chcgMembers(await page(chcgUrl(site, id), true), area));
-    if (Object.keys(c.areas).length && people.length < 5) throw new Error(`only ${people.length} members`);
+    for (const [id, area] of Object.entries(areas)) people.push(...chcgMembers(await page(chcgUrl(site, id), true), area));
+    if (Object.keys(areas).length && people.length < 5) throw new Error(`only ${people.length} members`);
   } catch (e) {
     notes.push(`members: ${e.message}`);
     people = old?.people || [];
@@ -271,22 +276,28 @@ async function chcgTown(tc, site) {
     if (!x || x.term !== site.term) return null;
     if (!by.has(x.key)) {
       const { ext, ...s } = x;
-      by.set(x.key, { ...s, items: [], days: [], agenda: [] });
+      by.set(x.key, { ...s, items: [], days: [], agenda: [], folders: [] });
     }
     return { s: by.get(x.key), ext: x.ext };
   };
   const put = (s, ext, k, n, url) => {
+    if (folderOf(url)) return s.folders.some(f => f.url === url) || s.folders.push({ url });
     if (k === '錄音') {
       const d = dayIn(n);
       const drive = driveId(url);
-      if (drive && d) s.days.push({ d, drive, ext });
+      // (Its name past the session and the day: what the sitting did, 綜合質詢.)
+      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])/, '').replace(/錄音檔?/g, '').replace(/[-_\s]+$/, '').trim();
+      if (drive && d) s.days.push({ d, drive, ext, ...(what && !/^\d+$/.test(what) ? { what } : {}) });
       else if (/\.(mp3|m4a|wav)$/i.test(url)) s.days.push({ ...(d ? { d } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url });
+      else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
       return;
     }
     if (k === '議事日程表') return s.agenda.some(a => a.url === url) || s.agenda.push({ n: ext || /延長|延會/.test(n) ? '延長會議事日程表' : '議事日程表', url });
     if (s.items.some(i => i.files[0].url === url)) return;
     const nm = n.replace(/^.*?(定期會|臨時會)(延長會|延會)?/, '').replace(/_\d{4}$/, '').trim();
-    s.items.push({ k, n: (k === '會議紀錄' && /^(議事錄|紀錄|記錄|會議紀錄)?$/.test(nm) ? '議事錄' : nm) || n, files: [{ url }] });
+    // (議事錄 and 會議紀錄 are both a session's minutes; a site with both keeps their names apart.)
+    const named = k !== '會議紀錄' ? nm : /^(議事錄)?$/.test(nm) ? '議事錄' : /^(會議)?[紀記]錄$/.test(nm) ? '會議紀錄' : nm;
+    s.items.push({ k, n: named || n, files: [{ url }] });
   };
   try {
     // Lists: each link a paper of the list's kind (or, a list of papers, its own name's).
@@ -298,7 +309,7 @@ async function chcgTown(tc, site) {
     }
     // Menus: a page a session.
     if (c.menus) {
-      const menu = chcgMenu(await page(chcgUrl(site, Object.keys(c.areas)[0] || ''), true));
+      const menu = chcgMenu(await page(chcgUrl(site, Object.keys(areas)[0] || Object.keys(c.lists || {})[0] || ''), true));
       for (const [group, kind] of Object.entries(c.menus))
         for (const it of menu[group] || []) {
           const x = at(it.n);
@@ -321,6 +332,42 @@ async function chcgTown(tc, site) {
           for (const l of links) put(x.s, x.ext, kind === '錄音' ? '錄音' : l.k || paperKind(l.n), l.n, l.url);
         }
     }
+    // A 公所's site: its pages, two deep (and a list's other pages); a link that doesn't name its session takes its
+    // page's. Pages of other terms aren't followed.
+    if (c.tso) {
+      const seen = new Set();
+      const queue = (c.pages || []).map(id => ({ id, depth: 0 }));
+      let reads = 0;
+      while (queue.length && reads < 80) {
+        const { id, depth, pg } = queue.shift();
+        const key = `${id}:${pg || 1}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const url = tsoUrl(c.tso, id) + (pg ? `&txtQKeyword=&page=${pg}` : '');
+        let p;
+        try {
+          reads++;
+          p = tsoPage(await page(url, true), url);
+        } catch (e) {
+          notes.push(`${id}: ${e.message}`);
+          continue;
+        }
+        if (!pg) for (const n of p.more.slice(0, 9)) queue.push({ id, depth, pg: n });
+        const audio = /錄音|音檔/.test(p.title);
+        for (const l of p.links) {
+          const x = sessionOf(l.n, site.term) ? at(l.n) : at(`${p.title} ${l.n}`);
+          // (A link named only by its session, on a page of one kind: 議事日程表(第三屆) lists 第三屆第18次臨時會.)
+          const k = paperKind(l.n);
+          if (x) put(x.s, x.ext, audio || /錄音|音檔/.test(l.n) ? '錄音' : k === '其他' ? paperKind(p.title) : k, l.n, l.url);
+        }
+        if (depth < 2)
+          for (const k of p.kids) {
+            const t = (k.n.match(/第(\d+)屆/) || [])[1];
+            if (t && +t !== site.term) continue;
+            if (/屆|定期會|臨時會|議事|錄音|音檔|日程|會議/.test(k.n)) queue.push({ id: k.id, depth: depth + 1 });
+          }
+      }
+    }
   } catch (e) {
     notes.push(`pages: ${e.message}`);
     if (!by.size) return old;
@@ -329,10 +376,11 @@ async function chcgTown(tc, site) {
   let pdfs = 40;
   for (const s of by.values()) {
     const was = before.get(s.key);
-    if (was?.from) Object.assign(s, { from: was.from, to: was.to });
+    if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
+    else if (was?.md) s.md = was.md;
     else {
       const f = s.agenda.find(a => !/延長/.test(a.n))?.url || s.items.find(i => i.k === '會議紀錄')?.files[0].url;
-      if (f && pdfs-- > 0)
+      if (f && pdfs-- > 0 && !late())
         try {
           const span = pdfSpan(await pdfText(f));
           if (span) Object.assign(s, span);
@@ -340,6 +388,10 @@ async function chcgTown(tc, site) {
           notes.push(`${s.n} days: ${e.message}`);
         }
     }
+  }
+  // (Again, as those placed place their neighbours.)
+  for (let i = 0; i < 3; i++) for (const s of by.values()) if (s.md && !s.from) Object.assign(s, yearOf(s, [...by.values()]) || {});
+  for (const s of by.values()) {
     // (A part named by its month and day, 12月21日錄音檔1: in the session's year.)
     for (const d of s.days) {
       const m = !d.d && s.from && String(d.n).match(/(\d{1,2})月(\d{1,2})日/);
@@ -357,6 +409,7 @@ async function chcgTown(tc, site) {
       else s.to = ds.at(-1);
     }
     if (!s.agenda.length) delete s.agenda;
+    if (!s.folders.length) delete s.folders;
   }
   const sessions = [...by.values()].sort((a, b) => ((a.from || '') < (b.from || '') ? 1 : (a.from || '') > (b.from || '') ? -1 : b.no - a.no));
   for (const n of notes.slice(0, 12)) console.log(`town ${tc}: ${n}`);
@@ -365,9 +418,12 @@ async function chcgTown(tc, site) {
 }
 
 await mkdir(out, { recursive: true });
-for (const [tc, site] of Object.entries(TOWN_SITES)) {
+const towns = Object.entries(TOWN_SITES);
+const first = Math.floor(Date.now() / 86_400e3) % towns.length;
+for (const [tc, site] of [...towns.slice(first), ...towns.slice(0, first)]) {
   const started = Date.now();
   try {
+    if (late()) throw new Error('out of time: kept as it was');
     const t = await (site.chcg ? chcgTown : town)(tc, site);
     if (!t) {
       console.log(`town ${tc}: nothing (no key, no last copy)`);

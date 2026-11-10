@@ -46,7 +46,27 @@ export const TOWN_SITES = {
     term: 22,
     ends: '2026-12-25',
     chcg: { act: 24, areas: { 5784: '第一選區', 5785: '第二選區', 5786: '第三選區' }, menus: { 會議相關資訊: 'papers', 代表會錄音檔: '錄音' } }
-  }
+  },
+  10007110: {
+    n: '溪湖鎮民代表會',
+    home: 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?act_id=174',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { act: 174, lists: { 24811: '會議紀錄', 24809: '議事日程表', 29562: '會議紀錄' }, menus: { 議事錄音檔: '錄音' } }
+  },
+  // The rest on their 公所's site (07other pages to start from).
+  10007090: { n: '芬園鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/fenyuan/07other/main.aspx?main_id=28292', term: 22, ends: '2026-12-25', chcg: { tso: 'fenyuan', pages: [28292, 29561] } },
+  10007100: { n: '員林市民代表會', home: 'https://www.chcg.gov.tw/TSO/yuanlin/07other/main.aspx?main_id=42689', term: 3, ends: '2026-12-25', chcg: { tso: 'yuanlin', pages: [42689] } },
+  10007120: { n: '田中鎮民代表會', home: 'https://www.chcg.gov.tw/TSO/tianzhong/07other/main.aspx?main_id=29591', term: 22, ends: '2026-12-25', chcg: { tso: 'tianzhong', pages: [29591] } },
+  10007130: { n: '大村鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/dacun/07other/main.aspx?main_id=31608', term: 22, ends: '2026-12-25', chcg: { tso: 'dacun', pages: [31608, 31609] } },
+  10007150: { n: '埔心鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/puxin/07other/main.aspx?main_id=26825', term: 22, ends: '2026-12-25', chcg: { tso: 'puxin', pages: [26825] } },
+  10007170: { n: '社頭鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/shetou/07other/main.aspx?main_id=30437', term: 22, ends: '2026-12-25', chcg: { tso: 'shetou', pages: [30437] } },
+  10007180: { n: '二水鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/ershui/07other/main.aspx?main_id=29566', term: 22, ends: '2026-12-25', chcg: { tso: 'ershui', pages: [29566] } },
+  10007190: { n: '北斗鎮民代表會', home: 'https://www.chcg.gov.tw/TSO/beidou/07other/main.aspx?main_id=50884', term: 22, ends: '2026-12-25', chcg: { tso: 'beidou', pages: [50884, 48780, 46227, 42823] } },
+  10007200: { n: '二林鎮民代表會', home: 'https://www.chcg.gov.tw/TSO/erlin/07other/main.aspx?main_id=3571', term: 22, ends: '2026-12-25', chcg: { tso: 'erlin', pages: [3571] } },
+  10007220: { n: '埤頭鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/pitou/07other/main.aspx?main_id=31440', term: 22, ends: '2026-12-25', chcg: { tso: 'pitou', pages: [31440, 31849, 31442, 31443] } },
+  10007240: { n: '大城鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/dacheng/07other/main.aspx?main_id=31070', term: 22, ends: '2026-12-25', chcg: { tso: 'dacheng', pages: [31070, 31071, 32713] } },
+  10007250: { n: '竹塘鄉民代表會', home: 'https://www.chcg.gov.tw/TSO/zhutang/07other/main.aspx?main_id=30492', term: 22, ends: '2026-12-25', chcg: { tso: 'zhutang', pages: [30492, 30493, 26407, 26408] } }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

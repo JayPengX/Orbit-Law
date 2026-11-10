@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, chcgUrl } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -13,6 +13,11 @@ test('town chcg: a session from however a link names it', () => {
   assert.equal(k('第12次臨時會議事錄', 21), '第21屆第12次臨時會');
   assert.deepEqual(sessionOf('第22屆第2次定期會延會日程表_2025', 22), { key: '第22屆第2次定期會', n: '第2次定期會', term: 22, no: 2, kind: '定期會', ext: true });
   assert.equal(sessionOf('112年經建考察', 22), null);
+  assert.equal(sessionOf('第22屆定期會', 22), null);
+  assert.equal(k('下載第22屆第二次定期會延長會日程表'), '第22屆第2次定期會');
+  assert.equal(k('第三屆第18次臨時會', 3), '第3屆第18次臨時會');
+  assert.equal(sessionOf('第22屆第4次定期延長會議事日程表', 22).ext, true);
+  assert.equal(sessionOf('第22屆第1-5次臨時會錄音', 22), null);
   assert.deepEqual(['議事日程表', '代表提案第1號', '第1號提案表', '第22屆第7次定期會議事錄', '第21屆第3次臨時會紀錄', '鄉長施政總報告'].map(paperKind), ['議事日程表', '提案', '提案', '會議紀錄', '會議紀錄', '施政報告']);
 });
 
@@ -40,10 +45,39 @@ test('town chcg: a session’s days from its 議事日程表 or its 議事錄', 
   // (Over the new year.)
   assert.deepEqual(pdfSpan('民國 114 年\n12 月 29 日 一 1 報到\n1 月 2 日 五 4 閉會'), { from: '2025-12-29', to: '2026-01-02' });
   assert.equal(pdfSpan('沒有日期'), null);
+  // (No year: placed between the sessions of its kind numbered around it.)
+  const md = pdfSpan('第 22 屆第 16、17 次臨時會議事日程表\n08 月 03 日 一 1 報到\n08 月 10 日 一 6 閉會');
+  assert.deepEqual(md, { md: [[8, 3], [8, 10]] });
+  const s = { kind: '臨時會', no: 16, ...md };
+  assert.deepEqual(yearOf(s, [s, { kind: '臨時會', no: 15, from: '2025-12-15', to: '2025-12-17' }, { kind: '定期會', no: 8, from: '2026-10-19' }]), { from: '2026-08-03', to: '2026-08-10' });
 });
 
 test('town chcg: the three towns, each with its pages', () => {
   for (const tc of ['10007030', '10007050', '10007060']) assert.ok(TOWN_SITES[tc].chcg && TOWN_SITES[tc].term && TOWN_SITES[tc].home);
   assert.equal(chcgUrl(TOWN_SITES['10007030'], 31342), 'https://ctrl.chcg.gov.tw/main/main_act3/main.aspx?main_id=31342&act_id=23');
   assert.equal(chcgUrl(TOWN_SITES['10007060'], 5784), 'https://ctrl.chcg.gov.tw/main/main_act3/mainV2.aspx?main_id=5784&act_id=24');
+});
+
+test('town chcg: a 公所 site’s page: its files, the pages under it, its list’s other pages', () => {
+  const url = tsoUrl('dacun', 40566);
+  assert.equal(url, 'https://www.chcg.gov.tw/TSO/dacun/07other/main.aspx?main_id=40566');
+  const html = `<title> 第22屆定期會-定期會-大村鄉民代表會-彰化縣政府大村鄉公所 </title><a href="../07other/main.aspx?main_id=3" title="移至公所簡介">公所簡介</a>
+  <div id="div_print"><a href="#hypAccesskeyC" id="hypAccesskeyC" title="中央內容區塊">:::</a>
+  <a href='../../getFile.aspx?file_id=410811&amp;dir=dacun&amp;file=1&amp;type=3&amp;did=40566'>下載第22屆第一次定期會日程表 （64.00KB）</a>
+  <a href="https://drive.google.com/drive/folders/1ag3L7MY2KG8">第22屆第一次定期會錄音檔</a>
+  <a href='main.aspx?main_id=43065'>第22屆第1次臨時會</a> <a href='main.aspx?main_id=31609&txtQKeyword=&page=2'>2</a>
+  </div></form><footer><a href="../07other/main.aspx?main_id=9">網站導覽</a></footer>`;
+  const p = tsoPage(html, url);
+  assert.equal(p.title, '第22屆定期會');
+  assert.deepEqual(p.links, [
+    { n: '第22屆第一次定期會日程表', url: 'https://www.chcg.gov.tw/TSO/getFile.aspx?file_id=410811&dir=dacun&file=1&type=3&did=40566' },
+    { n: '第22屆第一次定期會錄音檔', url: 'https://drive.google.com/drive/folders/1ag3L7MY2KG8' }
+  ]);
+  assert.deepEqual(p.kids, [{ id: 43065, n: '第22屆第1次臨時會' }]);
+  assert.deepEqual(p.more, [2]);
+  assert.ok(folderOf(p.links[1].url) && !folderOf('https://drive.google.com/file/d/1ZK/view'));
+  // (A recording named with what the sitting did and its day, 溪湖's.)
+  assert.equal(dayIn('綜合質詢114.5.9'), '2025-05-09');
+  // (Days written 115.8.12.)
+  assert.deepEqual(pdfSpan('第 19 次臨時會議事日程表\n115.8.12   三   1  報到\n115.8.14   五   3  閉會'), { from: '2026-08-12', to: '2026-08-14' });
 });

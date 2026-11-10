@@ -41,6 +41,18 @@ async function pdf(url, n) {
 let i = 0;
 for (const url of process.argv.slice(2)) {
   i++;
+  // RAW=1: the page or JSON as it came (the door's file read), saved whole, its scripts and all.
+  if (process.env.RAW === '1' && !/\.pdf$/i.test(url)) {
+    try {
+      const r = await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
+      const text = await r.text();
+      keep(`raw-${i}.txt`, `<!-- ${url} ${r.headers.get('Content-Type')} -->\n${text}`);
+      console.log(JSON.stringify({ url, door: r.status, type: r.headers.get('Content-Type'), size: text.length }));
+    } catch (e) {
+      console.log(JSON.stringify({ url, door: 'failed', why: String(e.message || e) }));
+    }
+    continue;
+  }
   if (/\.pdf$/i.test(url)) {
     await pdf(url, i).catch(e => console.log(JSON.stringify({ url, door: 'failed', why: String(e.message || e) })));
     continue;

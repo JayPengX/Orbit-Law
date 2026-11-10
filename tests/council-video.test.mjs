@@ -1,7 +1,7 @@
 // A council's video (public/lib/council-video.mjs): each council's way of naming a recording, read the same way.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { dayOf, partOf, cleanTitle, compactHinet, ytVideos, videosOf, sittingsFromVideo, kccHls, kccName, compactKcc } from '../public/lib/council-video.mjs';
+import { dayOf, partOf, cleanTitle, compactHinet, ytVideos, videosOf, sittingsFromVideo, kccHls, kccName, compactKcc, kmcVids, kmcWho } from '../public/lib/council-video.mjs';
 
 test('council video: the day of a recording, however its title writes it', () => {
   assert.equal(dayOf('新竹縣議會第20屆第8次定期會11/6下午', '2026-11-06 16:30:56'), '2026-11-06');
@@ -80,4 +80,18 @@ test('council video: a YouTube channel list read page by page, its sittings date
   const live = { id: 'yL', d: '2026-09-29', live: 1 };
   const kept = mergeVids([...v, live, { id: 'yL2', d: '2026-09-30', live: 1 }], [{ id: 'yOld', d: '2022-12-01' }, { id: 'yB', d: '2026-01-02' }], '2022-12-25');
   assert.deepEqual(kept.map(x => x.id), ['yL2', 'ya1', 'yB']);
+});
+
+test('基隆: its chamber recordings and its 總質詢 by councillor, from the site\'s lists', () => {
+  const room = `<a href="https://streamak0104vod.akamaized.net/1151014R3_20_W1304.mp4" target="new" data-width="1080" title="【三讀會：第二、三讀會】【臨時動議】【閉會】(另開新視窗)"> 	
+<div class="s22"><table><tr><td><div class="s20"><div class="text1">2026-10-14 13:04<br/>第20屆第8次定期會<br/>【三讀會：第二、三讀會】【臨時動...</div></div></td></tr></table></div></a>`;
+  const ask = `<a href="https://streamak0104vod.akamaized.net/1151005Q_20_W0950_何淑萍.mp4"  target="new" data-width="1080" title="民進黨團聯合_陳宜議員,張之豪議員(因本市北寧路發生重大坍方事件)(另開新視窗)"> 	
+<div class="s19"><div class="s20"><div class="text1">2026-10-05 09:50<br/> 第20屆第8次定期會<br/>市長施政總質詢<br/>何淑萍議員...</div></div></div></a>`;
+  const [r] = kmcVids(room + room);
+  assert.deepEqual(r, { id: 'm1151014R3_20_W1304', d: '2026-10-14', t: '下午', n: '第8次定期會 · 三讀會：第二、三讀會 · 臨時動議 · 閉會', hls: 'https://streamak0104vod.akamaized.net/1151014R3_20_W1304.mp4' });
+  const [q] = kmcVids(ask);
+  assert.equal(q.t, '上午');
+  assert.deepEqual(q.who, ['陳宜', '張之豪']);
+  assert.deepEqual(kmcWho('林旻勳議員暨跨黨派政團聯合_張耿輝議員,呂美玲'), ['林旻勳', '張耿輝', '呂美玲']);
+  assert.deepEqual(kmcWho('楊秀玉副議長'), ['楊秀玉']);
 });

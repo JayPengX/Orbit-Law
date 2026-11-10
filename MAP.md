@@ -96,7 +96,9 @@ Live: https://orbit.jaypengx.com/law/
   openly: HiNet's OTT (ottlive.hinet.net/backend: 新竹縣 `hcc`, 苗栗 `mcc`, 雲林's live
   `ylcc`; HLS that Safari plays, hls.js elsewhere), 高雄's own IVOD (its API; HLS on
   Akamai from each file's name, `kccHls`; each councillor's 質詢 in
-  `council/khh-clips.json`, shown on their sheet) or the council's YouTube channels
+  `council/khh-clips.json`, shown on their sheet), 基隆's own site (vod.kmc.gov.tw: each list one
+  POST with its form's token, `kmcVids`; MP4 files on Akamai, played as they are; each councillor's
+  市長施政總質詢 in `council/kee-clips.json`, a caucus's turn under each of its names, `kmcWho`) or the council's YouTube channels
   (`YOUTUBE`: all but 臺北, 基隆, 高雄, 新竹縣, 苗栗; their /videos and /streams lists read page by
   page as YouTube's web client asks, `ytInitial`, `ytLockups`, `ytItems`, back to the term's start the
   first time, then until a page holds nothing new; plus the RSS feed). Every build's read is merged

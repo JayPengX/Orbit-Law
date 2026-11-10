@@ -20,7 +20,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
-import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
+import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
@@ -424,9 +424,9 @@ async function council(o) {
       for (const [id, xs] of bySession) await write(sessionBillsFile(code, id).replace(/^council\//, ''), { built, s: id, rows: xs.sort((a, b) => (Number(b.no) || 0) - (Number(a.no) || 0)) });
     }
     let video = null;
-    if (HINET[code] || YOUTUBE[code] || code === 'khh') {
+    if (HINET[code] || YOUTUBE[code] || code === 'khh' || code === 'kee') {
       try {
-        video = await videoOf(code, c.n);
+        video = await videoOf(code, c.n, c.term);
         if (video) notes.push(`${code}: ${video.vids.length} recordings, ${video.live.length} live channels`);
       } catch (e) {
         notes.push(`${code} video failed: ${e.message}`);
@@ -495,7 +495,7 @@ async function ytChannel(ch, name, known) {
 // A council's video: its live channels and its 60 newest recordings (both sources where it has two).
 const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' };
 const readJson = url => fetch(url, { headers: UA, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${url}`))));
-async function videoOf(code, name) {
+async function videoOf(code, name, term = '') {
   const v = { live: [], vids: [], site: '' };
   if (HINET[code]) {
     const co = HINET[code];
@@ -517,6 +517,34 @@ async function videoOf(code, name) {
       } catch {}
       await sleep(250);
     }
+    if (Object.keys(people).length) {
+      await write(`${code}-clips.json`, { built, people });
+      v.clips = `council/${code}-clips.json`;
+    }
+  }
+  // 基隆's own site: each list one POST (its form's token and cookie first); the chamber's recordings, and the
+  // 市長施政總質詢 each councillor's (also their own file, by name, as 高雄's).
+  if (code === 'kee') {
+    const list = async (form, to) => {
+      const r = await fetch(`${KMC_SITE}${form}`, { headers: UA, signal: AbortSignal.timeout(30_000) });
+      const cookie = (r.headers.getSetCookie?.() || []).map(x => x.split(';')[0]).join('; ');
+      const token = ((await r.text()).match(/name="csrf_token" value="([0-9a-f]+)"/) || [])[1] || '';
+      await sleep(1000);
+      // (The term asked by name: a blank one lists nothing on the 質詢 page.)
+      const body = new URLSearchParams({ csrf_token: token, s_session: `第${term}屆`, s_appoint: '全部資料列示' });
+      const got = await fetch(`${KMC_SITE}${to}`, { method: 'POST', headers: { ...UA, Cookie: cookie, Referer: `${KMC_SITE}${form}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(60_000) });
+      if (!got.ok) throw new Error(`${got.status} ${to}`);
+      return kmcVids(await got.text());
+    };
+    const room = await list('stream.php', 'stream1.php');
+    await sleep(1000);
+    const asks = await list('stream2.php', 'stream3.php');
+    v.vids = mergeVids([...room, ...asks], []);
+    v.site = KMC_SITE;
+    // (Its live channel's stream, from the site's player page; it answers 404 between sittings.)
+    v.live = [{ n: '', url: 'https://streamak0104d.akamaized.net/live0104lh-olze/_definst_/live.m3u8' }];
+    const people = {};
+    for (const x of asks) for (const n of x.who || []) (people[n] ||= []).push(x);
     if (Object.keys(people).length) {
       await write(`${code}-clips.json`, { built, people });
       v.clips = `council/${code}-clips.json`;

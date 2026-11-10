@@ -3,14 +3,15 @@
 // 大會 live and posts the recordings within 15 days.
 //   HiNet's OTT (ottlive.hinet.net/backend, open JSON; HLS that plays in Safari): 新竹縣, 苗栗, 雲林 (live)
 //   高雄's own IVOD (ivod.kcc.gov.tw/cms/public/api: the chamber's recordings and each councillor's 質詢, HLS on Akamai)
-//   YouTube (each channel's free RSS feed, the newest 15): 臺南, 金門, 連江, 澎湖, 雲林 (南投's feed is its news)
+//   YouTube (each channel's pages and its RSS feed, the whole term): 17 councils
+//   基隆's own site (vod.kmc.gov.tw: the chamber's recordings and each councillor's 總質詢, MP4 on Akamai)
 // The build reads them (scripts/build-council.mjs); the app draws them (app.mjs, the council page).
 
 export const HINET = { hsq: 'hcc', mia: 'mcc', yun: 'ylcc' };
 export const HINET_API = 'https://ottlive.hinet.net/backend';
 export const HINET_SITE = company => `https://ottlive.hinet.net/webapp/${company}/vod`;
 // Each council's own YouTube channels of its sittings (the chamber's; 彰化's committees on a second), found by
-// name on YouTube and checked by their uploads (2026-11-10). 臺北, 基隆: none on YouTube.
+// name on YouTube and checked by their uploads (2026-11-10). 臺北, 基隆: none on YouTube (基隆's on its own site).
 export const YOUTUBE = {
   nwt: ['UCQQkVSFtshjaiNfka2iNomQ'],
   txg: ['UCuid2UrRsZMXd-xIeeI8yFA'],
@@ -246,4 +247,31 @@ export function compactKcc(x) {
     ...(x.videoPicture ? { img: x.videoPicture } : {}),
     ...(x.videoLength ? { len: String(x.videoLength).replace(/^00:/, '') } : {})
   };
+}
+
+// 基隆市議會's own video site (vod.kmc.gov.tw, PHP pages, MP4 files on Akamai that play as they are): its chamber's
+// recordings (stream1.php) and each councillor's 市長施政總質詢 (stream3.php), each a whole list in one POST.
+export const KMC_SITE = 'https://vod.kmc.gov.tw/';
+const unhtml = s => String(s || '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'");
+// 【三讀會：第二、三讀會】【臨時動議】 → 三讀會：第二、三讀會 · 臨時動議
+const kmcWhat = s => unhtml(s).replace(/\(另開新視窗\)$/, '').replace(/\s+/g, '').replace(/】\s*【/g, ' · ').replace(/[【】]/g, ' ').replace(/:/g, '：').replace(/_/g, ' · ').replace(/\s+/g, ' ').trim();
+// Who asked: one councillor (何淑萍議員), or a caucus's turn (民進黨團聯合_陳宜議員,張之豪議員(…)) as each of its names.
+export const kmcWho = s => [...new Set(String(s || '').replace(/[（(][^）)]*[）)]?/g, '').replace(/^.*?(黨團|政團)聯合/, m => (/^民*進黨團聯合$/.test(m) ? '' : m.replace(/(議員)?暨.*$/, ''))).split(/[,，、_\-]/).map(x => x.replace(/(副議長|議長|議員|議)$/, '').trim()).filter(x => /^[\u4e00-\u9fff]{2,4}$/.test(x)))];
+export function kmcVids(html) {
+  const out = new Map();
+  const re = /<a href="(https:\/\/[^"]+\.mp4)"\s+target="new"[^>]*title="([^"]*)"[\s\S]{0,900}?<div class="text1">([\s\S]*?)<\/div>/g;
+  for (const m of String(html || '').matchAll(re)) {
+    const [, url, title, box] = m;
+    const lines = box.split(/<br\s*\/?>/).map(s => unhtml(s).trim());
+    const at = (lines[0] || '').match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):\d{2}/);
+    if (!at) continue;
+    const session = (lines[1] || '').replace(/^第\d+屆/, '');
+    const ask = /總質詢/.test(lines[2] || '');
+    const who = kmcWhat(title);
+    const n = [session, ask ? `${lines[2]} · ${who}` : who].filter(Boolean).join(' · ');
+    const file = url.slice(url.lastIndexOf('/') + 1).replace(/\.mp4$/, '');
+    const ppl = ask ? kmcWho(unhtml(title).replace(/\(另開新視窗\)$/, '')) : [];
+    if (!out.has(url)) out.set(url, { id: `m${file}`, d: at[1], t: +at[2] < 12 ? '上午' : '下午', n, hls: url, ...(ppl.length ? { who: ppl } : {}) });
+  }
+  return [...out.values()];
 }

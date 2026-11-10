@@ -14,6 +14,10 @@ on:
         description: Characters of each page's text to show
         required: false
         default: '0'
+      raw:
+        description: '1: each page as it came (scripts, JSON), saved whole'
+        required: false
+        default: '0'
 
 permissions:
   contents: read
@@ -34,6 +38,7 @@ jobs:
         env:
           URLS: ${{ inputs.urls }}
           TEXT: ${{ inputs.text }}
+          RAW: ${{ inputs.raw }}
           SAVE: pages
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       - uses: actions/upload-artifact@v4

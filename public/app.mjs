@@ -1556,9 +1556,10 @@ function howBillsWork(at = -1) {
   sheet({ title: W('法案怎麼變成法律', 'How a bill becomes law'), closeLabel: W('關閉', 'Close'), body: [h('ol', { class: 'lw-howto', html: rows }), h('p', { class: 'lw-hint-sm', text: W('同一部法常有很多版本（不同立委或政黨各提一個），委員會通常會把它們併在一起審。', 'One law often has many versions (each legislator or party files their own); committees usually review them together.') })] });
 }
 
-// An HLS stream in a <video>: Safari's own player, else hls.js (loaded only then).
+// An HLS stream in a <video>: Safari's own player, else hls.js (loaded only then); an MP4 file as it is.
 async function playHls(v, url) {
-  if (v.canPlayType('application/vnd.apple.mpegurl')) return void (v.src = url);
+  // (An MP4 file, as 基隆's recordings, plays as it is anywhere.)
+  if (/\.mp4$/i.test(url) || v.canPlayType('application/vnd.apple.mpegurl')) return void (v.src = url);
   await new Promise((ok, no) => { if (window.Hls) return ok(); const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
   const hls = new window.Hls();
   hls.loadSource(url);

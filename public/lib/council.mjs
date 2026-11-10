@@ -472,3 +472,104 @@ export function speechesOf(rows = [], n = 6) {
       return { d: m.d, url: m.url, n: turns.length, t: clip(gist, 160) };
     });
 }
+
+// A council bill's PDF, read at build (poppler's `pdftotext -layout`) into its parts. Two forms:
+//   新竹縣議會: 中華民國 Y 年 M 月 D 日 編號 X類乙N號, 提案人：… 連署人：…, then a table whose left column names
+//   each row one character a line (案/由, 說/明, 辦/法, 決/議);
+//   新竹市議會: 案號 X類乙N號, 提案人 … 連署人 …, rows named in a line each (案    由, 說    明, 辦    法, 大會決議),
+//   and under the table 本案於 Y 年 M 月 D 日 … 第N屆第N次定期會第N次會議決議.
+// Either way a row's name is centred, so its text runs above and below it: a row is told from the next by a
+// blank line, a new 一、, or 案由's 。 (案由 is one sentence).
+const ROWS = { 案: '案由', 由: '案由', 說: '說明', 明: '說明', 辦: '辦法', 法: '辦法', 決: '議決', 議: '議決', 案由: '案由', 說明: '說明', 辦法: '辦法', 大會決議: '議決', 決議: '議決', 審查意見: '審查意見' };
+const ROW_ORDER = ['案由', '說明', '辦法', '審查意見', '議決'];
+const rowOf = l => {
+  const m = l.match(/^\s{0,3}(案\s*由|說\s*明|辦\s*法|大會決議|審查意見|決\s{2,}議|[案由說明辦法決議])(?=\s|$)/);
+  return m ? { row: ROWS[m[1].replace(/\s+/g, '')], t: l.slice(m[0].length) } : { row: '', t: l };
+};
+const cjkTight = s => s.replace(/(?<=[㐀-鿿\d])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=\d)/g, '');
+const joinLines = lines => {
+  const paras = [];
+  const indent = l => l.match(/^\s*/)[0].length;
+  const least = Math.min(...lines.filter(l => l.trim()).map(indent));
+  for (const l of lines) {
+    const t = l.trim();
+    if (!t) continue;
+    // A new item (一、, (一), 1.), or a paragraph indented past the rest after one that ended.
+    const fresh = /^([一二三四五六七八九十]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、]|【)/.test(t) || (indent(l) > least && /[。：]$/.test(paras.at(-1) || ''));
+    if (!paras.length || fresh) paras.push(t);
+    else paras[paras.length - 1] += t;
+  }
+  return paras.map(p => cjkTight(p).replace(/^([一二三四五六七八九十]+、)\s+/, '$1')).join('\n');
+};
+export function billPdfParts(text) {
+  const lines = String(text || '').replace(/\f/g, '\n').split('\n');
+  const out = {};
+  const head = lines.slice(0, 12).join(' ');
+  const no = head.match(/(?:編\s*號|案號)\s*(\S+?類\s*[甲乙丙]?\s*\d+\s*號)/);
+  if (no) out['案號'] = no[1].replace(/\s+/g, '');
+  const d = head.match(/中華民國\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+  if (d) out['日期'] = `${+d[1] + 1911}-${d[2].padStart(2, '0')}-${d[3].padStart(2, '0')}`;
+  const by = lines.findIndex(l => /提案人/.test(l));
+  if (by < 0) return out;
+  // The table starts past the names (a 連署人 list can run onto the next lines) and ends at its 備註.
+  let start = by + 1;
+  while (start < lines.length && lines[start].trim() && !rowOf(lines[start]).row) start++;
+  let end = lines.findIndex((l, i) => i > start && /^\s*備\s*註/.test(l));
+  if (end < 0) end = lines.length;
+  const foot = cjkTight(lines.slice(end).join(' ').replace(/\s+/g, ' '));
+  // A table set double-spaced (新竹市's, some years) has a blank between every two lines: only a run of
+  // blanks parts its rows.
+  let table = lines.slice(start, end);
+  const single = table.filter((l, i) => !l.trim() && table[i - 1]?.trim() && table[i + 1]?.trim()).length;
+  if (single * 3 > table.filter(l => l.trim()).length) table = table.filter((l, i) => l.trim() || !table[i - 1]?.trim() || !table[i + 1]?.trim());
+  // Each line: the row its name says (if any) and its text.
+  const rows = table.map(rowOf);
+  // Where each row's name sits: its first and last line.
+  const at = {};
+  rows.forEach((r, i) => r.row && ((at[r.row] ||= [i, i])[1] = i));
+  const named = ROW_ORDER.filter(r => at[r]);
+  if (!named.length) return out;
+  const body = Object.fromEntries(named.map(r => [r, []]));
+  let cur = named[0];
+  let sawNumber = false;
+  rows.forEach((r, i) => {
+    const t = r.t.trim();
+    if (r.row) cur = r.row;
+    else {
+      // Past this row's name, before the next one's: does the next row start here?
+      const k = named.indexOf(cur);
+      const next = named[k + 1];
+      if (next && i > at[cur][1] && i < at[next][0]) {
+        const prev = body[cur].filter(x => x.trim()).at(-1) || '';
+        const starts = cur === '案由' ? !t || /^[一二三四五六七八九十]+、/.test(t) || /。\s*$/.test(prev) : cur === '說明' ? sawNumber && /^一、/.test(t) : !t;
+        if (starts && (t || body[cur].some(x => x.trim()))) cur = next;
+      }
+    }
+    if (cur === '說明' && /^[一二三四五六七八九十]+、/.test(t)) sawNumber = true;
+    body[cur].push(r.t);
+  });
+  for (const r of named) {
+    const text = joinLines(body[r]);
+    if (text) out[r] = text;
+  }
+  // The sitting that decided it: 新竹市's under the table (本案於115年6月15日上午第11屆第7次定期會第21次會議決議).
+  const f = foot.match(/本案[於于](\d{2,3})年(\d{1,2})月(\d{1,2})日(?:上午|下午)?\s*(第\d+屆第\d+次(?:定期|臨時)會第\d+次會議)/);
+  if (f) {
+    out['議決會議'] = f[4];
+    out['議決日期'] = `${+f[1] + 1911}-${f[2].padStart(2, '0')}-${f[3].padStart(2, '0')}`;
+  }
+  // 新竹縣's in its 決議 row: 【本案于第 20 屆第 8 次定期會第 23 次會議議決(115 年 11 月 6 日)】
+  if (out['議決']) {
+    const m = out['議決'].match(/【[^】]*?(第\s*\d+\s*屆\s*第\s*\d+\s*次\s*(?:定期|臨時)會[^】(（]*)[(（]\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[)）]\s*】/);
+    if (m) {
+      out['議決會議'] = m[1].replace(/\s+/g, '').replace(/議決$/, '');
+      out['議決日期'] = `${+m[2] + 1911}-${m[3].padStart(2, '0')}-${m[4].padStart(2, '0')}`;
+      out['議決'] = out['議決'].replace(/\n?【[^】]*】/, '').trim();
+    }
+  }
+  return out;
+}
+
+// Where a bill's text read from its PDF is kept: council/text/<code>/<n>.json, n of 64 by its id (the app reads one).
+export const TEXT_BUCKETS = 64;
+export const textBucket = id => [...String(id)].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7) % TEXT_BUCKETS;

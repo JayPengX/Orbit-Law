@@ -97,6 +97,12 @@ jobs:
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
+      # Council bills whose text is only in a PDF (新竹縣, 新竹市): read into 說明, 辦法, 議決 (pdftotext), the newest first;
+      # what the last deploy read is kept, so each build adds more.
+      - name: Read the councils' bill PDFs
+        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council-text.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 8 }}
+        timeout-minutes: 20
+        continue-on-error: true
       # 鄉鎮市民代表會 from their own sites (竹北 first): members, sessions, 議事錄 PDFs, each day's recording.
       # They serve only Taiwan: read through the proxy's door with the build's key.
       - name: Build the township councils from their own sites

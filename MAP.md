@@ -16,7 +16,7 @@ Live: https://orbit.jaypengx.com/law/
   at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-notices.mjs`
   (each 預告's join.gov.tw record and its 總說明 and 條文對照表 read from the
   公報 PDF with poppler's `pdftotext -bbox`: `bills/notice/<id>.json`), `build-ly.mjs`,
-  `build-council.mjs` (地方議會, below), `build-town.mjs` (代表會 from their own sites, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
+  `build-council.mjs` (地方議會, below), `build-council-text.mjs` (council bills' PDFs read into their parts, below), `build-town.mjs` (代表會 from their own sites, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
   under `public/img/ly/`; only a newcomer's is fetched; then the 縣市議員's, below), `build-budget.mjs` (each 總預算's
   money from 主計總處's 預算表 on data.gov.tw: `ly/budget/<year>.json`, cuts
   as 預算案 − 法定預算), `build-agency.mjs`, `build-local.mjs`, `build-rulings.mjs`, `build-cons.mjs` and `build-news.mjs` in that order
@@ -99,6 +99,11 @@ Live: https://orbit.jaypengx.com/law/
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)
   become sittings (`sittingsFromVideo`). Bare stamps (苗栗's test takes) are dropped.
   代表會 have no bills or sittings in any open data, so most show their members only.
+  **Bills read from their PDFs** (`scripts/build-council-text.mjs`, `billPdfParts` in
+  `lib/council.mjs`): 新竹縣's and 新竹市's proposals are PDFs; each build reads the newest
+  not yet read (pdftotext -layout; hcc.gov.tw a request every 2 s) into 案號, 說明, 辦法,
+  議決 and the sitting that decided it, kept in `council/text/<code>/<n>.json` (64 files by
+  `textBucket(id)`); a bill's sheet shows them as the API's bills are, the PDF a link below.
   **A 代表會's own site** (`lib/town-site.mjs` `TOWN_SITES`, `scripts/build-town.mjs` →
   `council/town/<tc>.json`; first 竹北市民代表會, whose site moved into 竹北市公所's at
   www.zhubei.gov.tw/jbc/): its 公所's "twgov" CMS, Big5, Taiwan-only, read through the

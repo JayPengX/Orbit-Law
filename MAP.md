@@ -120,10 +120,13 @@ Live: https://orbit.jaypengx.com/law/
   `council/town/<tc>/<paperFile>.json`: 決議案 a row each (`resolutions`, drawn by
   `councilBillHtml` as a council's bill), 總質詢 as who said what (`transcript`) and each
   member's questions (`questions`, `townTranscript`; 重點摘要 on a tap: the proxy's `/law-ask`
-  mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 會議紀錄, 致詞 and 施政報告 as text
+  mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 書面質詢 (a day's
+  paper that's forms: `written`, who asked which office what, and the 公所's reply from its 函), 會議紀錄, 致詞 and 施政報告 as text
   (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
+  A sitting typed a year off its session (花蓮's API: 2027 for 2026) is set back into it
+  (`saneSittings`, at build and on the phone's live read).
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
   worker (data: the kept copy first, refreshed behind it).
 

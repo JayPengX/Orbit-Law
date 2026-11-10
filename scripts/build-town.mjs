@@ -10,7 +10,7 @@ import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
-import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText } from '../public/lib/town-site.mjs';
+import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -61,6 +61,8 @@ function readPaper(k, text) {
   if (k === '決議案') return { res: resolutions(text) };
   if (k === '總質詢') {
     const t = transcript(text);
+    // (Some days' papers are 書面質詢: forms with the 公所's written reply.)
+    if (!t.turns.length) return { wq: written(text) };
     return { ...t, asks: questions(t.turns).map(({ w, from, to, gist }) => ({ w, from, to, gist })) };
   }
   return { text: paperText(text) };
@@ -88,7 +90,9 @@ async function townPapers(tc, sessions) {
       for (const f of i.files || []) {
         const was = old[f.url];
         if (was) papers[f.url] = was;
-        if (!was || was.none) jobs.push({ s, i, f, papers, again: !!was });
+        // (A 總質詢 paper read before 書面質詢 were: read again.)
+        const stale = was?.k === '總質詢' && !was.turns?.length && !was.wq;
+        if (!was || was.none || stale) jobs.push({ s, i, f, papers, again: !!was && !stale });
       }
     }
   }
@@ -109,6 +113,7 @@ async function townPapers(tc, sessions) {
     const all = Object.values(papers);
     s.res = all.reduce((n, p) => n + (p.res?.length || 0), 0) || undefined;
     s.asks = all.reduce((n, p) => n + (p.asks?.length || 0), 0) || undefined;
+    s.wq = all.reduce((n, p) => n + (p.wq?.length || 0), 0) || undefined;
     s.read = all.filter(p => !p.none).length || undefined;
     if (all.length) await writeFile(`${dir}${name}.json`, JSON.stringify({ built, tc, n: s.n, papers }));
   }

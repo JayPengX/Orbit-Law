@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf, zhName } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf, zhName, saneSittings } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -205,4 +205,9 @@ test('council: a session’s every bill sits in its own file, its sittings read 
   assert.equal(sessionBillsFile('tpe', 'tpe-14-r8'), 'council/tpe/s/tpe-14-r8.json');
   assert.equal(sessionBillsFile('hsq', 'hsq 20/8'), 'council/hsq/s/hsq_20_8.json');
   assert.match(ccSittings('tpe', 'tpe-14-r8'), /sittings\?.*%E6%9C%83%E6%9C%9F%E4%BB%A3%E7%A2%BC=tpe-14-r8/);
+});
+test('council: a sitting typed a year off its session is set back into it; one far outside is dropped', () => {
+  const sessions = [{ id: 'hua-20-r8', from: '2026-10-05', to: '2026-11-04' }];
+  const got = saneSittings([{ d: '2027-11-05', s: 'hua-20-r8' }, { d: '2026-10-20', s: 'hua-20-r8' }, { d: '2029-03-01', s: 'hua-20-r8' }, { d: '2027-01-01', s: 'x' }], sessions);
+  assert.deepEqual(got.map(y => y.d), ['2026-11-05', '2026-10-20', '2027-01-01']);
 });

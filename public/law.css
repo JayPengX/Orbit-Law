@@ -4949,3 +4949,5 @@ button.lw-meet {
 .lw-turn.lw-flash { margin-inline: -6px; padding-inline: 6px; border-radius: 8px; }
 .lw-turn-ask.lw-flash { margin-left: 0; padding-left: 10px; }
 button.lw-turn-cite { border: 0; cursor: pointer; }
+.lw-wq { display: grid; gap: 12px; margin: 12px 0 4px; }
+.lw-wq .lw-block h4 { margin: 0 0 6px; font: var(--q-t-subhead); font-weight: 600; color: var(--q-label-2); }

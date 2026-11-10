@@ -341,3 +341,49 @@ export function paperText(text) {
   }
   return paras.map(p => cjkTight(p).replace(/^([㐀-鿿])\s+([㐀-鿿])\s*([：:])/, '$1$2$3')).filter(p => CJK.test(p) || p.length > 3).join('\n');
 }
+
+// A 書面質詢 PDF (a 總質詢 day's paper that's a form, not a transcript): each form's member, day, the office asked,
+// what's asked (its 事項 and 說明), and the 公所's written reply (its 函's 說明, else none yet) with the reply's day.
+const items = lines => {
+  const paras = [];
+  for (const t of lines.map(l => l.trim()).filter(Boolean)) {
+    if (!paras.length || /^([一二三四五六七八九十]+、|[（(][一二三四五六七八九十\d]+[)）]|\d+[.、])/.test(t)) paras.push(t);
+    else paras[paras.length - 1] += t;
+  }
+  return paras.map(p => cjkTight(p).replace(/\s*([，。、：；）」])\s*/g, '$1').replace(/\s*([（「])\s*/g, '$1')).join('\n');
+};
+export function written(text) {
+  const out = [];
+  const forms = String(text || '').replace(/\f/g, '\n').split(/\n(?=[^\n]*書面質詢表\s*\n)/);
+  for (const form of forms) {
+    const lines = form.split('\n');
+    if (!/書面質詢表\s*$/.test(lines[0])) continue;
+    const no = (form.match(/書面第\s*(\d+)\s*號/) || [])[1] || '';
+    const at = lines.findIndex(l => /日\s*期/.test(l) && /年/.test(l));
+    if (at < 0) continue;
+    const w = (lines[at].replace(/日\s*期[\s\S]*$/, '').match(/[㐀-鿿]{2,4}/) || [])[0] || '';
+    const d = ymd(lines[at]);
+    const toAt = lines.findIndex((l, i) => i > at && /^\s*對\s*象/.test(l));
+    const to = cjkTight(lines.slice(at + 1, toAt < 0 ? at + 4 : toAt).map(l => l.replace(/^\s*(質\s*詢|代\s*表)\s*/, '').trim()).filter(Boolean).join(''));
+    // The ask: from 對象 to the reply table (or the 公所's 函), the left labels (質詢 事項 說明) taken off.
+    const end = lines.findIndex((l, i) => i > toAt && (/質\s*詢\s*答\s*覆/.test(l) || /公所\s*函/.test(l)));
+    const body = lines.slice(toAt + 1, end < 0 ? lines.length : end).map(l => l.replace(/^(質\s*詢|事\s*項|說\s*明|對\s*象)(?=\s)/, ' '));
+    const gap = body.findIndex((l, i) => i > 0 && !l.trim() && body[i - 1].trim());
+    const ask = items(gap < 0 ? body : body.slice(0, gap));
+    const why = gap < 0 ? '' : items(body.slice(gap));
+    // The reply: the 函's 說明 (its 主旨 when it has none), up to 正本; the margins' dots and 裝訂線 taken off.
+    const fn = lines.findIndex(l => /公所\s*函/.test(l));
+    let reply = '';
+    let rd = '';
+    if (fn >= 0) {
+      const rest = lines.slice(fn).map(l => l.replace(/^\s*[.．]\s?/, '').replace(/^\s*[裝訂線]\s*$/, '').replace(/^[裝訂線](?=\s{2})/, ' '));
+      rd = ymd((rest.find(l => /發文日期/.test(l)) || '').replace(/^.*發文日期/, ''));
+      const s0 = rest.findIndex(l => /^\s*說\s*明\s*[：:]/.test(l));
+      const s1 = rest.findIndex((l, i) => i > s0 && /^\s*(正\s*本|副\s*本)\s*[：:]/.test(l));
+      // (Its first line, 依據 the 代表會's letter, says nothing.)
+      if (s0 >= 0) reply = items(rest.slice(s0 + 1, s1 < 0 ? rest.length : s1).filter(l => !/^\s*第\s*\d+\s*頁/.test(l))).split('\n').filter(p => !/^一、依據.{0,60}函辦理。?$/.test(p)).join('\n');
+    }
+    out.push({ no, w, d, to, ask, why, reply, rd });
+  }
+  return out;
+}

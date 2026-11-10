@@ -41,6 +41,23 @@ export function compactCouncil(o, { day, sessions = [], bills = 0 } = {}) {
 
 // A sitting: its day and time, kind (大會, 委員會, 分組審查…) and what's on.
 // A day the council doesn't sit (例假日, 停會) is left out.
+// A sitting's day a year off its session's (花蓮's API typed 2027-11-05 for a 2026 session's day): set back
+// into its session's year when that lands within it; a day still far outside it is dropped.
+const shiftYear = (d, n) => `${+d.slice(0, 4) + n}${d.slice(4)}`;
+const daysApart = (a, b) => (Date.parse(a) - Date.parse(b)) / 86_400e3;
+export function saneSittings(sits, sessions) {
+  const by = new Map((sessions || []).map(x => [x.id, x]));
+  return sits.flatMap(y => {
+    const x = by.get(y.s);
+    if (!x?.from || !/^\d{4}-\d\d-\d\d$/.test(y.d || '')) return [y];
+    const to = x.to || x.from;
+    const inside = d => daysApart(d, x.from) >= -14 && daysApart(d, to) <= 60;
+    if (inside(y.d)) return [y];
+    for (const n of [-1, 1]) if (inside(shiftYear(y.d, n))) return [{ ...y, d: shiftYear(y.d, n) }];
+    return Math.abs(daysApart(y.d, to)) > 300 ? [] : [y];
+  });
+}
+
 export function compactSitting(s) {
   if (s['場次類別'] === '停會' || /^停會|例假日/.test(String(s['議程說明'] || ''))) return null;
   return {

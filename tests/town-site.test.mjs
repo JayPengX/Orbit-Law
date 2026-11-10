@@ -1,7 +1,7 @@
 // A 代表會's own site (public/lib/town-site.mjs): 竹北's pages, read as its 公所's CMS draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TOWN_SITES, big5q, cnNum, townMembers, townSessions, sessionItems, kindOf, itemName, pageFiles, audioDays, listRows, sessionNews, sessionState, sessionUrl } from '../public/lib/town-site.mjs';
+import { TOWN_SITES, big5q, cnNum, townMembers, townSessions, sessionItems, kindOf, itemName, pageFiles, audioDays, listRows, sessionNews, sessionState, sessionUrl, written } from '../public/lib/town-site.mjs';
 
 const site = TOWN_SITES['10004010'];
 
@@ -138,4 +138,42 @@ test('town site: a 總質詢 transcript by who spoke, its questions by member, a
     { w: '張美珠', from: 6, to: 6, gist: '攤位可以買賣嗎？' }
   ]);
   assert.equal(paperText('第一次會議\n\n時   間：115 年 9 月 23 日上午 10 時\n出   席：林主席啟賢、葉副主席信輝、\n      范格菱\n開 幕 式：\n    一、行禮如儀。\n                1\n'), '第一次會議\n時間：115年9月23日上午10時\n出席：林主席啟賢、葉副主席信輝、范格菱\n開幕式：\n一、行禮如儀。');
+});
+test('town: a 書面質詢 form read into who asked whom what, and the 公所’s written reply', () => {
+  const text = `書面質詢
+編號:書面第 1 號
+        竹北市民代表會第 10 屆代表書面質詢表
+                                   編號:書面第 1 號
+質詢
+       葉信輝            日期    115 年 4 月 28 日
+代表
+
+質詢
+     公用事業課
+對象
+     有關貴所擬追加本年度路燈電費預算 2000 萬元案，請公所統整近
+     6 年內汰換之傳統路燈數。
+質詢 節電與財政效益..等。
+事項
+
+
+
+     本市配合中央政策「水銀路燈落日計畫」
+說明 大幅度提高預算。
+新 竹 縣 竹 北 市 民 代 表 會 質 詢 答 覆
+                       新竹縣竹北市公所 函
+.   發文日期：中華民國115年6月15日
+    說明：
+.    一、依據新竹縣竹北市民代表會115年4月29日竹市代字第
+          1150000276號函辦理。
+.    二、因近年電費逐漸調升，113年、114
+.
+          年編列預算已不足支應。
+線
+    正本：新竹縣竹北市民代表會`;
+  const [q] = written(text);
+  assert.deepEqual([q.no, q.w, q.d, q.to, q.rd], ['1', '葉信輝', '2026-04-28', '公用事業課', '2026-06-15']);
+  assert.match(q.ask, /^有關貴所擬追加本年度路燈電費預算2000萬元案/);
+  assert.match(q.why, /水銀路燈落日計畫/);
+  assert.equal(q.reply, '二、因近年電費逐漸調升，113年、114年編列預算已不足支應。');
 });

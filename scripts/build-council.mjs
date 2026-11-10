@@ -21,7 +21,7 @@ import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
 import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, sittingsFromVideo, KCC_API, KCC_SITE, compactKcc, kccName } from '../public/lib/council-video.mjs';
-import { compactCouncil, compactSitting, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
+import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile } from '../public/lib/council.mjs';
 
 const API = 'https://all.cc.govapi.tw/api/';
 const out = new URL('../public/data/council/', import.meta.url).pathname;
@@ -435,7 +435,8 @@ async function council(o) {
         if (clips) await write(`${code}-clips.json`, clips);
       }
     }
-    const sits = sittings.map(compactSitting).filter(Boolean);
+    const sessionDays = sessions.map(s => ({ id: s['代碼'], from: s['開始日期'], to: s['結束日期'] || '' }));
+    const sits = saneSittings(sittings.map(compactSitting).filter(Boolean), sessionDays).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
     // Sitting days the recordings know and the API doesn't yet (it lags by weeks).
     if (video) sits.unshift(...sittingsFromVideo(sits, video.vids, day).sort((a, b) => (a.d < b.d ? 1 : -1)));
     await write(`${code}.json`, {

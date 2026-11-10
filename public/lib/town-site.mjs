@@ -167,6 +167,7 @@ export function sessionNews(title, posted = '') {
 // A session's place in time on `day`: 開會中, 將開會 or past.
 export const sessionState = (x, day) => (x.from && x.from <= day && day <= (x.ext?.to || x.to) ? 'on' : x.from > day ? 'ahead' : 'past');
 
-// A Google Drive file's own player and page.
+// A Google Drive file itself (a sitting's .m4a: streamed by the phone, ranges and CORS open), its own player and page.
+export const driveFile = id => `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download`;
 export const drivePlayer = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
 export const drivePage = id => `https://drive.google.com/file/d/${encodeURIComponent(id)}/view`;

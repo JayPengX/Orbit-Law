@@ -4927,3 +4927,8 @@ button.lw-meet {
   width: 18px;
   height: 18px;
 }
+.lw-audio {
+  display: block;
+  width: 100%;
+  margin: 4px 0 12px;
+}

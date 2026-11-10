@@ -43,7 +43,7 @@ import { textFile } from './lib/agency.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, sittingsAround, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName } from './lib/council.mjs';
 import { videosOf } from './lib/council-video.mjs';
-import { TOWN_SITES, sessionState, drivePlayer, drivePage } from './lib/town-site.mjs';
+import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile } from './lib/town-site.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -3619,8 +3619,11 @@ async function councilLive(c, out) {
   box.hidden = false;
 }
 // One recording or a live channel, played here: HiNet's HLS in the phone's own player, YouTube's in its frame.
+// The council on screen, kept so a tap opens its video at once: with nothing awaited between the tap and
+// play(), the phone starts it then (a tap's permission to play ends at the first wait).
+let shownCouncil = null;
 async function openCouncilVideo(id, live = -1, given = null) {
-  const c = await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
+  const c = shownCouncil?.video ? shownCouncil : await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
   const ch = live >= 0 ? c?.video?.live?.[live] : null;
   const v = ch ? null : given || c?.video?.vids?.find(x => x.id === id);
   if (!ch && !v) return;
@@ -3628,11 +3631,16 @@ async function openCouncilVideo(id, live = -1, given = null) {
   const site = c.video.site;
   const meta = ch ? `<div class="lw-meta"><span class="lw-live">${W('直播中', 'Live')}</span></div><h2 class="lw-item-name">${esc(ch.n || c.n)}</h2>` : `<h2 class="lw-item-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</h2><p class="lw-clip-meta">${esc([c.n, shortDay(v.d), v.t].filter(Boolean).join(' · '))}</p>${v.what && v.what !== v.n ? `<p class="lw-meet-why">${esc(v.what)}</p>` : ''}`;
   if (v?.yt) body.innerHTML = `<div class="lw-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.yt)}?playsinline=1&rel=0" title="${esc(v.n)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>${meta}`;
-  else body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"${v?.img ? ` poster="${esc(v.img)}"` : ''}></video>${meta}`;
+  else body.innerHTML = `<video class="lw-video" controls playsinline autoplay preload="auto"${v?.img ? ` poster="${esc(v.img)}"` : ''}></video>${meta}`;
   if (site) body.append(h('a', { class: 'q-more q-more-go lw-out', href: site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }));
   sheet({ title: ch ? W('議場直播', 'Live') : W('議會影音', 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   const el = body.querySelector('video');
-  if (el) playHls(el, ch ? ch.url : v.hls).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
+  // Straight from the council's own CDN (never through Orbit's servers); started at once.
+  if (el) {
+    playHls(el, ch ? ch.url : v.hls).then(() => el.paused && el.play?.()?.catch(() => {})).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
+    // Safari's own HLS took the address at once: play inside the tap.
+    if (el.src) el.play?.()?.catch(() => {});
+  }
 }
 // All of a council's newest recordings, in a sheet.
 async function councilVideos() {
@@ -3652,7 +3660,7 @@ async function councilList(out) {
   let idx, c;
   try {
     idx = await councilsData();
-    c = await data(`council/${councilOf(idx.councils).c}.json`);
+    c = shownCouncil = await data(`council/${councilOf(idx.councils).c}.json`);
   } catch {
     return void (out.innerHTML = emptyNote(W('議會資料讀不到，請稍後再試', 'Couldn’t load the councils')));
   }
@@ -3856,7 +3864,7 @@ async function townSheet(t, own) {
   const nowCard = now
     ? `<button type="button" class="lw-row lw-town-now" data-townsess="${sessions.indexOf(now)}"><span class="lw-row-text"><span class="lw-row-name">${sessionState(now, day) === 'on' ? `<span class="lw-live">${W('開會中', 'In session')}</span>` : `<span class="lw-town-soon">${W('下次開會', 'Next')}</span>`} ${esc(now.n)}</span><small>${esc([spanOf(now.from, now.to), now.ext ? W(`延長會 ${spanOf(now.ext.from, now.ext.to)}`, `extended ${spanOf(now.ext.from, now.ext.to)}`) : '', now.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`
     : '';
-  const person = x => `<button type="button" class="lw-person" data-townp="${esc(x.url || '')}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc([x.title !== '代表' ? x.title : '', partyShort(x.party), x.area.replace(/選區$/, W('區', ' district'))].filter(Boolean).join(' · '))}</small></span></button>`;
+  const person = x => `<button type="button" class="lw-person" data-townp="${esc(x.url || '')}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc([partyShort(x.party), x.title !== '代表' ? x.title : x.area.replace(/選區$/, W('區', ' district'))].filter(Boolean).join(' · '))}</small></span></button>`;
   const news = (own.news || []).slice(0, 6);
   const html = `<h2 class="lw-item-name">${esc(name)}</h2><p class="lw-person-line">${esc([W(`${people.length || t.reps.length} 位代表`, `${people.length || t.reps.length} members`), W(`第${own.term}屆`, `term ${own.term}`), ends].filter(Boolean).join(W('，', ', ')))}</p>${nowCard ? `<div class="lw-list in-sheet">${nowCard}</div>` : ''}${
     sessions.length
@@ -3903,8 +3911,14 @@ function townSession(own, s) {
 // A sitting's recording, in Google Drive's own player.
 function townAudio(own, s, d) {
   if (!d) return;
-  const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video lw-drive"><iframe src="${esc(drivePlayer(d.drive))}" title="${esc(`${s.n} ${d.d}`)}" allow="autoplay; encrypted-media"></iframe></div><h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, dayLabel(d.d)].join(' · '))}</p><a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  const body = h('div', { class: 'lw-clip-sheet', html: `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(driveFile(d.drive))}"></audio><h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, dayLabel(d.d)].join(' · '))}</p><a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
   sheet({ title: W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  // The file itself, streamed by the phone (Drive answers ranges, open to any page); started within the tap.
+  // A file Drive won't hand over directly (past its scan size, it answers a page) falls back to Drive's own player.
+  const a = body.querySelector('audio');
+  const viaDrive = () => a.isConnected && a.replaceWith(h('div', { class: 'lw-video lw-drive', html: `<iframe src="${esc(drivePlayer(d.drive))}" title="${esc(`${s.n} ${d.d}`)}" allow="autoplay; encrypted-media"></iframe>` }));
+  a.addEventListener('error', viaDrive, { once: true });
+  a.play?.()?.catch(() => {});
 }
 
 async function start() {

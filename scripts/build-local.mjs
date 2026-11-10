@@ -11,6 +11,8 @@ import { nameMap } from '../public/lib/refs.mjs';
 import { rule, textFile, linkRules, vendorLeaves, vendorList, staleFirst, listedRows } from '../public/lib/agency.mjs';
 import { NTPC_KINDS, localKeep, localWant, needsRead, platformText, tpeList, tpeText, ntpcList, ntpcText, ntpcCode } from '../public/lib/local.mjs';
 import { args, prevJson, getter, pool } from './lib.mjs';
+import { localKindOf, ruleP } from '../public/lib/kinds.mjs';
+import { ruleChange, mergeRuleChanges } from '../public/lib/rule-doc.mjs';
 
 const data = new URL('../public/data/', import.meta.url).pathname;
 const out = data + 'local/';
@@ -138,6 +140,12 @@ const OLD = id => prevJson(`local/text/${textFile(id)}.json`);
 // The rules the last deploy kept a text of (names.json's flag): a read stamp lost from state.json
 // is taken back from it, so a kept text is never read again for nothing.
 const hadText = new Set(((await prevJson('local/names.json')) || []).filter(r => r?.[4]).map(r => r[0]));
+// Each rule's kind (自治條例, 自治規則, 委辦規則, 行政規則: its site's list says, else its name),
+// and what its newest version changed (its text file's `x`, 修了什麼), carried while it holds.
+const kindOf = new Map((prev?.rules || []).map(r => [r[0], localKindOf(r[1], r[6])]));
+const lastX = new Map();
+const found = [];
+const prevChanges = (await prevJson('local/changes.json')) || { items: [] };
 
 async function site(s) {
   const st = (stats[s.city] = { parts: 0, listedNow: 0, listed: 0, rules: 0, fetched: 0, cached: 0, deferred: 0 });
@@ -176,7 +184,11 @@ async function site(s) {
   st.listed = items.size;
   if (!items.size) {
     // Nothing listed: keep its old rules, with their old text.
-    await pool((prev?.rules || []).filter(r => r[0].startsWith(s.code + ':')), 8, async r => raw.push(rule(r[0], r[1], r[2], r[3], r[4], (await OLD(r[0]))?.t || '')));
+    await pool((prev?.rules || []).filter(r => r[0].startsWith(s.code + ':')), 8, async r => {
+      const old = await OLD(r[0]);
+      if (old?.x) lastX.set(r[0], old.x);
+      raw.push(rule(r[0], r[1], r[2], r[3], r[4], old?.t || ''));
+    });
     return;
   }
   const want = localWant(items);
@@ -185,8 +197,10 @@ async function site(s) {
   const todo = [];
   await pool(want, 8, async r => {
     const id = `${s.code}:${r.id}`;
+    kindOf.set(id, localKindOf(r.name, r.type));
     if (read[id] === undefined && hadText.has(id)) read[id] = r.date || TODAY;
     const old = read[id] === undefined ? null : await OLD(id);
+    if (old?.x) lastX.set(id, old.x);
     const row = (text, date) => rule(id, r.name, s.city, date || r.date, s.url(r.id), text);
     if (read[id] !== undefined && !needsRead(r, { stamp: read[id] }, TODAY)) (st.cached++, raw.push(row(old?.t || '', old?.d)));
     else todo.push({ r, id, old, row });
@@ -206,6 +220,12 @@ async function site(s) {
       bad = 0;
       read[id] = r.date || TODAY;
       st.fetched++;
+      // A new version: what it changed, part by part (a rule never seen before has nothing to compare).
+      const x = ruleChange(old, { n: r.name, d: got.date || r.date || TODAY, t: got.text }, ruleP('local', id));
+      if (x) {
+        lastX.set(id, x);
+        found.push({ p: ruleP('local', id), n: r.name, c: s.city, k: kindOf.get(id), m: x.m, was: x.was, added: x.added, amended: x.amended, removed: x.removed });
+      }
       raw.push(row(got.text, got.date || r.date));
     } catch {
       bad++;
@@ -218,8 +238,11 @@ console.log(`local sites (budget ${Math.round((DEADLINE - START) / 60000)} min)`
 await Promise.all(SITES.map(async s => { try { await site(s); } catch (e) { console.warn(`${s.city}: ${e.message}`); } }));
 for (const c of Object.keys(stats)) console.log(c, JSON.stringify(stats[c]));
 
-// [id, name, city, date, url, laws]: a rule's laws are those its text names or rests on, and the one its name speaks of.
-const rules = linkRules(raw, index.laws, names).map(r => [r[0], r[1], r[2], r[3], r[4], r[6]]);
+// [id, name, city, date, url, laws, kind]: a rule's laws are those its text names or rests on, and the one its name speaks of.
+// (The kind last: the proxy's /law-chat reads the first six by place.)
+const linked = linkRules(raw, index.laws, names);
+const basisOf = new Map(linked.map(r => [r[0], r[5]]));
+const rules = linked.map(r => [r[0], r[1], r[2], r[3], r[4], r[6], kindOf.get(r[0]) || localKindOf(r[1])]);
 const full = new Map(raw.filter(r => r.full.trim()).map(r => [r.id, r]));
 const kept = new Set(rules.map(r => r[0]));
 for (const id of Object.keys(read)) if (!kept.has(id)) delete read[id];
@@ -230,7 +253,9 @@ let size = 0;
 for (const r of rules) {
   const f = full.get(r[0]);
   if (!f) continue;
-  const body = JSON.stringify({ n: f.name, a: f.agency, d: f.date, url: f.url, t: f.full });
+  // k: its kind; L: the laws it rests on or names; B: the articles it says it is made under ('pcode:key');
+  // x: what its newest version changed.
+  const body = JSON.stringify({ n: f.name, a: f.agency, d: f.date, url: f.url, t: f.full, k: r[6], L: r[5], B: basisOf.get(r[0]) || [], ...(lastX.has(r[0]) ? { x: lastX.get(r[0]) } : {}) });
   size += body.length;
   await writeFile(`${out}text/${textFile(r[0])}.json`, body);
 }
@@ -239,6 +264,30 @@ console.log(`texts kept: ${withText.size}, ${(size / 1e6).toFixed(1)} MB`);
 await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources: stats, rules }));
 await writeFile(out + 'state.json', JSON.stringify({ listing, read }));
 await writeFile(out + 'names.json', JSON.stringify(rules.map(r => (withText.has(r[0]) ? [r[0], r[1], r[2], r[4], 1] : [r[0], r[1], r[2], r[4]]))));
+// What 法規's 地方法規 browses: each city's rules in one file (local/c/<code>.json: [site id, name,
+// kind, date, 1 when its text is here, else 0 and its page]), the cities with their counts by kind (local/cities.json), the
+// rules resting on each law (local/law/<pcode>.json: [id, name, city, kind]; local/laws.json: counts),
+// and 修法追蹤 (local/changes.json).
+const cities = {};
+const byLaw = {};
+await mkdir(out + 'c', { recursive: true });
+await mkdir(out + 'law', { recursive: true });
+for (const r of rules) {
+  const code = r[0].slice(0, r[0].indexOf(':'));
+  const c = (cities[code] ||= { city: r[2], n: 0, kinds: {}, rows: [] });
+  c.n++;
+  c.kinds[r[6]] = (c.kinds[r[6]] || 0) + 1;
+  c.rows.push(withText.has(r[0]) ? [r[0].slice(code.length + 1), r[1], r[6], r[3], 1] : [r[0].slice(code.length + 1), r[1], r[6], r[3], 0, r[4]]);
+  for (const p of r[5]) (byLaw[p] ||= []).push([r[0], r[1], r[2], r[6]]);
+}
+for (const [code, c] of Object.entries(cities)) await writeFile(`${out}c/${code}.json`, JSON.stringify(c.rows));
+await writeFile(out + 'cities.json', JSON.stringify({ built: new Date().toISOString(), cities: Object.fromEntries(Object.entries(cities).map(([code, c]) => [code, { city: c.city, n: c.n, kinds: c.kinds, error: stats[c.city]?.error || '' }])) }));
+for (const [p, l] of Object.entries(byLaw)) await writeFile(`${out}law/${p}.json`, JSON.stringify(l));
+await writeFile(out + 'laws.json', JSON.stringify(Object.fromEntries(Object.entries(byLaw).map(([p, l]) => [p, l.length]))));
+const changes = mergeRuleChanges(prevChanges, found, TODAY);
+changes.items = changes.items.filter(it => kept.has(it.p.slice('local:'.length)));
+await writeFile(out + 'changes.json', JSON.stringify(changes));
+console.log(`修法追蹤: ${found.length} new, ${changes.items.length} kept`);
 const byCity = {};
 for (const r of rules) byCity[r[2]] = (byCity[r[2]] || 0) + 1;
 console.log(`rules ${rules.length} (${JSON.stringify(byCity)}), linked to a law: ${rules.filter(r => r[5].length).length}`);

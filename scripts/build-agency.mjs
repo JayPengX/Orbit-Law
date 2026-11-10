@@ -13,6 +13,8 @@ import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { textFile, parseFsc, parseMnd, parseNdc, parseHakka, parseMoa, nameLaws, linkRules, byLaw, vendorLeaves, vendorList, vendorText, vendorRule, vendorWant, staleFirst, listedRows, listedKeep } from '../public/lib/agency.mjs';
 import { args, prevJson, getter, pool } from './lib.mjs';
+import { ruleP } from '../public/lib/kinds.mjs';
+import { ruleChange, mergeRuleChanges } from '../public/lib/rule-doc.mjs';
 
 const data = new URL('../public/data/', import.meta.url).pathname;
 const out = data + 'agency/';
@@ -58,6 +60,21 @@ const vstats = {};
 const vraw = [];
 const vcarried = [];
 const prevRows = new Map((prev?.rules || []).map(r => [r[0], r]));
+// What each rule's newest version changed (its text file's `x`, 修了什麼): found when a page is read
+// again with a new date, carried from the last deploy's text while it holds; 修法追蹤 in changes.json.
+const TODAY = new Date(START + 8 * 3600_000).toISOString().slice(0, 10);
+const prevChanges = (await prevJson('agency/changes.json')) || { items: [] };
+const changedBefore = new Set(prevChanges.items.map(it => it.p));
+const lastX = new Map();
+const oldOf = new Map();
+const found = [];
+const noteChange = (id, name, agency, old, now) => {
+  const x = ruleChange(old, now, ruleP('agency', id));
+  if (x) {
+    lastX.set(id, x);
+    found.push({ p: ruleP('agency', id), n: name, c: agency, k: '行政規則', m: x.m, was: x.was, added: x.added, amended: x.amended, removed: x.removed });
+  } else if (old?.x) lastX.set(id, old.x);
+};
 const tooLate = () => Date.now() > DEADLINE;
 const LIST_UNTIL = START + (DEADLINE - START) * 0.5; // the rest of the time goes to reading pages
 
@@ -116,8 +133,9 @@ async function vendor(agency, base, code) {
   await pool(want, 8, async r => {
     const key = `${code}:${r.id}`;
     const old = empty[key] === r.date ? { t: '' } : await prevJson(`agency/text/${textFile(key)}.json`);
+    if (old?.x) lastX.set(key, old.x);
     if (old && (!old.t || old.d === r.date)) (st.cached++, vraw.push(vendorRule(code, agency, base, r.id, r.name, r.date, old.t)));
-    else todo.push(r);
+    else (oldOf.set(key, old), todo.push(r));
   });
   // Names that already speak of a law need no page to be kept: read the others first.
   const linked = r => nameLaws(index.laws, r.name).length > 0;
@@ -130,6 +148,7 @@ async function vendor(agency, base, code) {
       try {
         text = vendorText(await get(`${base}/LawContent.aspx?id=${r.id}`, { tries: 2, timeout: 30_000 }));
         bad = 0;
+        noteChange(`${code}:${r.id}`, r.name, agency, oldOf.get(`${code}:${r.id}`), { n: r.name, d: r.date, t: text });
         if (text.replace(/\s/g, '')) st.fetched++;
         else empty[`${code}:${r.id}`] = r.date;
       } catch {
@@ -188,9 +207,19 @@ for (const r of rules) { keep.add(r[0]); keepName.add(`${r[2]}|${r[1]}`); }
 const full = new Map([...raw.filter(r => /^(MND|FSC):/.test(r.id) && r.full.replace(/\s/g, '').length >= 80), ...vraw.filter(r => r.full.trim())].filter(r => keep.has(r.id)).map(r => [r.id, r]));
 const { files, counts } = byLaw(rules, new Set(full.keys()));
 
+// The open data's rules (金管會, 國防部) come whole every night: one whose date moved (or that changed
+// lately) is held against the last deploy's text.
+const rowOf = new Map(rules.map(r => [r[0], r]));
+await pool([...full.values()].filter(r => /^(MND|FSC):/.test(r.id) && prevRows.has(r.id) && (prevRows.get(r.id)[3] !== r.date || changedBefore.has(ruleP('agency', r.id)))), 8, async r => {
+  const old = await prevJson(`agency/text/${textFile(r.id)}.json`);
+  if (old && old.d !== r.date) noteChange(r.id, r.name, r.agency, old, { n: r.name, d: r.date, t: r.full });
+  else if (old?.x) lastX.set(r.id, old.x);
+});
+
 await rm(out, { recursive: true, force: true });
 await mkdir(out + 'text', { recursive: true });
-for (const [id, r] of full) await writeFile(`${out}text/${textFile(id)}.json`, JSON.stringify({ n: r.name, a: r.agency, d: r.date, url: r.url, t: r.full }));
+// L: the laws it rests on or names; B: the articles it is made under ('pcode:key'); x: what its newest version changed.
+for (const [id, r] of full) await writeFile(`${out}text/${textFile(id)}.json`, JSON.stringify({ n: r.name, a: r.agency, d: r.date, url: r.url, t: r.full, k: '行政規則', L: rowOf.get(id)?.[6] || [], B: rowOf.get(id)?.[5] || [], ...(lastX.has(id) ? { x: lastX.get(id) } : {}) }));
 console.log(`texts kept: ${full.size}`);
 await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources, vendor: vstats, rules }));
 // The next build's memory of the rule sites, and the app's search list: [id, name, agency, url, 1 when its text is here].
@@ -198,6 +227,20 @@ await writeFile(out + 'state.json', JSON.stringify({ listing, empty }));
 await writeFile(out + 'names.json', JSON.stringify(rules.map(r => (full.has(r[0]) ? [r[0], r[1], r[2], r[4], 1] : [r[0], r[1], r[2], r[4]]))));
 for (const [p, f] of Object.entries(files)) await writeFile(`${out}${p}.json`, JSON.stringify(f));
 await writeFile(out + 'counts.json', JSON.stringify(counts));
+// What 法規's 行政規則 browses: each agency's rules in one file (agency/g/<code>.json: [id, name, date,
+// 1 when its text is here, else 0 and its page]), the agencies with their counts (agency/agencies.json), and 修法追蹤.
+const groups = {};
+for (const r of rules) {
+  const g = (groups[r[2]] ||= { code: r[0].slice(0, r[0].indexOf(':')), rows: [] });
+  g.rows.push(full.has(r[0]) ? [r[0], r[1], r[3], 1] : [r[0], r[1], r[3], 0, r[4]]);
+}
+await mkdir(out + 'g', { recursive: true });
+for (const g of Object.values(groups)) await writeFile(`${out}g/${g.code}.json`, JSON.stringify(g.rows));
+await writeFile(out + 'agencies.json', JSON.stringify({ built: new Date().toISOString(), agencies: Object.entries(groups).map(([name, g]) => ({ name, code: g.code, n: g.rows.length, text: g.rows.filter(x => x[3]).length })).sort((a, b) => b.n - a.n) }));
+const changes = mergeRuleChanges(prevChanges, found, TODAY);
+changes.items = changes.items.filter(it => rowOf.has(it.p.slice('agency:'.length)));
+await writeFile(out + 'changes.json', JSON.stringify(changes));
+console.log(`修法追蹤: ${found.length} new, ${changes.items.length} kept`);
 
 // Report: how many rules link by article or by name; how many delegating
 // articles with no regulation linked now gain a rule.

@@ -4,7 +4,9 @@
 
 const KEY = 'orbit-law.mine.v1';
 // cc: the councillors and 代表 followed, as `<council or town code>:<name>` (a council's people have no lasting id).
-const empty = () => ({ laws: {}, items: {}, people: {}, cc: {}, marks: [], recent: [], seenChanges: '' });
+// rules: a rule's name, whose it is and its kind, by its id (local:… / agency:…), for the rules
+// followed, bookmarked or read (they have no index loaded at start, as the laws do).
+const empty = () => ({ laws: {}, items: {}, people: {}, cc: {}, rules: {}, marks: [], recent: [], seenChanges: '' });
 
 export function loadMine(store = globalThis.localStorage) {
   try {
@@ -96,12 +98,17 @@ export function saveTold(keys, store = globalThis.localStorage) {
 // bookmarks and the recent laws, so another phone signed in has them too.
 // The newer copy (by `t`, the last save) decides what's in or out; the
 // days last looked at are the later of the two for what both follow.
-export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, people: m.people || {}, cc: m.cc || {}, marks: m.marks, recent: m.recent });
+export const encodeMine = m => JSON.stringify({ v: 1, t: m.t || 0, laws: m.laws, items: m.items, people: m.people || {}, cc: m.cc || {}, rules: keptRules(m), marks: m.marks, recent: m.recent });
+// Only the rules something still points at (followed, bookmarked, read lately).
+export function keptRules(m) {
+  const want = new Set([...Object.keys(m.laws || {}), ...(m.marks || []).map(x => x.p), ...(m.recent || [])]);
+  return Object.fromEntries(Object.entries(m.rules || {}).filter(([p, r]) => want.has(p) && Array.isArray(r)));
+}
 export function decodeMine(payload) {
   try {
     const v = JSON.parse(payload);
     if (v?.v !== 1 || typeof v.laws !== 'object' || typeof v.items !== 'object' || !Array.isArray(v.marks) || !Array.isArray(v.recent)) return null;
-    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, people: v.people && typeof v.people === 'object' ? v.people : {}, cc: v.cc && typeof v.cc === 'object' ? v.cc : {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
+    return { t: Number(v.t) || 0, laws: v.laws || {}, items: v.items || {}, people: v.people && typeof v.people === 'object' ? v.people : {}, cc: v.cc && typeof v.cc === 'object' ? v.cc : {}, rules: v.rules && typeof v.rules === 'object' ? v.rules : {}, marks: v.marks.filter(x => x && typeof x.p === 'string' && typeof x.k === 'string'), recent: v.recent.filter(x => typeof x === 'string') };
   } catch {
     return null;
   }
@@ -116,6 +123,7 @@ export function mergeMine(ours, theirs) {
     items: later(base.items, other.items),
     people: later(base.people || {}, other.people || {}),
     cc: later(base.cc || {}, other.cc || {}),
+    rules: { ...(other.rules || {}), ...(base.rules || {}) },
     marks: base.marks,
     recent: [...new Set([...base.recent, ...other.recent])].slice(0, 12)
   };

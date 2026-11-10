@@ -4964,3 +4964,57 @@ button.lw-cc-name { display: flex; align-items: center; gap: 4px; width: 100%; p
 button.lw-cc-name svg { width: 8px; height: 13px; opacity: 0.5; }
 /* A followed councillor's card head opens their sheet (a button, where a legislator's is a link). */
 button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0; background: none; font: inherit; text-align: start; cursor: pointer; }
+
+/* ---- 種類: one kind of text browsed whole (app.mjs drawKind), and a rule in the reader ---- */
+.lw-kind-lede {
+  margin: -4px 0 12px;
+  color: var(--q-label-2);
+  font: var(--q-t-subhead);
+}
+.lw-kind-groups,
+.lw-kind-subs {
+  margin-top: 10px;
+}
+.lw-kind-groups .q-chip small,
+.lw-kind-subs .q-chip small {
+  margin-left: 2px;
+  color: var(--q-label-3);
+  font: var(--q-t-caption);
+  font-variant-numeric: tabular-nums;
+}
+.lw-kind-more {
+  margin-top: 8px;
+}
+.lw-list-sub {
+  margin: 0;
+  padding: 10px 16px 2px;
+  color: var(--q-label-3);
+  font: var(--q-t-footnote);
+}
+/* A rule's text with no 條 or 點 to hang it by: its structure, at the article's measure. */
+.lw-art-text .lw-prose {
+  margin: 0;
+}
+.lw-only {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: var(--q-r-card);
+  background: var(--q-surface);
+}
+.lw-only p {
+  margin: 0 0 8px;
+  color: var(--q-label-2);
+}
+.lw-rule-foot {
+  margin-top: 24px;
+}
+/* The four kinds: two by two on a phone, four across with room. */
+.lw-topics.lw-kinds > :nth-child(n) {
+  grid-column: span 3;
+}
+:root.q-wide .lw-topics.lw-kinds {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+:root.q-wide .lw-topics.lw-kinds > :nth-child(n) {
+  grid-column: span 1;
+}

@@ -370,6 +370,28 @@ Live: https://orbit.jaypengx.com/law/
   copy; `local/all.json`'s `sources` says each one's count and error (the
   cloud box reached 臺北, 新北, 高雄, 臺中, 新竹市, 金門, 苗栗, 彰化, 連江,
   嘉義市; the rest are tried from the deploy's runner).
+- **Every kind of text, one home** (Jay 2026-11-10: 命令 and 地方法規 weren't treated as laws;
+  `lib/kinds.mjs`, `lib/rule-doc.mjs`): one table (`KINDS`) names each kind (憲法, 法律, 命令,
+  行政規則, 地方法規 with its four: 自治條例, 自治規則, 委辦規則, 行政規則), its data, its id and its
+  part (條 or 點); a new kind is one entry and its builder. A rule kept from a ministry's or a
+  city's site has a Law id (`agency:<id>`, `local:<id>`, `#law=local:TPE:FL002177`) and opens in
+  the one reader as a law does: `ruleDoc` reads its text into 條 (on lines of their own, run
+  together, fixed width) or a 要點's 點, 第X章 as headings, the site's repeated name dropped, the
+  rest one formatted block ('T'; a text only pointing at its attachment says so). So a rule has
+  its 目錄, numbers, links, 找字, ☆ (`mine.rules` keeps its name for 我的 and the Pass), 繼續閱讀,
+  bookmarks, 修了什麼 (its text file's `x`: each re-read version diffed part by part at build,
+  `ruleChange`; `<dir>/changes.json` 修法追蹤 120 days), 依據 (the build's `B`, else read off its
+  first lines on the phone, `deleg.mjs basisOf`), 同法規定 (the other rules on that law), and
+  its source a tap below. A law lists the cities' rules resting on it in its 子法 sheet
+  (`local/law/<pcode>.json`, `local/laws.json`), the reader's cities first. AI 白話解釋 stays
+  MOJ's (the proxy reads `law/<pcode>.json`).
+  **法規種類** (法規's first section, `#tab=laws&kind=law|order|agency|local&g=…&sub=…`,
+  `drawKind`): each kind browsed whole, newest first, filtered by name as typed, 最近修正 on top:
+  法律 and 命令 by topic; 行政規則 by ministry (`agency/agencies.json`, `agency/g/<code>.json`);
+  地方法規 by city, the reader's first (`local/cities.json`, `local/c/<code>.json`), and its
+  four kinds. Every search row of a rule kept here opens the reader, not the site.
+- **Swipe back** (Jay 2026-11-10): a swipe in from the left edge goes back wherever the page has
+  a way back (a law, a kind, a topic): the kit's `edgeBack`; sheets swipe down (the kit's).
 - **Plain text read as its structure** (`view.mjs` textBlocks/proseHtml; Jay
   2026-10-31): every text the sources hand us as a blob (rules, a ruling's
   主文 and 理由, a judgment's points, a bill's 案由/說明/立法說明, a draft's

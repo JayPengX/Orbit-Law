@@ -9,7 +9,7 @@ import { noticeBefore } from './notices.mjs';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-export const artLabel = (k, en = false) => (en ? `Article ${k}` : `第 ${k} 條`);
+export const artLabel = (k, en = false, unit = '條') => (en ? `${unit === '點' ? 'Point' : 'Article'} ${k}` : `第 ${k} ${unit === '點' ? '點' : '條'}`);
 
 // One article: its 項 as paragraphs (款 lines inside), every reference a
 // link carrying where it goes. `ctx`: { names, keys, p (this law), en, marked,
@@ -32,7 +32,7 @@ export function articleHtml([, k, text], ctx = {}) {
     })
     .join('');
   const fresh = (ctx.fresh ? `<span class="lw-fresh">${esc(ctx.fresh)}</span>` : '') + (ctx.pending ? `<button type="button" class="lw-pending" data-item="${esc(ctx.pendingItem || '')}">${esc(ctx.pending)}</button>` : '');
-  return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(k, ctx.en))}</button>${fresh}${body}</article>`;
+  return `<article class="lw-art${deleted ? ' gone' : ''}${ctx.marked ? ' marked' : ''}" id="a-${esc(k)}" data-k="${esc(k)}"><button class="lw-no" type="button" data-art="${esc(k)}">${esc(artLabel(String(k).replace(/'+$/, ''), ctx.en, ctx.u))}</button>${fresh}${body}</article>`;
 }
 
 // A plain run: text, with any 大法官解釋 or 憲法法庭判決 a link to it in 裁判.
@@ -220,7 +220,8 @@ export function lawHtml(law, ctx = {}) {
   const pending = ctx.pending || {};
   let h = 0;
   return law.a
-    .map(a => (a[0] === 'C' ? `<h2 class="lw-h d${headingDepth(a[2])}" id="h-${h++}">${esc(a[2])}</h2>` : articleHtml(a, { ...ctx, keys, p: law.p, marked: marks.has(a[1]), fresh: fresh[a[1]] || '', pending: pending[a[1]] || '' })))
+    // ('T': a rule's text with no 條 or 點 to hang it by, drawn as its structure; a rule's 點 are labelled so.)
+    .map(a => (a[0] === 'C' ? `<h2 class="lw-h d${headingDepth(a[2])}" id="h-${h++}">${esc(a[2])}</h2>` : a[0] === 'T' ? `<div class="lw-art lw-art-text">${proseHtml(a[2], ctx.names)}</div>` : articleHtml(a, { ...ctx, u: law.u, keys, p: law.p, marked: marks.has(a[1]), fresh: fresh[a[1]] || '', pending: pending[a[1]] || '' })))
     .join('');
 }
 

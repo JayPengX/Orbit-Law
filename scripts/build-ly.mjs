@@ -10,7 +10,8 @@ import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { hash } from '../public/lib/bills.mjs';
 import { compactMeet, twNow } from '../public/lib/agenda.mjs';
-import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups } from '../public/lib/ly.mjs';
+import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups, recordPdf, recordVotes } from '../public/lib/ly.mjs';
+import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
 
 const API = 'https://v2.ly.govapi.tw/';
@@ -122,6 +123,53 @@ const voteData = votes ? await step('votes build', () => {
   }).sort(byNewest);
   return { term, built, names: who, votes: rows, agendas: used };
 }) : null;
+
+// 記名表決 ahead of the 公報: a sitting the 公報 hasn't printed yet (none of its votes
+// came back) whose 議事錄 is out on ppg.ly.gov.tw (about a week after) gives its
+// votes by name now (`recs`: the sitting → its PDF; the app says where they're from).
+// The 公報's own take their place once it prints them.
+if (voteData && meets) await step('votes from 議事錄', async () => {
+  try {
+    execFileSync('pdftotext', ['-v'], { stdio: 'ignore' });
+  } catch {
+    return void notes.push('no pdftotext: votes wait for the 公報');
+  }
+  const printed = new Set(votes.map(v => v['會議代碼']));
+  const newest = voteData.votes[0]?.[1] || '';
+  const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  const idx = new Map(voteData.names.map((n, i) => [nameKey(n), i]));
+  const roster = voteData.names;
+  voteData.recs = {};
+  for (const m of meets) {
+    const [, n0, s0, k0] = String(m['會議代碼'] || '').match(/^院會-(\d+)-(\d+)-(\d+)$/) || [];
+    const days = [].concat(m['日期'] || []).sort();
+    if (!k0 || printed.has(m['會議代碼']) || !days[0] || days[0] < newest || days[0] > today) continue;
+    const url = recordPdf(n0, s0, k0);
+    const r = await fetch(url, { signal: AbortSignal.timeout(60_000), headers: { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)' }, redirect: 'manual' }).catch(() => null);
+    if (!r?.ok || !/pdf/i.test(r.headers.get('content-type') || '')) continue;
+    const file = `/tmp/ly-rec-${n0}-${s0}-${k0}.pdf`;
+    await writeFile(file, Buffer.from(await r.arrayBuffer()));
+    let text = '';
+    try {
+      text = execFileSync('pdftotext', ['-layout', file, '-'], { maxBuffer: 64 << 20 }).toString();
+    } catch {
+      continue;
+    }
+    const found = recordVotes(text, roster);
+    for (const v of found) {
+      const at = names => names.map(x => idx.get(nameKey(x))).filter(i => i >= 0);
+      const ok = v.yes.length === v.count[1] && v.no.length === v.count[2] && v.abstain.length === v.count[3];
+      if (!ok) notes.push(`議事錄 ${m['會議代碼']} (${v.k}): names ${v.yes.length}/${v.no.length}/${v.abstain.length}, counts ${v.count.slice(1).join('/')}`);
+      // Its own id stands for its agenda item, so the list draws each vote apart.
+      const id = `rec-${n0}-${s0}-${k0}-${v.k}`;
+      voteData.votes.push([id, days[0], v.title, id, at(v.yes), at(v.no), at(v.abstain), lawsIn(v.title, names)]);
+    }
+    if (found.length) voteData.recs[`rec-${n0}-${s0}-${k0}`] = url;
+    await sleep(1500);
+  }
+  voteData.votes.sort(byNewest);
+  return [1];
+});
 
 // ---- People ----
 const people = roster ? await step('people build', async () => {

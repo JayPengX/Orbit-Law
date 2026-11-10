@@ -230,6 +230,13 @@ Live: https://orbit.jaypengx.com/law/
   came since the tab was last open (`orbit-law.told.v1`, this device); opening
   the tab clears it. A bill's 最新進度日期 still to come (a meeting set for
   next week) is no move until that day. Never the laws only looked at.
+- **Votes a week after the sitting** (Jay 2026-11-10): the 公報 prints 記名表決
+  two to three weeks late, but each 院會's 議事錄 PDF on ppg.ly.gov.tw
+  (`recordPdf`) lists 本次會議各項記名表決結果名單 about a week after. `build-ly.mjs`
+  reads it with pdftotext for each sitting since the newest 公報 vote that the 公報
+  hasn't printed (`recordVotes`, names against the roster, NFKC; counts checked),
+  ids `rec-<term>-<session>-<n>-<k>`, `recs` → the PDF; the sheet says so and
+  links it. The 公報's own replace them once printed.
 - **立委 by side** (Jay 2026-10-31): an independent's votes are set against the
   caucus they sit in (陳超明, 高金素梅 in the 國民黨團), else the party they side
   with most, never 無黨籍; the list is by 縣市 (north to south, 原住民, 不分區)

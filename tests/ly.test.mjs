@@ -137,3 +137,26 @@ test('a budget whose report the floor sent to party talks stands at 黨團協商
   assert.equal(p.stage, '三讀');
   assert.ok(!p.flow.some(f => f[0] === '2025-01-16'));
 });
+
+test('ly: votes by name from a sitting’s 議事錄, before the 公報', async () => {
+  const { recordVotes, recordPdf } = await import('../public/lib/ly.mjs');
+  const text = `本次會議各項記名表決結果名單：
+     (1)「討論事項第一案第一百八十五條之三照台灣民眾黨黨團及國民黨
+      黨團共同所提再修正動議條文予以通過」部分：
+      出席人數：4      贊成人數：3       反對人數：1      棄權人數：0
+      贊成者：3 人
+          傅崐萁         黃   仁    鄭天財 Sra Kacaw
+                            41
+           立法院第 11 屆第 6 會期第 5 次會議議事錄
+ 反對者：1 ⼈
+    莊瑞雄
+ 棄權者：0 人
+`;
+  const [v] = recordVotes(text, ['傅崐萁', '黃仁', '鄭天財Sra Kacaw', '莊瑞雄']);
+  assert.equal(v.k, 1);
+  assert.match(v.title, /^討論事項第一案/);
+  assert.deepEqual(v.count, [4, 3, 1, 0]);
+  assert.deepEqual(v.yes, ['傅崐萁', '黃仁', '鄭天財Sra Kacaw']);
+  assert.deepEqual(v.no, ['莊瑞雄']);
+  assert.equal(recordPdf(11, 6, 5), 'https://ppg.ly.gov.tw/ppg/SittingYuanInfo/download/agendarec1/02/pdf/11/06/05LCEWC03_110605.pdf');
+});

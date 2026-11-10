@@ -90,7 +90,7 @@ jobs:
         continue-on-error: true
       # 立法院: votes by name, each legislator's record and clips, budget bills.
       - name: Build the 立法院 votes, legislators and budgets
-        run: node scripts/build-ly.mjs
+        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-ly.mjs
         continue-on-error: true
       # 地方議會: the 22 縣市議會 (sittings, bills, councillors) and the 鄉鎮市民代表 (all.cc.govapi.tw).
       - name: Build the local councils

@@ -412,3 +412,59 @@ export function alignment(data, x, mine, blocOf) {
 }
 // A share as the page shows it: 100 only when every vote agreed, else one decimal, rounded down.
 export const pctText = s => (s.pct >= 1 ? '100' : String(Math.floor(s.pct * 1000) / 10));
+
+// 記名表決 a week after the sitting: each 院會's 議事錄 on 立法院's 議事暨公報資訊網
+// (ppg.ly.gov.tw) ends with 本次會議各項記名表決結果名單, the names of who voted how,
+// two to three weeks before the 公報 prints the same votes. Its PDF's address, by
+// term, session and sitting (a 臨時會's is another: none).
+export const recordPdf = (term, session, n) => {
+  const p = x => String(x).padStart(2, '0');
+  return `https://ppg.ly.gov.tw/ppg/SittingYuanInfo/download/agendarec1/02/pdf/${term}/${p(session)}/${p(n)}LCEWC03_${term}${p(session)}${p(n)}.pdf`;
+};
+
+// The 議事錄's text (pdftotext -layout) → [{ k, title, count: [出席, 贊成, 反對, 棄權], yes, no, abstain }],
+// names read against the roster (a name's spaces and marks don't count: 黃   仁, 鄭天財 Sra Kacaw).
+export function recordVotes(text, roster = []) {
+  // (NFKC: pdftotext writes some characters as their Kangxi radicals, ⼈ for 人.)
+  const s = String(text || '').normalize('NFKC');
+  const at = s.indexOf('本次會議各項記名表決結果名單');
+  if (at < 0) return [];
+  const key = n => String(n || '').normalize('NFKC').replace(/[^\p{L}]/gu, '');
+  const known = [...new Set(roster.map(n => String(n).trim()).filter(Boolean))].sort((a, b) => key(b).length - key(a).length);
+  const body = s
+    .slice(at)
+    .split('\n')
+    .filter(l => !/^\s*\d{1,4}\s*$/.test(l) && !/立法院第\s*\d+\s*屆第\s*\d+\s*會期.*議事錄/.test(l))
+    .join('\n');
+  const names = part => {
+    const flat = key(part);
+    const out = [];
+    for (let i = 0; i < flat.length; ) {
+      const hit = known.find(n => key(n) && flat.startsWith(key(n), i));
+      if (hit) (out.push(hit), (i += key(hit).length));
+      else i++;
+    }
+    return out;
+  };
+  const heads = [...body.matchAll(/\((\d+)\)\s*「([\s\S]+?)」\s*部分\s*[：:]/g)];
+  return heads.map((m, i) => {
+    const seg = body.slice(m.index + m[0].length, heads[i + 1]?.index ?? body.length);
+    const num = re => Number(seg.match(re)?.[1] ?? NaN);
+    const cut = (from, to) => {
+      const a = seg.search(from);
+      if (a < 0) return '';
+      const rest = seg.slice(a).replace(from, '');
+      const b = to ? rest.search(to) : -1;
+      return b < 0 ? rest : rest.slice(0, b);
+    };
+    const yes = /贊成者\s*[：:]\s*\d+\s*人/, no = /反對者\s*[：:]\s*\d+\s*人/, abs = /棄權者\s*[：:]\s*\d+\s*人/;
+    return {
+      k: Number(m[1]),
+      title: m[2].replace(/\s+/g, ''),
+      count: [num(/出席人數\s*[：:]\s*(\d+)/), num(/贊成人數\s*[：:]\s*(\d+)/), num(/反對人數\s*[：:]\s*(\d+)/), num(/棄權人數\s*[：:]\s*(\d+)/)],
+      yes: names(cut(yes, no)),
+      no: names(cut(no, abs)),
+      abstain: names(cut(abs, null))
+    };
+  });
+}

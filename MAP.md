@@ -160,7 +160,11 @@ Live: https://orbit.jaypengx.com/law/
   **Beyond 彰化**: 南投's 名間 posts on its own WordPress site (`wp`: the REST API's posts naming a session,
   `wpPost`; 議事錄 on Drive, 議程表 as pictures; MP3s named by month and day take the post's year, `wpDay`).
   臺東's 東河 on its 公所's Joomla site (`joomla`: category lists `?start=`, an article a paper or a session's Drive
-  recordings, `joomlaList`, `joomlaArticle`; up to 80 articles a build).
+  recordings, `joomlaList`, `joomlaArticle`; up to 80 articles a build). 宜蘭's 頭城 on its 公所's e-land CCMS
+  page (`ccms`, `ccmsPage`: file blocks by title, Download.ashx's base64 path read as the file's own address;
+  MP3s by day under a bold line naming the session). A recording or paper dated inside another session's days
+  goes to that one (頭城 names one session's line twice), and a session's days are its agenda's, else the days
+  most of its papers' names give.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

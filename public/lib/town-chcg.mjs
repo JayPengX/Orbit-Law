@@ -16,6 +16,8 @@
 //          session (`wpUrl`, `wpPost`), each holding its files (PDF, Word, MP3s by day, Drive).
 //   joomla: a 公所 site on Joomla (臺東's 東河): category lists (?start=10…) of articles named by session, each
 //          article's attachments and Drive files (`joomlaList`, `joomlaArticle`).
+//   ccms:  pages on e-land's CCMS (宜蘭's 頭城): file blocks titled by paper and recordings under a line naming the
+//          session (`ccmsPage`); a recording dated in another session's days goes to that one.
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
 
 import { cnNum } from './town-site.mjs';
@@ -36,9 +38,9 @@ const abs = u => {
 
 // A session named in a link or a title: 第22屆第18、19次臨時會, 第21屆第1-2次臨時會紀錄, 第22屆第1.2次臨時會,
 // 第12次臨時會議事錄 (the term the site's), 第22屆第13、14臨時會議事錄 (no 次), …定期會延會日程表 (its extension),
-// 第22屆第二次定期會 (in words), 第22屆第4次定期延長會.
-const NUM = '[\\d一二三四五六七八九十]';
-const SESSION = new RegExp(`(?:第(${NUM}+)屆)?第(${NUM}+(?:[、,，.\\-]${NUM}+)*)次?(定期|臨時)會?(延長會|延會)?`);
+// 第22屆第二次定期會 (in words), 第廿二屆 (廿), 22屆第3次臨時會錄音 (no 第), 第22屆第4次定期延長會.
+const NUM = '[\\d一二三四五六七八九十廿]';
+const SESSION = new RegExp(`(?:第?(${NUM}+)屆)?第(${NUM}+(?:[、,，.\\-]${NUM}+)*)次?(定期|臨時)會?(延長會|延會)?`);
 export function sessionOf(name, term) {
   const m = String(name).replace(/\s+/g, '').match(SESSION);
   if (!m) return null;
@@ -298,4 +300,44 @@ export function joomlaArticle(html, base) {
     else links.push({ n, url });
   }
   return links.map(l => ({ n: l.n || fileName(l.url), url: l.url }));
+}
+
+// e-land's CCMS (宜蘭's 公所 and 代表會 sites, cp.aspx?n=…; 雲林's too): a page of file blocks
+// (`file-download-multiple`: a title, then its files as Download.ashx?u=<the file's path in base64>), and recordings
+// written into its text: a bold line naming a session (22屆第3次臨時會錄音), then a link a sitting named by its day
+// (113.05.14A). Files: { n, url } with the file's own address (its kind in its name); audio: { head, n, url }.
+export const ccmsFile = (href, base) => {
+  let url;
+  try {
+    url = new URL(String(href).replace(/&amp;/g, '&'), base);
+  } catch {
+    return '';
+  }
+  const u = /Download\.ashx$/i.test(url.pathname) && url.searchParams.get('u');
+  if (!u) return url.href;
+  try {
+    const path = atob(u);
+    return /^\/[\x21-\x7e]+$/.test(path) ? new URL(path, url.origin).href : url.href;
+  } catch {
+    return url.href;
+  }
+};
+export function ccmsPage(html, base) {
+  const h = String(html);
+  const files = [];
+  for (const m of h.matchAll(/file-download-multiple[\s\S]*?<div class="hd">([\s\S]*?)<div class="ct">([\s\S]*?)<\/ul>/g)) {
+    const n = text(m[1]);
+    const urls = [...m[2].matchAll(/href="([^"]+)"/g)].map(x => ccmsFile(x[1], base)).filter(Boolean);
+    // (A paper in more than one format: its PDF.)
+    const url = urls.find(u => /\.pdf$/i.test(u)) || urls[0];
+    if (n && url) files.push({ n, url });
+  }
+  const audio = [];
+  let head = '';
+  for (const [, p] of h.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/g)) {
+    const as = [...p.matchAll(/<a [^>]*href="([^"]+\.(?:mp3|m4a|wav))"[^>]*>([\s\S]*?)<\/a>/gi)];
+    for (const a of as) audio.push({ head, n: text(a[2]) || (a[0].match(/title="([^"]*)"/) || [])[1] || '', url: ccmsFile(a[1], base) });
+    if (!as.length && /錄音/.test(text(p))) head = text(p).replace(/\s+/g, '');
+  }
+  return { files, audio };
 }

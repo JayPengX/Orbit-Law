@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -112,4 +112,26 @@ test('town chcg: 永靖, 田尾, 秀水: days in a paper’s name, recordings on
   assert.deepEqual(joomlaList(`<a href="${jp}/6997-22-48">第22屆第19次臨時會錄音</a><a href="/home/index.php/z">議事日程表</a>`, jb, jp), [{ n: '第22屆第19次臨時會錄音', url: `${jb}${jp}/6997-22-48` }]);
   const art = `<div itemprop="articleBody"><a class="at_icon" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf"><img/></a><a class="at_url" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf">第22屆第7次定期會議事日程表.pdf</a><a href="https://drive.google.com/file/d/1eSw/view?usp=drive_link">第22屆第19次臨時會錄音1</a></div></article><a href="x.pdf">footer</a>`;
   assert.deepEqual(joomlaArticle(art, jb).map(l => l.n), ['第22屆第7次定期會議事日程表', '第22屆第19次臨時會錄音1']);
+});
+
+test('town chcg: e-land’s CCMS page (頭城): its papers by title, its recordings under the line naming the session', () => {
+  const k = (n, t = 22) => sessionOf(n, t)?.key;
+  // (廿 for 二十, and a term written without its 第: neither read as this term's.)
+  assert.equal(k('第廿一屆第七次臨時會議事錄'), '第21屆第7次臨時會');
+  assert.equal(k('第廿二屆第二次定期會 議事錄(112.10.30-112.11.15)'), '第22屆第2次定期會');
+  assert.equal(k('21屆第16次臨時會錄音'), '第21屆第16次臨時會');
+  assert.equal(k('22屆第3次臨時會錄音'), '第22屆第3次臨時會');
+  const base = 'https://toucheng.e-land.gov.tw/cp.aspx?n=8894';
+  const u = btoa('/001/Upload/452/relfile/13121/2505/cff4.pdf');
+  assert.equal(ccmsFile(`https://www-ws.e-land.gov.tw/Download.ashx?u=${encodeURIComponent(u)}&amp;n=x`, base), 'https://www-ws.e-land.gov.tw/001/Upload/452/relfile/13121/2505/cff4.pdf');
+  const html = `<li><div class="list-text file-download-multiple" data-index="31"><div class="in"><div class="hd"><div class="in"><div data-index="0" > <span ><a >第22屆第11次臨時會議事預定日程表</a></span></div></div></div><div class="ct"><div class="in"><ul data-index="1"><li class="odt"><span><a href="https://www-ws.e-land.gov.tw/Download.ashx?u=${btoa('/001/a.odt')}" title="[另開新視窗]x.odt">odt</a></span></li><li class="pdf" > <span ><a href="https://www-ws.e-land.gov.tw/Download.ashx?u=${btoa('/001/a.pdf')}" title="[另開新視窗]第22屆第11次臨時會議事預定日程表.pdf" >pdf</a></span></li></ul></div></div></div></div></li>
+    <p><strong>22屆第3次</strong><strong>定期大會</strong><strong>錄音</strong></p><p><a href="https://www-ws.e-land.gov.tw/001/c/1.mp3" target="_blank" title="錄音檔">113.05.14A</a></p><p><a href="https://www-ws.e-land.gov.tw/001/c/2.mp3" title="錄音檔">113.05.14B</a><a href="https://www-ws.e-land.gov.tw/001/c/3.mp3" title="113.05.15錄音檔"><span color="#0066cc"></span></a></p><p>&nbsp;</p>`;
+  const p = ccmsPage(html, base);
+  assert.deepEqual(p.files, [{ n: '第22屆第11次臨時會議事預定日程表', url: 'https://www-ws.e-land.gov.tw/001/a.pdf' }]);
+  assert.deepEqual(p.audio.map(a => [a.head, a.n, dayIn(a.n)]), [
+    ['22屆第3次定期大會錄音', '113.05.14A', '2024-05-14'],
+    ['22屆第3次定期大會錄音', '113.05.14B', '2024-05-14'],
+    ['22屆第3次定期大會錄音', '113.05.15錄音檔', '2024-05-15']
+  ]);
+  assert.equal(k(p.audio[0].head), '第22屆第3次定期會');
 });

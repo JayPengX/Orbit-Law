@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -307,7 +307,7 @@ async function chcgTown(tc, site) {
     const nm = n.replace(/^.*?(定期|臨時)大?會(延長會|延會)?/, '').replace(/_\d{4}$/, '').replace(/[(（][\d.\-~～－及、\s]+[)）]/g, '').replace(/^[-_\s]+/, '').trim();
     // (議事錄 and 會議紀錄 are both a session's minutes; a site with both keeps their names apart.)
     const named = k !== '會議紀錄' ? nm : /^(議事錄)?$/.test(nm) ? '議事錄' : /^(會議)?[紀記]錄$/.test(nm) ? '會議紀錄' : nm;
-    s.items.push({ k, n: named || n, files: [{ url }] });
+    s.items.push({ k, n: named || n, files: [{ url }], ...(sp ? { on: sp.from } : {}) });
   };
   try {
     // Lists: each link a paper of the list's kind (or, a list of papers, its own name's).
@@ -365,6 +365,19 @@ async function chcgTown(tc, site) {
           }
           if (!mine) break;
         }
+    }
+    // e-land's CCMS (宜蘭's 頭城): a page with every session's papers, and its recordings under a line naming the
+    // session.
+    for (const url of c.ccms || []) {
+      const p = ccmsPage(await page(url, true), url);
+      for (const f of p.files) {
+        const x = at(f.n);
+        if (x) put(x.s, x.ext, paperKind(f.n), f.n, f.url);
+      }
+      for (const a of p.audio) {
+        const x = at(a.head);
+        if (x) put(x.s, x.ext, '錄音', a.n, a.url);
+      }
     }
     // Menus: a page a session.
     if (c.menus) {
@@ -435,7 +448,9 @@ async function chcgTown(tc, site) {
   let pdfs = 40;
   for (const s of by.values()) {
     const was = before.get(s.key);
-    const named = s.spans?.find(x => x.agenda && !x.ext) || s.spans?.find(x => !x.ext);
+    // (Its agenda's days, else the days most of its papers name: 頭城 names three sessions' minutes as one's.)
+    const most = (s.spans || []).filter(x => !x.ext).sort((a, b) => s.spans.filter(x => x.from === b.from).length - s.spans.filter(x => x.from === a.from).length)[0];
+    const named = s.spans?.find(x => x.agenda && !x.ext) || most;
     const more = s.spans?.find(x => x.ext);
     delete s.spans;
     if (named) {
@@ -463,6 +478,26 @@ async function chcgTown(tc, site) {
   }
   // (Again, as those placed place their neighbours.)
   for (let i = 0; i < 3; i++) for (const s of by.values()) if (s.md && !s.from) Object.assign(s, yearOf(s, [...by.values()]) || {});
+  // (A recording or a paper dated outside its session's days and inside another's: that one's. 頭城's lines name
+  // one session twice, the second really the next.)
+  const all = [...by.values()];
+  const holds = (s, d) => s.from && d >= s.from && d <= (s.ext?.to || s.to);
+  for (const s of all) {
+    if (!s.from) continue;
+    // (Papers too, by the days their names give.)
+    s.items = s.items.filter(i => {
+      if (!i.on || holds(s, i.on)) return true;
+      const to = all.find(o => o !== s && holds(o, i.on));
+      to?.items.push(i);
+      return !to;
+    });
+    s.days = s.days.filter(d => {
+      if (!d.d || !d.src || holds(s, d.d)) return true;
+      const to = all.find(o => o !== s && holds(o, d.d));
+      to?.days.push(d);
+      return !to;
+    });
+  }
   for (const s of by.values()) {
     // (A part named by its month and day, 12月21日錄音檔1: in the session's year.)
     for (const d of s.days) {
@@ -480,6 +515,7 @@ async function chcgTown(tc, site) {
       if (s.agenda.some(a => /延長/.test(a.n))) s.ext = { from: ds.find(d => d > s.to), to: ds.at(-1) };
       else s.to = ds.at(-1);
     }
+    for (const i of s.items) delete i.on;
     if (!s.agenda.length) delete s.agenda;
     if (!s.folders.length) delete s.folders;
   }

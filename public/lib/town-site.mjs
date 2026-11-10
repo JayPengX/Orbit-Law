@@ -114,13 +114,18 @@ export const TOWN_SITES = {
     term: 22,
     ends: '2026-12-25',
     chcg: { joomla: { base: 'https://www.donghe.gov.tw', lists: ['/home/index.php/2020-05-28-08-11-47/2020-05-28-08-33-38', '/home/index.php/2020-05-28-08-11-47/2020-05-28-08-34-00'] } }
-  }
+  },
+  // 宜蘭縣頭城鎮: its page on the 公所's site (e-land's CCMS, `ccms`): every session's 日程表 and minutes, and its
+  // sittings' recordings.
+  10002040: { n: '頭城鎮民代表會', home: 'https://toucheng.e-land.gov.tw/cp.aspx?n=8894', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://toucheng.e-land.gov.tw/cp.aspx?n=8894'] } }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
 // 一…九十九 as a number.
 export const cnNum = s => {
   if (/^\d+$/.test(s)) return +s;
+  // (廿 for 二十: 第廿二屆.)
+  if (/^廿/.test(s)) s = String(s).replace(/^廿/, '二十');
   const m = String(s).match(/^([一二三四五六七八九])?(十)?([一二三四五六七八九])?$/);
   if (!m || !s) return 0;
   return m[2] ? (m[1] ? CN[m[1]] : 1) * 10 + (m[3] ? CN[m[3]] : 0) : CN[m[1] || m[3]] || 0;

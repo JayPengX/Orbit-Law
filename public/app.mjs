@@ -225,7 +225,8 @@ const nameOf = (p, fallback = '') => { const r = state.byCode.get(p); return (en
 
 // ---- Tabs ------------------------------------------------------------------------------
 
-const ICON_SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
+// Orbit AI's mark (the kit's icons.ai; an older kit: the spark).
+const ICON_SPARK = kitUI.icons?.ai || '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
 const TABS = ['home', 'laws', 'rulings', 'bills', 'mine', 'ask'];
 const tabs = tabBar({
   tabs: [

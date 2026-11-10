@@ -84,6 +84,8 @@ html[data-look='native'] .nv-way svg {
 html[data-look='native'] .nv-way.is-ask {
   background: var(--q-accent);
   color: #fff;
+  --q-ai: currentColor;
+  --q-ai-2: currentColor;
 }
 
 /* ---- 依生活情境找: a compact list, two to a row ---- */

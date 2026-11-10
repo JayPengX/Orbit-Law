@@ -44,8 +44,9 @@ import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings, ccTermSittings, councilDays } from './lib/council.mjs';
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
-import { videosOf } from './lib/council-video.mjs';
+import { videosOf, ytSite } from './lib/council-video.mjs';
 import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
+import { TOWN_YOUTUBE } from './lib/town-video.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf, answerText as chatAnswerText, answerCites } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -3705,8 +3706,9 @@ async function councilLive(c, out) {
 // The council on screen, kept so a tap opens its video at once: with nothing awaited between the tap and
 // play(), the phone starts it then (a tap's permission to play ends at the first wait).
 let shownCouncil = null;
-async function openCouncilVideo(id, live = -1, given = null) {
-  const c = shownCouncil?.video ? shownCouncil : await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null);
+// (ctx: a 代表會's, {n, video: {site}}, for its own recordings.)
+async function openCouncilVideo(id, live = -1, given = null, ctx = null) {
+  const c = ctx || (shownCouncil?.video ? shownCouncil : await data(`council/${councilOf((await councilsData()).councils).c}.json`).catch(() => null));
   const ch = live >= 0 ? c?.video?.live?.[live] : null;
   const v = ch ? null : given || c?.video?.vids?.find(x => x.id === id) || termVids.get(c?.c)?.find(x => x.id === id);
   if (!ch && !v) return;
@@ -3715,8 +3717,8 @@ async function openCouncilVideo(id, live = -1, given = null) {
   const meta = ch ? `<div class="lw-meta"><span class="lw-live">${W('直播中', 'Live')}</span></div><h2 class="lw-item-name">${esc(ch.n || c.n)}</h2>` : `<h2 class="lw-item-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</h2><p class="lw-clip-meta">${esc([c.n, shortDay(v.d), v.t].filter(Boolean).join(' · '))}</p>${v.what && v.what !== v.n ? `<p class="lw-meet-why">${esc(v.what)}</p>` : ''}`;
   if (v?.yt) body.innerHTML = `<div class="lw-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.yt)}?playsinline=1&rel=0" title="${esc(v.n)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>${meta}`;
   else body.innerHTML = `<video class="lw-video" controls playsinline autoplay preload="auto"${v?.img ? ` poster="${esc(v.img)}"` : ''}></video>${meta}`;
-  if (site) body.append(h('a', { class: 'q-more q-more-go lw-out', href: site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }));
-  sheet({ title: ch ? W('議場直播', 'Live') : W('議會影音', 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  if (site) body.append(h('a', { class: 'q-more q-more-go lw-out', href: site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${ctx?.town ? W('代表會的 YouTube 頻道', 'The council’s YouTube channel') : W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }));
+  sheet({ title: ch ? W('議場直播', 'Live') : ctx?.town ? W('代表會影音', 'Township council video') : W('議會影音', 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   const el = body.querySelector('video');
   // Straight from the council's own CDN (never through Orbit's servers); started at once.
   if (el) {
@@ -3845,7 +3847,7 @@ async function councilList(out) {
   let towns = '';
   try {
     const r = (await repsData()).places.find(p => p.city === c.city || p.cc === c.c);
-    if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
+    if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}${TOWN_YOUTUBE[t.tc] ? ' · 影音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}${TOWN_YOUTUBE[t.tc] ? ' · video' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
   const agenda = section(W('議程', 'Agenda'), `<div data-ccagenda><span class="q-skel" style="display:block;height:120px"></span></div><button type="button" class="q-more q-more-go" data-ccall><span>${W('各議會的議程', 'Every council’s agenda')}</span><span class="q-more-chev" aria-hidden="true">›</span></button>`);
@@ -4133,12 +4135,34 @@ async function openTown(tc) {
   const r = await repsData().catch(() => null);
   const t = r?.places.flatMap(p => p.towns.map(x => ({ ...x, city: p.city }))).find(x => x.tc === tc);
   if (!t) return;
-  const own = TOWN_SITES[tc] ? await data(`council/town/${tc}.json`).catch(() => null) : null;
-  if (own?.sessions?.length || own?.people?.length) return townSheet(t, own);
+  const [own, video] = await Promise.all([TOWN_SITES[tc] ? data(`council/town/${tc}.json`).catch(() => null) : null, TOWN_YOUTUBE[tc] ? data(`council/town-video/${tc}.json`).catch(() => null) : null]);
+  const vids = video?.vids || [];
+  if (own?.sessions?.length || own?.people?.length) return townSheet(t, own, vids);
   const areas = new Map();
   for (const [n, party, area] of t.reps) areas.set(area, [...(areas.get(area) || []), [n, party]]);
   const html = `<h2 class="lw-item-name">${esc(`${t.city}${t.town}民代表會`)}</h2><p class="lw-person-line">${esc(W(`${t.reps.length} 位代表，2022 年選出，任期到 2026 年 12 月。`, `${t.reps.length} members, elected in 2022, serving to December 2026.`))}</p>${[...areas].map(([area, xs]) => `<div class="lw-item-who"><h4>${esc(area.replace(/^.+?(第\d+選舉區)$/, '$1').replace(/選舉區$/, W('選區', ' district')))}</h4><div class="lw-parties">${xs.map(([n, party]) => `<span class="lw-party" style="--p:${partyColor(party)}">${esc(n)}<small>${esc(partyShort(party))}</small></span>`).join('')}</div></div>`).join('')}<p class="lw-hint-sm">${W('代表會的提案和議事錄沒有開放資料，請看鄉鎮市公所或代表會網站。', 'Township councils publish no bills or minutes as open data.')}</p>`;
-  sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('div', { html })] });
+  const body = h('div', { html });
+  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  townVideos(body, t, vids, body.querySelector('.lw-person-line'));
+  return s;
+}
+
+// A 代表會's recordings on its YouTube channel (lib/town-video.mjs): the newest four under its first line, all of
+// them a tap away; each plays in the app.
+function townVideos(body, t, vids, after) {
+  if (!vids.length || !after) return;
+  const ctx = { town: true, n: `${t.town}民代表會`, video: { site: ytSite(TOWN_YOUTUBE[t.tc][0]) } };
+  const box = h('div', { html: section(W('影音', 'Video'), `<div class="lw-list in-sheet wrap" data-tvlist>${vids.slice(0, 4).map(vidRow).join('')}</div>${vids.length > 4 ? `<button type="button" class="lw-more" data-tvall>${W(`看全部影音（${vids.length}）`, `All video (${vids.length})`)}</button>` : ''}`) });
+  after.after(box);
+  box.addEventListener('click', e => {
+    if (e.target.closest('[data-tvall]')) {
+      box.querySelector('[data-tvlist]').innerHTML = vids.map(vidRow).join('');
+      return e.target.closest('[data-tvall]').remove();
+    }
+    const b = e.target.closest('[data-ccvid]');
+    const v = b && vids.find(x => x.id === b.dataset.ccvid);
+    if (v) openCouncilVideo(v.id, -1, v, ctx);
+  });
 }
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -4163,7 +4187,7 @@ const sessionLine = s => {
   return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : '', s.wq ? W(`書面質詢 ${s.wq} 件`, `${s.wq} written questions`) : !s.asks && q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', s.days?.length ? W(`${s.days.length} 天錄音`, `${s.days.length} days recorded`) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
 };
 
-async function townSheet(t, own) {
+async function townSheet(t, own, vids = []) {
   const day = twNow().day;
   const party = new Map(t.reps.map(([n, p]) => [n, p]));
   const sessions = own.sessions || [];
@@ -4189,6 +4213,8 @@ async function townSheet(t, own) {
   }<a class="q-more q-more-go lw-out" href="${esc(own.site)}" target="_blank" rel="noopener" data-out><span>${W('代表會網站', 'The council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a><p class="lw-hint-sm">${W('議事錄、日程表和錄音都讀自代表會網站；文件是 PDF，網站只在台灣打得開。', 'Read from the council’s own site; its papers are PDFs, and the site opens only in Taiwan.')}</p>`;
   const body = h('div', { html });
   const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  // (Its own site's sessions first: their days, papers and recordings; the YouTube channel's after.)
+  townVideos(body, t, vids, body.querySelector('[data-townlist]')?.closest('.lw-sec') || body.querySelector('.lw-town-now')?.closest('.lw-list') || body.querySelector('.lw-person-line'));
   body.addEventListener('click', e => {
     const all = e.target.closest('[data-townall]');
     if (all) {

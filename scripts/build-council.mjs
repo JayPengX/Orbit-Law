@@ -6,6 +6,7 @@
 //   index.json     every council in one line: its session now, next sitting, counts
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
 //   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
+//   town-video/<tc>.json  a 代表會's recordings on its YouTube channel (lib/town-video.mjs TOWN_YOUTUBE), the term's
 //   (in <code>.json) video: its live channels and newest recordings where a council
 //                  keeps them openly (lib/council-video.mjs: HiNet's OTT, 高雄's IVOD, YouTube's feeds)
 //   khh-clips.json 高雄's councillors' 質詢 recordings, by name (kee-clips.json 基隆's)
@@ -16,11 +17,12 @@
 // A bill's whole text, a search and a councillor's bills are read from the
 // API by the app when asked (lib/council.mjs). Never fails the deploy: a
 // council that can't be read today keeps the last deploy's copy.
-//   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz]
+//   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz] [--towns 1]
 import { mkdir, writeFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
+import { TOWN_YOUTUBE, townTitle } from '../public/lib/town-video.mjs';
 import { HINET, HINET_API, HINET_SITE, YOUTUBE, ytFeed, ytSite, compactHinet, ytVideos, ytInitial, ytLockups, ytItems, mergeVids, sittingsFromVideo, videosOf, KCC_API, KCC_SITE, compactKcc, kccName, KMC_SITE, kmcVids, TCC_VIDEO, compactTcc, tccSegs, tccPeople, tccRows, tccQuery } from '../public/lib/council-video.mjs';
 import { compactCouncil, compactSitting, saneSittings, compactCouncilor, zhName, compactCouncilBill, newestBills, compactRep, repsByPlace, hccRows, HCC, hszRows, HSINCHU_CITY, hlcRows, HUALIEN, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, CHANGHUA, transcriptBills, mccList, mccFiles, mccBills, MIAOLI, CHIAYI, aspForm, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, sessionBillsFile, agendaOf } from '../public/lib/council.mjs';
 
@@ -476,7 +478,7 @@ async function council(o) {
 // A YouTube channel's sittings: its /videos and /streams lists page by page (YouTube's own web client, as a
 // browser asks), until a page holds nothing new (what the last build kept) or the term's first months are reached;
 // a first read goes back the whole term (at most 40 pages a list), then a page or two a night.
-async function ytChannel(ch, name, known) {
+async function ytChannel(ch, name, known, pages = 40) {
   const got = [];
   for (const tab of ['videos', 'streams']) {
     const page = ytInitial(await fetch(`https://www.youtube.com/channel/${ch}/${tab}`, { headers: { 'Accept-Language': 'zh-TW', 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(20_000) }).then(r => (r.ok ? r.text() : '')));
@@ -485,7 +487,7 @@ async function ytChannel(ch, name, known) {
     for (let n = 0; ; n++) {
       const vids = ytItems(items, name);
       got.push(...vids);
-      if (!cont || n >= 40 || (items.length && items.every(x => known.has(`y${x.id}`))) || vids.some(v => v.d < '2023-01-01')) break;
+      if (!cont || n >= pages || (items.length && items.every(x => known.has(`y${x.id}`))) || vids.some(v => v.d < '2023-01-01')) break;
       await sleep(400);
       const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' }, body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: page.ver, hl: 'zh-TW' } }, continuation: cont }), signal: AbortSignal.timeout(20_000) });
       if (!r.ok) break;
@@ -636,6 +638,32 @@ try {
   notes.push(`reps failed: ${e.message}`);
   const old = await prevJson('council/reps.json');
   if (old) await write('reps.json', old);
+}
+
+// 代表會 on YouTube (lib/town-video.mjs): each channel's meeting recordings, merged over the last build's; a first
+// read goes back 6 pages a list, then one page a night (and the feed). Two channels at a time, gently.
+// (`--only none --towns 1`: these alone.)
+if (!args.only || args.towns) {
+  const tq = Object.entries(TOWN_YOUTUBE);
+  let got = 0;
+  await mkdir(`${out}town-video`, { recursive: true });
+  await Promise.all(Array.from({ length: 2 }, async () => {
+    while (tq.length) {
+      const [tc, [ch, name]] = tq.shift();
+      const kept = await prevJson(`council/town-video/${tc}.json`);
+      try {
+        const known = new Set((kept?.vids || []).map(x => x.id));
+        const vids = mergeVids((await ytChannel(ch, name, known, known.size ? 1 : 6)).map(v => ({ ...v, n: townTitle(v.n, name) })), kept?.vids, '2022-12-25');
+        await write(`town-video/${tc}.json`, { built, ch, vids });
+        got++;
+      } catch (e) {
+        notes.push(`town video ${tc}: ${e.message}`);
+        if (kept) await write(`town-video/${tc}.json`, kept);
+      }
+      await sleep(500);
+    }
+  }));
+  notes.push(`town video: ${got} of ${Object.keys(TOWN_YOUTUBE).length} channels`);
 }
 
 console.log(`council: ${index.length} councils, ${Math.round((Date.now() - started) / 1000)}s`);

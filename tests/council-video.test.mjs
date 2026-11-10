@@ -134,3 +134,19 @@ test('臺北: a 質詢 day’s groups read out, each councillor’s turn where t
   assert.deepEqual(tccRows([{ Name: 'x', Date: '2026/08/28', Url: 'https://tccvideo.tcc.gov.tw/Front/VideoContent/Index?id=367a01bd-6e7c-4c2e-b212-c0d63384e0e8' }, { Name: 'y', Date: null, Url: '' }]), [{ tid: '367a01bd-6e7c-4c2e-b212-c0d63384e0e8', d: '2026-08-28', n: 'x' }]);
   assert.equal(tccQuery('https://tccvideo.tcc.gov.tw/Front/HistoryVideo/Index?mj=14&mp=08&mtypeCategoryId=Regular&quesCategoryId=AL').quesCategoryId, 'AL');
 });
+
+test('代表會 on YouTube: every channel an id once, its titles without the county or the town', async () => {
+  const { TOWN_YOUTUBE, townTitle } = await import('../public/lib/town-video.mjs');
+  const ids = Object.values(TOWN_YOUTUBE).map(([ch]) => ch);
+  assert.ok(ids.length >= 40);
+  assert.equal(new Set(ids).size, ids.length, 'one channel, one town');
+  for (const [tc, [ch, name]] of Object.entries(TOWN_YOUTUBE)) {
+    assert.match(tc, /^\d{8}$/);
+    assert.match(ch, /^UC[\w-]{22}$/);
+    assert.match(name, /民代表會$/);
+  }
+  assert.equal(townTitle('宜蘭縣第19次臨時會', '五結鄉民代表會'), '第19次臨時會');
+  assert.equal(townTitle('台東市民代表會第8次定期會', '臺東市民代表會'), '第8次定期會');
+  assert.equal(townTitle('臺中市第17次臨時會議', '和平區民代表會'), '第17次臨時會議');
+  assert.equal(townTitle('臺東縣', 'x'), '臺東縣', 'nothing left: as it was');
+});

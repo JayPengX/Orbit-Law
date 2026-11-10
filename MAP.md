@@ -114,6 +114,10 @@ Live: https://orbit.jaypengx.com/law/
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)
   become sittings (`sittingsFromVideo`). Bare stamps (苗栗's test takes) are dropped.
   代表會 have no bills or sittings in any open data, so most show their members only.
+  **代表會 on YouTube** (`lib/town-video.mjs` `TOWN_YOUTUBE`, found by YouTube's channel search and checked by eye,
+  `scripts/find-town-youtube.mjs`): each night the build reads each channel as a council's (`ytChannel`: 6 pages
+  a list the first time, then one, and the feed) into `council/town-video/<tc>.json`, merged over the last; the
+  town's sheet shows 影音 (`townVideos`), each recording played in the app (`openCouncilVideo` with the town as context).
   **Bills read from their PDFs** (`scripts/build-council-text.mjs`, `billPdfParts` in
   `lib/council.mjs`): 新竹縣's and 新竹市's proposals are PDFs; each build reads the newest
   not yet read (pdftotext -layout; hcc.gov.tw a request every 2 s) into 案號, 說明, 辦法,
@@ -407,7 +411,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/refs.mjs` | References in a law's text, Chinese numerals, 項 |
 | `public/lib/bills.mjs`, `cards.mjs` | Stages, folding versions into items; cards, funnel, progress bar |
 | `public/lib/council.mjs` | 地方議會: councils, sittings, bills' outcomes, councillors, 代表 |
-| `public/lib/council-video.mjs`, `town-site.mjs` | Councils' live and recorded video; a 代表會's own site (竹北) |
+| `public/lib/council-video.mjs`, `town-site.mjs`, `town-video.mjs` | Councils' live and recorded video; a 代表會's own site (竹北); 代表會's YouTube channels |
 | `public/lib/agenda.mjs`, `ly.mjs` | 議程 and live by Taiwan time; votes, legislators, budget |
 | `public/lib/data.mjs`, `deleg.mjs` | The law files' shape, 修法追蹤 diffs; 授權 |
 | `public/lib/cons.mjs` | 憲法法庭: ids, its pages read, cites, by law, the bills naming one |

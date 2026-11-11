@@ -156,11 +156,13 @@ export function pdfSpan(text) {
   const ok = ([m, d]) => m >= 1 && m <= 12 && d >= 1 && d <= 31;
   let ds = mds(src);
   // (A table with 月 and 日 as its heads: 4  15  三  1 代表報到…)
-  if (!ds.length) ds = [...src.matchAll(/^\s*(\d{1,2})\s+(\d{1,2})\s+[一二三四五六日]\s/gm)].map(m => [+m[1], +m[2]]).filter(ok);
+  // (Its weekday kept, 9  22  一: 埔心's.)
+  if (!ds.length) ds = [...src.matchAll(/^\s*(\d{1,2})\s+(\d{1,2})\s+([一二三四五六日])\s/gm)].map(m => [+m[1], +m[2], m[3]]).filter(ok);
   if (!ds.length) return null;
   // (No year on it, 08 月 03 日 alone: its months and days, the year found from the sessions around it, `yearOf`;
   // with each row's weekday where it gives one, 09 月 09 日 三, which tells the year apart.)
   if (!y) {
+    if (ds.some(x => x[2])) return { md: ds };
     const wd = new Map(rows.map(r => r.match(/^ ?(\d{1,2}) ?月 ?(\d{1,2})(?: ?日 +| +(?!日\s))([一二三四五六日])(?=\s|$)/)).filter(Boolean).map(m => [`${+m[1]}-${+m[2]}`, m[3]]));
     return { md: ds.map(([m, d]) => (wd.has(`${m}-${d}`) ? [m, d, wd.get(`${m}-${d}`)] : [m, d])) };
   }

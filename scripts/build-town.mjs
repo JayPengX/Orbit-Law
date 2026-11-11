@@ -600,7 +600,8 @@ async function chcgTown(tc, site) {
       Object.assign(s, { from: named.from, to: named.to });
       if (more && more.from > named.to) s.ext = { from: more.from, to: more.to };
     } else if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
-    else if (was?.md) s.md = was.md;
+    // (Months and days read before weekdays were kept, mdv 1: read again once.)
+    else if (was?.md && was.mdv === 2) Object.assign(s, { md: was.md, mdv: 2 });
     else {
       // (Its agenda, else its minutes: PDFs, and Word and OpenDocument files too, 秀水's and 員山's.)
       const pdf = u => !/\.(xlsx?|webp|jpe?g|png)$/i.test(u);
@@ -610,7 +611,7 @@ async function chcgTown(tc, site) {
         try {
           const span = pdfSpan(await pdfText(f));
           if (span) {
-            Object.assign(s, span);
+            Object.assign(s, span, span.md ? { mdv: 2 } : {});
             break;
           }
         } catch (e) {

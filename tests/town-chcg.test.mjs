@@ -233,3 +233,9 @@ test("town pdfSpan: an agenda with no year, its weekdays pick the year (苑裡's
   // (No weekdays: as before, nothing without a neighbour.)
   assert.equal(yearOf({ kind: '定期會', no: 7, md: [[4, 27], [5, 8]] }, []), null);
 });
+
+test("town pdfSpan: a 月/日 table's weekdays kept (埔心's), the year they fit", () => {
+  const p = pdfSpan('彰化縣埔心鄉民代表會第 22 屆第 14 次臨時會議事日程表\n月       日\n    9   22   一                報到、開幕典禮\n    9   23   二        一       討論提案\n    9   24   三        二       討論提案、臨時動議、閉會');
+  assert.deepEqual(p, { md: [[9, 22, '一'], [9, 23, '二'], [9, 24, '三']] });
+  assert.deepEqual(yearOf({ kind: '臨時會', no: 14, md: p.md }, []), { from: '2025-09-22', to: '2025-09-24' });
+});

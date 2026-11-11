@@ -183,7 +183,8 @@ Live: https://orbit.jaypengx.com/law/
   花蓮's 秀林 and 壽豐, 苗栗's 苑裡: the same CCMS on their 公所's sites (`ccms`). 秀林's 質詢錄音檔 posts link each
   sitting's video on YouTube by its day (115年10月13日, `dayIn`), its post's session; 苑裡's lists are the files
   themselves (`ccmsNews` `file: true`, nothing more to fetch). An agenda with no year (苑裡's 09 月 09 日 三) is
-  placed by its rows' weekdays (`pdfSpan` keeps them, `yearOf` picks a year they fit). 壽豐's agendas are scans
+  placed by its rows' weekdays (`pdfSpan` keeps them, 埔心's 月/日 tables too, `yearOf` picks a year they fit; months
+  and days kept from before, `mdv` under 2, are read again once). 壽豐's agendas are scans
   (undated); 頭份 posts only the last term's recordings (Drive folders).
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.

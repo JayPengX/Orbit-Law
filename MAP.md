@@ -138,7 +138,12 @@ Live: https://orbit.jaypengx.com/law/
   member's questions (`questions`, `townTranscript`; 重點摘要 on a tap: the proxy's `/law-ask`
   mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 書面質詢 (a day's
   paper that's forms: `written`, who asked which office what, and the 公所's reply from its 函), 會議紀錄, 致詞 and 施政報告 as text
-  (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs.
+  (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs. **會議紀錄變表格**
+  (`lib/minutes.mjs` `minutesOf`): a 會議紀錄 is read by code into rows, each sitting (day,
+  hours, chair, who came) and each proposal (number, kind, proposer, 案由, result, vote);
+  what code can't split (`messy`, or a scan) goes once to the AI door (Orbit-Core
+  `/ai/build`, `law-minutes`, `TOWN_AI` a night) with `digest` (only the lines carrying a
+  proposal or a decision), its rows checked against the paper.
   **彰化's 代表會 on the county's platform** (`lib/town-chcg.mjs`, `chcgTown`; TOWN_SITES entries with `chcg`):
   和美 (act 23: 議事日程, Drive recordings by day, 議事錄 lists), 福興 (act 24: a menu page a session with its
   日程表, 提案表 and 議事錄, another with its MP3s by day and part), 伸港 (act 41: 議事錄 lists). Every link
@@ -354,8 +359,11 @@ Live: https://orbit.jaypengx.com/law/
   finds what a question needs in this site's data: articles of every law
   and regulation, similar judgments and 釋字 (their 主文 and reasons read),
   行政規則, bills, budgets, legislators, votes, meetings, 政府公告, and the
-  reader's own follows (sent only with a question about them). Claude
-  Sonnet (Gemini when it fails) then applies it to the reader's facts (who is likely right, penalties,
+  reader's own follows (sent only with a question about them), and the
+  councils' and 代表會's bills and minutes rows for the places it names
+  (Orbit-Core `law-local.js`; drawn as `r.local` blocks, each bill, councillor
+  or 代表會 opening in the app). Claude
+  Sonnet (GPT's Sol when it fails) then applies it to the reader's facts (who is likely right, penalties,
   remedies, next steps), each point citing an article, a judgment or a
   rule; each opens in the app. A follow-up sends the last 8 questions and
   answers back (`historyOf`; each answer as `answerText`: verdict, answer,
@@ -365,7 +373,7 @@ Live: https://orbit.jaypengx.com/law/
   question names. 司法院's judgment pages serve only Taiwan: the proxy reads
   them through its Taiwan relay. Rulings and rules read with every law they
   name a link (`view.mjs` linkedHtml, ruleHtml: a rule's 一、（一） as
-  points). The verdict and the answer show as Gemini writes them (the
+  points). The verdict and the answer show as the model writes them (the
   proxy streams them as `draft` lines), the points and links when it's done.
   Chats are kept on the phone; 對話紀錄 lists them by day (今天, 昨天, 過去 7
   天, months) in grouped cards, with a search past 5 chats, and 全部刪除 asks
@@ -379,6 +387,21 @@ Live: https://orbit.jaypengx.com/law/
   (`.lw-msg-side`) once the chat is 760 wide (`tests/ask-page.test.mjs`). 白話解釋 (`lib/ask.mjs`) is the proxy's live `/law-ask`
   on a law's latest amendment or a bill's 對照表. Both only on a tap, both
   through the Pass (`passFetch`), both reading this site's own files.
+- **拍合約幫你看** (`lib/contract.mjs`, `contractSheet`; `#tab=ask&contract=1`, home's
+  third way and 問法律's start): photos (`aiPicture`) or one PDF are read by the
+  proxy's `law-contract-read` into clauses, or pasted text is split by code
+  (`splitClauses`, `contractKind`); you pick your side (`sidesOf`, the paper's own
+  parties) and, for work, whether you're 18; `law-contract` (Sonnet, Sol behind it)
+  checks each clause against articles code picked for its kind and words; flags come
+  back 違法或無效 / 對你不公平 / 要注意 (`LEVELS`), each on its clause, citing
+  articles that open in the app, with what to ask for, then what the contract leaves
+  out. Only on a tap; nothing of the contract is kept.
+- **這一週** (你追蹤的法案週報, `lib/weekly.mjs`, `scripts/build-weekly.mjs`): each night
+  the bills that moved and the laws amended in the last 7 days (staff tables left out)
+  get one plain line each from the AI door (`law-weekly`, Haiku; a law by its changed
+  words, `artBits`), kept until the week passes, in `data/ai/weekly.json`; 我的's
+  這一週 (`weekOf`) lists what you follow among them with its line (in English, or
+  before the night's build, the row's own words), 新 if new since you last looked.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,
   `data-src/facts.json`): ministries' rules and RSS notices, and 預告 on
   join.gov.tw, kept beside the laws they rest on; the news and `facts.json`
@@ -477,6 +500,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/search.mjs`, `fulltext.mjs`, `find.mjs`, `topics.mjs` | Finding a law or article, full text, topics |
 | `public/lib/foryou.mjs` | 首頁's 為你推薦 (the kit's engine) |
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
+| `public/lib/contract.mjs`, `minutes.mjs`, `weekly.mjs` | 拍合約幫你看; 會議紀錄變表格; 這一週 (法案週報) |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
 | `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |
 | `data-src/facts.json` | Figures the news build keeps |

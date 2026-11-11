@@ -192,6 +192,13 @@ jobs:
       # 政府公告 (ministries' RSS) and the hand-kept key figures, for the AI.
       - name: Build the government notices
         run: node scripts/build-news.mjs || echo "notices skipped"
+      # 你追蹤的法案週報: this week's moved bills and amended laws, a plain line each (the AI door, its day's cap).
+      - name: Write the week's lines
+        run: node scripts/build-weekly.mjs
+        timeout-minutes: 10
+        continue-on-error: true
+        env:
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       # When each part above was built (the admin panel's 外部來源: a part that failed shows as old or missing).
       - name: Note when each part was built
         run: node scripts/build-status.mjs

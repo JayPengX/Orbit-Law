@@ -24,9 +24,11 @@ export function cleanChat(j) {
   const sources = list(j?.sources, 20).filter(s => s && CITE.test(`${s.p}:${s.key}`)).map(s => ({ p: s.p, n: str(s.n), key: String(s.key) }));
   const cases = list(j?.cases, 6).filter(x => x && JID.test(String(x.jid || ''))).map(x => ({ jid: String(x.jid), d: str(x.d || ''), t: str(x.t || ''), no: str(x.no || '') }));
   const rules = list(j?.rules, 6).filter(x => x && RULE.test(String(x.id || '')) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), agency: str(x.agency || ''), d: str(x.d || ''), url: /^https:\/\//.test(x.url) ? x.url : '', text: x.text === true, dir: x.dir === 'local' ? 'local' : 'agency' }));
-  const known = new Set([...sources.map(s => `${s.p}:${s.key}`), ...cases.map(x => x.jid), ...rules.map(x => x.id)]);
+  // The councils and 代表會 it drew on: a council's bills (cc:<id>) and a 代表會's rows (tw:<tc>:<n>).
+  const local = localOf(j?.local);
+  const known = new Set([...sources.map(s => `${s.p}:${s.key}`), ...cases.map(x => x.jid), ...rules.map(x => x.id), ...(local?.councils.flatMap(c => c.bills.map(b => `cc:${b.id}`)) || []), ...(local?.towns.flatMap(t => t.rows.map(r => r.id)) || [])]);
   // Grounded in what isn't an article (notices, bills, legislators…): points without cites stand too.
-  const grounded = ['notices', 'bills', 'people', 'votes', 'meets', 'cases', 'rules'].some(k => Array.isArray(j?.[k]) && j[k].length > 0);
+  const grounded = ['notices', 'bills', 'people', 'votes', 'meets', 'cases', 'rules'].some(k => Array.isArray(j?.[k]) && j[k].length > 0) || Boolean(local);
   const cited = arr => list(arr, 8).map(pt => ({ text: str(pt?.text), cites: list(pt?.cites, 6).map(String).filter(c => known.has(c)) })).filter(pt => pt.text && (pt.cites.length || grounded));
   const points = cited(j?.points);
   return {
@@ -51,8 +53,22 @@ export function cleanChat(j) {
     people: list(j?.people, 3).filter(x => x && /^\d{1,6}$/.test(String(x.id)) && str(x.n)).map(x => ({ id: String(x.id), n: str(x.n), party: str(x.party || '') })),
     votes: list(j?.votes, 6).filter(x => x && typeof x.id === 'string' && x.id.length <= 40 && str(x.t)).map(x => ({ id: x.id, d: str(x.d || ''), t: str(x.t) })),
     meets: list(j?.meets, 3).filter(x => x && typeof x.id === 'string' && x.id.length <= 80 && str(x.t)).map(x => ({ id: x.id, t: str(x.t), d: str(x.d || '') })),
+    ...(local ? { local } : {}),
     left: Number.isFinite(j?.left) ? j.left : null
   };
+}
+
+// A council's or 代表會's part of an answer, checked: { councils: [{ c, n, people, bills }], towns: [{ tc, n, rows }] }; null when none.
+const CC = /^[a-z]{3}$/, TC = /^\d{8}$/;
+function localOf(l) {
+  if (!l || typeof l !== 'object') return null;
+  const councils = list(l.councils, 2)
+    .filter(c => c && CC.test(String(c.c)) && str(c.n))
+    .map(c => ({ c: c.c, n: str(c.n), people: list(c.people, 3).filter(p => p && str(p.n)).map(p => ({ id: String(p.id || ''), n: str(p.n) })), bills: list(c.bills, 6).filter(b => b && typeof b.id === 'string' && b.id.length <= 60 && str(b.t)).map(b => ({ id: b.id, t: str(b.t), by: str(b.by || ''), res: str(b.res || ''), d: str(b.d || '') })) }));
+  const towns = list(l.towns, 2)
+    .filter(t => t && TC.test(String(t.tc)) && str(t.n))
+    .map(t => ({ tc: t.tc, n: str(t.n), rows: list(t.rows, 8).filter(r => r && /^tw:\d{8}:\d{1,2}$/.test(String(r.id)) && str(r.t)).map(r => ({ id: r.id, k: str(r.k || ''), s: str(r.s || ''), t: str(r.t), by: str(r.by || ''), r: str(r.r || '') })) }));
+  return councils.length || towns.length ? { councils, towns } : null;
 }
 
 // An answer as a follow-up sends it back: its verdict, its answer, its facts

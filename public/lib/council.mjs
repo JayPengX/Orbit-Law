@@ -106,7 +106,7 @@ export function outcomeOf(decided, review) {
   const s = words[0] || words[1];
   if (!s) return '';
   if (/不予|不通過|否決|未通過|不同意/.test(s)) return 'no';
-  if (/保留|撤回|退回|另案|暫緩|緩議/.test(s)) return 'held';
+  if (/保留|撤回|退回|另案|暫緩|緩議|擇日/.test(s)) return 'held';
   if (/研議|研究|研辦|採納|參考|函轉|轉請|送[^。]*府/.test(s)) return 'sent';
   if (/存查|備查|查照|洽悉|知悉/.test(s)) return 'noted';
   if (/通過|同意|追認|准予|照案|照原|如擬|墊付/.test(s)) return 'yes';

@@ -236,6 +236,19 @@ html.q-kb #panel-ask::after {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* 這一週 (我的): the week's line read whole, its tag after it. */
+.lw-week .lw-row-meta {
+  display: block;
+}
+.lw-week .lw-row-meta small {
+  display: inline;
+  white-space: normal;
+}
+.lw-week .lw-row-meta .lw-tag {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
 .lw-row-meta .lw-tag {
   flex: none;
   min-height: 18px;
@@ -5023,3 +5036,121 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 
 /* 看法案: the bill's news, drawn only when there is some. */
 .lw-item-news:empty { display: none; }
+
+/* ---- 拍合約幫你看 (contractSheet) ---- */
+.lw-contract {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+.lw-contract-lead {
+  margin: 0;
+  color: var(--q-label-2);
+  font: var(--q-t-subhead);
+}
+.lw-contract-picks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.lw-contract-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  white-space: nowrap;
+}
+.lw-contract-pick svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.lw-contract-read {
+  border-radius: var(--q-r-cell);
+  background: var(--q-sheet-cell, var(--q-surface));
+  padding: 10px 12px;
+}
+.lw-contract-read summary {
+  font: 600 15px/22px var(--q-font);
+  cursor: pointer;
+}
+.lw-contract-read ol {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 1.4em;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+  white-space: pre-line;
+}
+.lw-contract-out {
+  display: grid;
+  gap: 10px;
+  scroll-margin-top: 72px;
+}
+.lw-contract .lw-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lw-contract .lw-fact-red {
+  background: color-mix(in srgb, var(--q-red) 12%, transparent);
+}
+.lw-contract .lw-fact-red b {
+  color: var(--q-red);
+}
+.lw-contract .lw-fact-orange {
+  background: color-mix(in srgb, var(--q-orange) 12%, transparent);
+}
+.lw-contract .lw-fact-orange b {
+  color: var(--q-orange);
+}
+.lw-contract .lw-fact-blue {
+  background: color-mix(in srgb, var(--q-blue) 12%, transparent);
+}
+.lw-contract .lw-fact-blue b {
+  color: var(--q-blue);
+}
+.lw-contract-h {
+  margin: 8px 0 0;
+  font: var(--q-t-headline);
+}
+.lw-flag {
+  display: grid;
+  gap: 6px;
+  border-left: 3px solid var(--c);
+}
+.lw-flag h4 {
+  align-items: baseline;
+  flex-wrap: wrap;
+  color: var(--q-label);
+  font: 600 15px/22px var(--q-font);
+}
+.lw-flag p {
+  color: var(--q-label-2);
+  font: var(--q-t-subhead);
+}
+.lw-flag-ask b {
+  margin-right: 6px;
+  color: var(--c);
+}
+.lw-flag-text summary {
+  color: var(--q-label-3, var(--q-label-2));
+  font: var(--q-t-footnote);
+  cursor: pointer;
+}
+.lw-flag-text p {
+  margin-top: 4px;
+  white-space: pre-line;
+  font: var(--q-t-footnote);
+}
+.lw-contract-fail {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.lw-contract-again {
+  justify-self: start;
+}
+.lw-contract-entry {
+  margin-bottom: 12px;
+}

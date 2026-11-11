@@ -994,3 +994,19 @@ test('a follow-up sends each answer back as its verdict, answer, facts and point
   assert.equal(answerText({ answer: '可以。' }), '可以。');
   assert.ok(answerText({ answer: 'x'.repeat(900) }).length <= 700);
 });
+
+test('問法律 about a council or a 代表會: its bills and rows as cites, each checked; none, no part', () => {
+  const c = cleanChat({
+    covered: true,
+    answer: '有',
+    points: [{ text: '有人提案改善停車', cites: ['cc:cha-ab9e-3263', 'cc:nope'] }, { text: '代表會通過回收車', cites: ['tw:10007110:1'] }],
+    local: {
+      councils: [{ c: 'cha', n: '彰化縣議會', people: [{ id: 'x', n: '楊子賢' }], bills: [{ id: 'cha-ab9e-3263', t: '停車', by: '楊子賢', res: '送縣府研究辦理', d: '' }, { id: 42, t: 'bad' }] }, { c: 'BAD', n: 'x', bills: [] }],
+      towns: [{ tc: '10007110', n: '溪湖鎮民代表會', rows: [{ id: 'tw:10007110:1', k: '提案', s: '第15次臨時會', t: '資源回收車', by: '', r: '通過' }, { id: 'tw:1:1', t: 'x' }] }]
+    }
+  });
+  assert.deepEqual(c.points.map(p => p.cites), [['cc:cha-ab9e-3263'], ['tw:10007110:1']]);
+  assert.deepEqual(c.local.councils.map(x => [x.c, x.bills.length, x.people[0].n]), [['cha', 1, '楊子賢']]);
+  assert.equal(c.local.towns[0].rows.length, 1);
+  assert.equal(cleanChat({ covered: true, answer: 'x', points: [] }).local, undefined);
+});

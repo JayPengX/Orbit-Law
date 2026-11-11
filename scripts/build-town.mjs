@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
+import { minutesOf, digest } from '../public/lib/minutes.mjs';
 import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
@@ -46,7 +47,7 @@ async function page(url, fresh = false) {
 
 // A PDF's text: its bytes through the door (file=1, never kept at the edge), then poppler's pdftotext.
 let tmp;
-async function pdfText(url) {
+async function pdfBytes(url) {
   await sleep(process.env.FAST ? 0 : 500);
   reads++;
   // (A PDF on Google Drive, 線西's: from Drive itself; the rest through the door.)
@@ -60,15 +61,46 @@ async function pdfText(url) {
   const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok) || (zip && r.ok && !/json/i.test(r.headers.get('Content-Type') || ''));
   const b = pdf ? null : await r.json().catch(() => ({}));
   if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
+  return pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64');
+}
+async function pdfText(url) {
+  const bytes = await pdfBytes(url);
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
-  await writeFile(file, pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64'));
+  await writeFile(file, bytes);
+  const zip = /\.(odt|docx)$/i.exec(url);
   // (An OpenDocument or Word file, 礁溪's agendas: its text from inside the zip, a paragraph or a table cell a line.)
   if (zip) {
     const xml = execFileSync('unzip', ['-p', file, zip[1].toLowerCase() === 'odt' ? 'content.xml' : 'word/document.xml'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
     return xml.replace(/<\/(text:p|text:h|w:p|table:table-cell|w:tc)>/g, '\n').replace(/<(text:s|text:tab|w:tab)\b[^>]*\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   }
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+}
+
+// 會議紀錄變表格 (lib/minutes.mjs): a paper of minutes code couldn't split into rows, or a scan with no text,
+// read once by the AI door (Orbit-Core /ai/build, feature law-minutes; its day's cap there), a few a night.
+const AI_DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/ai/build';
+let aiBudget = Number(process.env.TOWN_AI ?? 30);
+async function minutesByAi(town, session, p, url) {
+  if (!KEY || aiBudget <= 0 || late()) return undefined;
+  aiBudget--;
+  try {
+    const input = { town, session };
+    if (p.text) input.text = digest(p.text);
+    else {
+      const bytes = await pdfBytes(url);
+      if (bytes.length > 6_500_000) return null;
+      input.pdf = { mime_type: 'application/pdf', data: bytes.toString('base64') };
+    }
+    const r = await fetch(AI_DOOR, { method: 'POST', headers: { 'X-Build-Key': KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'law-minutes', input }), signal: AbortSignal.timeout(150_000) });
+    const b = await r.json().catch(() => ({}));
+    if (r.status === 429) aiBudget = 0;
+    if (!r.ok || !Array.isArray(b.out?.items)) throw new Error(`${r.status} ${b.error || ''} ${b.why || ''}`.trim());
+    return b.out.items;
+  } catch (e) {
+    console.log(`town ${town} ${session} minutes AI: ${e.message}`);
+    return null;
+  }
 }
 
 // What a paper says, by its kind: 決議案 → its resolutions; 總質詢 → the day's turns and questions; 會議紀錄,
@@ -81,6 +113,11 @@ function readPaper(k, text) {
     // (Some days' papers are 書面質詢: forms with the 公所's written reply.)
     if (!t.turns.length) return { wq: written(text) };
     return { ...t, asks: questions(t.turns).map(({ w, from, to, gist }) => ({ w, from, to, gist })) };
+  }
+  if (k === '會議紀錄') {
+    const t = paperText(text);
+    const { sits, items, good } = minutesOf(t);
+    return { text: t, sits, items, ...(good ? {} : { messy: true }) };
   }
   return { text: paperText(text) };
 }
@@ -107,9 +144,14 @@ async function townPapers(tc, sessions) {
       for (const f of i.files || []) {
         const was = old[f.url];
         if (was) papers[f.url] = was;
+        // (Minutes read before they were split into rows: split now, from the text kept.)
+        if (was?.k === '會議紀錄' && was.text && !was.items) {
+          const { sits, items, good } = minutesOf(was.text);
+          Object.assign(was, { sits, items }, good ? {} : { messy: true });
+        }
         // (A 總質詢 paper read before 書面質詢 were: read again.)
         const stale = was?.k === '總質詢' && !was.turns?.length && !was.wq;
-        if (!was || was.none || stale) jobs.push({ s, i, f, papers, again: !!was && !stale });
+        if (!was || (was.none && !was.ai) || stale) jobs.push({ s, i, f, papers, again: !!was && !stale });
       }
     }
   }
@@ -125,12 +167,25 @@ async function townPapers(tc, sessions) {
       papers[f.url] = { k: i.k, none: day };
     }
   }
+  // Minutes code couldn't split, and scans: the AI door, newest session first, each once (a failure again after a week).
+  for (const { s, papers } of files) {
+    for (const [url, p] of Object.entries(papers)) {
+      if (p.k !== '會議紀錄' || p.ai || !(p.messy || p.none) || (p.aiTry && p.aiTry > addDays(day, -7))) continue;
+      const items = await minutesByAi(TOWN_SITES[tc]?.n || '', s.n, p, url);
+      if (items) {
+        Object.assign(p, { items, ai: day });
+        delete p.messy;
+        delete p.aiTry;
+      } else if (items === null) p.aiTry = day;
+    }
+  }
   for (const { s, name, papers } of files) {
     // What the session's row says of them.
     const all = Object.values(papers);
     s.res = all.reduce((n, p) => n + (p.res?.length || 0), 0) || undefined;
     s.asks = all.reduce((n, p) => n + (p.asks?.length || 0), 0) || undefined;
     s.wq = all.reduce((n, p) => n + (p.wq?.length || 0), 0) || undefined;
+    s.props = all.reduce((n, p) => n + (p.items?.length || 0), 0) || undefined;
     s.read = all.filter(p => !p.none).length || undefined;
     if (all.length) await writeFile(`${dir}${name}.json`, JSON.stringify({ built, tc, n: s.n, papers }));
   }

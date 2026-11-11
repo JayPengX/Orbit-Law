@@ -42,6 +42,7 @@ import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs'
 import { textFile } from './lib/agency.mjs';
 import { KINDS, LOCAL_SUBKINDS, kindOf, isRule, ruleParts, ruleFile, partLabel, localKindOf, ruleP } from './lib/kinds.mjs';
 import { ruleDoc } from './lib/rule-doc.mjs';
+import { weekOf } from './lib/weekly.mjs';
 import { basisOf as basisIn } from './lib/deleg.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
 import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings, ccTermSittings, councilDays } from './lib/council.mjs';
@@ -50,6 +51,7 @@ const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf, ytSite } from './lib/council-video.mjs';
 import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
 import { TOWN_YOUTUBE } from './lib/town-video.mjs';
+import { splitClauses, contractKind, sidesOf, prepClauses, cleanCheck, levelCounts, fileBase64, LEVELS, KIND_NAMES, CONTRACT_MAX } from './lib/contract.mjs';
 import { chatLaw, chatError, stageText, STARTERS, askIdeas, MAX_CHAT_Q, mineOf, CITIES, readCity, saveCity, citiesOf, answerText as chatAnswerText, answerCites } from './lib/chat.mjs';
 import { readLog, noteRead, lawPlace } from './lib/reading.mjs';
 import { forYou, lawItem as pickItem, COMMON } from './lib/foryou.mjs';
@@ -227,6 +229,9 @@ const nameOf = (p, fallback = '') => { const r = state.byCode.get(p); return (en
 
 // Orbit AI's mark (the kit's icons.ai; an older kit: the spark).
 const ICON_SPARK = kitUI.icons?.ai || '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5c.5 3.8 2.2 6.4 6.6 7.4-4.4 1-6.1 3.6-6.6 7.4-.5-3.8-2.2-6.4-6.6-7.4 4.4-1 6.1-3.6 6.6-7.4zM19 15c.3 1.9 1.1 3 3 3.5-1.9.5-2.7 1.6-3 3.5-.3-1.9-1.1-3-3-3.5 1.9-.5 2.7-1.6 3-3.5z"/></svg>';
+// 拍合約幫你看's: a page with lines, a camera.
+const ICON_CONTRACT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
+const ICON_CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const TABS = ['home', 'laws', 'rulings', 'bills', 'mine', 'ask'];
 const tabs = tabBar({
   tabs: [
@@ -305,6 +310,8 @@ async function route() {
       history.replaceState(null, '', '#tab=ask');
       ask(p.get('q'));
     }
+    // 拍合約幫你看 over 問法律 (#tab=ask&contract=1).
+    if (p.get('contract')) contractSheet();
   } else if (tab === 'laws') {
     state.law = null;
     state.topic = TOPICS[p.get('topic')] ? p.get('topic') : '';
@@ -487,7 +494,8 @@ function findCard() {
   const form = h('form', { class: 'nv-find-field', role: 'search', onsubmit: e => (e.preventDefault(), findGo(input.value, 's')) }, [h('i', { class: 'nv-find-icon', html: ICON_SEARCH }), input]);
   const ways = h('div', { class: 'nv-find-ways' }, [
     h('button', { class: 'nv-way q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 's') : go('tab=laws')) }, [h('i', { html: ICON_SEARCH }), W('搜尋法規', 'Search laws')]),
-    h('button', { class: 'nv-way is-ask q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 'a') : go('tab=ask')) }, [h('i', { html: ICON_SPARK }), W('問法律', 'Ask the law')])
+    h('button', { class: 'nv-way is-ask q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 'a') : go('tab=ask')) }, [h('i', { html: ICON_SPARK }), W('問法律', 'Ask the law')]),
+    h('button', { class: 'nv-way is-contract q-press', type: 'button', onclick: () => go('tab=ask&contract=1') }, [h('i', { html: ICON_CONTRACT }), W('拍合約幫你看', 'Check a contract')])
   ]);
   const head = h('div', { class: 'nv-find-head' }, [h('b', { class: 'nv-find-title', text: W('有法律問題？用白話問', 'A legal question? Just ask') }), h('small', { class: 'nv-find-sub', text: W('答案都附上條文，也能直接查法規、判決', 'Answers cite the law. Or look it up yourself.') })]);
   nvAsks = h('div', { class: 'nv-asks' });
@@ -2058,6 +2066,15 @@ function drawAsk() {
       if (e.target.closest('.lw-city')) citySheet();
       const v = e.target.closest('[data-vote-id]');
       if (v) votesData().then(d => voteSheet(d.votes.findIndex(x => x[0] === v.dataset.voteId)), () => {});
+      // An answer's council bill, councillor, council or 代表會: opened as the 議會 page opens them.
+      const cb = e.target.closest('.lw-msg [data-cbill]');
+      if (cb) openCouncilBill(cb.dataset.cbill);
+      const cp = e.target.closest('.lw-msg [data-ccp]');
+      if (cp) openCouncilor(cp.dataset.ccp, cp.dataset.cccode);
+      const tw = e.target.closest('.lw-msg [data-town]');
+      if (tw) openTown(tw.dataset.town);
+      const co = e.target.closest('.lw-msg [data-ccopen]');
+      if (co) (kit.writeStore?.(COUNCIL_KEY, co.dataset.ccopen), go('tab=bills&f=council'));
     });
   }
   drawPin();
@@ -2100,7 +2117,8 @@ function drawChat() {
     // One grouped list of questions to start from (each with its topic's tile), then the 地方法規 setting
     // as its own row with what it means under it, then the note (Jay 2026-10-27: grey slabs and a loose row read "so ugly").
     const cityName = city ? (en ? cityEn(city) : city) : readCity() === '' ? W('不查', 'None') : W('未設定', 'Not set');
-    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><p>${W('會引用條文、判決和立法院的資料回答', 'Answered from the laws, rulings and the Legislative Yuan, cited')}</p></div>` +
+    out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><p>${W('會引用條文、判決、立法院和議會的資料回答', 'Answered from the laws, rulings, the legislature and councils, cited')}</p></div>` +
+      `<div class="lw-list lw-ask-list lw-contract-entry"><a class="lw-row" href="#tab=ask&amp;contract=1"><span class="lw-orb sm">${ICON_CONTRACT}</span><span class="lw-row-text"><span class="lw-row-name">${W('拍合約幫你看', 'Check a contract')}</span><small>${W('租約、打工契約、切結書：逐條對照法律', 'A lease, a job, a pledge: each clause against the law')}</small></span>${CHEVRON}</a></div>` +
       `<p class="lw-list-cap lw-ask-cap">${W('從這裡問起', 'Start here')}</p><div class="lw-list lw-ask-list lw-ideas">${ideasHtml()}</div>` +
       againHtml() +
       `<div class="lw-list lw-ask-list lw-city-list"><button type="button" class="lw-row lw-city">${topicTile('home', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${W('地方法規', 'Local rules')}</span></span><b class="lw-row-val${city ? '' : ' off'}">${esc(cityName)}</b>${CHEVRON}</button></div>` +
@@ -2108,6 +2126,132 @@ function drawChat() {
     return;
   }
   out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);
+}
+
+// ---- 拍合約幫你看 -------------------------------------------------------------------------
+// A contract's photos, a PDF or its pasted words read into clauses (AI, a tap;
+// pasted words: code), the reader's side picked from the paper's own parties
+// (code), then each clause read against the law (AI, a tap): what breaks it,
+// what's unfair, what to watch, each with the articles it rests on, opened in
+// the app. Nothing is kept: the pictures go to the proxy for this read only.
+let contractOpen = false;
+async function contractSheet() {
+  if (contractOpen) return;
+  contractOpen = true;
+  const body = h('div', { class: 'lw-contract' });
+  sheet({ title: W('拍合約幫你看', 'Check a contract'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], onClose: () => ((contractOpen = false), location.hash.includes('contract=') && history.replaceState(null, '', '#tab=ask')) });
+  const ai = await import('#kit/ai.mjs').catch(() => null);
+  const lang = en ? 'en' : 'zh';
+  const note = text => h('p', { class: 'lw-hint-sm', text });
+  const fail = (text, again = start) => body.replaceChildren(h('div', { class: 'lw-contract-fail' }, [h('p', { text }), h('button', { type: 'button', class: 'q-btn', text: W('再試一次', 'Try again'), onclick: again })]));
+  if (!ai?.aiCall) return fail(W('這個功能需要更新 App，關掉重開一次。', 'Close and reopen the app to update it.'), () => location.reload());
+  const thinking = text => (ai.aiThinking ? ai.aiThinking(text) : h('p', { class: 'lw-hint-sm', text }));
+
+  function start() {
+    const shoot = h('button', { type: 'button', class: 'q-btn primary lw-contract-pick', html: `${ICON_CAMERA}<span>${W('拍照', 'Take photos')}</span>`, onclick: () => pick(true) });
+    const choose = h('button', { type: 'button', class: 'q-btn lw-contract-pick', html: `${ICON_CONTRACT}<span>${W('選照片或 PDF', 'Photos or a PDF')}</span>`, onclick: () => pick(false) });
+    const bar = ai.aiBar
+      ? ai.aiBar({ placeholder: W('或貼上合約全文', 'Or paste the contract'), label: W('合約全文', 'The contract'), max: CONTRACT_MAX.chars, onSend: t => pasted(t) })
+      : h('textarea', { class: 'lw-contract-paste' });
+    body.replaceChildren(
+      h('p', { class: 'lw-contract-lead', text: W('租約、打工契約、切結書、同意書：每一條對照法律，標出違法、對你不公平和要注意的地方，附上條文。', 'A lease, a job contract, a pledge: each clause read against Taiwan’s law, marking what breaks it, what’s unfair to you and what to watch, with the articles.') }),
+      h('div', { class: 'lw-contract-picks' }, [shoot, choose]),
+      bar,
+      note(W('一頁一張，最多 8 頁；照片只用來讀這份合約，不會保存，姓名、地址和證號會略去。AI 依條文檢查，不是法律意見。', 'One photo a page, up to 8. Photos are read for this check only and never kept; names, addresses and ID numbers are left out. AI checks against the articles; not legal advice.'))
+    );
+  }
+
+  async function pick(camera) {
+    const got = await ai.pickPicture?.({ camera, multiple: !camera, accept: camera ? 'image/*' : 'image/*,application/pdf' });
+    const files = (Array.isArray(got) ? got : got ? [got] : []).slice(0, CONTRACT_MAX.files);
+    if (!files.length) return;
+    body.replaceChildren(thinking(W('讀合約中…', 'Reading the contract…')));
+    const pdf = files.find(f => f.type === 'application/pdf');
+    let sent = [];
+    if (pdf) {
+      if (pdf.size > (CONTRACT_MAX.pdf * 3) / 4) return fail(W('PDF 太大了（最多約 4 MB），改拍照試試。', 'That PDF is too big (about 4 MB at most); try photos.'));
+      sent = [{ mime_type: 'application/pdf', data: await fileBase64(pdf) }];
+    } else {
+      for (const f of files) {
+        const pic = await ai.aiPicture(f, { side: 2000, quality: 0.8 });
+        if (pic) sent.push(pic);
+      }
+      // (Over the size the proxy takes: smaller, once.)
+      if (sent.reduce((n, x) => n + x.data.length, 0) > CONTRACT_MAX.bytes) sent = (await Promise.all(files.map(f => ai.aiPicture(f, { side: 1400, quality: 0.7 })))).filter(Boolean);
+    }
+    if (!sent.length) return fail(W('這張照片打不開，換一張試試。', 'That picture couldn’t be opened. Try another.'));
+    const r = await ai.aiCall('law-contract-read', { files: sent, lang }, { timeout: 75_000 });
+    if (r?.error || !r?.out) return fail(ai.aiSays(r?.error, r?.left));
+    if (r.out.kind === 'none' || !r.out.clauses?.length) return fail(W('看不出這是一份合約。換一張清楚、整頁的照片再試。', 'That doesn’t read as a contract. Try a clear photo of the whole page.'));
+    sides(r.out, true);
+  }
+
+  function pasted(t) {
+    const clauses = splitClauses(t);
+    if (!clauses.length || t.replace(/\s/g, '').length < 20) return toast(W('貼上整份合約再檢查', 'Paste the whole contract'));
+    sides({ kind: contractKind(t), title: '', parties: [], clauses }, false);
+  }
+
+  // Whose side: the paper's own parties as chips; then, for a job or a pledge, whether they're 18.
+  async function sides(read, byAi) {
+    const clauses = prepClauses(read.clauses);
+    const kind = read.kind || '';
+    const fold = h('details', { class: 'lw-contract-read' }, [
+      h('summary', { text: W(`讀到 ${clauses.length} 條${read.title ? `：${read.title}` : ''}`, `${clauses.length} clauses read${read.title ? `: ${read.title}` : ''}`) }),
+      h('ol', {}, clauses.map(c => h('li', { text: c.text })))
+    ]);
+    body.replaceChildren(fold, ...(byAi && ai.aiNote ? [ai.aiNote(W('AI 讀出的原文，點開可以對照', 'Read by AI: open it to compare'))] : []));
+    const list = sidesOf({ kind: kind || 'other', parties: read.parties });
+    const who = ai.askBox({ q: W('你是哪一方？', 'Which side are you?'), options: list.map(x => x.label) });
+    body.append(who.box);
+    const a = await who.answer;
+    const side = list.find(x => x.label === a.a) || { side: a.a, who: '' };
+    let minor = false;
+    if (kind !== 'rent') {
+      const age = ai.askBox({ q: W('你滿 18 歲了嗎？', 'Are you 18 or older?'), options: [W('滿 18 歲', '18 or older'), W('未滿 18 歲', 'Under 18')] });
+      body.append(age.box);
+      minor = (await age.answer).a === W('未滿 18 歲', 'Under 18');
+    }
+    check({ kind, title: read.title || '', clauses, side: side.side, who: side.who, minor });
+  }
+
+  async function check(input) {
+    const wait = thinking(W('逐條對照法律…（約 20 秒）', 'Reading each clause against the law… (about 20 s)'));
+    body.append(wait);
+    wait.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    const r = await ai.aiCall('law-contract', { ...input, lang }, { timeout: 110_000 });
+    wait.remove();
+    if (r?.error || !r?.out) return body.append(h('div', { class: 'lw-contract-fail' }, [h('p', { text: ai.aiSays(r?.error, r?.left) }), h('button', { type: 'button', class: 'q-btn', text: W('再試一次', 'Try again'), onclick: e => (e.currentTarget.parentNode.remove(), check(input)) })]));
+    result(cleanCheck(r.out, input.clauses), input);
+  }
+
+  function result(c, input) {
+    const counts = levelCounts(c.flags);
+    const chips = cites => cites.map(k => citeChip(...k.split(':'), c.laws[k]?.[0] || nameOf(k.split(':')[0]))).join('');
+    const label = i => {
+      const n = input.clauses[i - 1]?.n || '';
+      return n ? (/^第/.test(n) ? n : W(`第${n}條`, `Clause ${n}`)) : W(`第 ${i} 段`, `Part ${i}`);
+    };
+    const flag = f => `<div class="lw-block ${LEVELS[f.level].tone} lw-flag"><h4><span class="lw-tag ${LEVELS[f.level].tone === 'blue' ? 'indigo' : LEVELS[f.level].tone}">${esc(label(f.clause))}</span>${esc(f.what)}</h4>${f.why ? `<p>${esc(f.why)}</p>` : ''}${f.ask ? `<p class="lw-flag-ask"><b>${W('可以要求', 'Ask for')}</b>${esc(f.ask)}</p>` : ''}<details class="lw-flag-text"><summary>${W('原文', 'The clause')}</summary><p>${esc(input.clauses[f.clause - 1]?.text || '')}</p></details><div class="lw-cites">${chips(f.cites)}</div></div>`;
+    const kindName = KIND_NAMES[c.kind || input.kind]?.[en ? 1 : 0] || '';
+    const html =
+      `<p class="lw-verdict q-fit-wrap">${esc(c.summary || (c.flags.length ? W(`有 ${c.flags.length} 條要注意`, `${c.flags.length} clauses to look at`) : W('沒有找到違法的條款', 'Nothing against these articles')))}</p>` +
+      `<div class="lw-facts">${Object.entries(LEVELS).map(([k, l]) => `<div class="lw-fact-${l.tone}"><small>${esc(en ? l.en : l.zh)}</small><b>${counts[k]}</b></div>`).join('')}</div>` +
+      Object.keys(LEVELS)
+        .filter(k => counts[k])
+        .map(k => `<h3 class="lw-contract-h">${esc(en ? LEVELS[k].en : LEVELS[k].zh)} ${counts[k]}</h3>${c.flags.filter(f => f.level === k).map(flag).join('')}`)
+        .join('') +
+      (c.missing.length ? `<h3 class="lw-contract-h">${W('合約沒寫到', 'Not in the contract')}</h3><div class="lw-block lw-flag"><ul class="lw-points">${c.missing.map(m => `<li>${esc(m.what)} ${chips(m.cites)}</li>`).join('')}</ul></div>` : '') +
+      `<p class="lw-hint-sm">${esc([kindName, input.side && W(`你是${input.side}`, `you: ${input.side}`), c.checked && W(`對照 ${c.checked} 條條文`, `${c.checked} articles read`)].filter(Boolean).join(' · '))}</p>` +
+      `<p class="lw-hint-sm">${W('AI 依條文檢查，不是法律意見；重要的合約可以先問法律扶助基金會（412-8518）。', 'AI checks against the articles; not legal advice. For an important contract, ask Legal Aid (412-8518).')}</p>`;
+    const out = h('div', { class: 'lw-contract-out', html });
+    out.append(h('button', { type: 'button', class: 'q-btn lw-contract-again', text: W('再看一份', 'Check another'), onclick: start }));
+    body.append(out);
+    out.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+    haptic?.();
+  }
+
+  start();
 }
 
 // 問法律's start: four questions worth asking now, each saying why it's here (lib/chat.mjs askIdeas:
@@ -2138,7 +2282,9 @@ function turnHtml(t) {
   const name = new Map(r.sources.map(s => [`${s.p}:${s.key}`, s.n]));
   const cases = new Map((r.cases || []).map(c => [c.jid, c]));
   const rules = new Map((r.rules || []).map(x => [x.id, x]));
-  const chips = cites => cites.map(c => (cases.has(c) ? caseChip(cases.get(c)) : rules.has(c) ? ruleLink(rules.get(c), 'lw-ref lw-cite', `<b>${esc(rules.get(c).agency || W('規定', 'Rule'))}</b><span>${W('規定', 'rule')}</span>`) : citeChip(...c.split(':'), name.get(c)))).join('');
+  // A council's bill or a 代表會's row cited: a chip naming whose (彰化縣議會 提案, 溪湖鎮代表會 第6次定期會).
+  const locals = new Map([...(r.local?.councils || []).flatMap(c => c.bills.map(b => [`cc:${b.id}`, `<button type="button" class="lw-ref lw-cite" data-cbill="${esc(b.id)}"><b>${esc(c.n.replace(/議會$/, ''))}</b><span>${W('提案', 'bill')}</span></button>`])), ...(r.local?.towns || []).flatMap(t => t.rows.map(x => [x.id, `<button type="button" class="lw-ref lw-cite" data-town="${esc(t.tc)}"><b>${esc(t.n.replace(/民代表會$/, '代表會'))}</b><span>${esc(x.k)}</span></button>`]))]);
+  const chips = cites => cites.map(c => (locals.has(c) ? locals.get(c) : cases.has(c) ? caseChip(cases.get(c)) : rules.has(c) ? ruleLink(rules.get(c), 'lw-ref lw-cite', `<b>${esc(rules.get(c).agency || W('規定', 'Rule'))}</b><span>${W('規定', 'rule')}</span>`) : citeChip(...c.split(':'), name.get(c)))).join('');
   const card = (href, title, sub, extra = '') => `<a class="lw-notice" href="${esc(href)}"${extra}><b>${esc(title)}</b><small>${esc(sub)}</small></a>`;
   const block = (cls, icon, title, inner) => `<div class="lw-block ${cls}"><h4><i>${icon}</i>${esc(title)}</h4>${inner}</div>`;
   // At a glance first: the verdict, the key facts as tiles, then the why and, for progress, the steps.
@@ -2162,6 +2308,9 @@ function turnHtml(t) {
     r.rules?.length ? block('orange', MENU_ICON.gov, W('行政規則', 'Agency rules'), `<div class="lw-cards">${r.rules.map(x => ruleLink(x, 'lw-notice', `<b>${esc(x.n)}</b><small>${esc([x.agency, x.d && shortDay(x.d)].filter(Boolean).join(' · '))}</small>`)).join('')}</div>`) : '',
     r.people?.length ? block('teal', DOOR_ICON.people, W('立委', 'Legislators'), `<div class="lw-cards">${r.people.map(x => card(`#who=${x.id}`, x.n, x.party)).join('')}</div>`) : '',
     r.votes?.length ? block('green', DOOR_ICON.votes, W('院會表決', 'Floor votes'), `<div class="lw-cards">${r.votes.map(v => `<button type="button" class="lw-notice" data-vote-id="${esc(v.id)}"><b>${esc(v.t)}</b><small>${esc(shortDay(v.d))}</small></button>`).join('')}</div>`) : '',
+    // 議會、代表會: the bills and rows it drew on, each opening in the app; the place itself a tap away.
+    ...(r.local?.councils || []).map(c => block('purple', DOOR_ICON.council, c.n, `<div class="lw-cards">${c.bills.map(b => `<button type="button" class="lw-notice" data-cbill="${esc(b.id)}"><b>${esc(b.t)}</b><small>${esc([b.by, b.res, b.d && shortDay(b.d)].filter(Boolean).join(' · '))}</small></button>`).join('')}${c.people.map(p => `<button type="button" class="lw-notice" data-ccp="${esc(p.n)}" data-cccode="${esc(c.c)}"><b>${esc(p.n)}</b><small>${W('議員', 'Councillor')}</small></button>`).join('')}<button type="button" class="lw-notice" data-ccopen="${esc(c.c)}"><b>${esc(W(`看${c.n}`, `Open ${c.n}`))}</b><small>${W('會期、議員、全部提案', 'Sessions, members, every bill')}</small></button></div>`)),
+    ...(r.local?.towns || []).map(t => block('purple', DOOR_ICON.council, t.n, `<div class="lw-cards">${t.rows.map(x => `<button type="button" class="lw-notice" data-town="${esc(t.tc)}"><b>${esc(x.t)}</b><small>${esc([x.s, x.k, x.by, x.r].filter(Boolean).join(' · '))}</small></button>`).join('')}<button type="button" class="lw-notice" data-town="${esc(t.tc)}"><b>${esc(W(`看${t.n}`, `Open ${t.n}`))}</b><small>${W('會期、代表、議事錄', 'Sessions, members, minutes')}</small></button></div>`)),
     r.meets?.length ? block('red', DOOR_ICON.agenda, W('議程', 'Agenda'), `<div class="lw-cards">${r.meets.map(x => card(`#meet=${encodeURIComponent(x.id)}&d=${x.d}`, x.t, shortDay(x.d))).join('')}</div>`) : ''
   ].join('');
   const srcs = r.sources.length ? `<p class="lw-srcs">${W(`依據 ${r.sources.length} 條條文`, `From ${r.sources.length} articles`)}${r.left != null ? ` · ${W(`今天還能問 ${r.left} 次`, `${r.left} left today`)}` : ''}</p>` : '';
@@ -3074,10 +3223,24 @@ function drawMine() {
   const moved = items.filter(it => billMoved(it, m.items[it.k]));
   const laws = Object.keys(m.laws).map(p => state.byCode.get(p)).filter(Boolean);
   const marks = m.marks.map(x => ({ ...x, row: state.byCode.get(x.p) })).filter(x => x.row);
-  const news = changedLaws.filter(c => state.byCode.has(c.p)).map(c => lawItem(state.byCode.get(c.p), changeText(c, true), countTag(W('新', 'New'), 'green')));
+  // 這一週 (你追蹤的法案週報): what you follow that moved in the last 7 days, each in one plain line
+  // (the night's, data/ai/weekly.json; in English, or before it's made, the row's own words). 新 if since you last looked.
+  const week = weekOf(m, state.items, state.changes, state.weekly).filter(x => x.kind === 'bill' || state.byCode.has(x.c.p));
+  const inWeek = new Set(week.map(x => (x.kind === 'bill' ? x.it.k : x.c.p)));
+  const newTag = countTag(W('新', 'New'), 'green');
+  const weekRows = week.map(x => {
+    const line = en ? '' : x.line;
+    if (x.kind === 'law') return lawItem(state.byCode.get(x.c.p), line || changeText(x.c, true), changedLaws.includes(x.c) ? newTag : countTag(W('修法', 'Amended')));
+    const it = x.it;
+    return lawRow([it.p || '', it.n], { topic: itemTopic(it), sub: line || `${stageShort(it, en)} · ${shortDay(it.u.replace(/-/g, ''))}`, extra: billMoved(it, m.items[it.k]) ? newTag : line ? countTag(stageShort(it, en)) : '', href: itemHref(it).replace(/&amp;/g, '&') });
+  });
+  const news = changedLaws.filter(c => state.byCode.has(c.p) && !inWeek.has(c.p)).map(c => lawItem(state.byCode.get(c.p), changeText(c, true), newTag));
+  const movedOld = moved.filter(it => !inWeek.has(it.k));
   // (Wide: bills on the left, laws and legislators on the right.)
   const html = cols([
-    [section(W('自上次查看後的變動', 'New since you last looked'), (moved.length ? grid(moved.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)), 0],
+    // (On a wide page beside the bills, at the top of the laws' side.)
+    [section(W('這一週', 'This week'), weekRows.length ? `<div class="lw-list lw-week">${weekRows.join('')}</div>` : ''), 1],
+    [section(W('自上次查看後的變動', 'New since you last looked'), (movedOld.length ? grid(movedOld.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)), 0],
     [section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))), 0],
     [section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))), 1],
     [section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))), 1],
@@ -4411,10 +4574,18 @@ const PAPERS = [
 ];
 const PDF_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 1.5V5H13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 const paperRow = (n, url, small = '') => `<a class="lw-row lw-paper" href="${esc(url)}" target="_blank" rel="noopener" data-out><span class="lw-paper-ic">${PDF_ICON}</span><span class="lw-row-text"><span class="lw-row-name">${esc(n)}</span>${small ? `<small>${esc(small)}</small>` : ''}</span>${CHEVRON}</a>`;
+// A sitting read from its minutes: what it did (and its result), its day, hours and who came; a tap opens them.
+const sitRow = ({ x, url, name }) => {
+  const did = x.done.map(d => d.what.replace(/^審議(市長|鄉長|鎮長|代表)提案[：:]/, '')).filter(Boolean);
+  const res = x.done.map(d => d.result).filter(Boolean).pop() || '';
+  const tag = /續審|第[一二]讀會/.test(res) && !/通過/.test(res) ? '' : outcomeTag(outcomeOf(res, ''));
+  const small = [x.d && dayLabel(x.d), x.n, x.from && `${x.from}${x.to ? `–${x.to}` : ''}`, x.att ? W(`${x.att} 人出席`, `${x.att} present`) : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="lw-row lw-cbill" data-towntext="${esc(url)}" data-name="${esc(name)}"><span class="lw-row-text"><span class="lw-row-name">${esc(did.slice(0, 2).join('；') + (did.length > 2 ? W(` 等 ${did.length} 項`, ` and ${did.length - 2} more`) : ''))}</span><small>${esc(small)}</small></span>${tag || CHEVRON}</button>`;
+};
 // What a session holds, in a line.
 const sessionLine = s => {
   const q = s.items?.filter(i => i.k === '總質詢').length || 0;
-  return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : '', s.wq ? W(`書面質詢 ${s.wq} 件`, `${s.wq} written questions`) : !s.asks && q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', !s.days?.length && s.folders?.length ? W('有錄音', 'Audio') : s.days?.length ? (s.days[0].d ? W(`${new Set(s.days.map(d => d.d)).size} 天錄音`, `${new Set(s.days.map(d => d.d)).size} days recorded`) : W(`錄音 ${s.days.length} 段`, `${s.days.length} audio parts`)) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
+  return [spanOf(s.from, s.ext?.to || s.to), s.res ? W(`決議 ${s.res} 案`, `${s.res} resolutions`) : s.props ? W(`提案 ${s.props} 案`, `${s.props} proposals`) : '', s.asks ? W(`質詢 ${s.asks} 次`, `${s.asks} questions`) : '', s.wq ? W(`書面質詢 ${s.wq} 件`, `${s.wq} written questions`) : !s.asks && q ? W(`總質詢 ${q} 天`, `${q} days of questions`) : '', !s.days?.length && s.folders?.length ? W('有錄音', 'Audio') : s.days?.length ? (s.days[0].d ? W(`${new Set(s.days.map(d => d.d)).size} 天錄音`, `${new Set(s.days.map(d => d.d)).size} days recorded`) : W(`錄音 ${s.days.length} 段`, `${s.days.length} audio parts`)) : '', !s.items?.length && s.agenda?.length ? W('有議事日程表', 'Agenda out') : ''].filter(Boolean).join(' · ');
 };
 
 async function townSheet(t, own, vids = []) {
@@ -4470,7 +4641,7 @@ function townSession(own, s, party = new Map()) {
   const read = (f, k) => papers[f.url]?.k === k && !papers[f.url].none && papers[f.url];
   const drawPapers = () =>
     PAPERS.map(([k, en1]) => {
-      const head = W(k, en1);
+      let head = W(k, en1);
       if (k === '議事日程表') {
         const rows = (s.agenda || []).map(a => paperRow(/延長會/.test(a.n) ? W('延長會議事日程表', 'Agenda (extension)') : W('議事日程表', 'Agenda'), a.url));
         return rows.length ? `<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>` : '';
@@ -4496,6 +4667,19 @@ function townSession(own, s, party = new Map()) {
             )
             .join('');
       }
+      // 會議紀錄變表格: each sitting a row (what it did, its result), each proposal a row (lib/minutes.mjs, read
+      // at build; the AI only for minutes code couldn't split), then the minutes themselves.
+      let lead = '';
+      if (k === '會議紀錄') {
+        const ps = files.map(({ i, f, j }) => ({ i, f, j, p: read(f, k) }));
+        const sits = ps.flatMap(({ i, f, j, p }) => (p?.sits || []).filter(x => x.done?.length).map(x => ({ x, url: f.url, name: i.files.length > 1 ? `${i.n}（${j + 1}）` : i.n }))).sort((a, b) => (a.x.d < b.x.d ? -1 : a.x.d > b.x.d ? 1 : 0));
+        const props = ps.flatMap(({ f, p }) => (p?.items || []).map((r, n) => ({ r, url: f.url, n, ai: !!p.ai })));
+        if (sits.length > 1 || (sits.length && !props.length))
+          lead += `<h4>${W(`每次會議 ${sits.length}`, `Sittings ${sits.length}`)}</h4><div class="lw-list in-sheet wrap">${sits.map(sitRow).join('')}</div>`;
+        if (props.length)
+          lead += `<h4>${W(`提案 ${props.length}`, `Proposals ${props.length}`)}</h4><div class="lw-list in-sheet wrap">${props.map(({ r, url, n }) => `<button type="button" class="lw-row lw-cbill" data-townprop="${esc(url)}|${n}"><span class="lw-row-text"><span class="lw-row-name">${esc(r.what)}</span><small>${esc([r.by, r.kind, r.no, r.d && shortDay(r.d)].filter(Boolean).join(' · '))}</small></span>${outcomeTag(outcomeOf(r.result, ''))}</button>`).join('')}</div>${props.some(x => x.ai) ? `<p class="lw-hint-sm">${W('部分提案由 AI 從議事錄整理，以原始 PDF 為準。', 'Some proposals were sorted from the minutes by AI; the PDF is the record.')}</p>` : ''}`;
+        if (lead) head = W('會議紀錄全文', 'The minutes in full');
+      }
       const rows = files.map(({ i, f, j }) => {
         const n = i.files.length > 1 ? `${i.n}（${j + 1}）` : i.n === k ? head : i.n;
         const p = read(f, k);
@@ -4503,7 +4687,7 @@ function townSession(own, s, party = new Map()) {
         const first = p.text.split('\n').find(x => /^時\s*間[：:]/.test(x))?.replace(/^時\s*間[：:]\s*/, '') || '';
         return `<button type="button" class="lw-row" data-towntext="${esc(f.url)}" data-name="${esc(n)}"><span class="lw-row-text"><span class="lw-row-name">${esc(n)}</span><small>${esc(first || W(`${p.text.length.toLocaleString()} 字`, `${p.text.length.toLocaleString()} characters`))}</small></span>${CHEVRON}</button>`;
       });
-      return `<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>`;
+      return `${lead}<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>`;
     }).join('');
   const days = (s.days || []).map((d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc([d.d && dayLabel(d.d), partOf(d)].filter(Boolean).join(' · '))}</span><small>${esc([d.ext && W('延長會', 'Extension'), d.what || W('會議錄音', 'Sitting audio')].filter(Boolean).join(' · '))}</small></span></button>`).join('');
   // (Recordings a site keeps as a Drive folder: the folder, opened in Drive.)
@@ -4534,6 +4718,16 @@ function townSession(own, s, party = new Map()) {
       if (!x) return;
       const body = h('div', { class: 'lw-cbill-body', html: councilBillHtml({ ...x, 會期名稱: `${term}${x.ext ? W('延長會', ' (extension)') : ''}`, 議決日期: x.d, pdf: url, pdfName: '決議案 PDF' }) });
       return sheet({ title: W('決議案', 'Resolution'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
+    }
+    const pr = e.target.closest('[data-townprop]');
+    if (pr) {
+      const [url, n] = pr.dataset.townprop.split('|');
+      const p = papers[url];
+      const x = p?.items?.[+n];
+      if (!x) return;
+      const decided = [x.result, x.note].filter(Boolean).join('：') + (x.vote ? W(`（${x.vote}）`, ` (${x.vote})`) : '');
+      const body = h('div', { class: 'lw-cbill-body', html: councilBillHtml({ 案由: x.what, 案號: x.no, 類別: x.kind, 提案人: x.by, 連署人: x.co, 會期名稱: term, 議決: decided, 議決日期: x.d, pdf: url, pdfName: W('議事錄 PDF', 'The minutes (PDF)') }) + (p.ai ? `<p class="lw-hint-sm">${W('這一案由 AI 從議事錄整理，以原始 PDF 為準。', 'Sorted from the minutes by AI; the PDF is the record.')}</p>` : '') });
+      return sheet({ title: W('提案', 'Proposal'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
     }
     const q = e.target.closest('[data-townask]');
     if (q) {
@@ -4698,6 +4892,10 @@ async function start() {
   // The followed legislators' news, for the badge.
   if (Object.keys(state.mine.people || {}).length && state.tab !== 'mine') trackedFeeds(state.mine).catch(() => {});
   if (Object.keys(state.mine.cc || {}).length && state.tab !== 'mine') trackedCC(state.mine).catch(() => {});
+  // 這一週's lines on 我的 (made each night, shared).
+  data('ai/weekly.json')
+    .then(w => ((state.weekly = w), state.tab === 'mine' && drawMine()))
+    .catch(() => {});
   const changesReady = data('changes.json')
     .then(c => {
       state.changes = c;

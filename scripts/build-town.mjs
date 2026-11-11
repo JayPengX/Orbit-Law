@@ -40,9 +40,11 @@ async function page(url, fresh = false) {
     reads++;
     try {
       if (DIRECT.test(url)) {
+        // (Their firewall turns away reads that come too close: two seconds apart, and its refusal read again.)
+        await sleep(process.env.FAST ? 0 : 2000);
         const r = await direct(url);
         const html = await r.text();
-        if (!r.ok || !html) throw new Error(`${r.status}`);
+        if (!r.ok || !html || /<title>Error<\/title>/.test(html.slice(0, 600))) throw new Error(`${r.status}${r.ok ? ' refused' : ''}`);
         return html;
       }
       const r = await fetch(`${DOOR}?v=1&u=${encodeURIComponent(u)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
@@ -388,7 +390,8 @@ async function chcgTown(tc, site) {
       // (Or its own MP4, 澎湖's, a day in parts, 1151006-2: its part, and its picture.)
       else if (!drive && /\.(mp3|m4a|wav|mp4)$/i.test(url)) {
         const part = d && (n.match(/-(\d{1,2})$/) || [])[1];
-        s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url, ...(pic ? { pic } : {}) });
+        // (A recorder's own name, 金沙's REC_002: its number.)
+        s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '').replace(/^REC_0*(\d+)$/i, '$1') }), src: url, ...(pic ? { pic } : {}) });
       }
       else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
       // (A session's recording on a video site, 田尾's on HiNet: opened there.)

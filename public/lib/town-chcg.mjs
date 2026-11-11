@@ -375,7 +375,7 @@ export function ccmsPage(html, base) {
   // (Blocks may hold blocks, 相關檔案 around each paper's: each block's own files, up to the next block.)
   for (const chunk of h.split(/class="[^"]*file-download-multiple[^"]*"/).slice(1)) {
     // (A title that kept its file's ending, 第22屆第12次臨時會議事錄.doc: without it.)
-    const hd = text((chunk.match(/<div class="hd">([\s\S]*?)<div class="ct">/) || [])[1]).replace(/\.(pdf|docx?|odt|mp3)$/i, '');
+    const hd = text((chunk.match(/<div class="hd">([\s\S]*?)<div class="ct">/) || [])[1]).replace(/\.(pdf|docx?|odt|mp3?)$/i, '');
     const ct = chunk.slice(chunk.indexOf('<div class="ct">'));
     const got = new Map();
     for (const [a, href] of ct.slice(0, ct.indexOf('</ul>') + 1 || undefined).matchAll(/<a [^>]*href="([^"]+)"[^>]*>/g)) {

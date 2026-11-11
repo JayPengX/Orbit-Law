@@ -13,48 +13,61 @@
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
 </p>
 
-Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
+Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them, down to all 22 city and county councils and every township council (鄉鎮市民代表會). Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
-  <img src="docs/screenshots/law-1.webp" width="30%" alt="Ask the law in plain words">
-  <img src="docs/screenshots/law-2.webp" width="30%" alt="Every article, every link">
-  <img src="docs/screenshots/law-3.webp" width="30%" alt="Court rulings, searchable">
+  <img src="docs/screenshots/law-1.webp" width="30%" alt="Ask in plain words, every point cited">
+  <img src="docs/screenshots/law-2.webp" width="30%" alt="All 22 city and county councils">
+  <img src="docs/screenshots/law-3.webp" width="30%" alt="Down to every township council">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.webp" width="30%" alt="What a bill changes">
-  <img src="docs/screenshots/law-5.webp" width="30%" alt="How every party voted">
-  <img src="docs/screenshots/law-6.webp" width="30%" alt="Every legislator">
+  <img src="docs/screenshots/law-4.webp" width="30%" alt="A township's votes, questions and recordings">
+  <img src="docs/screenshots/law-5.webp" width="30%" alt="Every council's sittings, day by day">
+  <img src="docs/screenshots/law-6.webp" width="30%" alt="Every article, every link">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/law-7.webp" width="30%" alt="What a bill changes">
+  <img src="docs/screenshots/law-8.webp" width="30%" alt="How every party voted">
+  <img src="docs/screenshots/law-9.webp" width="30%" alt="Court rulings, searchable">
 </p>
 
 <details>
 <summary>中文畫面</summary>
 
 <p align="center">
-  <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="用白話問法律">
-  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="每一條條文都能點">
-  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="判決隨手查">
+  <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="用白話問法律，每句都附條文">
+  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="22 個縣市議會都在這">
+  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="連鄉鎮市民代表會都有">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="法案改了什麼">
-  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="每個政黨怎麼投票">
-  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="每一位立委">
+  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="代表會的決議、質詢與錄音">
+  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="每個議會哪天開會，錄影都在">
+  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="每一條條文都能點">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/law-7.zh.webp" width="30%" alt="法案改了什麼">
+  <img src="docs/screenshots/law-8.zh.webp" width="30%" alt="每個政黨怎麼投票">
+  <img src="docs/screenshots/law-9.zh.webp" width="30%" alt="判決隨手查">
 </p>
 
 </details>
 
 ## Features
 
+- **Also AI:** 拍合約幫你看 checks a contract clause by clause, every flag cited; 會議紀錄變表格 reads a council's minutes into rows; 這一週 sums up the bills and laws you follow that moved. Explanations of thousands of everyday articles are made ahead, so they open without a wait.
 - **法規 Laws:** every law and regulation from 全國法規資料庫, in Chinese and English, with every reference a link (第X條之Y, ranges, 前條, 前項, another law's name; about 99% of 28k references land on a real article).
 - **修法追蹤:** what each amendment added, amended and removed, article by article.
 - **裁判 Rulings:** every 大法官解釋 and 憲判字, the top courts' judgments by article and month, and the other courts' judgments by law, cause and court, three years back; a judgment opens with its outcome first, and AI explains any top ruling in plain words, each point citing its own paragraphs.
 - **立法 Bills:** each bill in 立法院 stage by stage (提案 → 一讀 → 委員會 → 院會 → 三讀 → 公布), every version folded into one item, the 對照表 side by side, and a funnel of how far bills got.
 - **議程 and live video:** the day's sittings, the speakers, clips of who has spoken, and IVOD's live stream of a meeting in session.
-- **議會 Councils:** all 22 city and county councils and 竹北市民代表會: each term's sessions, sittings and bills, votes by name from the minutes, councillors' 質詢 and every council's open video (live and recordings); bills and papers in PDFs read into rows in the app.
+- **議會 Councils, down to every township:** all 22 city and county councils and all 204 鄉鎮市民代表會. Each council's sittings on a day strip with their recordings (各議會的議程 puts all 22 on one), bills and how they went, votes by name, councillors' 質詢 with their recordings, and the councillors you follow in 我的. 69 township councils are read from their own sites session by session (agendas, minutes, resolutions, questions and recordings; 1,655 sessions), 47 play their YouTube recordings in the app, and a member's 總質詢 is summed up on a tap, every point citing its turn. Papers in PDF, Word and ODT are read into rows.
 - **The three sides link:** an article shows its rulings and the bills open on it; a ruling the articles it rules on; a bill the rulings that named it.
 - **Also:** ministries' 行政規則, every city's 地方法規, 政府公告 and 預告, budgets, legislators by 縣市 and their votes (an independent set against the caucus they sit in).
-- **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app; past chats kept by day (今天, 昨天, 過去 7 天, by month), each with what it came to. A question is split into its ideas, each in the law's own words, so the right article is found far more often.
+- **問法律:** the ✦ button beside the tab bar; ask in plain words and the verdict and answer appear as they're written, citing the articles, judgments and rules they rest on, each opening in the app; past chats kept by day (今天, 昨天, 過去 7 天, by month), each with what it came to. A question is split into its ideas, each in the law's own words, so the right article is found far more often. It follows an article that leaves its details to a regulation (由主管機關定之) to that regulation, cites what councillors said in their sittings, and remembers 8 questions back; Claude Sonnet answers, a model of its class from another maker when it's busy.
 - **One search** across names, short names, article numbers and full text; a law named outright (預算法, 刑法) comes first with its first article; works offline once opened. Laws passed but never promulgated (行政院 refused to countersign, 不副署) are held apart and say so.
 - **Every screen, either way up:** on a phone on its side, a tablet or a computer each tab is two or three columns, with bills, votes and meetings in grids.
 

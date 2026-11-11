@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -498,8 +498,13 @@ async function chcgTown(tc, site) {
             if (!x || arts >= 80 || late()) continue;
             mine++;
             arts++;
-            const k = /錄音|音檔/.test(a.n) ? '錄音' : paperKind(a.n);
-            for (const l of joomlaArticle(await page(a.url), c.joomla.base)) put(x.s, x.ext, k, k === '錄音' ? l.n : a.n, l.url);
+            // (An article of both, 太麻里's 錄音檔及議事錄: each link its own kind, by its line.)
+            const both = /錄音|音檔/.test(a.n) && /議事錄|紀錄|記錄|日程/.test(a.n);
+            const ka = !both && /錄音|音檔/.test(a.n) ? '錄音' : null;
+            for (const l of joomlaArticle(await page(a.url), c.joomla.base)) {
+              const k = ka || (ytId(l.url) || /\.(mp3|m4a|wav)$/i.test(l.url) || (both && /錄音|音檔/.test(l.n)) ? '錄音' : both && paperKind(l.n) !== '其他' ? paperKind(l.n) : paperKind(a.n));
+              put(x.s, x.ext, k, k === '錄音' ? l.n.replace(/^.*?(定期會|臨時會)(?=.)/, '') : both ? l.n : a.n, l.url);
+            }
           }
           if (!mine) break;
         }
@@ -605,31 +610,49 @@ async function chcgTown(tc, site) {
     // A 代表會's papers in Google Drive folders (里港's): a folder a kind, a folder a session in it (or the session in
     // each file's name), read from Drive itself (folders and files open to all); a folder of another term's never
     // opened. A recording named by its day, 20201028.mp3.
+    // (The same paper kept in two folders, 中寮's 會議紀錄/第18次臨時會 and 會議紀錄/第22屆臨時會/第18次臨時會: once.)
+    const driveSeen = new Set();
     if (c.drive)
-      for (const [id, kind] of Object.entries(c.drive)) {
-        const walk = async (folder, x0, depth) => {
+      for (const [id, folderKind] of Object.entries(c.drive)) {
+        // (A folder of 議決案 inside a kind's, 中寮's 議事錄/議決案: its files 決議案.)
+        // (關山's names are 22-10臨時會日程表, read as 第22屆第10次臨時會; 22-6.議事日程表 in its 定期會 folder too.)
+        const walk = async (folder, x0, depth, kind, sort) => {
           if (late()) return;
           await sleep(process.env.FAST ? 0 : 500);
           const r = await fetch(driveFolderUrl(folder), { signal: AbortSignal.timeout(60_000) });
           if (!r.ok) throw new Error(`Drive ${folder}: ${r.status}`);
-          for (const e of driveEntries(await r.text())) {
-            const s = sessionOf(e.n, site.term);
-            const t = +(e.n.match(/第(\d+)屆/) || [])[1];
+          const es = driveEntries(await r.text());
+          // (A paper of the term before in a session's folder, 中寮's 6定會-01-111年總預算 beside 115年度總預算案: a year
+          // more than two before the newest one there is left out.)
+          const yearIn = n => +(String(n).match(/(?<!\d)(1\d{2})(?=年|總|附屬|第二)/) || [])[1] || 0;
+          const newest = Math.max(0, ...es.filter(e => !e.folder).map(e => yearIn(e.n)));
+          // (Beside a folder named for this term, 第22屆定期會, one naming no term is the term before's, or a copy.)
+          const termed = es.some(e => e.folder && e.n.includes(`第${site.term}屆`));
+          for (const e of es) {
+            if (!e.folder && yearIn(e.n) && yearIn(e.n) < newest - 2) continue;
+            if (termed && e.folder && !/屆/.test(e.n) && /\d/.test(e.n)) continue;
+            let nm = pthgName(e.n);
+            if (sort && !sessionOf(nm, site.term)) nm = nm.replace(/^\s*(\d{2})\s*-\s*(\d{1,2})(?!\d)\.?/, (_, t, no) => `第${t}屆第${no}次${sort}`);
+            const s = sessionOf(nm, site.term);
+            const t = +(nm.match(/^(\d+)屆|第(\d+)屆/) || []).slice(1).find(Boolean);
             if ((s && s.term !== site.term) || (t && t !== site.term)) continue;
-            const x = (s && at(e.n)) || x0;
+            const x = (s && at(nm)) || x0;
             if (e.folder) {
               // (A session's folder long over, its kind kept from before: not opened again.)
               if (x && x !== x0 && kept(x, kind)) continue;
-              if (depth < 3) await walk(e.folder, x, depth + 1);
+              if (depth < 3) await walk(e.folder, x, depth + 1, /議決案|決議案/.test(e.n) ? '決議案' : kind, (e.n.trim().match(/^(定期會|臨時會)$/) || [])[1] || sort);
               continue;
             }
             if (!x) continue;
             const audio = kind === '錄音' || /\.(mp3|m4a|wav)$/i.test(e.url);
             const k = audio ? '錄音' : paperKind(e.n) === '其他' ? kind : paperKind(e.n);
+            const seen = `${x.s.key}|${k}|${e.n}`;
+            if (driveSeen.has(seen)) continue;
+            driveSeen.add(seen);
             put(x.s, x.ext, k, audio ? westDay(e.n) || e.n : e.n, e.url);
           }
         };
-        await walk(id, null, 0);
+        await walk(id, null, 0, folderKind);
       }
     // 澎湖's (event.penghu.gov.tw/R…/): each list a kind, fifteen posts a page, each post a session's files or its
     // sittings' videos (MP4s, named by day: 10.06-1 in the post's year).

@@ -320,28 +320,37 @@ export function wpDay(name, posted) {
 export function joomlaList(html, base, path) {
   const arts = [];
   for (const [, href, name] of String(html).matchAll(/<a [^>]*href="([^"]+)"[^>]*>([^<]{2,80})<\/a>/g)) {
-    if (!href.startsWith(`${path}/`)) continue;
+    // (太麻里's list is a page, 議事日程表.html, its articles under 議事日程表/.)
+    if (!href.startsWith(`${path.replace(/\.html$/, '')}/`)) continue;
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     if (!arts.some(a => a.url === url)) arts.push({ n: text(name), url });
   }
   return arts;
 }
 // A Joomla article's files: its attachments, PDFs, Drive files, recordings ({ n, url }).
+// (太麻里's: the body an item_fulltext, each link shown as its own address under a line naming it, 1.…議事錄 /
+// 如連結：https://…, some of them bare text, not links.)
 export function joomlaArticle(html, base) {
   const h = String(html);
-  const i = h.indexOf('itemprop="articleBody"');
+  let i = h.indexOf('itemprop="articleBody"');
+  if (i < 0) i = h.indexOf('class="item_fulltext"');
   if (i < 0) return [];
   const end = h.indexOf('</article>', i);
+  const body = h.slice(i, end > 0 ? end : undefined);
   const links = [];
-  for (const [, href, name] of h.slice(i, end > 0 ? end : undefined).matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+  let last = 0;
+  for (const m of body.matchAll(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>|(https?:\/\/(?:youtu\.be|(?:www\.)?youtube\.com|drive\.google\.com)\/[^\s<"&]+)/g)) {
+    const label = text(body.slice(last, m.index).replace(/^[^<]*>/, '')).replace(/如連結[:：]?/g, '').replace(/^\s*\d+\.\s*/, '').trim();
+    last = m.index + m[0].length;
     let url;
     try {
-      url = new URL(href.replace(/&amp;/g, '&'), base).href;
+      url = new URL((m[1] || m[3]).replace(/&amp;/g, '&'), base).href;
     } catch {
       continue;
     }
     if (!/\.(pdf|docx?|odt|mp3|m4a)$/i.test(url) && !/drive\.google\.com\/(file\/d\/|drive\/(u\/\d+\/)?folders\/)|youtu/.test(url)) continue;
-    const n = text(name).replace(/\.\w{2,4}$/, '');
+    let n = text(m[2] || '').replace(/\.\w{2,4}$/, '');
+    if (/^https?:/.test(n) || (!m[1] && !n)) n = label;
     const was = links.find(l => l.url === url);
     if (was) was.n ||= n;
     else links.push({ n, url });

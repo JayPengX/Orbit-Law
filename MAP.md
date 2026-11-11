@@ -181,7 +181,8 @@ Live: https://orbit.jaypengx.com/law/
   **Beyond 彰化**: 南投's 名間 posts on its own WordPress site (`wp`: the REST API's posts naming a session,
   `wpPost`; 議事錄 on Drive, 議程表 as pictures; MP3s named by month and day take the post's year, `wpDay`).
   臺東's 東河 on its 公所's Joomla site (`joomla`: category lists `?start=`, an article a paper or a session's Drive
-  recordings, `joomlaList`, `joomlaArticle`; up to 80 articles a build). 宜蘭's 頭城 on its 公所's e-land CCMS
+  recordings, `joomlaList`, `joomlaArticle`; up to 80 articles a build); 太麻里 on the same (a list page ending
+  .html, articles in `item_fulltext`, each link named by the line above it; 錄音檔及議事錄 articles a kind a link). 宜蘭's 頭城 on its 公所's e-land CCMS
   page (`ccms`, `ccmsPage`: file blocks by title, Download.ashx's base64 path read as the file's own address;
   MP3s by day under a bold line naming the session). A recording or paper dated inside another session's days
   goes to that one (頭城 names one session's line twice), and a session's days are its agenda's, else the days
@@ -218,6 +219,9 @@ Live: https://orbit.jaypengx.com/law/
   kind): read from Drive itself as it shows a folder embedded (`driveEntries`, embeddedfolderview), a folder a
   session (or the session in each file's name), another term's never opened, a session long over kept from before;
   a file's ending kept on its address (`#.doc`) for the text reader; recordings named by day (20201028.mp3).
+  臺東's 關山, 鹿野 and 南投's 中寮 the same: 22-10臨時會 names read as 屏東's (`pthgName`, 22-6. in a 定期會
+  folder too), a 議決案 folder's files 決議案, beside a 第22屆 folder those naming no term skipped, a paper kept in
+  two folders once, a year more than two before the newest in its folder left out (the term before's).
   新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安,

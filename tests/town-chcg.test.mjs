@@ -112,6 +112,15 @@ test('town chcg: 永靖, 田尾, 秀水: days in a paper’s name, recordings on
   assert.deepEqual(joomlaList(`<a href="${jp}/6997-22-48">第22屆第19次臨時會錄音</a><a href="/home/index.php/z">議事日程表</a>`, jb, jp), [{ n: '第22屆第19次臨時會錄音', url: `${jb}${jp}/6997-22-48` }]);
   const art = `<div itemprop="articleBody"><a class="at_icon" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf"><img/></a><a class="at_url" href="https://www.donghe.gov.tw/home/attachments/article/6527/a.pdf">第22屆第7次定期會議事日程表.pdf</a><a href="https://drive.google.com/file/d/1eSw/view?usp=drive_link">第22屆第19次臨時會錄音1</a></div></article><a href="x.pdf">footer</a>`;
   assert.deepEqual(joomlaArticle(art, jb).map(l => l.n), ['第22屆第7次定期會議事日程表', '第22屆第19次臨時會錄音1']);
+  // (太麻里's: a list page ending .html, its articles' bodies item_fulltext, each link its address under a line naming
+  // it, one of them bare text.)
+  const tb = 'http://www.taimali.gov.tw', tp = '/home/index.php/n/議事日程表-2.html';
+  assert.deepEqual(joomlaList(`<a href="/home/index.php/n/議事日程表-2/8001-x.html">第22屆第6次定期會錄音檔及議事錄</a>`, tb, tp).map(a => a.n), ['第22屆第6次定期會錄音檔及議事錄']);
+  const tm = `<div class="item_fulltext"><p><strong>1.</strong><strong>第22屆第6次定期會議事錄</strong></p><p><strong>如連結：<a href="https://drive.google.com/file/d/1pc4/view?usp=sharing">https://drive.google.com/file/d/1pc4/view?usp=sharing</a></strong></p><p><strong>2.</strong><strong>第22屆第6次定期會第一會次錄音檔</strong></p><p><strong>如連結：https://youtu.be/H6z0yju5AKk</strong></p></div></article>`;
+  assert.deepEqual(joomlaArticle(tm, tb), [
+    { n: '第22屆第6次定期會議事錄', url: 'https://drive.google.com/file/d/1pc4/view?usp=sharing' },
+    { n: '第22屆第6次定期會第一會次錄音檔', url: 'https://youtu.be/H6z0yju5AKk' }
+  ]);
 });
 
 test('town chcg: e-land’s CCMS page (頭城): its papers by title, its recordings under the line naming the session', () => {

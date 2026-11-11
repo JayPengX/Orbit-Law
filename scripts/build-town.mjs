@@ -38,7 +38,9 @@ const ENDS = Date.now() + Number(process.env.TOWN_MINUTES || 14) * 60e3;
 let townEnds = Infinity;
 const late = () => Date.now() > Math.min(ENDS, townEnds);
 // A page through the door. Lists carry the day (the door keeps a page a day: a list read today is today's).
-async function page(url, fresh = false) {
+// (`raw`: the page as it came, its scripts and handlers kept; the door's page takes on* out, and 鹿谷's rows link
+// only by onclick.)
+async function page(url, fresh = false, raw = false) {
   const u = fresh ? `${url}${url.includes('?') ? '&' : '?'}ob=${day.replace(/-/g, '')}` : url;
   for (let tries = 0; ; tries++) {
     await sleep(process.env.FAST ? 0 : 500);
@@ -52,7 +54,12 @@ async function page(url, fresh = false) {
         if (!r.ok || !html || /<title>Error<\/title>/.test(html.slice(0, 600))) throw new Error(`${r.status}${r.ok ? ' refused' : ''}`);
         return html;
       }
-      const r = await fetch(`${DOOR}?v=1&u=${encodeURIComponent(u)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
+      const r = await fetch(`${DOOR}?v=1${raw ? '&file=1' : ''}&u=${encodeURIComponent(u)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
+      if (raw) {
+        const t = r.ok ? await r.text() : '';
+        if (!t || /json/i.test(r.headers.get('Content-Type') || '')) throw new Error(`${r.status}`);
+        return t;
+      }
       const b = await r.json().catch(() => ({}));
       if (!r.ok || !b.html) throw new Error(`${r.status} ${b.error || ''}`.trim());
       return b.html;
@@ -481,7 +488,7 @@ async function chcgTown(tc, site) {
     if (c.lara)
       for (let pg = 1; pg <= 6; pg++) {
         let mine = 0;
-        for (const p of laraList(await page(`${c.lara}${pg > 1 ? `?page=${pg}` : ''}`, true)).posts) {
+        for (const p of laraList(await page(`${c.lara}${pg > 1 ? `?page=${pg}` : ''}`, true, true)).posts) {
           const x = at(p.n);
           if (!x || late()) continue;
           mine++;

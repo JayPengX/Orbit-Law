@@ -403,3 +403,14 @@ test("town shortDay: 義竹's recordings named by a short Western day", async ()
   assert.equal(shortDay('1150508'), '1150508');
   assert.equal(shortDay('-2260805'), '-2260805');
 });
+
+test("town lara: 鹿谷's list rows link only by onclick, so the build reads the list as it came", async () => {
+  const { laraList } = await import('../public/lib/town-chcg.mjs');
+  const { readFile } = await import('node:fs/promises');
+  const row = `<tr onclick="location.href='https://www.lugu.gov.tw/representative/detail/7205/x'"><td data-label="標題">第22屆第7次定期大會會議資料</td></tr>`;
+  assert.equal(laraList(row).posts.length, 1);
+  // (The door's page takes on* handlers out: nothing left to follow.)
+  assert.equal(laraList(row.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')).posts.length, 0);
+  const src = await readFile(new URL('../scripts/build-town.mjs', import.meta.url), 'utf8');
+  assert.match(src, /laraList\(await page\(`\$\{c\.lara\}[^\n]*, true, true\)\)/);
+});

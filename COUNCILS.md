@@ -221,7 +221,8 @@ each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 
 竹南, 三義 and 花蓮's 鳳林, 萬榮 on their 公所's CCMS as 苑裡's (泰安's sittings: YouTube under 相關連結, `ccmsPage`;
 竹南's minutes in a video list, News_Video.aspx, read as News.aspx; 公館's cp pages, its recordings in tabs a
 session a tab, `tab-cp`/`tab-cp-target`, and 第21-6臨時會 names); 南投's 鹿谷 on its 公所's Laravel
-CMS (`lara`: `laraList` rows, `laraFiles` file-download links). 金門's sites (*.kinmen.gov.tw) the door can't reach:
+CMS (`lara`: `laraList` rows, `laraFiles` file-download links; its list read as it came, `page(…, raw)`, since its
+rows link only by onclick and the door's page takes on* handlers out). 金門's sites (*.kinmen.gov.tw) the door can't reach:
 read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
 missing issuer given by data.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first (竹東 before those), with 3 minutes of its own (`TOWN_FIRST_MINUTES`; its other papers on later builds), then the one built longest ago.
 The picked council is this device's

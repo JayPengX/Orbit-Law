@@ -941,7 +941,7 @@ for (const [tc, site] of turn) {
     if (late()) throw new Error('out of time: kept as it was');
     const t = await (site.chcg ? chcgTown : town)(tc, site);
     if (!t) {
-      console.log(`town ${tc}: nothing (no key, no last copy)`);
+      console.log(`town ${tc}: nothing found on its pages, and no last copy${KEY ? "" : " (no build key)"}`);
       continue;
     }
     try {

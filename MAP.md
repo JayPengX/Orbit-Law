@@ -190,8 +190,8 @@ Live: https://orbit.jaypengx.com/law/
   files by label, the PDF of its formats, and its sittings' own MP4s (`penghuPost`; named 10.06-1, `penghuDay`): a
   day `{ d, n, src, pic }` the app plays as a video (`townVideo`, `.lw-video-file`). Files named in the query
   (file=….ods&flag=doc) are read as their kind; .ods like .odt.
-  屏東's (`pthg` in town-site.mjs; 潮州, 東港, 恆春, 萬丹, 長治, 九如, 鹽埔, 萬巒, 竹田, 新埤, 枋寮, 南州, 琉球, 車城, 三地門, 霧臺, 來義, 春日,
-  牡丹): each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS): lists of posts (News.aspx,
+  屏東's (`pthg` in town-site.mjs; 潮州, 東港, 恆春, 萬丹, 長治, 九如, 鹽埔, 萬巒, 竹田, 新埤, 枋寮, 南州, 崁頂, 琉球, 車城, 三地門, 霧臺, 泰武, 來義, 春日,
+  牡丹; 內埔 on its own www.neipu.gov.tw): each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS): lists of posts (News.aspx, News9.aspx,
   `ccmsNews` by the line's text), or of the files themselves (News4.aspx, through HitCount.ashx, named 22-8定期會…:
   `pthgName` writes the session out, the file's ending kept on the address as `#.pdf`/`#.mp3` for what reads by it);
   a post's 相關檔案/相關連結 lines (`news_box03_data` in `ccmsPage`), a recording named by its day, 20260909錄音檔

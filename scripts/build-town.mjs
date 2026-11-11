@@ -465,7 +465,7 @@ async function chcgTown(tc, site) {
     };
     for (const it of c.ccms || []) {
       const { url, kind } = typeof it === 'string' ? { url: it } : it;
-      if (!/News4?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
+      if (!/News\d?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
       // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
         for (let pg = 1, posts = 0, seen = new Set(); pg <= 4; pg++) {

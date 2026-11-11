@@ -435,7 +435,7 @@ export function ccmsNews(html, base) {
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     if (!out.some(o => o.url === url)) out.push({ n: pthgName(text(name)), url });
   }
-  for (const [, title, href] of String(html).matchAll(/<a id="ContentPlaceHolder1_dlindex_hptitle_\d+"[^>]*title="([^"]*)"[^>]*href="([^"]*HitCount\.ashx\?[^"]+)"/g)) {
+  for (const [, title, href] of String(html).matchAll(/<a id="ContentPlaceHolder1_(?:dlindex_hptitle|gvIndex_lnkTitle)_\d+"[^>]*title="([^"]*)"[^>]*href="([^"]*HitCount\.ashx\?[^"]+)"/g)) {
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     const n = title.replace(/\(另開新視窗\)|\[另開新視窗\]/g, '').trim();
     const ext = (n.match(/\.(\w{2,4})$/) || [])[1]?.toLowerCase();

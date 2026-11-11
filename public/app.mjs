@@ -50,6 +50,7 @@ import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSe
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf, ytSite } from './lib/council-video.mjs';
+import { keepPlaying } from './lib/player.mjs';
 import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
 import { TOWN_YOUTUBE } from './lib/town-video.mjs';
 import { splitClauses, contractKind, sidesOf, prepClauses, cleanCheck, levelCounts, fileBase64, LEVELS, KIND_NAMES, CONTRACT_MAX } from './lib/contract.mjs';
@@ -1790,14 +1791,35 @@ function howBillsWork(at = -1) {
   sheet({ title: W('法案怎麼變成法律', 'How a bill becomes law'), closeLabel: W('關閉', 'Close'), body: [h('ol', { class: 'lw-howto', html: rows }), h('p', { class: 'lw-hint-sm', text: W('同一部法常有很多版本（不同立委或政黨各提一個），委員會通常會把它們併在一起審。', 'One law often has many versions (each legislator or party files their own); committees usually review them together.') })] });
 }
 
-// An HLS stream in a <video>: Safari's own player, else hls.js (loaded only then); an MP4 file as it is.
-async function playHls(v, url) {
-  // (An MP4 file, as 基隆's recordings, plays as it is anywhere.)
-  if (/\.mp4$/i.test(url) || v.canPlayType('application/vnd.apple.mpegurl')) return void (v.src = url);
-  await new Promise((ok, no) => { if (window.Hls) return ok(); const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js'; sc.onload = ok; sc.onerror = no; document.head.append(sc); });
-  const hls = new window.Hls();
-  hls.loadSource(url);
-  hls.attachMedia(v);
+// A stream or file in a <video>, kept playing (lib/player.mjs: Safari's own HLS, else hls.js; a stall brought
+// back where it was), a line under it while it's being brought back, and a way to try again once it gave up.
+// opts: live (a channel), at (seconds to start from).
+function playHls(el, url, opts = {}) {
+  const note = h('p', { class: 'lw-video-note', role: 'status' });
+  note.hidden = true;
+  el.after(note);
+  const onState = s => {
+    if (s === 'retry') return void ((note.textContent = W('連線不穩，正在接回…', 'Connection unsteady: reconnecting…')), (note.hidden = false));
+    if (s === 'ok') return void (note.hidden = true);
+    if (s !== 'failed' || !el.isConnected) return;
+    const at = opts.live ? 0 : el.currentTime || opts.at || 0;
+    const box = h('div', { class: 'lw-video-wait', html: `<p>${W('影片一直接不上，可能是網路或對方的伺服器不穩。', 'The video won’t come through: the network or its server is unsteady.')}</p>` });
+    box.append(
+      h('button', {
+        type: 'button',
+        class: 'q-btn block',
+        text: W('再試一次', 'Try again'),
+        onclick: () => {
+          const again = el.cloneNode();
+          box.replaceWith(again);
+          playHls(again, url, { ...opts, at }).then(() => again.play?.()?.catch(() => {})).catch(() => {});
+        }
+      })
+    );
+    note.remove();
+    el.replaceWith(box);
+  };
+  return keepPlaying(el, url, { ...opts, onState }).catch(e => (note.remove(), Promise.reject(e)));
 }
 
 // A bill by its 立法院 number, read in the app: who, why, its steps and 對照表.
@@ -3998,7 +4020,7 @@ async function openMeet(id, d = '') {
     const v = h('video', { class: 'lw-video', controls: '', playsinline: '', autoplay: '', muted: '' });
     v.muted = true;
     body.push(v, h('p', { class: 'lw-hint-sm', text: W('立法院 IVOD 直播（這場會議的頻道）。點影片開聲音。', 'Live on the Legislative Yuan’s IVOD, this meeting’s own channel. Tap for sound.') }));
-    playHls(v, liveHls(r.ch)).catch(() => v.replaceWith(h('a', { class: 'q-btn block', href: IVOD_LIVE, target: '_blank', rel: 'noopener', text: W('到立法院 IVOD 看直播', 'Watch on the Legislative Yuan’s IVOD') })));
+    playHls(v, liveHls(r.ch), { live: true }).catch(() => v.replaceWith(h('a', { class: 'q-btn block', href: IVOD_LIVE, target: '_blank', rel: 'noopener', text: W('到立法院 IVOD 看直播', 'Watch on the Legislative Yuan’s IVOD') })));
   } else if (['live', 'sched', 'break', 'later', 'done', 'off'].includes(st)) {
     const why = st === 'off' ? (lyDayOff(x.d) && offTag(sx, a.live) === W('颱風停會', 'Typhoon: no sitting') ? W('颱風停止上班，立法院這天停會，沒有直播。', 'Typhoon day off in Taipei: no sitting, so no live video.') : W(`這場會議${offTag(sx, a.live)}了，沒有直播。`, `${offTag(sx, a.live)}: no live video.`)) : st === 'sched' ? W('IVOD 現在沒有播這場', 'IVOD isn’t streaming it now') : st === 'later' ? W(`${hm(x.from)} 開始，開會後這裡就能看直播。`, `Starts ${hm(x.from)}; the live video shows here once it begins.`) : st === 'break' ? W('休息中，回來開會後這裡會接著播。', 'On a break; the video resumes here.') : st === 'done' ? W(`${rose ? `${rose} ` : ''}散會 · 影片稍後上 IVOD`, `${rose ? `Rose ${rose}` : 'Over'} · video on IVOD later`) : W('立法院還沒說這場在哪個頻道播，可先到 IVOD 看。', 'The Legislative Yuan hasn’t listed this meeting’s channel yet; try IVOD.');
     body.push(h('div', { class: 'lw-video-wait', html: `<p>${esc(why)}</p>${st === 'live' || st === 'sched' ? `<a class="q-btn block" href="${IVOD_LIVE}" target="_blank" rel="noopener">${W('到立法院 IVOD 看直播', 'Watch on the Legislative Yuan’s IVOD')}</a>` : ''}` }));
@@ -4141,8 +4163,7 @@ async function openCouncilVideo(id, live = -1, given = null, ctx = null) {
   // Straight from the council's own CDN (never through Orbit's servers); started at once.
   if (el) {
     // (A councillor's turn in a whole day's recording: from where their group starts.)
-    if (v?.at) el.addEventListener('loadedmetadata', () => el.currentTime < v.at - 5 && (el.currentTime = v.at), { once: true });
-    playHls(el, ch ? ch.url : v.hls).then(() => el.paused && el.play?.()?.catch(() => {})).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
+    playHls(el, ch ? ch.url : v.hls, { live: !!ch, at: v?.at || 0 }).then(() => el.paused && el.play?.()?.catch(() => {})).catch(() => el.replaceWith(h('p', { class: 'lw-none', text: W('現在讀不到這段影片', 'Couldn’t load this video') })));
     // Safari's own HLS took the address at once: play inside the tap.
     if (el.src) el.play?.()?.catch(() => {});
   }

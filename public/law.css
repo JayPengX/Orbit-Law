@@ -2947,6 +2947,11 @@ details.lw-bud-row[open] > summary {
   border-radius: var(--q-r-cell);
   background: #000;
 }
+.lw-video-note {
+  margin: -4px 0 0;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote, 400 13px/18px var(--q-font));
+}
 .lw-clip-meta {
   margin: 0;
   color: var(--q-label-2);

@@ -129,6 +129,13 @@ Live: https://orbit.jaypengx.com/law/
   lists the newest; 直播中 shows when the phone finds a live channel's playlist (asked
   at most once a minute). Recorded days past the API's newest sitting (it lags weeks)
   become sittings (`sittingsFromVideo`). Bare stamps (苗栗's test takes) are dropped.
+  **Playing** (`lib/player.mjs` `keepPlaying`, through app.mjs `playHls`: every council, 立法院 IVOD clip and
+  live channel): Safari's own HLS (Chrome's too where it has it), else hls.js (patient fragment retries, 60 s
+  buffer); a watchdog brings back a picture that stopped while playing (a nudge, then the stream loaded again
+  where it was, backing off, waiting out offline; 6 tries, then 「再試一次」), passes a frame the phone can't
+  decode (`SKIP_BAD`: 11 of 新竹縣's 24 newest recordings carry one in their first 10 s), and warms a
+  recording's next 40 s at the CDN when its pieces are short (HiNet's 2 s ones, made on first ask) with
+  one-byte asks. Jay 2026-11-11: 新竹縣's videos got stuck.
   代表會 have no bills or sittings in any open data, so most show their members only.
   **代表會 on YouTube** (`lib/town-video.mjs` `TOWN_YOUTUBE`, found by YouTube's channel search and checked by eye,
   `scripts/find-town-youtube.mjs`): each night the build reads each channel as a council's (`ytChannel`: 6 pages

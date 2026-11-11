@@ -428,7 +428,8 @@ Live: https://orbit.jaypengx.com/law/
   get one plain line each from the AI door (`law-weekly`, Haiku; a law by its changed
   words, `artBits`), kept until the week passes, in `data/ai/weekly.json`; 我的's
   這一週 (`weekOf`) lists what you follow among them with its line (in English, or
-  before the night's build, the row's own words), 新 if new since you last looked.
+  before the night's build, the row's own words), 新 if new since you last looked;
+  its head carries Orbit AI's mark (the kit's `sectionHtml` `{ ai: true }`) when a line shows.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,
   `data-src/facts.json`): ministries' rules and RSS notices, and 預告 on
   join.gov.tw, kept beside the laws they rest on; the news and `facts.json`

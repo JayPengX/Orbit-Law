@@ -259,3 +259,13 @@ export function diffBlocks(a, b, { keep = 60 } = {}) {
     })
     .join('');
 }
+
+// A wide page's columns: each part ([html, column of two, column of three]) in
+// its own; a column left empty (nothing followed there yet) and the parts share
+// them in turn, laid out afresh, so none shows twice.
+export function spreadCols(parts, n) {
+  const out = Array.from({ length: n }, () => []);
+  for (const [html, two, three = two] of parts) out[n === 3 ? three : two].push(html);
+  if (!out.some(c => !c.length)) return out;
+  return Array.from({ length: n }, (_, i) => parts.filter((_, j) => j % n === i).map(p => p[0]));
+}

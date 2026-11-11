@@ -37,7 +37,7 @@ import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
 import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
-import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref } from './lib/cards.mjs';
+import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref, spreadCols } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
 import { textFile } from './lib/agency.mjs';
 import { KINDS, LOCAL_SUBKINDS, kindOf, isRule, ruleParts, ruleFile, partLabel, localKindOf, ruleP } from './lib/kinds.mjs';
@@ -96,10 +96,7 @@ function cols(parts, most = 2) {
   const n = nCols(most);
   const shown = parts.filter(p => p[0]);
   if (n === 1) return shown.map(p => p[0]).join('');
-  const out = Array.from({ length: n }, () => []);
-  for (const [html, two, three = two] of shown) out[n === 3 ? three : two].push(html);
-  // A column left empty (nothing followed there yet): the sections share them in turn.
-  if (out.some(c => !c.length)) shown.forEach(([html], i) => (i < n ? (out[i] = [html]) : out[i % n].push(html)));
+  const out = spreadCols(shown, n);
   return `<div class="q-cols${n === 3 ? ' q-cols-3' : ''} lw-cols">${out.map(c => `<div class="lw-col">${c.join('')}</div>`).join('')}</div>`;
 }
 // The screen turned or resized past a column: the tab laid out again.
@@ -337,7 +334,7 @@ async function route() {
 
 // ---- Shared pieces ----------------------------------------------------------------------
 
-const section = (title, body, { more = '', moreHref = '', cls = '' } = {}) => (body ? sectionHtml(title, body, { more, moreHref, cls: `lw-sec${cls ? ` ${cls}` : ''}` }) : '');
+const section = (title, body, { more = '', moreHref = '', cls = '', ai = false } = {}) => (body ? sectionHtml(title, body, { more, moreHref, ai, cls: `lw-sec${cls ? ` ${cls}` : ''}` }) : '');
 // An empty note with no picture (it sits in a list or a search's results); cls '': the full-size one.
 const emptyNote = (title, body = '', cls = 'lw-empty-sm') => emptyHtml({ icon: '', title, body, cls });
 const list = rows => (rows.length ? `<div class="lw-list">${rows.join('')}</div>` : '');
@@ -3235,17 +3232,16 @@ function drawMine() {
   const newTag = countTag(W('新', 'New'), 'green');
   const weekRows = week.map(x => {
     const line = en ? '' : x.line;
-    const mark = line ? `<span class="q-ai-mark lw-week-mark" aria-hidden="true">${ICON_SPARK}</span>` : '';
-    if (x.kind === 'law') return lawItem(state.byCode.get(x.c.p), line || changeText(x.c, true), mark + (changedLaws.includes(x.c) ? newTag : countTag(W('修法', 'Amended'))));
+    if (x.kind === 'law') return lawItem(state.byCode.get(x.c.p), line || changeText(x.c, true), (changedLaws.includes(x.c) ? newTag : countTag(W('修法', 'Amended'))));
     const it = x.it;
-    return lawRow([it.p || '', it.n], { topic: itemTopic(it), sub: line || `${stageShort(it, en)} · ${shortDay(it.u.replace(/-/g, ''))}`, extra: mark + (billMoved(it, m.items[it.k]) ? newTag : line ? countTag(stageShort(it, en)) : ''), href: itemHref(it).replace(/&amp;/g, '&') });
+    return lawRow([it.p || '', it.n], { topic: itemTopic(it), sub: line || `${stageShort(it, en)} · ${shortDay(it.u.replace(/-/g, ''))}`, extra: (billMoved(it, m.items[it.k]) ? newTag : line ? countTag(stageShort(it, en)) : ''), href: itemHref(it).replace(/&amp;/g, '&') });
   });
   const news = changedLaws.filter(c => state.byCode.has(c.p) && !inWeek.has(c.p)).map(c => lawItem(state.byCode.get(c.p), changeText(c, true), newTag));
   const movedOld = moved.filter(it => !inWeek.has(it.k));
   // (Wide: bills on the left, laws and legislators on the right.)
   const html = cols([
     // (On a wide page beside the bills, at the top of the laws' side.)
-    [section(W('這一週', 'This week'), weekRows.length ? `<div class="lw-list lw-week">${weekRows.join('')}</div>` : ''), 1],
+    [section(W('這一週', 'This week'), weekRows.length ? `<div class="lw-list lw-week">${weekRows.join('')}</div>` : '', { ai: !en && week.some(x => x.line) }), 1],
     [section(W('自上次查看後的變動', 'New since you last looked'), (movedOld.length ? grid(movedOld.map(it => billCard(it, { topic: itemTopic(it), en, wide: true }))) : '') + list(news)), 0],
     [section(W('追蹤的法案', 'Bills'), grid(items.filter(it => !moved.includes(it)).map(it => billCard(it, { topic: itemTopic(it), en, wide: true })))), 0],
     [section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))), 1],

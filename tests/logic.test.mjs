@@ -1011,3 +1011,10 @@ test('問法律 about a council or a 代表會: its bills and rows as cites, eac
   assert.equal(c.local.towns[0].rows.length, 1);
   assert.equal(cleanChat({ covered: true, answer: 'x', points: [] }).local, undefined);
 });
+
+test('a wide page\'s columns: each part in its own, and one alone never shown twice', async () => {
+  const { spreadCols } = await import('../public/lib/cards.mjs');
+  assert.deepEqual(spreadCols([['a', 0], ['b', 1], ['c', 1]], 2), [['a'], ['b', 'c']]);
+  assert.deepEqual(spreadCols([['week', 1]], 2), [['week'], []], 'one section on the right only: moved, not copied');
+  assert.deepEqual(spreadCols([['a', 1], ['b', 1], ['c', 1]], 2), [['a', 'c'], ['b']]);
+});

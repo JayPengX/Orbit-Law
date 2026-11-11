@@ -3881,17 +3881,6 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
   height: 14px;
   margin-top: 2px;
 }
-/* 這一週: the night's line marked as AI's. */
-.lw-week .lw-week-mark {
-  display: inline-grid;
-  width: 13px;
-  height: 13px;
-  margin-left: 5px;
-  vertical-align: -1px;
-}
-.lw-week .lw-week-mark + .lw-tag {
-  margin-left: 4px;
-}
 /* 拍合約幫你看 while it's read: the thinking line over cards the size of what comes. */
 .lw-contract-wait {
   display: grid;

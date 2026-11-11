@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: command -v pdftotext || sudo apt-get install -y poppler-utils
+      - run: command -v pdftotext || sudo apt-get install -y poppler-utils || true
       - run: node scripts/probe-door.mjs $URLS
         env:
           URLS: ${{ inputs.urls }}

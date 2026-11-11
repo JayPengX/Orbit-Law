@@ -229,11 +229,14 @@ Live: https://orbit.jaypengx.com/law/
   臺東's 關山, 鹿野 and 南投's 中寮 the same: 22-10臨時會 names read as 屏東's (`pthgName`, 22-6. in a 定期會
   folder too), a 議決案 folder's files 決議案, beside a 第22屆 folder those naming no term skipped, a paper kept in
   two folders once, a year more than two before the newest in its folder left out (the term before's).
+  嘉義縣's 梅山: one Drive folder, a folder a session with every kind (a recording by its name, 錄音檔; desktop.ini
+  left out).
   新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安,
   竹南, 三義 and 花蓮's 鳳林, 萬榮 on their 公所's CCMS as 苑裡's (泰安's sittings: YouTube under 相關連結, `ccmsPage`;
-  竹南's minutes in a video list, News_Video.aspx, read as News.aspx); 南投's 鹿谷 on its 公所's Laravel
+  竹南's minutes in a video list, News_Video.aspx, read as News.aspx; 公館's cp pages, its recordings in tabs a
+  session a tab, `tab-cp`/`tab-cp-target`, and 第21-6臨時會 names); 南投's 鹿谷 on its 公所's Laravel
   CMS (`lara`: `laraList` rows, `laraFiles` file-download links). 金門's sites (*.kinmen.gov.tw) the door can't reach:
   read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
   missing issuer given by data.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first (竹東 before those), with 3 minutes of its own (`TOWN_FIRST_MINUTES`; its other papers on later builds), then the one built longest ago.

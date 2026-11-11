@@ -126,6 +126,9 @@ export const TOWN_SITES = {
   10014030: { n: '關山鎮民代表會', home: 'https://www.guanshan.gov.tw/about/about12', term: 22, ends: '2026-12-25', chcg: { drive: { '1nQE-X1IY4kHg1BymoaCtnB-sEi5M330b': '議事日程表', '1OaW0E_09OYgJ3tuaeUJ8A9rLyliG5EGW': '會議紀錄', '1bzOb-3YUidiDQcKaCxDhNCSCXeLz10G9': '會議紀錄', '18-zPlfeUMvtMWxeh6gbGXB2MHXdQLHpk': '錄音' } } },
   10014050: { n: '鹿野鄉民代表會', home: 'https://drive.google.com/drive/folders/1xo7nirbK-GTIfkmTxaKD0yCzcUoUNBx0', term: 22, ends: '2026-12-25', chcg: { drive: { '16OGEOiO2ANt7EvRB1IEdwkSsSbmaKVVF': '議事日程表', '16_wgYsUkEmQdpYbG2QEz41pTfIt9U8WW': '會議紀錄', '14cG5KMtVRCey68ovOCTZ3cN5xcKQuulS': '會議紀錄', '1Vs2ijFOprR16EmhdKSke9QubCvqK-jH5': '錄音' } } },
   10008080: { n: '中寮鄉民代表會', home: 'https://drive.google.com/drive/folders/19OSUnadZd10nQftJuhCVbTEKe-Ww11H_', term: 22, ends: '2026-12-25', chcg: { drive: { '13sJWQ6RShIgB3OrT4KvvO0d5jAx9uZaN': '議事日程表', '151pWSSZjaRkJBuo41r6OLFWfO20fbIQY': '會議紀錄', '1Bof6SzTPnb0OPHgM74pcQscJF8bEtKef': '會議紀錄', '13OluT6EbOdfJYlfeMrEoOAI853VnRtcF': '錄音' } } },
+  // 嘉義縣梅山鄉: its 議事公開區 (a Google Site) one Drive folder, a folder a session with its 日程表, 議事錄 and
+  // recording.
+  10010150: { n: '梅山鄉民代表會', home: 'https://sites.google.com/view/meishan-2017/', term: 22, ends: '2026-12-25', chcg: { drive: { '1Aq504mbojd2be0hhS4UMRckPmqyjjy8R': '其他' } } },
   // 臺東縣東河鄉: on its 公所's Joomla site (`joomla`: 議事日程表, 議事錄 and recordings, an article each).
   10014070: {
     n: '東河鄉民代表會',
@@ -192,6 +195,8 @@ export const TOWN_SITES = {
   10005140: { n: '西湖鄉民代表會', home: 'https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751'] } },
   10005160: { n: '三灣鄉民代表會', home: 'https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124'] } },
   10005180: { n: '泰安鄉民代表會', home: 'https://www.taian.gov.tw/cl.aspx?n=4249', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.taian.gov.tw/News.aspx?n=4912&sms=11757'] } },
+  // (公館's 議事公開資料夾: cp pages, its recordings in tabs, a session a tab.)
+  10005090: { n: '公館鄉民代表會', home: 'https://www.kungkuan.gov.tw/cl.aspx?n=5686', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.kungkuan.gov.tw/cp.aspx?n=5687', 'https://www.kungkuan.gov.tw/cp.aspx?n=5691', 'https://www.kungkuan.gov.tw/cp.aspx?n=5692'] } },
   // (竹南's minutes in a video list, News_Video.aspx; 三義's recordings a post a sitting.)
   10005040: { n: '竹南鎮民代表會', home: 'https://www.chunan.gov.tw/News_Video.aspx?n=5504&sms=12999', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.chunan.gov.tw/News_Video.aspx?n=5504&sms=12999'] } },
   10005130: { n: '三義鄉民代表會', home: 'https://www.sanyi.gov.tw/cl.aspx?n=3540', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.sanyi.gov.tw/News.aspx?n=5643&sms=13065'] } },

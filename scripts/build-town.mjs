@@ -626,8 +626,9 @@ async function chcgTown(tc, site) {
           // more than two before the newest one there is left out.)
           const yearIn = n => +(String(n).match(/(?<!\d)(1\d{2})(?=年|總|附屬|第二)/) || [])[1] || 0;
           const newest = Math.max(0, ...es.filter(e => !e.folder).map(e => yearIn(e.n)));
-          // (Beside a folder named for this term, 第22屆定期會, one naming no term is the term before's, or a copy.)
-          const termed = es.some(e => e.folder && e.n.includes(`第${site.term}屆`));
+          // (Beside a folder gathering this term's, 第22屆定期會, a session's naming no term is the term before's, or a
+          // copy; beside this term's sessions' own, 梅山's 第22屆第11次臨時會會議資料, one naming none is still read.)
+          const termed = es.some(e => e.folder && e.n.includes(`第${site.term}屆`) && !sessionOf(pthgName(e.n), site.term));
           for (const e of es) {
             if (!e.folder && yearIn(e.n) && yearIn(e.n) < newest - 2) continue;
             if (termed && e.folder && !/屆/.test(e.n) && /\d/.test(e.n)) continue;
@@ -643,8 +644,10 @@ async function chcgTown(tc, site) {
               if (depth < 3) await walk(e.folder, x, depth + 1, /議決案|決議案/.test(e.n) ? '決議案' : kind, (e.n.trim().match(/^(定期會|臨時會)$/) || [])[1] || sort);
               continue;
             }
-            if (!x) continue;
-            const audio = kind === '錄音' || /\.(mp3|m4a|wav)$/i.test(e.url);
+            // (Windows' own files that came along, 梅山's desktop.ini: not papers.)
+            if (!x || /#\.(ini|db|lnk|tmp)$/i.test(e.url) || /^(desktop|thumbs)$/i.test(e.n)) continue;
+            // (梅山's session folders hold each kind: its recording on Drive by its name, 第22屆第10次臨時會錄音檔.)
+            const audio = kind === '錄音' || /\.(mp3|m4a|wav)$/i.test(e.url) || /錄音|音檔/.test(e.n);
             const k = audio ? '錄音' : paperKind(e.n) === '其他' ? kind : paperKind(e.n);
             const seen = `${x.s.key}|${k}|${e.n}`;
             if (driveSeen.has(seen)) continue;

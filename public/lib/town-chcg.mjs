@@ -380,6 +380,22 @@ export const ccmsFile = (href, base) => {
 };
 export function ccmsPage(html, base) {
   const h = String(html);
+  // (A page in tabs, a session a tab, 公館's 錄音檔 (第22-5次定期會錄音檔: 2.22日-錄音檔-1, …): each tab's files read
+  // alone, its recordings under its name, its papers named by it when their own names hold no session.)
+  const tabs = new Map([...h.matchAll(/tab-cp='(\d+)'[^>]*>\s*<span[^>]*>\s*<a [^>]*title="([^"]*)"/g)].map(([, id, t]) => [id, t.replace(/第?(\d{2})\s*-\s*(\d{1,2})次?(?=定期|臨時)/, '第$1屆第$2次').trim()]));
+  if (tabs.size && /tab-cp-target="/.test(h)) {
+    const out = { files: [], audio: [] };
+    const parts = h.split(/<div tab-cp-target="(\d+)"/);
+    for (let i = 1; i < parts.length; i += 2) {
+      const head = tabs.get(parts[i]) || '';
+      const p = ccmsPage(parts[i + 1].split(/<div tab-cp-target="/)[0], base);
+      for (const f of p.files)
+        if (/\.(mp3|m4a|wav)$/i.test(f.url)) out.audio.push({ head, n: f.n, url: f.url });
+        else out.files.push({ n: sessionOf(f.n) || !head ? f.n : `${head} ${f.n}`, url: f.url });
+      for (const a of p.audio) out.audio.push({ ...a, head: a.head || head });
+    }
+    return out;
+  }
   const files = [];
   // (Blocks may hold blocks, 相關檔案 around each paper's: each block's own files, up to the next block.)
   for (const chunk of h.split(/class="[^"]*file-download-multiple[^"]*"/).slice(1)) {
@@ -397,7 +413,8 @@ export function ccmsPage(html, base) {
     // (A block titled by its paper: that paper, in one format or more, its PDF; 相關檔案: each file by its own name.)
     const one = hd && !/^(相關檔案|附件)/.test(hd);
     for (const [t, urls] of one && got.size ? [[hd, [...got.values()].flat()]] : got) {
-      const n = (t || hd).replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`);
+      // (公館's 第21-6臨時會議事日程表: the term, then the session.)
+      const n = (t || hd).replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`).replace(/第(\d{2})\s*-\s*(\d{1,2})次?(?=定期|臨時)/, '第$1屆第$2次');
       const url = urls.find(u => /\.pdf$/i.test(u)) || urls[0];
       if (n && url) files.push({ n, url });
     }

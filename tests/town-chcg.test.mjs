@@ -339,3 +339,13 @@ test("town ccms: a sitting's video under 相關連結 named by its Western day (
   assert.match(a.head, /第22屆第04次定期會/);
   assert.equal(dayIn(a.n), '2024-11-20');
 });
+
+test("town ccms: a page in tabs, a session a tab (公館's 錄音檔), and 第21-6 names (its 議事日程)", async () => {
+  const { ccmsPage, sessionOf } = await import('../public/lib/town-chcg.mjs');
+  const file = (n, u) => `<div class="list-text file-download-multiple" data-index="1"><div class="in"><div class="hd"><div class="in"><div data-index="0" > <span ><a title="${n}" >${n}</a></span></div></div></div><div class="ct"><div class="in"><ul data-index="1"><li data-index="1" class="mp3" > <span ><a href="${u}" title="${n}.mp3">mp3</a></span></li></ul></div></div></div></div>`;
+  const html = `<ul><li tab-cp='4619' tab-show='true' data-index="1" > <span ><a href="#" title="第22-1臨時會錄音檔" >第22-1臨時會錄音檔</a></span></li><li tab-cp='5439' tab-show='true' data-index="2" > <span ><a href="#" title="第22-8定期會及延會錄音檔" >x</a></span></li></ul><div tab-cp-target="4619" data-type="0">${file('2.22日-錄音檔-1', 'https://webws.miaoli.gov.tw/001/a.mp3')}</div><div tab-cp-target="5439" data-type="0">${file('11.3日-錄音-（1）', 'https://webws.miaoli.gov.tw/001/b.mp3')}</div>`;
+  const p = ccmsPage(html, 'https://www.kungkuan.gov.tw/cp.aspx?n=5692');
+  assert.deepEqual(p.audio.map(a => [sessionOf(a.head, 22)?.key, a.n]), [['第22屆第1次臨時會', '2.22日-錄音檔-1'], ['第22屆第8次定期會', '11.3日-錄音-（1）']]);
+  const agenda = ccmsPage(file('第21-6臨時會議事日程表', 'https://webws.miaoli.gov.tw/001/c.pdf'), 'https://www.kungkuan.gov.tw/cp.aspx?n=5687');
+  assert.equal(sessionOf(agenda.files[0].n, 22)?.key, '第21屆第6次臨時會');
+});

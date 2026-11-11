@@ -221,11 +221,17 @@ jobs:
           path: public/data/local
           retention-days: 14
           if-no-files-found: ignore
-      # The site's files by folder (the Workers Free plan takes 20,000 files a site).
+      # The Workers Free plan publishes 20,000 files a site, and the data alone is 77,000: each big
+      # folder packed into files of about 96 KB, named by their content (the kit's data-pack.mjs).
+      # Last, so every step above (and the cities' copy kept for local_from_run) sees the files as built.
+      - name: Pack the data's small files
+        run: node scripts/pack-data.mjs
+      # The site's files by folder; over 20,000, nothing is published (the deploy would fail half way).
       - name: Count the site's files
         run: |
-          echo "files: $(find public -type f | wc -l)"
+          n=$(find public -type f | wc -l); echo "files: $n"
           find public -type f | awk -F/ '{n=NF-1; if(n>4)n=4; s=$1; for(i=2;i<=n;i++)s=s"/"$i; print s}' | sort | uniq -c | sort -rn | head -60
+          [ "$n" -le 20000 ] || { echo "::error::$n files: the Free plan publishes 20,000 at most"; exit 1; }
       # The site on Cloudflare, at its address on the family's domain
       # (Orbit-Core deploy/cf-site.mjs): what phones are served.
       - name: Publish to Cloudflare

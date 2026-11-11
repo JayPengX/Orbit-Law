@@ -24,7 +24,14 @@ Live: https://orbit.jaypengx.com/law/
   `build-status.mjs` (`data/status.json`: when each part was built and its
   count, 0 when missing; Orbit-Core's admin panel reads it for 外部來源, as
   every source step may fail without stopping the deploy), then
-  `stamp-version.mjs`. `build-data.mjs` reads
+  `stamp-version.mjs`, then `pack-data.mjs` (the Workers Free plan publishes
+  20,000 files a site; the data is 77,000: each folder of 50 files or more
+  into packs of about 96 KB, `<root>/_p/<b>-<hash>.json`, listed in
+  `data/_packs.json`; a file over 48 KB stays as it was; the kit's
+  `data-pack.mjs`). Every reader goes through the kit's `packReader` and
+  sees the files as built: the app's `data()` (`siteReader`), the proxy's
+  `readData` and `readGround`, the next build's `prevJson`. The deploy stops
+  before publishing past 20,000 files. `build-data.mjs` reads
   全國法規資料庫's bulk files (law.moj.gov.tw `api/Ch/Law/JSON`,
   `api/En/Law/JSON`) and writes `public/data/`: `index.json` (every law),
   `law/<pcode>.json`, `en/<pcode>.json`, `changes.json` (修法追蹤: each
@@ -221,7 +228,8 @@ Live: https://orbit.jaypengx.com/law/
   first), each with its recording; one file, `council/agenda.json` (`agendaOf`, at build: three weeks back to two
   months ahead from each council's newest sittings and recordings).
 - **Reading costs nothing:** static files on Cloudflare, kept by the service
-  worker (data: the kept copy first, refreshed behind it).
+  worker (data: the kept copy first, refreshed behind it; a pack for good,
+  its address is its content; `_packs.json` from the network first).
 
 ## Decisions in force
 
@@ -550,7 +558,7 @@ Live: https://orbit.jaypengx.com/law/
 | `public/lib/ask.mjs`, `chat.mjs`, `chats.mjs` | The proxy's `/law-ask` and `/law-chat`; saved chats |
 | `public/lib/contract.mjs`, `minutes.mjs`, `weekly.mjs` | 拍合約幫你看; 會議紀錄變表格; 這一週 (法案週報) |
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
-| `scripts/build-*.mjs`, `lib.mjs` | The data builds and what they share |
+| `scripts/build-*.mjs`, `lib.mjs`, `pack-data.mjs` | The data builds and what they share; the data packed for the deploy |
 | `data-src/facts.json` | Figures the news build keeps |
 | `data-src/unsigned.json` | Laws 行政院 refused to countersign, each with its source |
 

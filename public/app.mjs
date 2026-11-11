@@ -19,6 +19,7 @@ import { h, sheet, search, toast, wireNavTitles, dayBar, dayStep, daySwipe, empt
 import { passSync } from '#kit/pass-sync.mjs';
 import { dayOffOn, loadDayOff, placeOf } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
+import { siteReader } from '#kit/data-pack.mjs';
 import { nameMap, parentLaw, abbr } from './lib/refs.mjs';
 import { searchLaws, rankLaws, parseJump, likelyLaw, ymd, relatedLaws } from './lib/search.mjs';
 import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN, phraseHits } from './lib/find.mjs';
@@ -142,12 +143,15 @@ const ai = passFetch(q);
 
 // ---- Data (this site's, kept by the service worker) --------------------------------
 
+// Most files are in packs (scripts/pack-data.mjs, the Free plan's 20,000 files a site): the kit's
+// siteReader reads any path as its own file, a pack read once for the hundreds of files in it.
+const readData = siteReader('./data/');
 const cache = new Map();
 async function data(path) {
   if (cache.has(path)) return cache.get(path);
-  const p = fetch(`./data/${path}`).then(r => {
-    if (!r.ok) throw new Error(`${path}: ${r.status}`);
-    return r.json();
+  const p = readData(path).then(j => {
+    if (j == null) throw new Error(`${path}: 404`);
+    return j;
   });
   cache.set(path, p);
   p.catch(() => cache.delete(path));
@@ -1741,7 +1745,7 @@ async function openRuleText(path, label) {
   sheet({ title: label.slice(0, 40), closeLabel: W('關閉', 'Close'), body });
   try {
     const [dir, file] = path.split('/');
-    const r = await fetch(`./data/${dir}/text/${file}.json`).then(x => (x.ok ? x.json() : Promise.reject()));
+    const r = await data(`${dir}/text/${file}.json`);
     // Its points as points, every law it names a link, then its page (Jay 2026-10-27: it read as one plain block).
     body.innerHTML = `<header class="lw-page-head"><h3>${esc(r.n)}</h3><small>${esc([r.a, r.d && ymd(r.d)].filter(Boolean).join(' · '))}</small></header><div class="lw-rule-text">${ruleHtml(r.t, state.names)}</div>${/^https:\/\//.test(r.url || '') ? `<a class="q-more q-more-go lw-out" href="${esc(r.url)}" target="_blank" rel="noopener" data-out><span>${W('到原網站看', 'Open the original site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}`;
   } catch {

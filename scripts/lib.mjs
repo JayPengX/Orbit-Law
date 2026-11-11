@@ -1,6 +1,7 @@
 // What the build scripts share: the `--name value` arguments, the last
 // deploy's copy of a data file (to build on), a pause, a polite fetch and a pool.
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { get as httpsGet } from 'node:https';
 import { rootCertificates } from 'node:tls';
 export const args = Object.fromEntries(process.argv.slice(2).reduce((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
@@ -10,9 +11,27 @@ export const sleep = ms => new Promise(r => setTimeout(r, ms));
 // The last deploy's data/<path> as JSON, or null (`--prev ''` builds from nothing; `--prev dir/`
 // reads an unpacked deploy). PREV_DIR (the workflow's cached copy of the last build's agency/ and
 // local/) is read first: Pages answers thousands of quick reads with 429, which once lost most texts.
-// A copy the site has but that can't be read is tried a few times (longer after a 429), then said.
+// The site's files are packed (scripts/pack-data.mjs): read through the kit's packReader, a few
+// packs for thousands of files. A copy the site has but that can't be read is tried a few times
+// (longer after a 429), then said.
 const PREV_DIR = process.env.PREV_DIR || '';
 const fromDir = (dir, path) => readFile(dir + path, 'utf8').then(JSON.parse, () => null);
+async function prevGet(path, o) {
+  for (let i = 1; ; i++) {
+    let wait = 2000 * i;
+    try {
+      const r = await fetch(PREV + path, { signal: AbortSignal.timeout(60_000), ...(o?.fresh ? { cache: 'no-store' } : {}) });
+      if (r.status === 404) return null;
+      if (r.status === 429) wait = 15_000 * i;
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    } catch (e) {
+      if (i >= 4) throw e;
+      await sleep(wait);
+    }
+  }
+}
+let prevRead = null;
 export async function prevJson(path) {
   if (!PREV) return null;
   if (!/^https?:/.test(PREV)) return fromDir(PREV, path);
@@ -20,21 +39,16 @@ export async function prevJson(path) {
     const got = await fromDir(PREV_DIR, path);
     if (got) return got;
   }
-  for (let i = 1; ; i++) {
-    let wait = 2000 * i;
-    try {
-      const r = await fetch(PREV + path, { signal: AbortSignal.timeout(60_000) });
-      if (r.status === 404) return null;
-      if (r.status === 429) wait = 15_000 * i;
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return await r.json();
-    } catch (e) {
-      if (i >= 4) {
-        console.warn(`last deploy's ${path}: ${e.cause?.code || e.message}`);
-        return null;
-      }
-      await sleep(wait);
-    }
+  if (!prevRead) {
+    const kitDir = [new URL('../.kit/', import.meta.url), new URL('../../Orbit-Core/kit/', import.meta.url)].find(d => existsSync(new URL('data-pack.mjs', d)));
+    const { packReader } = await import(new URL('data-pack.mjs', kitDir).href);
+    prevRead = packReader(prevGet, { keep: 400 });
+  }
+  try {
+    return await prevRead(path);
+  } catch (e) {
+    console.warn(`last deploy's ${path}: ${e.cause?.code || e.message}`);
+    return null;
   }
 }
 

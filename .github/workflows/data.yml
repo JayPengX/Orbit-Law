@@ -8,7 +8,7 @@
 # Taiwan time (after the ministry's midnight refresh) with the crawls' longer budgets. A failed
 # build keeps nothing, so the site keeps the last data.
 name: Build the law data
-run-name: Build the law data${{ inputs.crawl == '0' && ' (rulings only)' || '' }}
+run-name: Build the law data${{ (github.event_name == 'workflow_dispatch' && inputs.crawl == '0') && ' (rulings only)' || '' }}
 
 on:
   push:
@@ -56,7 +56,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RESTORE: ${{ inputs.local_from_run }}
           # A crawling build steps aside only for a newer crawling one, never for rulings.yml's.
-          ONLY: ${{ inputs.crawl == '0' && '1' || '0' }}
+          ONLY: ${{ (github.event_name == 'workflow_dispatch' && inputs.crawl == '0') && '1' || '0' }}
         run: |
           api() { gh api "repos/$GITHUB_REPOSITORY/$1" --jq "$2" 2>/dev/null; }
           wf=$(api "actions/runs/$GITHUB_RUN_ID" .workflow_id) || wf=
@@ -79,7 +79,7 @@ jobs:
       # The nightly run (or one asked for by hand) crawls longer; the others keep to short budgets.
       LONG: ${{ (github.event.schedule == '30 19 * * *' || inputs.long == '1') && '1' || '' }}
       # rulings.yml's builds (every 45 minutes in its night window) only add rulings: no crawling.
-      CRAWL: ${{ inputs.crawl == '0' && '0' || '1' }}
+      CRAWL: ${{ (github.event_name == 'workflow_dispatch' && inputs.crawl == '0') && '0' || '1' }}
     steps:
       - uses: actions/checkout@v4
         with:

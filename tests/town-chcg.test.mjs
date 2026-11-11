@@ -47,7 +47,7 @@ test('town chcg: a session’s days from its 議事日程表 or its 議事錄', 
   assert.equal(pdfSpan('沒有日期'), null);
   // (No year: placed between the sessions of its kind numbered around it.)
   const md = pdfSpan('第 22 屆第 16、17 次臨時會議事日程表\n08 月 03 日 一 1 報到\n08 月 10 日 一 6 閉會');
-  assert.deepEqual(md, { md: [[8, 3], [8, 10]] });
+  assert.deepEqual(md, { md: [[8, 3, '一'], [8, 10, '一']] });
   const s = { kind: '臨時會', no: 16, ...md };
   assert.deepEqual(yearOf(s, [s, { kind: '臨時會', no: 15, from: '2025-12-15', to: '2025-12-17' }, { kind: '定期會', no: 8, from: '2026-10-19' }]), { from: '2026-08-03', to: '2026-08-10' });
 });
@@ -193,4 +193,43 @@ test('town build: no name imported twice (a clash stops the whole build before i
   const src = (await import('node:fs')).readFileSync(new URL('../scripts/build-town.mjs', import.meta.url), 'utf8');
   const names = [...src.matchAll(/^import \{([^}]+)\} from/gm)].flatMap(m => m[1].split(',').map(x => x.trim().split(/\s+as\s+/).pop()).filter(Boolean));
   assert.deepEqual(names.filter((n, i) => names.indexOf(n) !== i), []);
+});
+
+test("town ccms: 苑裡's lists of the files themselves, 秀林's sittings on YouTube, 頭份's Drive folder", () => {
+  const list = `<table><tbody><tr>
+<td class="CCMS_jGridView_td_Class_0 " data-title="主題" headers="CCMS_jGridView_TH_1"><span><a href="https://webws.miaoli.gov.tw/Download.ashx?u=LzAwMS9VcGxvYWQvNDg2L3JlbGZpbGUvMTM3NzEvOTg4ODAzLzFjMDA1OTU1LTdkZDMtNGFjYi1iYzA3LTg5MWI3Nzk2ODFmYi5wZGY%3d&n=x&icon=.pdf" title="[另開新視窗]第22屆第17次臨時會議事錄(.pdf)" Target="_blank">第22屆第17次臨時會議事錄</a></span></td><td class="CCMS_jGridView_td_Class_1 "><span>115-08-31</span></td>
+</tr></tbody></table>`;
+  assert.deepEqual(ccmsNews(list, 'https://www.yuanli.gov.tw/News.aspx?n=7528&sms=13771'), [
+    { n: '第22屆第17次臨時會議事錄', url: 'https://webws.miaoli.gov.tw/001/Upload/486/relfile/13771/988803/1c005955-7dd3-4acb-bc07-891b779681fb.pdf', file: true }
+  ]);
+  const post = `<div class="area-essay page-caption-p"><p>花蓮縣秀林鄉民代表會第 22 屆第 8 次定期大會，錄音檔內容請點選以下連結。</p>
+<p><a href="https://youtu.be/p1HQdJvsrJg" title="115年10月13日錄音檔"> 115年10月13日錄音檔 </a></p>
+<p><a href="https://youtu.be/UA55sVPwrLk" title="115年11月2日錄音檔">115年11月2日錄音檔</a></p></div>
+<a href="https://drive.google.com/drive/folders/13Ynkqo-3DueSlqTqpp9hNHFM7e1hsB5O?usp=share_link" title="[另開新視窗]第二屆第八次定期會及延會錄音檔" target="_blank" >第二屆第八次定期會及延會錄音檔</a>`;
+  const a = ccmsPage(post, 'https://www.shlin.gov.tw/').audio;
+  assert.deepEqual(a.map(x => [x.n, x.url]), [
+    ['115年10月13日錄音檔', 'https://youtu.be/p1HQdJvsrJg'],
+    ['115年11月2日錄音檔', 'https://youtu.be/UA55sVPwrLk'],
+    ['第二屆第八次定期會及延會錄音檔', 'https://drive.google.com/drive/folders/13Ynkqo-3DueSlqTqpp9hNHFM7e1hsB5O?usp=share_link']
+  ]);
+  assert.equal(dayIn(a[0].n), '2026-10-13');
+  assert.equal(dayIn(a[1].n), '2026-11-02');
+});
+
+test("town pdfSpan: an agenda with no year, its weekdays pick the year (苑裡's)", () => {
+  const agenda = `苗栗縣苑裡鎮民代表會第 22 屆第 7 次定期會議事日程表
+日     期     星 期                                 備   註
+04 月 27 日   一
+04 月 28 日   二                                   第 1 次會議
+04 月 29 日   三     下里勘查鎮政建設                      第 2 次會議
+05 月 07 日   四     討論提案-代表會                      第 7 次會議
+05 月 08 日         1.討論提案-公所
+            五     2.人民請願案                       第 8 次會議`;
+  const p = pdfSpan(agenda);
+  assert.deepEqual(p.md.at(-1), [5, 8]);
+  // (With no dated session of its kind around it, the latest year its weekdays fit; with one, the year near it that fits.)
+  assert.deepEqual(yearOf({ kind: '定期會', no: 7, md: p.md }, []), { from: '2026-04-27', to: '2026-05-08' });
+  assert.deepEqual(yearOf({ kind: '定期會', no: 7, md: p.md }, [{ kind: '定期會', no: 6, from: '2025-11-10' }]), { from: '2026-04-27', to: '2026-05-08' });
+  // (No weekdays: as before, nothing without a neighbour.)
+  assert.equal(yearOf({ kind: '定期會', no: 7, md: [[4, 27], [5, 8]] }, []), null);
 });

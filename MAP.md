@@ -180,6 +180,11 @@ Live: https://orbit.jaypengx.com/law/
   name without dots, 1150413-0415, `nameSpan`; its recorder.html's YouTube sittings under their session's heading, `ytId`, its older
   pages followed by `more`, `pageMore`: a day `{ d, yt, what }` played in the app's 代表會影音 sheet, a thumbnail a row). 蘇澳: its 議事錄 posts (News.aspx, twenty a page, `&page=`). 三星 (one Drive
   folder), 南澳 (proposal tracking only), 大同, 冬山: nothing to read; 宜蘭市, 五結: not reachable.
+  花蓮's 秀林 and 壽豐, 苗栗's 苑裡: the same CCMS on their 公所's sites (`ccms`). 秀林's 質詢錄音檔 posts link each
+  sitting's video on YouTube by its day (115年10月13日, `dayIn`), its post's session; 苑裡's lists are the files
+  themselves (`ccmsNews` `file: true`, nothing more to fetch). An agenda with no year (苑裡's 09 月 09 日 三) is
+  placed by its rows' weekdays (`pdfSpan` keeps them, `yearOf` picks a year they fit). 壽豐's agendas are scans
+  (undated); 頭份 posts only the last term's recordings (Drive folders).
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

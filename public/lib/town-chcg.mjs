@@ -115,7 +115,8 @@ export function chcgMembers(html, area) {
 // A recording named with its day (和美: 第22屆第7次定期會1150519, …錄音檔1140919; 福興's MP3s: 1150417-a; 溪湖:
 // 綜合質詢114.5.9): that day.
 export const dayIn = name => {
-  const m = String(name).match(/(?<!\d)(1\d{2})(\d{2})(\d{2})(?!\d)/) || String(name).match(/(?<![\d.])(1\d{2})\.(\d{1,2})\.(\d{1,2})(?![\d.])/);
+  // (Or written out, 秀林's 115年10月13日.)
+  const m = String(name).match(/(?<!\d)(1\d{2})(\d{2})(\d{2})(?!\d)/) || String(name).match(/(?<![\d.])(1\d{2})\.(\d{1,2})\.(\d{1,2})(?![\d.])/) || String(name).match(/(?<!\d)(1\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
   return m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31 ? roc(m[1], m[2], m[3]) : '';
 };
 export const driveId = url => (String(url).match(/drive\.google\.com\/file\/d\/([\w-]+)/) || [])[1] || '';
@@ -157,8 +158,12 @@ export function pdfSpan(text) {
   // (A table with 月 and 日 as its heads: 4  15  三  1 代表報到…)
   if (!ds.length) ds = [...src.matchAll(/^\s*(\d{1,2})\s+(\d{1,2})\s+[一二三四五六日]\s/gm)].map(m => [+m[1], +m[2]]).filter(ok);
   if (!ds.length) return null;
-  // (No year on it, 08 月 03 日 alone: its months and days, the year found from the sessions around it, `yearOf`.)
-  if (!y) return { md: ds };
+  // (No year on it, 08 月 03 日 alone: its months and days, the year found from the sessions around it, `yearOf`;
+  // with each row's weekday where it gives one, 09 月 09 日 三, which tells the year apart.)
+  if (!y) {
+    const wd = new Map(rows.map(r => r.match(/^ ?(\d{1,2}) ?月 ?(\d{1,2})(?: ?日 +| +(?!日\s))([一二三四五六日])(?=\s|$)/)).filter(Boolean).map(m => [`${+m[1]}-${+m[2]}`, m[3]]));
+    return { md: ds.map(([m, d]) => (wd.has(`${m}-${d}`) ? [m, d, wd.get(`${m}-${d}`)] : [m, d])) };
+  }
   return spanIn(y, ds);
 }
 // (Not a deadline in its notes: 如有提案請於 9 月 8 日前…)
@@ -179,13 +184,29 @@ export function yearOf(s, all) {
   const prev = dated.filter(x => x.no < s.no).sort((a, b) => b.no - a.no)[0];
   const next = dated.filter(x => x.no > s.no).sort((a, b) => a.no - b.no)[0];
   const base = +(prev || next)?.from.slice(0, 4);
-  if (!base) return null;
-  for (const y of [base, base + 1, base - 1]) {
+  // (Its weekdays, where its rows give them, pick the year: one that fits them, near the sessions around it, else
+  // the latest that does.)
+  const wd = s.md.some(x => x[2]);
+  const fits = y => !wd || weekdaysFit(y - 1911, s.md);
+  if (!base) {
+    if (!wd) return null;
+    const now = new Date().getUTCFullYear();
+    for (let y = now + 1; y > now - 12; y--) if (fits(y)) return spanIn(y - 1911, s.md);
+    return null;
+  }
+  const ys = [base, base + 1, base - 1].filter(fits);
+  for (const y of ys) {
     const span = spanIn(y - 1911, s.md);
     if ((!prev || span.from >= prev.from) && (!next || span.to <= next.from)) return span;
   }
-  return null;
+  return wd && ys.length ? spanIn(ys[0] - 1911, s.md) : null;
 }
+const weekdaysFit = (y, md) => {
+  const first = md[0][0];
+  // (Most of them: a row misread now and then, 05 月 08 日 with its weekday a line down.)
+  const ws = md.filter(x => x[2]);
+  return ws.filter(([m, d, w]) => new Date(roc(m < first - 6 ? y + 1 : y, m, d)).getUTCDay() === '日一二三四五六'.indexOf(w)).length >= ws.length * 0.8;
+};
 
 // A 公所 site's page (TSO): its title, its files and links ({ n, url }), the pages under it ({ id, n }), and its
 // list's other pages.
@@ -358,16 +379,27 @@ export function ccmsPage(html, base) {
     for (const a of as) audio.push({ head, n: text(a[2]) || (a[0].match(/title="([^"]*)"/) || [])[1] || '', url: ccmsFile(a[1], base) });
     // (A session's recording on Drive, named by its session: 礁溪's 第22屆第八次定期會錄音檔.)
     for (const [, href, name] of p.matchAll(/<a [^>]*href="(https:\/\/drive\.google\.com\/file\/d\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) audio.push({ head: text(name).replace(/\s+/g, ''), n: text(name), url: href.replace(/&amp;/g, '&') });
+    // (A sitting's video on YouTube, named by its day: 秀林's 115年10月13日錄音檔, its post's session.)
+    for (const [, href, name] of p.matchAll(/<a [^>]*href="(https:\/\/(?:youtu\.be\/|(?:www\.)?youtube\.com\/(?:watch|live\/))[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) audio.push({ head, n: text(name).replace(/\s+/g, ''), url: href.replace(/&amp;/g, '&') });
     if (!as.length && /錄音/.test(text(p))) head = text(p).replace(/\s+/g, '');
   }
+  // (A session's recordings in a Drive folder, linked under 相關連結: 頭份's 第二屆第八次定期會及延會錄音檔.)
+  for (const [, href, name] of h.matchAll(/<a [^>]*href="(https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g))
+    if (/錄音|影音/.test(text(name))) audio.push({ head: text(name).replace(/\s+/g, ''), n: text(name), url: href.replace(/&amp;/g, '&') });
   return { files, audio };
 }
 // A CCMS list of posts (News.aspx: 礁溪's 臨時會 minutes, a post a session): { n, url } of each post.
+// (A list whose lines are the files themselves, 苑裡's 議事錄: { n, url, file: true }, the file's own address.)
 export function ccmsNews(html, base) {
   const out = [];
   for (const [, href, title] of String(html).matchAll(/<a [^>]*href="(News_Content\.aspx\?[^"]+)"[^>]*title="([^"]*)"/g)) {
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     if (!out.some(o => o.url === url)) out.push({ n: title.replace(/\[另開新視窗\]/g, '').trim(), url });
+  }
+  for (const [, href, name] of String(html).matchAll(/<td [^>]*class="CCMS_jGridView_td[^"]*"[^>]*>\s*<span>\s*<a [^>]*href="([^"]*Download\.ashx\?[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const url = ccmsFile(href, base);
+    const n = text(name).trim();
+    if (url && n && !out.some(o => o.url === url)) out.push({ n, url, file: true });
   }
   return out;
 }

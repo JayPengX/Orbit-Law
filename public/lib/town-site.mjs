@@ -140,7 +140,26 @@ export const TOWN_SITES = {
   // few months (`more`).
   10002020: { n: '羅東鎮民代表會', home: 'https://lotong200.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { files: ['https://lotong200.e-land.gov.tw/record.html', 'https://lotong200.e-land.gov.tw/recorder.html'], more: '^recorder22[_-]' } },
   // 宜蘭縣壯圍鄉: its own site ("boxlists", `box`): 議事日程, 會議記錄, 議事錄下載 (with its sittings' recordings).
-  10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } }
+  10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } },
+  // 花蓮縣秀林鄉: its lists on the 公所's site (CCMS): 開會日程表, 議事錄, and 質詢錄音檔 (a post a session, its
+  // sittings' videos on YouTube by day).
+  10015110: {
+    n: '秀林鄉民代表會',
+    home: 'https://www.shlin.gov.tw/cl.aspx?n=40815',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { ccms: ['https://www.shlin.gov.tw/News.aspx?n=40844&sms=28909', 'https://www.shlin.gov.tw/News.aspx?n=40846&sms=28911', 'https://www.shlin.gov.tw/News.aspx?n=40847&sms=28912'] }
+  },
+  // 花蓮縣壽豐鄉: its 議事專區 on the 公所's site, a session's 議事日程表 a post.
+  10015060: { n: '壽豐鄉民代表會', home: 'https://www.shoufeng.gov.tw/News.aspx?n=5266&sms=17220', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.shoufeng.gov.tw/News.aspx?n=5266&sms=17220'] } },
+  // 苗栗縣苑裡鎮: its 議事日程公告 and 議事錄 on the 公所's site, lists of the files themselves.
+  10005020: {
+    n: '苑裡鎮民代表會',
+    home: 'https://www.yuanli.gov.tw/cl.aspx?n=7523',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { ccms: ['https://www.yuanli.gov.tw/News.aspx?n=7527&sms=13770', 'https://www.yuanli.gov.tw/News.aspx?n=7528&sms=13771'] }
+  }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

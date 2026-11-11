@@ -364,7 +364,7 @@ async function chcgTown(tc, site) {
       const d = dayIn(n);
       const drive = driveId(url);
       // (Its name past the session and the day: what the sitting did, 綜合質詢.)
-      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])/, '').replace(/(錄音|影音)檔?/g, '').replace(/^[-_\s]+|[-_\s]+$/g, '').trim();
+      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])|(?<!\d)1\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/, '').replace(/(錄音|影音)檔?/g, '').replace(/^[-_\s]+|[-_\s]+$/g, '').trim();
       const yt = ytId(url);
       // (A sitting's video on YouTube, 羅東's: played in the app, its day and what it was.)
       if (yt) return s.days.some(x => x.yt === yt) || s.days.push({ ...(d ? { d } : {}), yt, ...(what && !/^\d+$/.test(what) ? { what } : {}), ext });
@@ -454,7 +454,7 @@ async function chcgTown(tc, site) {
         if (x) put(x.s, x.ext, audio ? '錄音' : paperKind(n) === '其他' && x0 ? paperKind(x0.n) : paperKind(n), audio ? n.replace(/^\S*?(定期|臨時)會\s*/, '') : n, f.url);
       }
       for (const a of p.audio) {
-        const x = at(a.head);
+        const x = at(a.head) || x0;
         if (x) put(x.s, x.ext, '錄音', a.n, a.url);
       }
     };
@@ -467,9 +467,9 @@ async function chcgTown(tc, site) {
           let mine = 0;
           for (const post of ccmsNews(await page(pg > 1 ? `${url}&page=${pg}&PageSize=20` : url, true), url)) {
             const x = at(post.n);
-            if (!x || posts++ >= 50 || late()) continue;
+            if (!x || (!post.file && posts++ >= 50) || late()) continue;
             mine++;
-            ccms(post.url, ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
+            ccms(post.url, post.file ? { files: [post], audio: [] } : ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
           }
           if (!mine) break;
         }

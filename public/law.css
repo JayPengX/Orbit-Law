@@ -3860,14 +3860,18 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  min-width: 0;
 }
 .lw-ai-head > .q-ai-mark {
   width: 20px;
   height: 20px;
   margin-top: 4px;
 }
+/* (Its width the head's, never its own: a verdict on one line, before it's fitted, would
+   otherwise widen the whole answer past the screen: Jay's iPhone 11-11.) */
 .lw-ai-head > .lw-verdict {
-  flex: 1;
+  flex: 1 1 0;
+  width: 0;
   min-width: 0;
 }
 /* A note that AI sorted something, under its mark. */

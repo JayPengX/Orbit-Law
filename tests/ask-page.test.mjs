@@ -60,3 +60,15 @@ test('what you read, follow and what just moved come first, each saying why', ()
   ]);
   assert.equal(askIdeas({ en: true, people: true })[0].q, 'How did my legislators vote?');
 });
+
+// Jay's iPhone 11-11: the verdict under Orbit AI's mark (a flex row), drawn on one line
+// before it's fitted, set the answer's width, and the whole chat ran past the screen.
+test('an AI line never sets the answer\'s width: its words take the head\'s', () => {
+  assert.match(app, /const aiLine = [^\n]*lw-verdict q-fit-wrap[^\n]*class="lw-ai-head"/);
+  const rule = sel => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.>]/g, m => `\\${m}`)}\\s*\\{([^}]*)\\}`))?.[1] || '';
+  const verdict = rule('.lw-ai-head > .lw-verdict');
+  assert.match(verdict, /width:\s*0;/, 'its own width is none: a long verdict can\'t widen the answer');
+  assert.match(verdict, /min-width:\s*0;/);
+  assert.match(verdict, /flex:\s*1 1 0;/);
+  assert.match(rule('.lw-ai-head'), /min-width:\s*0;/);
+});

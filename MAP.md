@@ -167,6 +167,9 @@ Live: https://orbit.jaypengx.com/law/
   most of its papers' names give. 宜蘭's 壯圍 on its own "boxlists" site (`box`: a list a kind, `boxList`; a line
   the file or a page of files, `boxFiles`, the 議事錄 with its sittings' recordings named by the Western day,
   `westDay`; a 預定 agenda only when there's no other). A deadline in an agenda's notes (9 月 8 日前) isn't a day.
+  礁溪 on its 公所's CCMS pages too (blocks inside a 相關檔案 block, each by its own title; 臨時會 minutes a post
+  each, `ccmsNews`; a session's recording on Drive). An agenda in .odt or .docx is read from inside the zip
+  (`unzip`), not only PDFs.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -55,12 +55,19 @@ async function pdfText(url) {
     ? await fetch(`https://drive.usercontent.google.com/download?id=${drive}&export=download`, { signal: AbortSignal.timeout(90_000) })
     : await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
   // The PDF itself (passed straight through), or a JSON answer saying why not.
-  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok);
+  // (An .odt or .docx comes through as it came.)
+  const zip = /\.(odt|docx)$/i.exec(url);
+  const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok) || (zip && r.ok && !/json/i.test(r.headers.get('Content-Type') || ''));
   const b = pdf ? null : await r.json().catch(() => ({}));
   if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
   await writeFile(file, pdf ? Buffer.from(await r.arrayBuffer()) : Buffer.from(b.b64, 'base64'));
+  // (An OpenDocument or Word file, 礁溪's agendas: its text from inside the zip, a paragraph or a table cell a line.)
+  if (zip) {
+    const xml = execFileSync('unzip', ['-p', file, zip[1].toLowerCase() === 'odt' ? 'content.xml' : 'word/document.xml'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+    return xml.replace(/<\/(text:p|text:h|w:p|table:table-cell|w:tc)>/g, '\n').replace(/<(text:s|text:tab|w:tab)\b[^>]*\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
@@ -368,16 +375,25 @@ async function chcgTown(tc, site) {
     }
     // e-land's CCMS (宜蘭's 頭城): a page with every session's papers, and its recordings under a line naming the
     // session.
-    for (const url of c.ccms || []) {
-      const p = ccmsPage(await page(url, true), url);
+    // (A list of posts, 礁溪's 臨時會 minutes, News.aspx: each post of this term read as a page.)
+    const ccms = (url, p, x0) => {
       for (const f of p.files) {
-        const x = at(f.n);
-        if (x) put(x.s, x.ext, paperKind(f.n), f.n, f.url);
+        const x = at(f.n) || x0;
+        if (x) put(x.s, x.ext, paperKind(f.n) === '其他' && x0 ? paperKind(x0.n) : paperKind(f.n), f.n, f.url);
       }
       for (const a of p.audio) {
         const x = at(a.head);
         if (x) put(x.s, x.ext, '錄音', a.n, a.url);
       }
+    };
+    for (const url of c.ccms || []) {
+      const html = await page(url, true);
+      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(html, url));
+      else
+        for (const post of ccmsNews(html, url).slice(0, 40)) {
+          const x = at(post.n);
+          if (x && !late()) ccms(post.url, ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
+        }
     }
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
     // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
@@ -490,8 +506,8 @@ async function chcgTown(tc, site) {
     } else if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
     else if (was?.md) s.md = was.md;
     else {
-      // (Its agenda, else its minutes: 秀水's agendas are Word files, not read.)
-      const pdf = u => !/\.(docx?|odt|xlsx?|webp|jpe?g|png)$/i.test(u);
+      // (Its agenda, else its minutes: 秀水's old Word files aren't read; .odt and .docx are, from inside.)
+      const pdf = u => !/\.(doc|xlsx?|webp|jpe?g|png)$/i.test(u);
       const fs = [s.agenda.find(a => !/延長/.test(a.n) && pdf(a.url))?.url, s.items.find(i => i.k === '會議紀錄' && pdf(i.files[0].url))?.files[0].url].filter(Boolean);
       for (const f of fs) {
         if (pdfs-- <= 0 || late()) break;

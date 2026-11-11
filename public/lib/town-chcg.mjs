@@ -328,21 +328,45 @@ export const ccmsFile = (href, base) => {
 export function ccmsPage(html, base) {
   const h = String(html);
   const files = [];
-  for (const m of h.matchAll(/file-download-multiple[\s\S]*?<div class="hd">([\s\S]*?)<div class="ct">([\s\S]*?)<\/ul>/g)) {
-    const n = text(m[1]);
-    const urls = [...m[2].matchAll(/href="([^"]+)"/g)].map(x => ccmsFile(x[1], base)).filter(Boolean);
-    // (A paper in more than one format: its PDF.)
-    const url = urls.find(u => /\.pdf$/i.test(u)) || urls[0];
-    if (n && url) files.push({ n, url });
+  // (Blocks may hold blocks, 相關檔案 around each paper's: each block's own files, up to the next block.)
+  for (const chunk of h.split(/class="[^"]*file-download-multiple[^"]*"/).slice(1)) {
+    const hd = text((chunk.match(/<div class="hd">([\s\S]*?)<div class="ct">/) || [])[1]);
+    const ct = chunk.slice(chunk.indexOf('<div class="ct">'));
+    const got = new Map();
+    for (const [a, href] of ct.slice(0, ct.indexOf('</ul>') + 1 || undefined).matchAll(/<a [^>]*href="([^"]+)"[^>]*>/g)) {
+      const url = ccmsFile(href, base);
+      // (Its file's name: [另開新視窗]0327●第22屆第2次定期會會議紀錄.pdf.)
+      // (員山's 2201定期會會議紀錄: the term and the session in four digits.)
+      const t = ((a.match(/title="([^"]*)"/) || [])[1] || '').replace(/\[另開新視窗\]/g, '').replace(/\.\w{2,4}$/, '').replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`).replace(/^[\d\s\-_.●]+(?=\D)/, '').trim();
+      if (url && !/^javascript/i.test(href)) (got.get(t) || got.set(t, []).get(t)).push(url);
+    }
+    // (A block titled by its paper: that paper, in one format or more, its PDF; 相關檔案: each file by its own name.)
+    const one = hd && !/^(相關檔案|附件)/.test(hd);
+    for (const [t, urls] of one && got.size ? [[hd, [...got.values()].flat()]] : got) {
+      const n = (t || hd).replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`);
+      const url = urls.find(u => /\.pdf$/i.test(u)) || urls[0];
+      if (n && url) files.push({ n, url });
+    }
   }
   const audio = [];
   let head = '';
   for (const [, p] of h.matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/g)) {
     const as = [...p.matchAll(/<a [^>]*href="([^"]+\.(?:mp3|m4a|wav))"[^>]*>([\s\S]*?)<\/a>/gi)];
     for (const a of as) audio.push({ head, n: text(a[2]) || (a[0].match(/title="([^"]*)"/) || [])[1] || '', url: ccmsFile(a[1], base) });
+    // (A session's recording on Drive, named by its session: 礁溪's 第22屆第八次定期會錄音檔.)
+    for (const [, href, name] of p.matchAll(/<a [^>]*href="(https:\/\/drive\.google\.com\/file\/d\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) audio.push({ head: text(name).replace(/\s+/g, ''), n: text(name), url: href.replace(/&amp;/g, '&') });
     if (!as.length && /錄音/.test(text(p))) head = text(p).replace(/\s+/g, '');
   }
   return { files, audio };
+}
+// A CCMS list of posts (News.aspx: 礁溪's 臨時會 minutes, a post a session): { n, url } of each post.
+export function ccmsNews(html, base) {
+  const out = [];
+  for (const [, href, title] of String(html).matchAll(/<a [^>]*href="(News_Content\.aspx\?[^"]+)"[^>]*title="([^"]*)"/g)) {
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    if (!out.some(o => o.url === url)) out.push({ n: title.replace(/\[另開新視窗\]/g, '').trim(), url });
+  }
+  return out;
 }
 
 // A 代表會's own site on the "boxlists" CMS (宜蘭's 壯圍: juanwei.e-land.gov.tw/boxlists?menu_id=14): a list a kind,

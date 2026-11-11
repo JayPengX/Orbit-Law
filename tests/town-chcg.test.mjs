@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -154,4 +154,18 @@ test('town chcg: a "boxlists" site (壯圍): its lists, a page’s files, record
   assert.equal(westDay('壯圍'), '');
   // (A deadline in an agenda's notes isn't one of its days.)
   assert.deepEqual(pdfSpan('宜蘭縣壯圍鄉民代表會第 22 屆第 19 次臨時會議事日程表\n 115 年 9 月 15 日 115 年 9 月 16 日 115 年 9 月 17 日\n 一、如有提案請於 9 月 8 日前將提案逕送本會彙集。'), { from: '2026-09-15', to: '2026-09-17' });
+});
+
+test('town chcg: CCMS pages that nest their papers (礁溪, 員山), a session’s Drive recording, a list of posts', () => {
+  const base = 'https://jiaosi.e-land.gov.tw/cp.aspx?n=14230';
+  const f = (title, u) => `<div class="list-text file-download-multiple" data-index="1"><div class="in"><div class="hd"><div class="in"><div data-index="0" > <span ><a >${title}</a></span></div></div></div><div class="ct"><div class="in"><ul data-index="1"><li class="pdf" > <span ><a href="https://www-ws.e-land.gov.tw/Download.ashx?u=${btoa(u)}" target="_blank" title="[另開新視窗]${title}.pdf" >pdf</a></span></li></ul> </div></div></div></div>`;
+  const html = `<div class="group-list file-download-multiple" data-index="1" data-type="4"><div class="in"><div class="hd"><div class="in"><div data-index="0" class="headH3" > <span ><a >相關檔案</a></span></div></div></div><div class="ct"><div class="in"><ul data-index="1"><li data-index="1"> ${f('0327●宜蘭縣礁溪鄉民代表會第22屆第2次定期會會議紀錄', '/001/a.pdf')}</li><li>${f('2201臨時會議事錄', '/001/b.pdf')}</li></ul></div></div></div></div>
+    <div class="area-editor user-edit fr-view"><p><a href="https://drive.google.com/file/d/1U_B/view?usp=sharing" title="錄音檔">第22屆第八次定期會錄音檔</a></p></div>`;
+  const p = ccmsPage(html, base);
+  assert.deepEqual(p.files.map(x => [sessionOf(x.n, 22)?.key, x.url]), [
+    ['第22屆第2次定期會', 'https://www-ws.e-land.gov.tw/001/a.pdf'],
+    ['第22屆第1次臨時會', 'https://www-ws.e-land.gov.tw/001/b.pdf']
+  ]);
+  assert.deepEqual(p.audio.map(a => [sessionOf(a.head, 22)?.key, a.url]), [['第22屆第8次定期會', 'https://drive.google.com/file/d/1U_B/view?usp=sharing']]);
+  assert.deepEqual(ccmsNews('<a href="News_Content.aspx?n=14231&amp;s=408742" title="第22屆第19次臨時會會議紀錄">第22屆…</a>', 'https://jiaosi.e-land.gov.tw/News.aspx?n=14231'), [{ n: '第22屆第19次臨時會會議紀錄', url: 'https://jiaosi.e-land.gov.tw/News_Content.aspx?n=14231&s=408742' }]);
 });

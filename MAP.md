@@ -363,9 +363,9 @@ Live: https://orbit.jaypengx.com/law/
   and regulation, similar judgments and 釋字 (their 主文 and reasons read),
   行政規則, bills, budgets, legislators, votes, meetings, 政府公告, and the
   reader's own follows (sent only with a question about them), and the
-  councils' and 代表會's bills and minutes rows for the places it names
-  (Orbit-Core `law-local.js`; drawn as `r.local` blocks, each bill, councillor
-  or 代表會 opening in the app). Claude
+  councils' and 代表會's bills, councillors' 質詢 (the transcripts) and minutes
+  rows for the places it names (Orbit-Core `law-local.js`; drawn as `r.local`
+  blocks, each bill, councillor or 代表會 opening in the app). Claude
   Sonnet (GPT's Sol when it fails) then applies it to the reader's facts (who is likely right, penalties,
   remedies, next steps), each point citing an article, a judgment or a
   rule; each opens in the app. A follow-up sends the last 8 questions and

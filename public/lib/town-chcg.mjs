@@ -635,3 +635,42 @@ export function laraFiles(html) {
   }
   return out;
 }
+
+// 臺東's 池上 代表會's own site (www.cs-council.gov.tw): /calendar, /notes and /sound, ?period=22, each a list of
+// posts by session (議事日程 a line a session; 議事錄 and 會議錄音 a row a session, 第 8 次 定期會 and its days,
+// its posts 10/12鄉長施政報告…): [{ n, from, to, posts: [{ t, url }] }].
+export function cscList(html, base) {
+  const h = String(html);
+  const rows = [];
+  for (const block of h.split(/<ul class="noteTable">/).slice(1)) {
+    const n = text((block.match(/<li class="name">([\s\S]*?)<\/li>/) || [])[1]).replace(/\s+/g, '');
+    const [, from, to] = block.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/) || [];
+    const posts = [...block.matchAll(/<a href="([^"]*\/detail\/\d+)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, u, t]) => ({ t: text(t), url: new URL(u, base).href }));
+    if (n && posts.length) rows.push({ n, from, to, posts });
+  }
+  if (!rows.length)
+    for (const [, u, t] of h.matchAll(/<a href="([^"]*\/detail\/\d+)"[^>]*>([\s\S]*?)<\/a>/g)) rows.push({ n: text(t).replace(/\s+/g, ''), posts: [{ t: '', url: new URL(u, base).href }] });
+  return rows;
+}
+// A post: its session (第 22 屆 第 8 次 定期會), its days, what it held, its files (on Drive).
+export function cscPost(html) {
+  const h = String(html);
+  const box = h.slice(h.indexOf('boxContent'));
+  const [, from, to] = box.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/) || [];
+  return {
+    n: text((box.match(/<h4>([\s\S]*?)<\/h4>/) || [])[1]).replace(/\s+/g, ''),
+    from,
+    to,
+    what: text((box.match(/<p>([\s\S]*?)<\/p>/) || [])[1]),
+    files: [...new Set([...box.slice(0, box.indexOf('</section>') + 1 || undefined).matchAll(/href="(https?:\/\/[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&')))]
+  };
+}
+// A recording's day as the post writes it, 10/12鄉長施政報告, in its session's year: 1151012鄉長施政報告 (the ROC way,
+// as dayIn reads it).
+export const cscDay = (t, from) => {
+  const m = String(t).match(/^\s*(\d{1,2})\/(\d{1,2})\s*/);
+  if (!m || !from) return t;
+  const [y, fm] = from.split('-').map(Number);
+  const year = +m[1] < fm ? y + 1 : y;
+  return `${year - 1911}${String(m[1]).padStart(2, '0')}${String(m[2]).padStart(2, '0')} ${t.slice(m[0].length)}`;
+};

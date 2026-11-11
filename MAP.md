@@ -233,7 +233,8 @@ Live: https://orbit.jaypengx.com/law/
   left out); 大埔, 布袋 (定期會-第22屆第01次 folders), 民雄 (22屆1次臨時會 names) and 六腳 the same. 竹崎, 阿里山,
   新港, 義竹, 鹿草 on their 公所's CCMS (`ccms`, through the door). 南投's 草屯 on its 公所's own CMS (`files` with
   `more`: its lists' posts, `reads` 20 pages; `linkFiles` takes single-quoted links and names a recording under its
-  session's heading, 錄音檔1).
+  session's heading, 錄音檔1). 臺東's 池上 on the 代表會's own site (`csc`: /calendar, /notes, /sound ?period=22,
+  `cscList` rows by session, `cscPost` its Drive file, `cscDay` a sitting's 10/12 in the session's year).
   新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安,

@@ -122,6 +122,8 @@ export const TOWN_SITES = {
   // 臺東縣太麻里鄉: the same Joomla as 東河's, its 議事日程表 and 錄音檔及議事錄 (minutes on Drive, each sitting's
   // recording on YouTube) an article a session.
   10014090: { n: '太麻里鄉民代表會', home: 'http://www.taimali.gov.tw/home/index.php/news-events/2020-09-22-02-57-47.html', term: 22, ends: '2026-12-25', chcg: { joomla: { base: 'http://www.taimali.gov.tw', lists: ['/home/index.php/news-events/2020-09-22-02-57-47/議事日程表.html', '/home/index.php/news-events/2020-09-22-02-57-47/議事日程表-2.html'] } } },
+  // 臺東縣池上鄉: the 代表會's own site (`csc`), 議事日程, 議事錄 and 會議錄音 by session, the files on Drive.
+  10014060: { n: '池上鄉民代表會', home: 'https://www.cs-council.gov.tw/', term: 22, ends: '2026-12-25', chcg: { csc: 'https://www.cs-council.gov.tw/' } },
   // 臺東's 關山 and 鹿野, 南投's 中寮: their 代表會's papers and recordings in Drive folders linked from the 公所's site.
   10014030: { n: '關山鎮民代表會', home: 'https://www.guanshan.gov.tw/about/about12', term: 22, ends: '2026-12-25', chcg: { drive: { '1nQE-X1IY4kHg1BymoaCtnB-sEi5M330b': '議事日程表', '1OaW0E_09OYgJ3tuaeUJ8A9rLyliG5EGW': '會議紀錄', '1bzOb-3YUidiDQcKaCxDhNCSCXeLz10G9': '會議紀錄', '18-zPlfeUMvtMWxeh6gbGXB2MHXdQLHpk': '錄音' } } },
   10014050: { n: '鹿野鄉民代表會', home: 'https://drive.google.com/drive/folders/1xo7nirbK-GTIfkmTxaKD0yCzcUoUNBx0', term: 22, ends: '2026-12-25', chcg: { drive: { '16OGEOiO2ANt7EvRB1IEdwkSsSbmaKVVF': '議事日程表', '16_wgYsUkEmQdpYbG2QEz41pTfIt9U8WW': '會議紀錄', '14cG5KMtVRCey68ovOCTZ3cN5xcKQuulS': '會議紀錄', '1Vs2ijFOprR16EmhdKSke9QubCvqK-jH5': '錄音' } } },

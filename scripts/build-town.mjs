@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -485,6 +485,27 @@ async function chcgTown(tc, site) {
           }
         }
         if (!mine) break;
+      }
+    // 池上's own site (`csc`): its 議事日程, 議事錄 and 會議錄音 lists of this term, each post a session's file on Drive
+    // (a recording a sitting, named by its day, 10/12鄉長施政報告: that day in the session's year).
+    if (c.csc)
+      for (const [path, kind] of [['calendar', '議事日程表'], ['notes', '會議紀錄'], ['sound', '錄音']]) {
+        const list = `${c.csc}${path}?period=${site.term}`;
+        for (const row of cscList(await page(list, true), list)) {
+          const x = at(/屆/.test(row.n) ? row.n : `第${site.term}屆${row.n}`);
+          if (!x || kept(x, kind) || late()) continue;
+          for (const post of row.posts.slice(0, 16)) {
+            let p;
+            try {
+              p = cscPost(await page(post.url, true));
+            } catch (e) {
+              notes.push(`${row.n}: ${e.message}`);
+              continue;
+            }
+            const day = kind === '錄音' ? cscDay(post.t || p.what, row.from || p.from) : '';
+            for (const url of p.files) put(x.s, x.ext, kind, kind === '錄音' ? day : `${p.n}${kind === '會議紀錄' ? '議事錄' : '議事日程表'}`, url);
+          }
+        }
       }
     // A 公所 site on Joomla (東河's): its lists' articles named by session, ten a page, each read for its files.
     if (c.joomla) {

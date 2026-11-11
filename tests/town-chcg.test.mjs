@@ -356,3 +356,14 @@ test("town files: 草屯's single-quoted links, its recordings named under the s
   assert.deepEqual(linkFiles(html, 'https://www.tsaotun.gov.tw/list/x').map(f => f.n), ['第22屆第七次定期會錄音檔 1', '第22屆第1次定期會記錄']);
   assert.deepEqual(pageMore(`<a href='/list/epresentative07-5?model=view&view=14597'>x</a><a href="/list/about01">y</a>`, 'https://www.tsaotun.gov.tw/list/epresentative07-5', 'epresentative07-[245]\\?model=view&(amp;)?view=\\d+'), ['https://www.tsaotun.gov.tw/list/epresentative07-5?model=view&view=14597']);
 });
+
+test("town csc: 池上's own site, its lists by session and its posts' Drive files", async () => {
+  const { cscList, cscPost, cscDay, dayIn } = await import('../public/lib/town-chcg.mjs');
+  const list = `<ul class="noteTable t1"><li class="name">會議名稱</li></ul> <ul class="noteTable"> <li class="name">第 8 次 定期會</li> <li class="date">2026-10-12 ~ 2026-10-30</li> <li class="notes"> <a href="/sound/detail/1530"><p>10/12鄉長施政報告、各機關意見交換</p> </a></li></ul>`;
+  assert.deepEqual(cscList(list, 'https://www.cs-council.gov.tw/sound?period=22'), [{ n: '第8次定期會', from: '2026-10-12', to: '2026-10-30', posts: [{ t: '10/12鄉長施政報告、各機關意見交換', url: 'https://www.cs-council.gov.tw/sound/detail/1530' }] }]);
+  assert.deepEqual(cscList('<li><a href="/calendar/detail/1488"> <i class="far"></i> 第 22 屆 第 19 次 臨時會 </a> </li>', 'https://www.cs-council.gov.tw/calendar').map(r => r.n), ['第22屆第19次臨時會']);
+  const post = cscPost('<div class="boxContent"> <h4>第 22 屆 第 19 次 臨時會</h4> <div class="date">2026-09-07 ~ 2026-09-09</div> <p>會議記錄</p> <hr> <ul> <li> <a target="_blank" href="https://drive.google.com/file/d/17L9/view?usp=sharing">檔案下載</a> </li> </ul> </div> </section>');
+  assert.deepEqual(post, { n: '第22屆第19次臨時會', from: '2026-09-07', to: '2026-09-09', what: '會議記錄', files: ['https://drive.google.com/file/d/17L9/view?usp=sharing'] });
+  assert.equal(dayIn(cscDay('10/12鄉長施政報告', '2026-10-12')), '2026-10-12');
+  assert.equal(dayIn(cscDay('1/20報告', '2025-12-30')), '2026-01-20');
+});

@@ -225,17 +225,6 @@ html[data-look='native'] .nv-ask-mark svg {
   width: 16px;
   height: 16px;
 }
-/* (An everyday question: its topic's colour, a short bar.) */
-html[data-look='native'] .nv-ask-mark.is-topic {
-  background: color-mix(in srgb, var(--t) 18%, transparent);
-}
-html[data-look='native'] .nv-ask-mark.is-topic::after {
-  content: '';
-  width: 4px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--t);
-}
 html[data-look='native'] .nv-ask-text {
   display: grid;
   flex: 1;
@@ -247,7 +236,7 @@ html[data-look='native'] .nv-ask-text :is(b, small) {
   text-overflow: ellipsis;
 }
 html[data-look='native'] .nv-ask-text b {
-  font: 600 16px/22px var(--q-font);
+  font: 500 16px/22px var(--q-font);
 }
 html[data-look='native'] .nv-ask-text small {
   color: var(--q-label-2);

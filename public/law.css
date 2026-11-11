@@ -91,16 +91,23 @@ html.q-kb #panel-ask::after {
   background: color-mix(in srgb, var(--q-accent) 14%, transparent);
   color: var(--q-accent);
 }
-.lw-more {
-  display: block;
+/* 再看 N 則: the kit's quiet more bar (.q-more), never accent text (Jay 11-03), whatever else the button carries. */
+.lw-more,
+.q-btn.lw-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 100%;
+  min-height: 36px;
   margin: 8px 0 0;
-  min-height: 44px;
+  padding: 0 12px;
   border: 0;
   border-radius: var(--q-r-cell);
-  background: var(--q-fill-3);
-  color: var(--q-accent);
-  font: 600 15px/1 var(--q-font);
+  background: var(--q-fill-4);
+  box-shadow: none;
+  color: var(--q-text-2, var(--q-label-2));
+  font: 600 14px/1.2 var(--q-font);
   cursor: pointer;
 }
 
@@ -542,7 +549,8 @@ html.q-kb #panel-ask::after {
   margin: 0 0 8px;
 }
 .lw-stat {
-  --c: var(--q-indigo);
+  /* Graphite numbers: colour only where it means something (a cut, a deadline close), never a tile per colour (RULEBOOK 10-22, 11-12). */
+  --c: var(--q-label);
   display: grid;
   gap: 2px;
   padding: 12px;
@@ -550,12 +558,6 @@ html.q-kb #panel-ask::after {
   background: var(--q-surface);
   color: var(--q-label);
   text-decoration: none;
-}
-.lw-stat.orange {
-  --c: var(--q-orange);
-}
-.lw-stat.green {
-  --c: var(--q-green);
 }
 .lw-stat b {
   color: var(--c);
@@ -620,7 +622,6 @@ html.q-kb #panel-ask::after {
 }
 
 /* ---- 追蹤 empty, and other empties ---- */
-.lw-empty,
 .lw-ask-empty {
   display: grid;
   justify-items: center;
@@ -628,11 +629,9 @@ html.q-kb #panel-ask::after {
   padding: 24px 8px;
   text-align: center;
 }
-.lw-empty strong,
 .lw-ask-empty strong {
   font: 600 20px/25px var(--q-font);
 }
-.lw-empty p,
 .lw-ask-empty > p {
   max-width: 340px;
   margin: 0;
@@ -2641,9 +2640,6 @@ button.lw-notice {
 .lw-bud-page .lw-stats.four .lw-stat b {
   font-size: 22px;
 }
-.lw-stat.teal {
-  --c: var(--q-teal);
-}
 .lw-stat.red {
   --c: var(--q-red);
 }
@@ -2709,7 +2705,7 @@ details.lw-bud-row[open] > summary {
   min-width: 0;
   overflow: hidden;
   font: 600 15px/20px var(--q-font);
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 .lw-bud-line {
   align-items: flex-start;
@@ -3268,7 +3264,7 @@ details.lw-bud-row[open] > summary {
 .lw-list .lw-row-name {
   display: -webkit-box;
   white-space: normal;
-  text-wrap: balance;
+  text-wrap: pretty;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
@@ -3333,10 +3329,11 @@ details.lw-bud-row[open] > summary {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 8px;
   box-sizing: border-box;
-  height: 150px;
-  padding: 12px 10px;
+  height: 100%;
+  min-height: 104px;
+  padding: 14px 10px 10px;
   overflow: hidden;
   border-radius: 6px 12px 12px 6px;
   background: linear-gradient(160deg, color-mix(in srgb, var(--t) 78%, #fff), var(--t) 55%, color-mix(in srgb, var(--t) 70%, #000));
@@ -3350,10 +3347,10 @@ details.lw-bud-row[open] > summary {
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
 }
-.lw-cover small { color: var(--q-label-2); font: var(--q-t-footnote); }
+.lw-cover small { margin-top: auto; color: var(--q-label-2); font: var(--q-t-footnote); }
 
 .lw-find-subs span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.lw-cover-art b { font-size: 14px; line-height: 19px; -webkit-line-clamp: 5; }
+.lw-cover-art b { font-size: 14px; line-height: 19px; -webkit-line-clamp: 3; }
 .lw-back-row { margin: 4px 0 -8px; }
 
 /* 判決: outcome first, then who, then the reasons one point at a time. */
@@ -3435,7 +3432,7 @@ details.lw-bud-row[open] > summary {
 /* 表決: one card a day per agenda item, with each party's side */
 .lw-vgroups { display: grid; gap: 10px; }
 .lw-vgroup { display: grid; gap: 8px; width: 100%; padding: 14px 16px; border: 0; border-radius: 18px; background: var(--q-surface); color: var(--q-label); font: inherit; text-align: start; }
-.lw-vg-t { font: 600 17px/1.35 var(--q-font); min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: balance; }
+.lw-vg-t { font: 600 17px/1.35 var(--q-font); min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: pretty; }
 .lw-vg-foot { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .lw-vg-foot small { min-width: 0; }
 .lw-vg-foot small span { white-space: nowrap; }
@@ -3497,7 +3494,7 @@ details.lw-bud-row[open] > summary {
   min-width: 0;
 }
 .lw-meet-top b {
-  min-width: 3em;
+  min-width: 2em;
   overflow: hidden;
   font: 600 16px/20px var(--q-font);
   white-space: nowrap;
@@ -3514,7 +3511,7 @@ details.lw-bud-row[open] > summary {
   font: var(--q-t-subhead, 400 14px/19px var(--q-font));
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 .lw-meet-text small {
   color: var(--q-label-3);
@@ -3633,9 +3630,15 @@ div.lw-video {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--q-indigo);
-  font: 600 13px/18px var(--q-font);
+  color: var(--q-label);
+  font: 500 13px/18px var(--q-font);
   cursor: pointer;
+}
+/* (A quiet question, never accent text: a grey › after it.) */
+.lw-how::after {
+  content: '›';
+  margin-left: 4px;
+  color: var(--q-label-3);
 }
 .lw-funnel-cap .lw-how {
   margin: 0 0 0 8px;
@@ -4009,7 +4012,6 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-bill.notice .lw-bill-foot > * { flex: none; }
 .lw-stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lw-stat.red { --c: var(--q-red); }
-.lw-stat.teal { --c: var(--q-teal); }
 .lw-notice-page .lw-stat b { font-size: 20px; white-space: nowrap; overflow: hidden; }
 .lw-notice-who { display: grid; gap: 4px; margin: 8px 0 4px; }
 .lw-notice-who p { display: flex; gap: 10px; margin: 0; font: 400 15px/1.5 var(--q-font); }
@@ -4070,9 +4072,6 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
   font: 400 16px/21px var(--q-font);
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.lw-row-val.off {
-  color: var(--q-accent);
 }
 .lw-ask-foot {
   margin: 0;

@@ -362,7 +362,7 @@ function lawSub(row) {
 }
 // A law's row; the judgments citing it as a tag when nothing else is on the right.
 // In English the row is named in English (where the MOJ has it).
-const lawItem = (row, sub, extra = '', href) => lawRow(en ? [row[0], nameOf(row[0], row[1])] : row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] || state.lowLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${(state.rulingLaws[row[0]] || 0) + (state.lowLaws[row[0]] || 0)}</span>` : ''), href });
+const lawItem = (row, sub, extra = '', href) => lawRow(en ? [row[0], nameOf(row[0], row[1])] : row, { topic: rowTopic(row), sub: sub ?? lawSub(row), extra: extra || (state.rulingLaws[row[0]] || state.lowLaws[row[0]] ? `<span class="lw-tag court">${ICON_GAVEL}${((state.rulingLaws[row[0]] || 0) + (state.lowLaws[row[0]] || 0)).toLocaleString('en-US')}</span>` : ''), href });
 const ICON_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const ICON_YT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033"/><path d="M10 9v6l5-3z" fill="#fff"/></svg>';
@@ -376,7 +376,7 @@ const countTag = (n, tone = '') => `<span class="lw-tag${tone ? ` ${tone}` : ''}
 function changeText(c, brief = false) {
   if (c.whole) return `${c.whole === 'new' ? W('制定', 'Enacted') : W('全文修正', 'Rewritten')} ${shortDay(c.m)} · ${W(`全文 ${c.count} 條`, `${c.count} articles`)}`;
   const keys = ks => ks.slice(0, 3).join(W('、', ', ')) + (ks.length > 3 ? W(` 等 ${ks.length} 條`, ` +${ks.length - 3}`) : W(' 條', ''));
-  const kinds = [[c.amended, '改第', 'Art. ', '改', 'amended'], [c.added, '增第', 'new ', '增', 'new'], [c.removed, '刪第', 'removed ', '刪', 'removed']];
+  const kinds = [[c.amended, '改第 ', 'Art. ', '改', 'amended'], [c.added, '增第 ', 'new ', '增', 'new'], [c.removed, '刪第 ', 'removed ', '刪', 'removed']];
   const parts = kinds.filter(([ks]) => ks.length).map(([ks, zh, e, zhN, eN]) => (brief && ks.length > 2 ? W(`${zhN} ${ks.length} 條`, `${ks.length} ${eN}`) : (en ? e : zh) + keys(ks)));
   return `${W('修正', brief ? 'Rev.' : 'Amended')} ${shortDay(c.m)}${parts.length ? ` · ${parts.join(W('・', ' · '))}` : ''}`;
 }
@@ -431,7 +431,7 @@ function fillHome() {
     .catch(() => {});
 }
 // Laws as book covers (Books' shelves): the topic's colour, its mark, the name.
-const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b class="q-fit-wrap">${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b></span><small>${esc(topicName(rowTopic(r), en))}</small></a>`).join('')}</div>` : '');
+const covers = rows => (rows.length ? `<div class="lw-covers">${rows.map(r => `<a class="lw-cover" href="#law=${esc(r[0])}" style="--t:${TOPICS[rowTopic(r)].color}"><span class="lw-cover-art">${svgTopic(rowTopic(r))}<b class="q-fit-wrap">${esc(en ? nameOf(r[0], r[1]) : shortName(r[1]))}</b><small>${esc(topicName(rowTopic(r), en))}</small></span></a>`).join('')}</div>` : '');
 // 繼續閱讀: the last things read, any kind, each opening where you were
 // (a law at its article, with how far through), newest first: a short list.
 function resumeRows() {
@@ -522,7 +522,7 @@ function asksHtml() {
   const row = (href, q, mark, sub) => `<a class="nv-ask" href="${href}">${mark}<span class="nv-ask-text"><b>${esc(q)}</b><small>${esc(sub)}</small></span>${CHEVRON}</a>`;
   return [
     ...mine.map(x => row(`#${x.k === 'a' ? 'tab=ask&amp;q=' : 'tab=laws&amp;q='}${encodeURIComponent(x.q)}`, x.q, `<i class="nv-ask-mark">${ICON_CLOCK}</i>`, x.k === 'a' ? W('最近問過', 'Asked lately') : W('最近找過', 'Searched lately'))),
-    ...starters.map(([zh, e, topic]) => row(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), `<i class="nv-ask-mark is-topic" style="--t:${(TOPICS[topic] || TOPICS.gov).color}"></i>`, `${topicName(topic, en)} · ${W('試試這樣問', 'Try asking')}`))
+    ...starters.map(([zh, e, topic]) => row(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), topicTile(topic, 'sm'), `${topicName(topic, en)} · ${W('試試這樣問', 'Try asking')}`))
   ].join('');
 }
 // 依生活情境找, compact: a row a topic, its colour a mark, how many laws.
@@ -2189,7 +2189,7 @@ function drawChat() {
       `<p class="lw-list-cap lw-ask-cap">${W('從這裡問起', 'Start here')}</p><div class="lw-list lw-ask-list lw-ideas">${ideasHtml()}</div>` +
       againHtml() +
       `<div class="lw-list lw-ask-list lw-city-list"><button type="button" class="lw-row lw-city">${topicTile('home', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${W('地方法規', 'Local rules')}</span></span><b class="lw-row-val${city ? '' : ' off'}">${esc(cityName)}</b>${CHEVRON}</button></div>` +
-      `<p class="lw-ask-foot">${W('只查你住的縣市的自治條例與規則。AI 依法規與判決回答，不是法律意見。', 'Only your own city’s local rules are searched. AI answers from the laws and rulings; not legal advice.')}</p>`;
+      `<p class="lw-ask-foot">${W('AI 依法規與判決回答，不是法律意見。', 'AI answers from the laws and rulings; not legal advice.')}</p>`;
     return;
   }
   out.innerHTML = chat.turns.map(turnHtml).join('') + (chat.busy ? '' : `<button type="button" class="lw-new">${W('開始新對話', 'New chat')}</button>`);
@@ -3329,7 +3329,7 @@ function drawMine() {
     $('panel-mine'),
     pageHead(W('我的', 'Mine')) +
     ((html && (nothingFollowed ? html + hint : html)) ||
-      `<div class="lw-empty"><span class="lw-orb star">${ICON.star}</span><strong>${W('追蹤法規和法案', 'Follow laws and bills')}</strong><p>${W('在法規或法案上按 ☆，修法和審議進度會出現在這裡，有變動時分頁上會有數字。', 'Tap ☆ on a law or a bill: amendments and progress show here, with a count on the tab when something moves.')}</p><div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div></div>`)
+      emptyHtml({ icon: 'star', title: W('追蹤法規和法案', 'Follow laws and bills'), body: W('按 ☆，修法和進度會出現在這裡', 'Tap ☆ to see changes and progress here'), action: `<div class="lw-empty-acts"><a class="q-btn primary" href="#tab=bills">${W('看立法動態', 'See bills')}</a><a class="q-btn" href="#tab=laws">${W('瀏覽法規', 'Browse laws')}</a></div>`, cls: 'lw-mine-empty' }))
   );
   wireTitles($('panel-mine'));
   badge();
@@ -3576,7 +3576,7 @@ async function votesList(out) {
   const last = d.votes.reduce((m, v) => (v[1] > m ? v[1] : m), '');
   let shown = 20;
   const draw = () => {
-    out.innerHTML = `${words.length ? '' : `<p class="lw-hint-sm lead">${esc(Object.keys(d.recs || {}).length ? W(`記名表決在院會後約一週從議事錄讀進來，公報刊出後換成公報的；目前到 ${shortDay(last)}。`, `Roll-call votes come from each sitting’s minutes about a week later, then from the Gazette; the newest is from ${shortDay(last)}.`) : W(`記名表決要等院會議事錄或公報刊出，約晚一到三週；目前到 ${shortDay(last)}。`, `Roll-call votes come out in the sitting’s minutes or the Gazette, one to three weeks late; the newest is from ${shortDay(last)}.`))}</p>`}<div class="lw-vgroups">${groups.slice(0, shown).map((g, gi) => voteGroupCard(g, gi, d, agendas, partyOfName)).join('')}</div>${groups.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再顯示 ${Math.min(20, groups.length - shown)} 案（共 ${groups.length}）`, `Show more (${groups.length})`)}</button>` : ''}`;
+    out.innerHTML = `${words.length ? '' : `<p class="lw-hint-sm lead">${esc(Object.keys(d.recs || {}).length ? W(`記名表決約晚一週，目前到 ${shortDay(last)}`, `Roll-call votes run about a week behind; newest ${shortDay(last)}`) : W(`記名表決約晚一到三週，目前到 ${shortDay(last)}`, `Roll-call votes run one to three weeks behind; newest ${shortDay(last)}`))}</p>`}<div class="lw-vgroups">${groups.slice(0, shown).map((g, gi) => voteGroupCard(g, gi, d, agendas, partyOfName)).join('')}</div>${groups.length > shown ? `<button type="button" class="lw-more" data-vmore>${W(`再顯示 ${Math.min(20, groups.length - shown)} 案（共 ${groups.length}）`, `Show more (${groups.length})`)}</button>` : ''}`;
   };
   draw();
   out.onclick = e => {

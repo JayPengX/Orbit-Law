@@ -367,3 +367,11 @@ test("town csc: 池上's own site, its lists by session and its posts' Drive fil
   assert.equal(dayIn(cscDay('10/12鄉長施政報告', '2026-10-12')), '2026-10-12');
   assert.equal(dayIn(cscDay('1/20報告', '2025-12-30')), '2026-01-20');
 });
+
+test("town hlc: 花蓮市's newest posts and a post's files", async () => {
+  const { hlcList, hlcFiles, sessionOf } = await import('../public/lib/town-chcg.mjs');
+  const list = hlcList('<li class="news-item" data-v-c4><a href="/citizen/news/fEdhWsiqucBp" class="link news-grid" title="第22屆第19次臨會市公所提案" data-v-c4>', 'https://www.hualien.gov.tw/citizen/news');
+  assert.deepEqual(list, [{ n: '第22屆第19次臨時會市公所提案', url: 'https://www.hualien.gov.tw/citizen/news/fEdhWsiqucBp' }]);
+  assert.equal(sessionOf(list[0].n, 22)?.key, '第22屆第19次臨時會');
+  assert.deepEqual(hlcFiles('<li class="file-item" ><p class="title" >19臨會錄音</p><div class="links" ><a class="link" href="https://www.hualien.gov.tw/storage/files/ls.mp3" target="_blank"></a></div></li>'), [{ n: '19臨會錄音', url: 'https://www.hualien.gov.tw/storage/files/ls.mp3' }]);
+});

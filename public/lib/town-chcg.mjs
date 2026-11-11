@@ -674,3 +674,24 @@ export const cscDay = (t, from) => {
   const year = +m[1] < fm ? y + 1 : y;
   return `${year - 1911}${String(m[1]).padStart(2, '0')}${String(m[2]).padStart(2, '0')} ${t.slice(m[0].length)}`;
 };
+
+// 花蓮市's 代表會 on the city's site (www.hualien.gov.tw/citizen/news): its newest posts as the page is drawn (the rest
+// only through its own API), a post a paper or a session's recording: [{ n, url }], then a post's files [{ n, url }].
+export function hlcList(html, base) {
+  const out = [];
+  for (const [, href, t] of String(html).matchAll(/<a href="(\/citizen\/news\/[A-Za-z0-9]+)" class="link news-grid[^"]*" title="([^"]*)"/g)) {
+    const url = new URL(href, base).href;
+    if (!out.some(o => o.url === url)) out.push({ n: unAmp(t).replace(/次臨會/, '次臨時會').trim(), url });
+  }
+  return out;
+}
+export function hlcFiles(html) {
+  const out = [];
+  for (const [, item] of String(html).matchAll(/<li class="file-item"[^>]*>([\s\S]*?)<\/li>/g)) {
+    const n = text((item.match(/<p class="title"[^>]*>([\s\S]*?)<\/p>/) || [])[1]);
+    const links = [...item.matchAll(/href="(https?:\/\/[^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
+    const url = links.find(u => /\.pdf$/i.test(u)) || links[0];
+    if (url) out.push({ n, url });
+  }
+  return out;
+}

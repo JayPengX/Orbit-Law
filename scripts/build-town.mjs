@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -505,6 +505,19 @@ async function chcgTown(tc, site) {
             const day = kind === '錄音' ? cscDay(post.t || p.what, row.from || p.from) : '';
             for (const url of p.files) put(x.s, x.ext, kind, kind === '錄音' ? day : `${p.n}${kind === '會議紀錄' ? '議事錄' : '議事日程表'}`, url);
           }
+        }
+      }
+    // 花蓮市's (`hlc`): the newest posts on its list, each a session's paper or recording.
+    if (c.hlc)
+      for (const post of hlcList(await page(c.hlc, true), c.hlc)) {
+        const x = at(post.n);
+        if (!x || late()) continue;
+        const kind = /錄音|影音/.test(post.n) ? '錄音' : /日程|議程/.test(post.n) ? '議事日程表' : /提案/.test(post.n) ? '提案' : /紀錄|記錄|議事錄/.test(post.n) ? '會議紀錄' : '其他';
+        if (kind !== '錄音' && kept(x, kind)) continue;
+        try {
+          for (const f of hlcFiles(await page(post.url, true))) put(x.s, x.ext, kind, kind === '錄音' ? f.n : post.n, f.url);
+        } catch (e) {
+          notes.push(`${post.n}: ${e.message}`);
         }
       }
     // A 公所 site on Joomla (東河's): its lists' articles named by session, ten a page, each read for its files.

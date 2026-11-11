@@ -235,6 +235,8 @@ Live: https://orbit.jaypengx.com/law/
   `more`: its lists' posts, `reads` 20 pages; `linkFiles` takes single-quoted links and names a recording under its
   session's heading, 錄音檔1). 臺東's 池上 on the 代表會's own site (`csc`: /calendar, /notes, /sound ?period=22,
   `cscList` rows by session, `cscPost` its Drive file, `cscDay` a sitting's 10/12 in the session's year).
+  花蓮市 on the city's Nuxt site (`hlc`: /citizen/news, only its newest posts drawn on the page, `hlcList`,
+  `hlcFiles`; a post a paper or a session's recording).
   新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安,

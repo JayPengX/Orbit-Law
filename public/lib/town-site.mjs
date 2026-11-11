@@ -188,6 +188,8 @@ export const TOWN_SITES = {
     ends: '2026-12-25',
     chcg: { ccms: ['https://www.shlin.gov.tw/News.aspx?n=40844&sms=28909', 'https://www.shlin.gov.tw/News.aspx?n=40846&sms=28911', 'https://www.shlin.gov.tw/News.aspx?n=40847&sms=28912'] }
   },
+  // 花蓮市: the 代表會's posts on the city's site (`hlc`), only its newest readable (the rest through its own API).
+  10015010: { n: '花蓮市民代表會', home: 'https://www.hualien.gov.tw/citizen', term: 22, ends: '2026-12-25', chcg: { hlc: 'https://www.hualien.gov.tw/citizen/news' } },
   // 花蓮's 鳳林 (議事錄 files listed) and 萬榮 (議事日程表, 議事錄, recordings a list each), on the county's CCMS.
   10015020: { n: '鳳林鎮民代表會', home: 'https://www.fonglin.gov.tw/cl.aspx?n=11773', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.fonglin.gov.tw/News.aspx?n=5560&sms=26456'] } },
   10015120: { n: '萬榮鄉民代表會', home: 'https://www.wanrung.gov.tw/cl.aspx?n=8781', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.wanrung.gov.tw/News.aspx?n=8783&sms=14642', 'https://www.wanrung.gov.tw/News.aspx?n=8784&sms=14643', 'https://www.wanrung.gov.tw/News.aspx?n=10554&sms=14644'] } },

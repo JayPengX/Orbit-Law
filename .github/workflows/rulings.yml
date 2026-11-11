@@ -62,7 +62,7 @@ jobs:
           key: rulings-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Deploy what was read
         if: steps.read.outputs.read == '1'
-        run: gh workflow run data.yml --ref main
+        run: gh workflow run data.yml --ref main -f crawl=0
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Read on while months remain tonight

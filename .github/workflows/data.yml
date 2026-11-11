@@ -3,10 +3,12 @@
 # PDFs, ministries' and cities' rules), court rulings from the store rulings.yml fills, 憲法法庭, notices.
 # The built public/data/ is kept in the Actions cache (law-data-<run>), then pages.yml is started: it
 # publishes the app with the newest kept data in a few minutes, and every code push does the same
-# without crawling. Every two hours, on a push that changes a builder, and once a day at 03:30
+# without crawling. At 11:00, 17:00 and 21:00 Taiwan time (four crawls a day in all: the door and the
+# councils' sites are shared and polite), on a push that changes a builder, and at 03:30
 # Taiwan time (after the ministry's midnight refresh) with the crawls' longer budgets. A failed
 # build keeps nothing, so the site keeps the last data.
 name: Build the law data
+run-name: Build the law data${{ inputs.crawl == '0' && ' (rulings only)' || '' }}
 
 on:
   push:
@@ -19,13 +21,17 @@ on:
       - '.github/workflows/data.yml'
   schedule:
     - cron: '30 19 * * *'
-    - cron: '0 */2 * * *'
+    - cron: '0 3,9,13 * * *'
   workflow_dispatch:
     inputs:
       long:
         description: '1: the crawls get the nightly run''s longer budgets'
         required: false
         default: ''
+      crawl:
+        description: '0: no crawling (councils, 代表會, their PDFs, ministries'' and cities'' rules, the week''s lines): their last copies are kept'
+        required: false
+        default: '1'
       local_from_run:
         description: Build the cities' rules on this earlier run's local-data artifact instead of the last build
         required: false
@@ -49,13 +55,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RESTORE: ${{ inputs.local_from_run }}
+          # A crawling build steps aside only for a newer crawling one, never for rulings.yml's.
+          ONLY: ${{ inputs.crawl == '0' && '1' || '0' }}
         run: |
           api() { gh api "repos/$GITHUB_REPOSITORY/$1" --jq "$2" 2>/dev/null; }
           wf=$(api "actions/runs/$GITHUB_RUN_ID" .workflow_id) || wf=
           while [ -n "$wf" ]; do
-            runs=$(api "actions/workflows/$wf/runs?branch=$GITHUB_REF_NAME&per_page=30" "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID) | {n: .run_number, done: (.status == \"completed\")}]") || runs='[]'
+            runs=$(api "actions/workflows/$wf/runs?branch=$GITHUB_REF_NAME&per_page=30" "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID) | {n: .run_number, done: (.status == \"completed\"), only: (.display_title | endswith(\"(rulings only)\"))}]") || runs='[]'
             # A restore (local_from_run) always builds: a newer run would build on the copy it restores.
-            if [ -z "$RESTORE" ] && [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER)] | length" <<<"$runs")" != 0 ]; then
+            if [ -z "$RESTORE" ] && [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER and (\"$ONLY\" == \"1\" or (.only | not)))] | length" <<<"$runs")" != 0 ]; then
               echo "A newer run builds instead."; echo go=false >> "$GITHUB_OUTPUT"; exit 0
             fi
             [ "$(jq "[.[] | select(.n < $GITHUB_RUN_NUMBER and (.done | not))] | length" <<<"$runs")" = 0 ] && break
@@ -70,6 +78,8 @@ jobs:
     env:
       # The nightly run (or one asked for by hand) crawls longer; the others keep to short budgets.
       LONG: ${{ (github.event.schedule == '30 19 * * *' || inputs.long == '1') && '1' || '' }}
+      # rulings.yml's builds (every 45 minutes in its night window) only add rulings: no crawling.
+      CRAWL: ${{ inputs.crawl == '0' && '0' || '1' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,6 +126,7 @@ jobs:
         continue-on-error: true
       # 地方議會: the 22 縣市議會 (sittings, bills, councillors) and the 鄉鎮市民代表 (all.cc.govapi.tw).
       - name: Build the local councils
+        if: env.CRAWL == '1'
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
         timeout-minutes: 30
         continue-on-error: true
@@ -124,6 +135,7 @@ jobs:
       # Council bills whose text is only in a PDF (新竹縣, 新竹市): read into 說明, 辦法, 議決 (pdftotext), the newest first;
       # what the last deploy read is kept, so each build adds more.
       - name: Read the councils' bill PDFs
+        if: env.CRAWL == '1'
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council-text.mjs --minutes ${{ env.LONG == '1' && 15 || 8 }}
         timeout-minutes: 20
         continue-on-error: true
@@ -131,6 +143,7 @@ jobs:
       # rest read into the app), each day's recording. Read through the proxy's door; 14 minutes, then the rest
       # keep their last copies (scripts/build-town.mjs ENDS).
       - name: Build the township councils from their own sites
+        if: env.CRAWL == '1'
         run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-town.mjs
         timeout-minutes: 20
         continue-on-error: true
@@ -158,6 +171,7 @@ jobs:
       # Ministries' own 行政規則 (open data and their rule sites), linked to the
       # laws they rest on. The nightly run crawls longer; each run adds to the last.
       - name: Build the ministries' rules
+        if: env.CRAWL == '1'
         run: node scripts/build-agency.mjs --minutes ${{ env.LONG == '1' && 15 || 3 }}
         continue-on-error: true
       # Cities' 自治條例, 自治規則 and 行政規則 (臺北市, 新北市, 高雄市, 臺中市, 新竹市, 金門縣),
@@ -171,6 +185,7 @@ jobs:
           github-token: ${{ github.token }}
           path: .local-prev/data/local
       - name: Build the cities' rules
+        if: env.CRAWL == '1'
         run: node scripts/build-local.mjs --minutes ${{ env.LONG == '1' && 15 || 3 }} ${{ inputs.local_from_run != '' && '--prev .local-prev/data/' || '' }}
         continue-on-error: true
         # The counties that serve only Taiwan are read through the proxy with this key.
@@ -200,11 +215,18 @@ jobs:
         run: node scripts/build-news.mjs || echo "notices skipped"
       # 你追蹤的法案週報: this week's moved bills and amended laws, a plain line each (the AI door, its day's cap).
       - name: Write the week's lines
+        if: env.CRAWL == '1'
         run: node scripts/build-weekly.mjs
         timeout-minutes: 10
         continue-on-error: true
         env:
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+      # A part this build didn't write (not crawled, or its step failed) keeps its last copy.
+      - name: Keep the last copy of any part not built
+        run: |
+          for p in council council/town council/text agency local ai/weekly.json; do
+            if [ ! -e "public/data/$p" ] && [ -e ".prev-data/$p" ]; then mkdir -p "$(dirname "public/data/$p")" && cp -r ".prev-data/$p" "public/data/$p" && echo "kept: $p"; fi
+          done
       # When each part above was built (the admin panel's 外部來源: a part that failed shows as old or missing).
       - name: Note when each part was built
         run: node scripts/build-status.mjs

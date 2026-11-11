@@ -12,10 +12,12 @@ Live: https://orbit.jaypengx.com/law/
 
 ## How it works
 
-- **Data built apart from deploys, never in git.** `data.yml` builds the data every two
-  hours, on a push that changes a builder (`scripts/build-*.mjs`, `lib.mjs`), when
-  `rulings.yml` has read more, and daily at 03:30 Taiwan time with the crawls' longer
-  budgets; it keeps the built `public/data/` (unpacked) in the Actions cache
+- **Data built apart from deploys, never in git.** `data.yml` builds the data at 11:00, 17:00
+  and 21:00 Taiwan time, on a push that changes a builder (`scripts/build-*.mjs`, `lib.mjs`),
+  and daily at 03:30 with the crawls' longer budgets (the door's and the councils' sites are
+  shared: about four crawls a day); when `rulings.yml` has read more it builds without
+  crawling (`crawl=0`: councils, 代表會, PDFs, ministries' and cities' rules keep their last
+  copies, as does any part whose step failed); it keeps the built `public/data/` (unpacked) in the Actions cache
   (`law-data-<run>`, the three newest) and starts `pages.yml`. `pages.yml` deploys on
   every push and after each data build, in a few minutes: `npm test`, the newest kept
   data restored, `stamp-version.mjs`, `pack-data.mjs`, published; it never crawls. Each

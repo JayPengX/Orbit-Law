@@ -411,6 +411,7 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
 | `scripts/build-*.mjs`, `lib.mjs`, `pack-data.mjs` | The data builds and what they share; the data packed for the deploy |
 | `data-src/facts.json` | Figures the news build keeps |
 | `data-src/unsigned.json` | Laws 行政院 refused to countersign, each with its source |
+| `public/testing.mjs` | Law's switches in the kit's hidden 測試工具 (read as `ORBIT_TEST.flags`, shown or read only, never saved or sent): `lyLive` a test 院會 today 直播中/休息/散會/延期 (`agendaData`), `lyTyphoon` (`lyDayOff`), `aiFail` cap/paused/busy (`lib/ask.mjs`, `lib/chat.mjs`, `fetchPage`), `lawNew` (`freshTag`); an action opens the latest IVOD clip |
 
 ## Run and test
 

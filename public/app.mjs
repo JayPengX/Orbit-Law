@@ -37,10 +37,9 @@ import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
 import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
-import { money, change, budgetSteps, BUDGET_STEPS, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
+import { money, change, budgetSteps, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref, spreadCols } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
-import { textFile } from './lib/agency.mjs';
 import { KINDS, LOCAL_SUBKINDS, kindOf, isRule, ruleParts, ruleFile, partLabel, localKindOf, ruleP } from './lib/kinds.mjs';
 import { ruleDoc } from './lib/rule-doc.mjs';
 import { weekOf } from './lib/weekly.mjs';
@@ -50,6 +49,7 @@ import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSe
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf, ytSite } from './lib/council-video.mjs';
+import './testing.mjs';
 import { keepPlaying } from './lib/player.mjs';
 import { TOWN_SITES, sessionState, drivePlayer, drivePage, driveFile, paperFile } from './lib/town-site.mjs';
 import { TOWN_YOUTUBE } from './lib/town-video.mjs';
@@ -291,7 +291,7 @@ async function route() {
   if (p.get('law')) {
     showTab('laws');
     await openLaw(p.get('law'), p.get('a'), p.get('find'));
-  } else if (tab === 'bills' || p.get('item') || p.get('who') || p.get('meet') || p.get('notice')) {
+  } else if (tab === 'bills' || p.get('item') || p.get('who') || p.get('meet') || p.get('notice') || p.get('budget')) {
     showTab('bills');
     drawBills();
     await itemsReady;
@@ -376,7 +376,7 @@ function changeText(c, brief = false) {
   return `${W('修正', brief ? 'Rev.' : 'Amended')} ${shortDay(c.m)}${parts.length ? ` · ${parts.join(W('・', ' · '))}` : ''}`;
 }
 // 新 on an amendment from the last two weeks; older ones in the list go untagged.
-const freshTag = c => (Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
+const freshTag = c => (globalThis.ORBIT_TEST?.flags?.lawNew || Date.now() - Date.parse(`${c.m.slice(0, 4)}-${c.m.slice(4, 6)}-${c.m.slice(6, 8)}`) <= 14 * 864e5 ? countTag(W('新', 'New'), 'green') : '');
 const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const ICON_SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const CHEVRON = '<svg class="lw-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m1.5 1.5 5 5.5-5 5.5"/></svg>';
@@ -1602,6 +1602,9 @@ async function copyArticle(k) {
 
 const pageCache = new Map();
 function fetchPage(u) {
+  // (測試工具 aiFail: the route's error, nothing sent; testing.mjs.)
+  const fail = globalThis.ORBIT_TEST?.flags?.aiFail;
+  if (fail) return Promise.reject(Object.assign(new Error(fail), { code: fail }));
   if (!pageCache.has(u))
     pageCache.set(
       u,
@@ -1890,6 +1893,8 @@ document.addEventListener(
     // so closing it is back where you were. A bill and a 立委 in 我的 open the
     // same way (Jay 2026-11-05: a 立委 went to 立法, a bill didn't).
     if (state.tab !== 'bills' && (m = (a.getAttribute('href') || '').match(/^#(item|who|budget|notice|meet)=([^&]+)(?:&d=([^&]*))?(?:&round=(passed))?$/))) return e.preventDefault(), overHere(m[1], decodeURIComponent(m[2]), m[3] || '', m[4] || '');
+    // (A budget card's link names its tab too: #tab=bills&f=budget&budget=<k>.)
+    if (state.tab !== 'bills' && (m = (a.getAttribute('href') || '').match(/^#tab=bills&f=budget&budget=([^&]+)$/))) return e.preventDefault(), overHere('budget', decodeURIComponent(m[1]));
     if (a.dataset.text) return e.preventDefault(), openRuleText(a.dataset.text, label);
     if ((m = href.match(/^https:\/\/ivod\.ly\.gov\.tw\/Play\/Clip\/\w+\/(\d+)/))) return e.preventDefault(), openClip(m[1], label);
     if ((m = href.match(/^https:\/\/ppg\.ly\.gov\.tw\/ppg\/bills\/(\d+)\/details/))) return e.preventDefault(), openBillById(m[1]);
@@ -3910,6 +3915,15 @@ const agendaData = () =>
       const ids = new Set(fresh.map(m => m.id));
       a.meets = [...a.meets.filter(m => !ids.has(m.id)), ...fresh];
     } catch {}
+    // 測試工具 (testing.mjs): a test 院會 all day today, with IVOD's word on it (lyLive).
+    const t = globalThis.ORBIT_TEST?.flags;
+    if (t?.lyLive || t?.lyTyphoon) {
+      const { day } = twNow();
+      const title = W('（測試）立法院院會', '(Test) Floor sitting');
+      a.meets = [...a.meets, { id: 'test-live', kind: '院會', title, room: '立法院會議', days: [{ d: day, from: '00:00', to: '23:59', place: '議場', ppg: '' }], why: title, bills: [], speakers: {}, videos: [] }];
+      const status = { live: '進行中', break: '休息', done: '散會(12:30)', off: '延期' }[t.lyLive];
+      if (status) a.live = Object.assign([...(a.live || []), { unit: '院會', time: `${day} 00:00`, place: '議場', title, status, ch: t.lyLive === 'live' ? (a.live || []).find(r => r.ch)?.ch || 1 : 0 }], { fresh: true });
+    }
     if (!a.meets.length) throw new Error('no agenda');
     return a;
   })().catch(e => ((lyAgenda = null), Promise.reject(e))));
@@ -3950,7 +3964,7 @@ const meetItems = m => {
 // A sitting's state, IVOD's word first when it has one for today: live only while it streams ('sched': in its hours, not streaming;
 // 'off': a typhoon day off in 臺北市, where 立法院 sits, or IVOD saying it's called off).
 const LY_PLACE = { county: '臺北市' };
-const lyDayOff = d => dayOffOn(d, LY_PLACE, 'work');
+const lyDayOff = d => (globalThis.ORBIT_TEST?.flags?.lyTyphoon && d === twNow().day ? { from: '' } : dayOffOn(d, LY_PLACE, 'work'));
 const liveState = (x, live) => meetState(x, live ? liveOf(live, x.m, x) : null, new Date(), Boolean(live?.fresh), lyDayOff(x.d));
 // Why a sitting is off, in a tag: 颱風停會 on a day off, else IVOD's own word.
 const offTag = (x, live) => {

@@ -26,6 +26,9 @@ export function passFetch(s, fetcher = globalThis.fetch) {
 }
 
 async function post(body, fetcher) {
+  // (測試工具 aiFail: the route's error, nothing sent; testing.mjs.)
+  const fail = globalThis.ORBIT_TEST?.flags?.aiFail;
+  if (fail) return { error: fail, left: 0 };
   let r;
   try {
     r = await fetcher(ASK_URL, { method: 'POST', body: JSON.stringify(body) });
@@ -109,6 +112,7 @@ export function askError(code, en = false) {
   const t = {
     cap: ['今天的解釋次數用完了，明天再來', 'You’ve used today’s explanations; try tomorrow'],
     busy: ['問得太快了，稍等一下再試', 'Too many at once; try again in a moment'],
+    paused: ['AI 暫停中，晚點再試', 'AI is paused for now; try again later'],
     offline: ['沒有網路連線', 'No connection'],
     pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     bill: ['這個版本沒有對照表可以解釋', 'This version has no table to explain'],

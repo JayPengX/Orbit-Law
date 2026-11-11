@@ -18,8 +18,6 @@ export const KINDS = {
   // 地方: the cities' and counties' own 法規查詢系統.
   local: { zh: '地方法規', en: 'Local rules', one: '地方法規', oneEn: 'Local rule', group: 'local', unit: '條', source: 'local', dir: 'local', hint: '自治條例、自治規則、委辦規則', hintEn: 'City and county ordinances and rules' }
 };
-// The order a reader meets them in (法規's 種類 row, a search's sections).
-export const KIND_ORDER = ['law', 'order', 'agency', 'local'];
 
 // A city's rules come in four kinds (地方制度法 §25–29): 自治條例 (passed by
 // its council), 自治規則 (made by the government alone), 委辦規則 (for the
@@ -30,9 +28,6 @@ export const LOCAL_SUBKINDS = [
   { id: '委辦規則', en: 'Delegated rules', hint: '辦中央委辦的事', hintEn: 'For central-government work' },
   { id: '行政規則', en: 'Admin. rules', hint: '機關內部的要點', hintEn: 'Internal guidelines' }
 ];
-
-// The 22 縣市 north to south, the islands last: the city chips' order.
-export const CITY_ORDER = ['臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'];
 
 // A rule's kind from its name, when its site didn't say (the last deploy's
 // rows, a rule carried over): 自治條例 by its name's end; a 組織規程 or a

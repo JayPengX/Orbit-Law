@@ -2290,40 +2290,6 @@ button.lw-notice {
   margin: 16px 0 8px;
   font: 600 15px/20px var(--q-font);
 }
-.lw-splits {
-  display: grid;
-  gap: 6px;
-}
-.lw-split {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.lw-split-n {
-  display: flex;
-  gap: 6px;
-}
-.lw-split-n b {
-  min-width: 36px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  text-align: center;
-  font: 600 13px/18px var(--q-font);
-  font-variant-numeric: tabular-nums;
-}
-.lw-split-n .y {
-  background: color-mix(in srgb, var(--q-green) 16%, transparent);
-  color: var(--q-green);
-}
-.lw-split-n .n {
-  background: color-mix(in srgb, var(--q-red) 16%, transparent);
-  color: var(--q-red);
-}
-.lw-split-n .a {
-  background: var(--q-fill-3);
-  color: var(--q-label-2);
-}
 .lw-names {
   display: flex;
   flex-wrap: wrap;
@@ -3457,9 +3423,6 @@ details.lw-bud-row[open] > summary {
   background: color-mix(in srgb, var(--q-purple) 16%, transparent);
   color: var(--q-purple);
 }
-/* A ruling in a list: its kind, then its 案由 */
-.lw-rul-row .q-cell-text > span:first-child { display: flex; align-items: center; gap: 8px; }
-.lw-rul-row b { font-weight: 600; min-width: 0; }
 
 /* 為什麼要修: each sponsor's reason, 3 lines until tapped */
 .lw-item-why { display: grid; gap: 8px; margin-top: 16px; }
@@ -3821,9 +3784,6 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-ruling .lw-cites { flex-wrap: wrap; }
 .lw-doc-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .lw-rrow .lw-row-name.q-fit-wrap { white-space: normal; }
-.lw-next-sit {
-  margin: -2px 0 8px;
-}
 
 /* 表決, explained: the question in plain words, the result, each party as a bar */
 .lw-vote-what { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
@@ -4580,21 +4540,6 @@ a.lw-h-art {
   font-size: 15px;
 }
 
-/* 繼續閱讀: how far through a law you are. */
-.lw-resume-bar {
-  display: block;
-  height: 3px;
-  margin-top: 6px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--q-fill-3);
-}
-.lw-resume-bar i {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--q-accent);
-}
 /* A diff as the article reads (cards.mjs diffBlocks): a line a 項, 款 and 目 hung. */
 .lw-dtext {
   display: grid;

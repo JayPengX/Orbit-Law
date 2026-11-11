@@ -99,6 +99,9 @@ export const mineOf = m => ({
 // 'found' | 'write' }), heard by onStage, then the answer's line with its
 // status. A plain JSON answer (an error, an older proxy) reads the same.
 export async function chatLaw({ q, history = [], pin = [], mine = null, lang = 'zh', city = [] }, { fetcher = globalThis.fetch, headers = {}, onStage = () => {} } = {}) {
+  // (測試工具 aiFail: the route's error, nothing sent; testing.mjs.)
+  const fail = globalThis.ORBIT_TEST?.flags?.aiFail;
+  if (fail) return { error: fail, left: 0 };
   let r;
   try {
     r = await fetcher(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain', ...headers }, body: JSON.stringify({ q: String(q).trim().slice(0, MAX_CHAT_Q), history: historyOf(history), pin: pin.slice(0, 2), ...(mine ? { mine } : {}), ...(city.length ? { city: city.slice(0, 3) } : {}), lang, stream: true }) });
@@ -213,6 +216,7 @@ export function chatError(code, en = false) {
     pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     cap: ['今天的提問次數用完了，明天再來', 'You’ve used today’s questions; try tomorrow'],
     busy: ['問得太快了，稍等一下再試', 'Too many at once; try again in a moment'],
+    paused: ['AI 暫停中，晚點再試', 'AI is paused for now; try again later'],
     offline: ['沒有網路連線', 'No connection']
   }[code] || ['暫時無法回答，請稍後再試', 'Can’t answer right now; try again later'];
   return en ? t[1] : t[0];

@@ -206,7 +206,7 @@ Live: https://orbit.jaypengx.com/law/
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 金門's sites (*.kinmen.gov.tw) the door can't reach:
   read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
-  missing issuer given by pages.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first.
+  missing issuer given by pages.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first, with 3 minutes of its own (`TOWN_FIRST_MINUTES`); its other papers come on later builds.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

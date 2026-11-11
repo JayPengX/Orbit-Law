@@ -31,7 +31,10 @@ let reads = 0;
 // The build's time (the deploy's step allows 20 minutes): past it, no more PDFs are read and the towns not yet
 // built keep their last copies. Towns take turns going first, a day each, so none waits behind the others.
 const ENDS = Date.now() + Number(process.env.TOWN_MINUTES || 14) * 60e3;
-const late = () => Date.now() > ENDS;
+// (A town built for the first time gets a few minutes of its own, not the whole step: with many just added, each
+// shows the day it's added, its lists read and a few papers, the rest of its papers read on the next builds.)
+let townEnds = Infinity;
+const late = () => Date.now() > Math.min(ENDS, townEnds);
 // A page through the door. Lists carry the day (the door keeps a page a day: a list read today is today's).
 async function page(url, fresh = false) {
   const u = fresh ? `${url}${url.includes('?') ? '&' : '?'}ob=${day.replace(/-/g, '')}` : url;
@@ -815,6 +818,7 @@ for (const [tc] of towns) if (!(await prevJson(`council/town/${tc}.json`).catch(
 const turn = [...towns.slice(first), ...towns.slice(0, first)];
 for (const [tc, site] of [...turn.filter(([tc]) => unbuilt.has(tc)), ...turn.filter(([tc]) => !unbuilt.has(tc))]) {
   const started = Date.now();
+  townEnds = unbuilt.has(tc) ? started + Number(process.env.TOWN_FIRST_MINUTES || 3) * 60e3 : Infinity;
   try {
     if (late()) throw new Error('out of time: kept as it was');
     const t = await (site.chcg ? chcgTown : town)(tc, site);

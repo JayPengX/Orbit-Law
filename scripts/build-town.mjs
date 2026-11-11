@@ -17,6 +17,11 @@ import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn,
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
+// 金門's sites the door can't reach (they leave their certificate's issuer out): read from here, the issuer
+// given by pages.yml (NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem).
+const DIRECT = /^https:\/\/[^/]+\.kinmen\.gov\.tw\//i;
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+const direct = url => fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'zh-TW,zh;q=0.9' }, signal: AbortSignal.timeout(60_000) });
 const out = new URL('../public/data/council/town/', import.meta.url).pathname;
 const built = new Date().toISOString();
 const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
@@ -34,6 +39,12 @@ async function page(url, fresh = false) {
     await sleep(process.env.FAST ? 0 : 500);
     reads++;
     try {
+      if (DIRECT.test(url)) {
+        const r = await direct(url);
+        const html = await r.text();
+        if (!r.ok || !html) throw new Error(`${r.status}`);
+        return html;
+      }
       const r = await fetch(`${DOOR}?v=1&u=${encodeURIComponent(u)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(60_000) });
       const b = await r.json().catch(() => ({}));
       if (!r.ok || !b.html) throw new Error(`${r.status} ${b.error || ''}`.trim());
@@ -52,6 +63,11 @@ async function pdfBytes(url) {
   reads++;
   // (A PDF on Google Drive, 線西's: from Drive itself; the rest through the door.)
   const drive = driveId(url);
+  if (DIRECT.test(url)) {
+    const r = await direct(url);
+    if (!r.ok) throw new Error(`${r.status}`);
+    return Buffer.from(await r.arrayBuffer());
+  }
   const r = drive
     ? await fetch(`https://drive.usercontent.google.com/download?id=${drive}&export=download`, { signal: AbortSignal.timeout(90_000) })
     : await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });

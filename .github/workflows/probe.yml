@@ -51,6 +51,8 @@ jobs:
           RAW: ${{ inputs.raw }}
           SAVE: pages
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+          # (Sites that leave their certificate's issuer out: TWCA's, as the build's steps read them.)
+          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
       - uses: actions/upload-artifact@v4
         with:
           name: pages

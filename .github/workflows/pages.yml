@@ -114,6 +114,8 @@ jobs:
         continue-on-error: true
         env:
           LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
+          # (金門's sites leave their certificate's issuer out, and the door can't reach them: read from here.)
+          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
       # Councillors' photos, mirrored small: kept between builds (only newcomers are fetched).
       - uses: actions/cache@v4
         with:

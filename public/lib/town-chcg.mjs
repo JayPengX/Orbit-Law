@@ -240,6 +240,25 @@ export function tsoPage(html, url) {
 }
 export const folderOf = url => /drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(String(url));
 
+// A Google Drive folder as Drive shows it embedded (drive.google.com/embeddedfolderview?id=…): each entry, a folder
+// ({ n, folder }) or a file ({ n, url }, its ending kept on the address as #.doc for what reads by it), 里港's and
+// 恆春's 代表會 a folder a kind, a folder a session in it.
+export const driveFolderUrl = id => `https://drive.google.com/embeddedfolderview?id=${id}`;
+export const driveFolderId = url => (String(url).match(/drive\.google\.com\/(?:drive\/(?:u\/\d+\/)?folders\/|open\?id=)([\w-]+)/) || [])[1] || '';
+export function driveEntries(html) {
+  const out = [];
+  for (const [, href, name] of String(html).matchAll(/<a href="([^"]+)"[^>]*>[\s\S]*?<div class="flip-entry-title">([^<]*)<\/div>/g)) {
+    const n = text(name);
+    const url = href.replace(/&amp;/g, '&');
+    const folder = driveFolderId(url);
+    const id = driveId(url);
+    const ext = (n.match(/\.(\w{2,4})$/) || [])[1]?.toLowerCase();
+    if (folder) out.push({ n, folder });
+    else if (id) out.push({ n: n.replace(/\.\w{2,4}$/, ''), url: `https://drive.google.com/file/d/${id}/view${ext ? `#.${ext}` : ''}` });
+  }
+  return out;
+}
+
 // A list on the "Parser" CMS many 公所 sites run (鹿港's): its items ({ n, url }) and how many pages it has.
 export const formUrl = (base, parser, pg = 0) => `${base}form/index?Parser=${parser}${pg ? `,,,,,,,,${pg}` : ''}`;
 export function formList(html, base) {
@@ -388,8 +407,20 @@ export function ccmsPage(html, base) {
   // (A session's recordings in a Drive folder, linked under 相關連結: 頭份's 第二屆第八次定期會及延會錄音檔.)
   for (const [, href, name] of h.matchAll(/<a [^>]*href="(https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g))
     if (/錄音|影音/.test(text(name))) audio.push({ head: text(name).replace(/\s+/g, ''), n: text(name), url: href.replace(/&amp;/g, '&') });
+  // (屏東's 公所 sites: a post's 相關檔案 and 相關連結, a line each, its name then its formats (the PDF); a recording a
+  // line, named by its day, 20260909錄音檔, on Drive or YouTube, or its own file.)
+  for (const [, block] of h.matchAll(/<div class="news_box03_data">([\s\S]*?)<\/div>/g))
+    for (const [, name, links] of block.matchAll(/<li><span>([\s\S]*?)<\/span><ul>([\s\S]*?)<\/ul><\/li>/g)) {
+      const n = pthgName(westDay(text(name)) || text(name)).replace(/\.(pdf|docx?|odt|ods|mp3)$/i, '');
+      const urls = [...links.matchAll(/<a [^>]*href="([^"]+)"/g)].map(m => ccmsFile(m[1], base)).filter(Boolean);
+      const sound = urls.find(u => /\.(mp3|m4a|wav|mp4)$/i.test(u) || driveId(u) || ytId(u));
+      if (sound && (/錄音|音檔|影音/.test(n) || /\.(mp3|m4a|wav|mp4)$/i.test(sound))) audio.push({ head: '', n, url: sound });
+      else if (urls.length && !/drive\.google\.com\/drive|youtu/.test(urls[0])) files.push({ n, url: urls.find(u => /\.pdf$/i.test(u)) || urls[0] });
+    }
   return { files, audio };
 }
+// 屏東's short names for a session, 22-8定期會 (第22屆第8次), 22-9.10臨時會 (第9、10次): written out.
+export const pthgName = n => String(n).replace(/^\s*(\d{2})\s*-\s*(\d{1,2}(?:[.、]\d{1,2})*)\s*(?=(定期|臨時))/, (_, t, nos) => `第${t}屆第${nos.replace(/\./g, '、')}次`);
 // A CCMS list of posts (News.aspx: 礁溪's 臨時會 minutes, a post a session): { n, url } of each post.
 // (A list whose lines are the files themselves, 苑裡's 議事錄: { n, url, file: true }, the file's own address.)
 export function ccmsNews(html, base) {
@@ -397,6 +428,19 @@ export function ccmsNews(html, base) {
   for (const [, href, title] of String(html).matchAll(/<a [^>]*href="(News_Content\.aspx\?[^"]+)"[^>]*title="([^"]*)"/g)) {
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     if (!out.some(o => o.url === url)) out.push({ n: title.replace(/\[另開新視窗\]/g, '').trim(), url });
+  }
+  // (屏東's 公所 sites, www.pthg.gov.tw/<town>/: a list's posts by their text, News.aspx (九如's News4.aspx too,
+  // News_Content4.aspx); or its files themselves, News4.aspx, each named with its ending, 22-8定期會議事日程表1151102-1151113.pdf, through HitCount.ashx.)
+  for (const [, href, name] of String(html).matchAll(/<a id="ContentPlaceHolder1_(?:gvIndex_lnkTitle|dlindex_hptitle)_\d+"[^>]*href="(News_Content\d?\.aspx\?[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    if (!out.some(o => o.url === url)) out.push({ n: pthgName(text(name)), url });
+  }
+  for (const [, title, href] of String(html).matchAll(/<a id="ContentPlaceHolder1_dlindex_hptitle_\d+"[^>]*title="([^"]*)"[^>]*href="([^"]*HitCount\.ashx\?[^"]+)"/g)) {
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    const n = title.replace(/\(另開新視窗\)|\[另開新視窗\]/g, '').trim();
+    const ext = (n.match(/\.(\w{2,4})$/) || [])[1]?.toLowerCase();
+    // (Its ending kept on the address as a hint, #.mp3, for what reads by the ending: the player, the text reader.)
+    if (!out.some(o => o.url.startsWith(url))) out.push({ n: pthgName(n.replace(/\.\w{2,4}$/, '')), url: ext ? `${url}#.${ext}` : url, file: true });
   }
   for (const [, href, name] of String(html).matchAll(/<td [^>]*class="CCMS_jGridView_td[^"]*"[^>]*>\s*<span>\s*<a [^>]*href="([^"]*Download\.ashx\?[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
     const url = ccmsFile(href, base);

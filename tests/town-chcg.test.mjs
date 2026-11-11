@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsFile, ccmsNews, pthgName, driveEntries, driveFolderId, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -262,4 +262,41 @@ test("town penghu: 澎湖's 代表會 lists, a post's files and its sittings' vi
   assert.equal(penghuDay('第22屆第5次臨時會12.20-1', '2027-01-05'), '1151220-1');
   assert.equal(penghuDay('第22屆第19次臨時會影音檔-3', '2026-09-09'), '3');
   for (const tc of ['10016010', '10016020', '10016030', '10016040', '10016050', '10016060']) assert.ok(TOWN_SITES[tc].chcg.penghu.lists);
+});
+
+test("town pthg: 屏東's 公所 sites, a list's posts, a list of files (HitCount, its ending kept), a post's files and recordings", () => {
+  assert.equal(pthgName('22-8定期會議事日程表1151102-1151113'), '第22屆第8次定期會議事日程表1151102-1151113');
+  assert.equal(sessionOf(pthgName('22-9.10臨時會議事日程表'), 22).key, '第22屆第9、10次臨時會');
+  assert.equal(pthgName('第22屆第7次定期會音檔'), '第22屆第7次定期會音檔');
+  const posts = ccmsNews('<a id="ContentPlaceHolder1_gvIndex_lnkTitle_0" class="css_mark" href="News_Content.aspx?n=48999AEAF832497E&amp;sms=6C99D43425CF7F1E&amp;s=6EF538673C9ACAD1">第22屆第19次臨時會音檔</a>', 'https://www.pthg.gov.tw/chaujou/News.aspx?n=48999AEAF832497E&sms=6C99D43425CF7F1E');
+  assert.deepEqual(posts, [{ n: '第22屆第19次臨時會音檔', url: 'https://www.pthg.gov.tw/chaujou/News_Content.aspx?n=48999AEAF832497E&sms=6C99D43425CF7F1E&s=6EF538673C9ACAD1' }]);
+  const files = ccmsNews('<a id="ContentPlaceHolder1_dlindex_hptitle_0" title="22-8定期會議事日程表1151102-1151113.pdf(另開新視窗)" rel="noopener noreferrer" href="Common/HitCount.ashx?p=C5&amp;type=FB&amp;s=10" target="_blank"><a id="ContentPlaceHolder1_dlindex_hptitle_1" title="22-2定期會1121114會次5.mp3(另開新視窗)" href="Common/HitCount.ashx?p=D6&amp;type=FB&amp;s=11">', 'https://www.pthg.gov.tw/TownDto/News4.aspx?n=4B&sms=DA');
+  assert.deepEqual(files, [
+    { n: '第22屆第8次定期會議事日程表1151102-1151113', url: 'https://www.pthg.gov.tw/TownDto/Common/HitCount.ashx?p=C5&type=FB&s=10#.pdf', file: true },
+    { n: '第22屆第2次定期會1121114會次5', url: 'https://www.pthg.gov.tw/TownDto/Common/HitCount.ashx?p=D6&type=FB&s=11#.mp3', file: true }
+  ]);
+  const box = items => `<div class="news_box03_data"> <ol> ${items} </ol> </div>`;
+  assert.deepEqual(ccmsPage(box('<li><span>22-8定期大會議事日程-12日</span><ul><li><a href="https://www-ws.pthg.gov.tw/Upload/2015pthg/188/relfile/1/2/a.odt" title="x.odt">odt</a></li><li><a href="https://www-ws.pthg.gov.tw/Upload/2015pthg/188/relfile/1/2/a.pdf" title="22-8定期大會議事日程-12日.pdf">(83.42KB).pdf</a></li></ul></li>'), 'https://www.pthg.gov.tw/chaujou/News_Content.aspx'), {
+    files: [{ n: '第22屆第8次定期大會議事日程-12日', url: 'https://www-ws.pthg.gov.tw/Upload/2015pthg/188/relfile/1/2/a.pdf' }],
+    audio: []
+  });
+  assert.deepEqual(ccmsPage(box('<li><span>20260909錄音檔</span><ul><li><a title="20260909錄音檔" href="https://drive.google.com/file/d/18L5UYqXsr1DG0lbgz1v3DI92ObdjoHsv/view?usp=sharing"><img src="images/Icons/link.gif" /></a></li></ul></li>'), 'https://www.pthg.gov.tw/chaujou/News_Content.aspx'), {
+    files: [],
+    audio: [{ head: '', n: '1150909錄音檔', url: 'https://drive.google.com/file/d/18L5UYqXsr1DG0lbgz1v3DI92ObdjoHsv/view?usp=sharing' }]
+  });
+  assert.equal(dayIn('1150909錄音檔'), '2026-09-09');
+  for (const tc of ['10013020', '10013030', '10013330']) assert.match(TOWN_SITES[tc].chcg.ccms[0], /^https:\/\/www\.pthg\.gov\.tw\/\w+\/News4?\.aspx\?n=\w+&sms=\w+$/);
+});
+
+test("town drive: a Drive folder's entries as Drive shows it embedded, folders and files (里港's)", () => {
+  const html = '<div class="flip-entry" id="entry-1"><a href="https://drive.google.com/drive/folders/1GOJF2hU32RjrB0GA0mKg-5ztdCwUNnG9" target="_blank"><div class="flip-entry-info"><div class="flip-entry-title">第22屆第7次定期大會</div></div></a></div>' +
+    '<div class="flip-entry"><a href="https://drive.google.com/file/d/1XtESWUgDM41fmUxL_xqU07DJ-NWGT7uh/view?usp=drive" target="_blank"><div class="flip-entry-title">第21屆第10次臨時大會議事日程.doc</div></a></div>' +
+    '<div class="flip-entry"><a href="https://drive.google.com/file/d/1YJ_E5CZ94osZTj8SqkOmPD2iqXQtgQPn/view?usp=drive"><div class="flip-entry-title">20201028.mp3</div></a></div>';
+  assert.deepEqual(driveEntries(html), [
+    { n: '第22屆第7次定期大會', folder: '1GOJF2hU32RjrB0GA0mKg-5ztdCwUNnG9' },
+    { n: '第21屆第10次臨時大會議事日程', url: 'https://drive.google.com/file/d/1XtESWUgDM41fmUxL_xqU07DJ-NWGT7uh/view#.doc' },
+    { n: '20201028', url: 'https://drive.google.com/file/d/1YJ_E5CZ94osZTj8SqkOmPD2iqXQtgQPn/view#.mp3' }
+  ]);
+  assert.equal(driveFolderId('https://drive.google.com/open?id=1YGBURDkKrsc_GwZUxUiTff3iEFa2Qs0i'), '1YGBURDkKrsc_GwZUxUiTff3iEFa2Qs0i');
+  assert.equal(dayIn(westDay('20201028')), '2020-10-28');
 });

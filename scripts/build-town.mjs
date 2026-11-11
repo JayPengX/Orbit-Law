@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -370,7 +370,7 @@ async function chcgTown(tc, site) {
       if (yt) return s.days.some(x => x.yt === yt) || s.days.push({ ...(d ? { d } : {}), yt, ...(what && !/^\d+$/.test(what) ? { what } : {}), ext });
       if (drive && d) s.days.push({ d, drive, ext, ...(what && !/^\d+$/.test(what) ? { what } : {}) });
       // (Or its own MP4, 澎湖's, a day in parts, 1151006-2: its part, and its picture.)
-      else if (/\.(mp3|m4a|wav|mp4)$/i.test(url)) {
+      else if (!drive && /\.(mp3|m4a|wav|mp4)$/i.test(url)) {
         const part = d && (n.match(/-(\d{1,2})$/) || [])[1];
         s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url, ...(pic ? { pic } : {}) });
       }
@@ -465,16 +465,28 @@ async function chcgTown(tc, site) {
     };
     for (const it of c.ccms || []) {
       const { url, kind } = typeof it === 'string' ? { url: it } : it;
-      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
+      if (!/News4?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
       // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
-        for (let pg = 1, posts = 0; pg <= 4; pg++) {
+        for (let pg = 1, posts = 0, seen = new Set(); pg <= 4; pg++) {
           let mine = 0;
-          for (const post of ccmsNews(await page(pg > 1 ? `${url}&page=${pg}&PageSize=20` : url, true), url)) {
+          // (A list on one page, 屏東's: its next page the same posts, read no further.)
+          // (A later page that can't be read ends the list; a post that can't, only itself.)
+          const html = pg > 1 ? await page(`${url}&page=${pg}&PageSize=20`, true).catch(() => '') : await page(url, true);
+          const list = ccmsNews(html, url).filter(p => !seen.has(p.url) && seen.add(p.url));
+          for (const post of list) {
             const x = at(post.n);
             if (!x || (!post.file && posts++ >= 50) || late()) continue;
             mine++;
-            ccms(post.url, post.file ? { files: [post], audio: [] } : ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
+            let p = { files: [post], audio: [] };
+            if (!post.file)
+              try {
+                p = ccmsPage(await page(post.url, true), post.url);
+              } catch (e) {
+                notes.push(e.message);
+                continue;
+              }
+            ccms(post.url, p, { ...x, n: post.n });
           }
           if (!mine) break;
         }
@@ -499,6 +511,48 @@ async function chcgTown(tc, site) {
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
     // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
     // its session has no other.)
+    // A 代表會's papers in Google Drive folders (里港's): a folder a kind, a folder a session in it (or the session in
+    // each file's name), read from Drive itself (folders and files open to all); a folder of another term's never
+    // opened. A recording named by its day, 20201028.mp3.
+    if (c.drive)
+      for (const [id, kind] of Object.entries(c.drive)) {
+        const walk = async (folder, x0, depth) => {
+          if (late()) return;
+          await sleep(process.env.FAST ? 0 : 500);
+          const r = await fetch(driveFolderUrl(folder), { signal: AbortSignal.timeout(60_000) });
+          if (!r.ok) throw new Error(`Drive ${folder}: ${r.status}`);
+          for (const e of driveEntries(await r.text())) {
+            const s = sessionOf(e.n, site.term);
+            const t = +(e.n.match(/第(\d+)屆/) || [])[1];
+            if ((s && s.term !== site.term) || (t && t !== site.term)) continue;
+            const x = (s && at(e.n)) || x0;
+            if (e.folder) {
+              // (A session's folder long over, its kind kept from before: not opened again.)
+              const was = x && x !== x0 && before.get(x.s.key);
+              if (was?.to && was.to < addDays(day, -60)) {
+                const same = (list, y, key) => list.some(z => key(z) === key(y));
+                if (kind === '錄音' && was.days?.length) {
+                  for (const d of was.days) same(x.s.days, d, z => z.drive || z.src || z.yt) || x.s.days.push(d);
+                  continue;
+                }
+                const mine = (was.items || []).filter(i => (kind === '會議紀錄') === (i.k === '會議紀錄'));
+                if (kind === '議事日程表' ? was.agenda?.length : mine.length) {
+                  if (kind === '議事日程表') for (const a of was.agenda) same(x.s.agenda, a, z => z.url) || x.s.agenda.push(a);
+                  for (const i of mine) same(x.s.items, i, z => z.files[0].url) || x.s.items.push(i);
+                  continue;
+                }
+              }
+              if (depth < 3) await walk(e.folder, x, depth + 1);
+              continue;
+            }
+            if (!x) continue;
+            const audio = kind === '錄音' || /\.(mp3|m4a|wav)$/i.test(e.url);
+            const k = audio ? '錄音' : paperKind(e.n) === '其他' ? kind : paperKind(e.n);
+            put(x.s, x.ext, k, audio ? westDay(e.n) || e.n : e.n, e.url);
+          }
+        };
+        await walk(id, null, 0);
+      }
     // 澎湖's (event.penghu.gov.tw/R…/): each list a kind, fifteen posts a page, each post a session's files or its
     // sittings' videos (MP4s, named by day: 10.06-1 in the post's year).
     if (c.penghu)

@@ -11,6 +11,12 @@
 // draws them (app.mjs openTown).
 import { billPdfParts, cjkTight } from './council.mjs';
 
+// A 代表會 on its 屏東 公所's site (www.pthg.gov.tw/<town>/): its lists read as CCMS's, its page the 代表會's own
+// (or the 公所's).
+const pthg = (n, town, home, lists, drive) => {
+  const base = `https://www.pthg.gov.tw/${town}/`;
+  return { n, home: base + (home || 'Default.aspx'), term: 22, ends: '2026-12-25', chcg: { ccms: lists.map(l => base + l), ...(drive ? { drive } : {}) } };
+};
 export const TOWN_SITES = {
   // 新竹縣竹北市 (內政部's town code)
   10004010: {
@@ -167,7 +173,32 @@ export const TOWN_SITES = {
   10016030: { n: '白沙鄉民代表會', home: 'https://event.penghu.gov.tw/Rbaisha/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rbaisha/', lists: { 13: '議事日程表', 33: '會議紀錄', 34: '錄音' } } } },
   10016050: { n: '望安鄉民代表會', home: 'https://event.penghu.gov.tw/Rwangan/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rwangan/', lists: { 20: '議事日程表', 21: '會議紀錄', 22: '錄音' } } } },
   10016040: { n: '西嶼鄉民代表會', home: 'https://event.penghu.gov.tw/Rhsiyu/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rhsiyu/', lists: { 31: '議事日程表', 32: '議事日程表', 34: '會議紀錄', 35: '錄音' } } } },
-  10016060: { n: '七美鄉民代表會', home: 'https://event.penghu.gov.tw/Rchimi/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rchimi/', lists: { 14: '議事日程表', 15: '會議紀錄', 16: '錄音' } } } }
+  10016060: { n: '七美鄉民代表會', home: 'https://event.penghu.gov.tw/Rchimi/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rchimi/', lists: { 14: '議事日程表', 15: '會議紀錄', 16: '錄音' } } } },
+  // 屏東縣's 代表會, each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS, `pthg`): its
+  // lists, 議事日程, 議事錄, 會議紀錄, 錄音檔, a post a paper (News.aspx) or the files themselves (News4.aspx).
+  10013020: pthg('潮州鎮民代表會', 'chaujou', '', ['News.aspx?n=2BD7E34B1FA9DE68&sms=FE998E099AB9C80D', 'News.aspx?n=552B4C06A26159F0&sms=A47C0C44021E1F8B', 'News.aspx?n=48999AEAF832497E&sms=6C99D43425CF7F1E']),
+  10013030: pthg('東港鎮民代表會', 'TownDto', 'Content_List.aspx?n=E086313952FEB899', ['News4.aspx?n=4B660CAD4E87BCF9&sms=DA851960F3010CCD', 'News4.aspx?n=C57A8D23F9DE6EC9&sms=6DC0432987A1E063', 'News4.aspx?n=5BC3ACAE7BAEF411&sms=70C53AA948741E48']),
+  10013040: pthg('恆春鎮民代表會', 'townhengchuen', 'Content_List.aspx?n=74E2B73BEBB98AD1', ['News.aspx?n=B9510FD225101968&sms=F6150A7982F05C51', 'News.aspx?n=19606101ACDEC197&sms=7F19BC00CC682085', 'News.aspx?n=F5C21FD86BCF330C&sms=1146F1A67261F368'], { '16ONhHjExiqLuVSUpg-RoxF9O0xNBrXjT': '錄音', '19od3Xpmbc-8IQBerftYUaOe-oqT3yhAP': '會議紀錄' }),
+  10013050: pthg('萬丹鄉民代表會', 'TownWto', '', ['News.aspx?n=9803C9E0AC050AA9&sms=682D04929C42CE30']),
+  10013060: pthg('長治鄉民代表會', 'TownCgt', 'Content_List.aspx?n=8828DA518CB9BFB6', ['News.aspx?n=4CCADEECFDAC9FC5&sms=6686DC0E36079892', 'News.aspx?n=D724C4D44EB03CF2&sms=3C1F79E16CBC03BB', 'News.aspx?n=7BFAC30E7552C8A0&sms=3B9213EA1EBD2082', 'News.aspx?n=C6A575245A3C0BFB&sms=C810C4B52132AA86']),
+  10013080: pthg('九如鄉民代表會', 'townjrt', '', ['News4.aspx?n=F4792B1C105B5191&sms=2AB978601B0F61DD', 'News4.aspx?n=FB04D9A78A3C739D&sms=9D5E61992BB25CB6', 'News4.aspx?n=919502A395B67BD0&sms=FFD817132E8F6E86', 'News4.aspx?n=1567CED5D1624614&sms=A5AE589FCBB93C8A']),
+  10013100: pthg('鹽埔鄉民代表會', 'townyto', 'Content_List.aspx?n=EA60C5A2A7C878EB', ['News.aspx?n=FF9E5B2B0CD52C88&sms=52997E49D0423677', 'News.aspx?n=1CDED89AFEAB5662&sms=AA293155FC682C35', 'News.aspx?n=8E2C79DD23F3259B&sms=66FB242F0BCD1ED5', 'News.aspx?n=F347290E7ADD0B35&sms=F4D37FADDF9AA0CE']),
+  10013120: pthg('萬巒鄉民代表會', 'townwlt', 'Content_List.aspx?n=D9DFE2863442AA76', ['News4.aspx?n=551C8DD2D964BFCB&sms=71EE79FCECB60957', 'News4.aspx?n=DFB1DBE7F843A07C&sms=A4955D72353BA43A', 'News4.aspx?n=6B6248F2DAFDE5D2&sms=D6848D760540FAB5', 'News4.aspx?n=72168AA13C1702C3&sms=507BFDE5988D5E73']),
+  10013140: pthg('竹田鄉民代表會', 'townjtt', 'Content_List.aspx?n=E6E304E9FBDB5408', ['News.aspx?n=69D5B7ED81CB0BF1&sms=BB92A8BA2DA4F0A3', 'News.aspx?n=1B524EAABAD708FB&sms=3119A5F6542618B5', 'News.aspx?n=9C6129E8A75E716A&sms=A80F7B814D226997', 'News.aspx?n=51E1079B8777FEDC&sms=AE2650C42C62B3D6']),
+  10013150: pthg('新埤鄉民代表會', 'townsto', 'Content_List.aspx?n=E1034B9FD87160B4', ['News4.aspx?n=76688DC8DF4D7D75&sms=AA3ACA7466F4EA0C', 'News4.aspx?n=D9C794247BB808FA&sms=8522BE5113C26E04', 'News4.aspx?n=91B121FE3FA7C24D&sms=8DE1EA4A08B8B8CA', 'News4.aspx?n=54F12373A13C468C&sms=9422EB2029B91CEA']),
+  10013160: pthg('枋寮鄉民代表會', 'TownFto', 'News.aspx?n=644343AB89A77598&sms=B1C9111A2D484F98', ['News.aspx?n=644343AB89A77598&sms=B1C9111A2D484F98']),
+  10013200: pthg('南州鄉民代表會', 'nanchoue', 'Content_List.aspx?n=E7B4C3839449DDDC', ['News.aspx?n=E829F1FB44AB4210&sms=5775F40C4318FF68', 'News.aspx?n=4FC6F6E419011D18&sms=A93FF7215A08096E', 'News.aspx?n=CFA32B53BE512DC9&sms=0CD5C4AA1C3496D2']),
+  10013220: pthg('琉球鄉民代表會', 'liuchiu', '', ['News4.aspx?n=36628D1E6C779524&sms=F551AB21303A941F', 'News4.aspx?n=DA762B6EE9CF6B16&sms=1E8085DB69373A96', 'News4.aspx?n=4F487E959DCFAC24&sms=18831A50100AD6F0', 'News4.aspx?n=8254BAFC3CD63BB4&sms=D23DB9489C7AFD5B']),
+  10013230: pthg('車城鄉民代表會', 'checheng', '', ['News4.aspx?n=F92708912C032A0D&sms=60ADCDE6789100AE', 'News4.aspx?n=F2031CEF0CE38670&sms=A714D12A90027B0B', 'News4.aspx?n=491B63DE94871D9B&sms=85B62D0D72FE46F2', 'News4.aspx?n=57B98A88F4AF61B1&sms=C2BF5D260404B812']),
+  10013260: pthg('三地門鄉民代表會', 'sandimen', 'Content_List.aspx?n=574E51BEBA2E10EF', ['News4.aspx?n=E04757296D5B98F5&sms=096C6BC1FEF3951D', 'News4.aspx?n=A3516369192BA232&sms=B39520BC69B9114C', 'News4.aspx?n=4056741A449F4B08&sms=BBBBBA4B984422C2', 'News4.aspx?n=62A68EADCF6F4EF6&sms=86B55CA5873D7006']),
+  10013270: pthg('霧臺鄉民代表會', 'wutai', 'Content_List.aspx?n=F5E152052B66D756', ['News4.aspx?n=72D1F185E353167D&sms=0B8469FA6307CBBC', 'News4.aspx?n=54D6A1F3F8423729&sms=AF564190E463481C']),
+  10013300: pthg('來義鄉民代表會', 'laiyi', 'Content_List.aspx?n=0FCB9C22CDEF2A46', ['News.aspx?n=5C9FB2F12E598D43&sms=8873617612F73874', 'News.aspx?n=1349BB5D3A0A2D56&sms=4FE8CF55F5DC1BD5', 'News.aspx?n=48FBF3D9A5A25582&sms=1756AB9F2AF6F8FF', 'News.aspx?n=1AFF5C9C19B3D3A1&sms=7D36163B5527E057']),
+  10013310: pthg('春日鄉民代表會', 'TownCrt', 'Content_List.aspx?n=BC9B23F9A2337F24', ['News.aspx?n=8303D01C859FFD0E&sms=21D5C7681B41DD95', 'News.aspx?n=ED9E6401D5294C7E&sms=17C94250BA4F97FB', 'News.aspx?n=92186DA90A15F0F2&sms=8B62BB18FD4C9C48']),
+  // (Or its papers in Google Drive folders, a folder a kind (`drive`), linked from its 公所's site.)
+  10013090: { n: '里港鄉民代表會', home: 'https://www.pthg.gov.tw/townlto/Default.aspx', term: 22, ends: '2026-12-25', chcg: { drive: { '1FRLUktuuoRcfnxP0uohIUk-sdQAyyC31': '議事日程表', '1uhgA6Fit_0RIw5tqN2DyRIi2Zy7_QrUe': '會議紀錄', '1xGq--MlRQvWZirKVeGKcOODDsRfQqnmT': '會議紀錄', '1H7kwkmfRHugNnADHMdBRCvuf44T0Vd5T': '錄音' } } },
+  10013170: { n: '新園鄉民代表會', home: 'https://www.pthg.gov.tw/TownSyt/Content_List.aspx?n=DF0C09BCBB33A7D2', term: 22, ends: '2026-12-25', chcg: { drive: { '15XOlAlX9_2_ftznS5uQ8RxCwjSfh8XKc': '議事日程表', '1geoyKrfUv9YS3kN0F5L7Tu0zZ75Q87yh': '會議紀錄', '1sac9F7qZ0JhV4wjQZw0e6QiiiY53El3y': '會議紀錄', '1uC4MJNFQDRfsrhHABwF2DJ6t3Od4O5JD': '錄音' } } },
+  10013190: { n: '林邊鄉民代表會', home: 'https://www.pthg.gov.tw/townlbt/Content_List.aspx?n=650970F8ECD6C427', term: 22, ends: '2026-12-25', chcg: { drive: { '16k6hHt-rF8Y7cQW3JOWwBcFmNWiq2hNZ': '議事日程表', '1x3Yzfd1KuWPvHQMEW18gDe38I-RS9pA1': '會議紀錄', '1iy3gi4rXHP_WM61EZPUkrWjrfWX7bOPe': '錄音' } } },
+  10013330: pthg('牡丹鄉民代表會', 'townmdt', 'Content_List.aspx?n=F9FE0E52D0430998', ['News4.aspx?n=745049388DB633BD&sms=6BA31A8C64C2BE82', 'News4.aspx?n=23ECDB63D55D3EF3&sms=FB0AEC125E58A640', 'News4.aspx?n=52D6A8FDFDB8ABCD&sms=9D649335C071674A', 'News4.aspx?n=4E32C02210011481&sms=F46C320E23B22954'])
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

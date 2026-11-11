@@ -190,6 +190,16 @@ Live: https://orbit.jaypengx.com/law/
   files by label, the PDF of its formats, and its sittings' own MP4s (`penghuPost`; named 10.06-1, `penghuDay`): a
   day `{ d, n, src, pic }` the app plays as a video (`townVideo`, `.lw-video-file`). Files named in the query
   (file=….ods&flag=doc) are read as their kind; .ods like .odt.
+  屏東's (`pthg` in town-site.mjs; 潮州, 東港, 恆春, 萬丹, 長治, 九如, 鹽埔, 萬巒, 竹田, 新埤, 枋寮, 南州, 琉球, 車城, 三地門, 霧臺, 來義, 春日,
+  牡丹): each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS): lists of posts (News.aspx,
+  `ccmsNews` by the line's text), or of the files themselves (News4.aspx, through HitCount.ashx, named 22-8定期會…:
+  `pthgName` writes the session out, the file's ending kept on the address as `#.pdf`/`#.mp3` for what reads by it);
+  a post's 相關檔案/相關連結 lines (`news_box03_data` in `ccmsPage`), a recording named by its day, 20260909錄音檔
+  (`westDay`), on Drive. A post that can't be read is noted and passed; a list's later page that can't, ends it.
+  里港, 新園, 林邊 (and 恆春's recordings and minutes) keep theirs in Google Drive folders (`drive`: a folder id a
+  kind): read from Drive itself as it shows a folder embedded (`driveEntries`, embeddedfolderview), a folder a
+  session (or the session in each file's name), another term's never opened, a session long over kept from before;
+  a file's ending kept on its address (`#.doc`) for the text reader; recordings named by day (20201028.mp3).
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

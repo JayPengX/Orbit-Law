@@ -261,5 +261,5 @@ test("town penghu: 澎湖's 代表會 lists, a post's files and its sittings' vi
   assert.equal(penghuDay('第22屆第20次臨時會第2次會議115年10月29日', '2026-10-29'), '1151029');
   assert.equal(penghuDay('第22屆第5次臨時會12.20-1', '2027-01-05'), '1151220-1');
   assert.equal(penghuDay('第22屆第19次臨時會影音檔-3', '2026-09-09'), '3');
-  for (const tc of ['10016010', '10016020', '10016030', '10016050']) assert.ok(TOWN_SITES[tc].chcg.penghu.lists);
+  for (const tc of ['10016010', '10016020', '10016030', '10016040', '10016050', '10016060']) assert.ok(TOWN_SITES[tc].chcg.penghu.lists);
 });

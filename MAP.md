@@ -186,11 +186,10 @@ Live: https://orbit.jaypengx.com/law/
   placed by its rows' weekdays (`pdfSpan` keeps them, 埔心's 月/日 tables too, `yearOf` picks a year they fit; months
   and days kept from before, `mdv` under 2, are read again once). 壽豐's agendas are scans
   (undated); 頭份 posts only the last term's recordings (Drive folders).
-  澎湖's 馬公, 湖西, 白沙, 望安: each a site on the county's platform (`penghu`: event.penghu.gov.tw/R…/, 馬公's on
-  www.penghu.gov.tw), lists by id (開會日程表, 議事錄, 開會影音檔; `penghuList`, fifteen a page, `&pagenum=`), each post's
+  澎湖's six (馬公, 湖西, 白沙, 西嶼, 望安, 七美): each a site on the county's platform (`penghu`: event.penghu.gov.tw/R…/), lists by id (開會日程表, 議事錄, 開會影音檔; `penghuList`, fifteen a page, `&pagenum=`), each post's
   files by label, the PDF of its formats, and its sittings' own MP4s (`penghuPost`; named 10.06-1, `penghuDay`): a
   day `{ d, n, src, pic }` the app plays as a video (`townVideo`, `.lw-video-file`). Files named in the query
-  (file=….ods&flag=doc) are read as their kind; .ods like .odt. 西嶼, 七美: not found yet.
+  (file=….ods&flag=doc) are read as their kind; .ods like .odt.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

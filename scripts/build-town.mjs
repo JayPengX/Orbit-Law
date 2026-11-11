@@ -514,7 +514,9 @@ async function chcgTown(tc, site) {
             mine++;
             // (A post of videos grows as the sittings go up: read again each day.)
             const p = penghuPost(await page(l.url, kind === '錄音'), c.penghu.base);
-            for (const f of p.files) put(x.s, x.ext, kind === '錄音' ? '錄音' : kind === '議事日程表' || paperKind(f.n) === '議事日程表' ? '議事日程表' : kind, kind === '議事日程表' ? `${l.n}${/延長|延會/.test(f.n) ? '延長會' : ''}議事日程表` : f.n, f.url);
+            // (A list of recordings keeps only its sound and video files: 馬公's posts hold .txt notes of links, its
+            // videos on its YouTube channel, town-video.mjs.)
+            for (const f of p.files.filter(f => kind !== '錄音' || /\.(mp3|m4a|mp4)(?=$|&)/i.test(f.url))) put(x.s, x.ext, kind === '錄音' ? '錄音' : kind === '議事日程表' || paperKind(f.n) === '議事日程表' ? '議事日程表' : kind, kind === '議事日程表' ? `${l.n}${/延長|延會/.test(f.n) ? '延長會' : ''}議事日程表` : f.n, f.url);
             for (const v of p.videos) put(x.s, x.ext, '錄音', penghuDay(v.n, l.on), v.url, v.pic);
           }
           if (!mine) break;

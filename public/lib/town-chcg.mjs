@@ -427,7 +427,8 @@ export function penghuPost(html, base) {
   // (Each label is the text ahead of its files; the formats after it, up to the next label, one paper.)
   const groups = [];
   let label = '';
-  for (const m of h.matchAll(/<a [^>]*href="(\/uploaddowndoc\?[^"]+)"[^>]*>[\s\S]*?<\/a>|<[^>]+>|([^<]+)/g)) {
+  // (Not the site's own pictures, flag=pic.)
+  for (const m of h.matchAll(/<a [^>]*href="(\/?uploaddowndoc\?(?![^"]*flag=pic)[^"]+)"[^>]*>[\s\S]*?<\/a>|<[^>]+>|([^<]+)/g)) {
     if (m[1]) {
       const url = new URL(m[1].replace(/&amp;/g, '&'), base).href;
       if (label || !groups.length) groups.push({ n: label || (new URL(url).searchParams.get('filedisplay') || '').replace(/\.\w{2,4}$/, ''), urls: [] });

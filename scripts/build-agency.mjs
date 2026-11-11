@@ -36,6 +36,8 @@ const SOURCES = [
 const prev = await prevJson('agency/all.json');
 
 const index = JSON.parse(await readFile(data + 'index.json', 'utf8'));
+// Each rule's one plain line and its everyday words, made once ahead (ai/agency.json, Orbit-Core's tools/credit/).
+const made = JSON.parse(await readFile(new URL('../ai/agency.json', import.meta.url), 'utf8').catch(() => '{}'));
 const names = nameMap(index.laws);
 // Regulations 全國法規資料庫 already has: not repeated here.
 const known = new Set(index.laws.filter(r => r[2] === '命令').map(r => r[1]));
@@ -219,12 +221,12 @@ await pool([...full.values()].filter(r => /^(MND|FSC):/.test(r.id) && prevRows.h
 await rm(out, { recursive: true, force: true });
 await mkdir(out + 'text', { recursive: true });
 // L: the laws it rests on or names; B: the articles it is made under ('pcode:key'); x: what its newest version changed.
-for (const [id, r] of full) await writeFile(`${out}text/${textFile(id)}.json`, JSON.stringify({ n: r.name, a: r.agency, d: r.date, url: r.url, t: r.full, k: '行政規則', L: rowOf.get(id)?.[6] || [], B: rowOf.get(id)?.[5] || [], ...(lastX.has(id) ? { x: lastX.get(id) } : {}) }));
+for (const [id, r] of full) await writeFile(`${out}text/${textFile(id)}.json`, JSON.stringify({ n: r.name, a: r.agency, d: r.date, url: r.url, t: r.full, k: '行政規則', ...(made[id]?.[0] ? { s: made[id][0] } : {}), L: rowOf.get(id)?.[6] || [], B: rowOf.get(id)?.[5] || [], ...(lastX.has(id) ? { x: lastX.get(id) } : {}) }));
 console.log(`texts kept: ${full.size}`);
 await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString(), sources, vendor: vstats, rules }));
-// The next build's memory of the rule sites, and the app's search list: [id, name, agency, url, 1 when its text is here].
+// The next build's memory of the rule sites, and the app's search list: [id, name, agency, url, 1 when its text is here, its everyday words].
 await writeFile(out + 'state.json', JSON.stringify({ listing, empty }));
-await writeFile(out + 'names.json', JSON.stringify(rules.map(r => (full.has(r[0]) ? [r[0], r[1], r[2], r[4], 1] : [r[0], r[1], r[2], r[4]]))));
+await writeFile(out + 'names.json', JSON.stringify(rules.map(r => (full.has(r[0]) ? [r[0], r[1], r[2], r[4], 1, ...(made[r[0]]?.[1]?.length ? [made[r[0]][1]] : [])] : [r[0], r[1], r[2], r[4]]))));
 for (const [p, f] of Object.entries(files)) await writeFile(`${out}${p}.json`, JSON.stringify(f));
 await writeFile(out + 'counts.json', JSON.stringify(counts));
 // What 法規's 行政規則 browses: each agency's rules in one file (agency/g/<code>.json: [id, name, date,

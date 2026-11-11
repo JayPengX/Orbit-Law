@@ -21,7 +21,7 @@ import { dayOffOn, loadDayOff, placeOf } from '#kit/dayoff.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { nameMap, parentLaw, abbr } from './lib/refs.mjs';
 import { searchLaws, rankLaws, parseJump, likelyLaw, ymd, relatedLaws } from './lib/search.mjs';
-import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN } from './lib/find.mjs';
+import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN, phraseHits } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
@@ -746,6 +746,9 @@ let findRun = 0;
 // The ministries' 行政規則 and the cities' 地方法規 by name (agency/names.json, local/names.json, read at the first search).
 const ruleNames = {};
 const ruleList = dir => (ruleNames[dir] ||= data(`${dir}/names.json`).catch(() => ((ruleNames[dir] = null), [])));
+// Everyday words → the articles that answer them (data/ai/phrases.json, made once ahead: 押金不退 → 民法 the lease's articles).
+let phraseList;
+const phrases = () => (phraseList ||= data('ai/phrases.json').catch(() => ((phraseList = null), [])));
 async function findAll(q, out) {
   const run = ++findRun;
   const terms = expand(q);
@@ -788,7 +791,7 @@ async function findAll(q, out) {
   const hero = exact && `<a class="lw-find-card lw-find-hero" href="#law=${esc(exact[0])}" style="--t:${TOPICS[rowTopic(exact)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(exact))}<span class="lw-find-hero-name"><b class="q-fit-wrap">${esc(en ? nameOf(exact[0], exact[1]) : exact[1])}</b><small id="find-hero-sub">${esc(lawSub(exact))}</small></span></span><p id="find-hero-text" class="q-skel"></p><span class="lw-find-open">${W('讀全文', 'Read the full text')}<svg viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>`;
   // (Wide: the names on the left, the articles that say it on the right.)
   const arts = [...q].length >= 2 && !jumpTo ? section(exact ? W('其他法規提到它', 'Other laws that cite it') : W('條文怎麼說', 'What the articles say'), `<div class="lw-find-cards">${'<span class="lw-find-card q-skel"></span>'.repeat(2)}</div>`) : '';
-  paint(out, cols([[(jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + (hero ? `<section class="q-section lw-sec">${hero}</section>` : '') + lawBlock, 0], [`<div id="find-arts">${arts}</div>`, arts ? 1 : 0], [nameBlocks() + ask, 0]]));
+  paint(out, cols([[(jumpRow ? section(W('直接打開', 'Go to'), list([jumpRow])) : '') + (hero ? `<section class="q-section lw-sec">${hero}</section>` : '') + '<div id="find-said"></div>' + lawBlock, 0], [`<div id="find-arts">${arts}</div>`, arts ? 1 : 0], [nameBlocks() + ask, 0]]));
   // The named law's own words: its first article (what it's for) and how many articles it has.
   if (exact)
     lawFile(exact[0])
@@ -818,11 +821,21 @@ async function findAll(q, out) {
         const el = $(slot);
         if (run !== findRun || !el) return;
         const hit = byName(rows, 30);
+        // (A 行政規則 also by its everyday words, made ahead: 點召 finds 召集請假.)
+        for (const r of rows) if (hit.length < 6 && r[5]?.some(w => terms.some(t => t.length >= 2 && w.includes(t))) && !hit.includes(r)) hit.push(r);
         if (!hit.length) return;
         ruleHits += hit.length;
         el.outerHTML = section(title, list(hit.slice(0, 6).map(r => agencyRow(r, '', dir))));
         $('find-arts')?.querySelector('.q-empty')?.remove();
       });
+  // The articles that answer the words people use (made ahead), straight to the article.
+  if (!jumpTo && !state.topic)
+    phrases().then(groups => {
+      const el = $('find-said');
+      const hit = run === findRun && el ? phraseHits(groups || [], q).filter(x => state.byCode.has(x.p)) : [];
+      if (!hit.length) return;
+      el.outerHTML = section(W('可能是這幾條', 'Likely these articles'), list(hit.map(x => { const r = state.byCode.get(x.p); return lawRow([x.p, `${nameOf(x.p, r[1])} ${artLabel(x.k, en)}`], { topic: rowTopic(r), sub: W('直接打開這一條', 'Open this article'), href: `#law=${x.p}&a=${x.k}` }); })));
+    });
   // 立委 by name or 選區: straight to their page.
   if ([...q].length >= 2)
     peopleData()
@@ -1010,6 +1023,8 @@ async function drawLaw() {
     h('div', { class: 'lw-over-top', html: `${topicTile(topic)}<span>${esc(`${kind} · ${rule ? (en ? cityEn(law.c) || law.c : law.c) : topicName(topic, en)}`)}</span>${law.ab ? countTag(W('已廢止', 'Repealed'), 'red') : ''}` }),
     title,
     h('p', { class: 'lw-over-facts', text: facts }),
+    // (A 行政規則's one plain line, made once ahead by Orbit AI: Chinese only.)
+    rule && law.s && !en ? h('p', { class: 'lw-over-ai', html: `${ICON_SPARK}<span>${esc(law.s)}</span>` }) : null,
     rows.length ? h('div', { class: 'lw-over-rows' }, rows) : null,
     doors.length ? h('div', { class: `lw-doors n${doors.length}` }, doors) : null
   ].filter(Boolean));

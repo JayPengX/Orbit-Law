@@ -791,6 +791,21 @@ html.q-kb #panel-ask::after {
   font: var(--q-t-subhead, 400 15px/20px var(--q-font));
   font-variant-numeric: tabular-nums;
 }
+.lw-over-ai {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 10px 0 0;
+  color: var(--q-label);
+  font: var(--q-t-subhead, 400 15px/20px var(--q-font));
+}
+.lw-over-ai svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--q-ai, var(--q-purple));
+}
 .lw-over-rows {
   display: grid;
   margin-top: 12px;

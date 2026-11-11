@@ -205,6 +205,9 @@ jobs:
       - name: Note when each part was built
         run: node scripts/build-status.mjs
         continue-on-error: true
+      # Explanations made ahead with the API credit (Orbit-Core tools/credit/): /law-ask serves them free.
+      - name: Add the explanations made ahead
+        run: mkdir -p public/data/ai && cp -r ai/ruling ai/explain ai/phrases.json public/data/ai/
       - name: Minify, and address every file by its content
         # Each script and stylesheet minified and stamped with its own content
         # hash (the kit's kit/stamp-app.mjs): browsers fetch a changed file at

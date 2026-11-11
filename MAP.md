@@ -435,6 +435,16 @@ Live: https://orbit.jaypengx.com/law/
   這一週 (`weekOf`) lists what you follow among them with its line (in English, or
   before the night's build, the row's own words), 新 if new since you last looked;
   its head carries Orbit AI's mark (the kit's `sectionHtml` `{ ai: true }`) when a line shows.
+- **Made ahead** (`ai/`, Orbit-Core's `tools/credit/`, once with the API credit): every
+  釋字 and 憲判字 explained (`ai/ruling/<bucket>-<lang>.json`) and the everyday laws'
+  articles (`ai/explain/<p>-<bucket>.json`), each keyed to the text it was made from;
+  the deploy copies them to `data/ai/`, and `/law-ask` answers from them free while that
+  text is unchanged (a question or a new version still asks).
+  Also made then: `ai/phrases.json` (people's words → the articles that answer them:
+  找法's 可能是這幾條, `find.mjs phraseHits`, served as `data/ai/phrases.json`) and
+  `ai/agency.json` (each 行政規則's one plain line, on its card with Orbit AI's mark, and its
+  everyday words, searched after its name: `build-agency.mjs` puts them in its text file's `s`
+  and `names.json`'s sixth field). `ai/gold.json`: test questions checked against the articles.
 - **行政規則 and 政府公告** (`lib/agency.mjs`, `news.mjs`, `notices.mjs`,
   `data-src/facts.json`): ministries' rules and RSS notices, and 預告 on
   join.gov.tw, kept beside the laws they rest on; the news and `facts.json`

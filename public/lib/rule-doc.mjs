@@ -47,11 +47,11 @@ const ATTACHED = /^[^。\n]{0,30}(附件|全文檔案|圖表)[^。\n]{0,20}。?$
 
 const lineOf = b => `${b.no || ''}${b.t || ''}`.trim();
 
-// → the law-shaped doc. f: the text file ({ n, a, d, url, t, k?, L?, x? }); p: its id in Law.
+// → the law-shaped doc. f: the text file ({ n, a, d, url, t, k?, L?, x?, s? }: s, its plain line made ahead); p: its id in Law.
 export function ruleDoc(f, p, { sub = '' } = {}) {
   const r = ruleParts(p) || { dir: '', id: '' };
   const m = String(f.d || '').replace(/-/g, '');
-  const base = { p, n: f.n || '', only: ATTACHED.test(String(f.t || '').trim()), l: f.k || sub || (r.dir === 'agency' ? '行政規則' : ''), c: f.a || '', m, url: f.url || '', dir: r.dir, laws: f.L || [], x: f.x || null };
+  const base = { p, n: f.n || '', only: ATTACHED.test(String(f.t || '').trim()), l: f.k || sub || (r.dir === 'agency' ? '行政規則' : ''), c: f.a || '', m, url: f.url || '', dir: r.dir, laws: f.L || [], x: f.x || null, s: f.s || '' };
   // (The site's first line is often the rule's own name again.)
   const text = String(f.t || '').replace(/^[\s　]*([^\n]+)\n/, (all, l) => (l.replace(/[\s　]/g, '') === String(f.n || '').replace(/[\s　]/g, '') ? '' : all));
   const blocks = textBlocks(tidy(lineArticles(text)));

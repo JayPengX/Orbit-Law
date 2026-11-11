@@ -254,3 +254,28 @@ export function orderLaws(groups, ideas, { df, N, common = [] } = {}) {
     .filter(g => g.arts.length)
     .sort((a, b) => b.rank - a.rank);
 }
+
+// Everyday words → the articles that answer them (data/ai/phrases.json: [{ p, say, law, arts }]):
+// a group whose words are the search itself first, then ones inside the search. Words too short to
+// mean one thing (遺產, under 3 characters; 4 for inside a longer search) or said of three laws or more are left out.
+const squash = s => String(s).replace(/[\s　，、。？?！!]/g, '');
+const sayOf = new WeakMap();
+function sayings(list) {
+  if (sayOf.has(list)) return sayOf.get(list);
+  const laws = new Map();
+  for (const g of list) for (const say of g.say || []) { const s = squash(say); (laws.get(s) || laws.set(s, new Set()).get(s)).add(g.p); }
+  const out = list.map(g => ({ g, says: (g.say || []).map(squash).filter(s => [...s].length >= 3 && laws.get(s).size <= 2) }));
+  sayOf.set(list, out);
+  return out;
+}
+export function phraseHits(list, q, n = 4) {
+  const k = squash(q);
+  if ([...k].length < 3) return [];
+  const out = [];
+  const all = sayings(list);
+  for (const exact of [true, false])
+    for (const { g, says } of all)
+      if (says.some(s => (exact ? s === k : [...s].length >= 4 && k.includes(s))))
+        for (const a of g.arts || []) if (out.length < n && !out.some(o => o.p === g.p && o.k === a)) out.push({ p: g.p, k: a });
+  return out;
+}

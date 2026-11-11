@@ -6,7 +6,7 @@
 // read (same file) is taken from the last deploy; one that can't be fetched
 // today too. Never fails the deploy.
 // Runs after build-ly.mjs. ws.dgbas.gov.tw leaves out its certificate's
-// issuer: run with NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem (pages.yml does).
+// issuer: run with NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem (data.yml does).
 //   node scripts/build-budget.mjs [--prev https://orbit.jaypengx.com/law/data/]
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { inflateRawSync } from 'node:zlib';

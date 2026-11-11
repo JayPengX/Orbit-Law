@@ -12,8 +12,15 @@ Live: https://orbit.jaypengx.com/law/
 
 ## How it works
 
-- **Data at deploy, never in git.** `pages.yml` runs on every push and daily
-  at 03:30 Taiwan time: `npm test`, then `build-data.mjs`, `build-notices.mjs`
+- **Data built apart from deploys, never in git.** `data.yml` builds the data every two
+  hours, on a push that changes a builder (`scripts/build-*.mjs`, `lib.mjs`), when
+  `rulings.yml` has read more, and daily at 03:30 Taiwan time with the crawls' longer
+  budgets; it keeps the built `public/data/` (unpacked) in the Actions cache
+  (`law-data-<run>`, the three newest) and starts `pages.yml`. `pages.yml` deploys on
+  every push and after each data build, in a few minutes: `npm test`, the newest kept
+  data restored, `stamp-version.mjs`, `pack-data.mjs`, published; it never crawls. Each
+  data build reads its last copy from the kept data first (`PREV_DIR`), the live site
+  only for what's missing. The builders, in order: `build-data.mjs`, `build-notices.mjs`
   (each 預告's join.gov.tw record and its 總說明 and 條文對照表 read from the
   公報 PDF with poppler's `pdftotext -bbox`: `bills/notice/<id>.json`), `build-ly.mjs`,
   `build-council.mjs` (地方議會, below), `build-council-text.mjs` (council bills' PDFs read into their parts, below), `build-town.mjs` (代表會 from their own sites, below), `build-photos.mjs` (立委 headshots mirrored as 96/192 px WebPs, committed
@@ -23,7 +30,7 @@ Live: https://orbit.jaypengx.com/law/
   (each builds on the last deploy's copy, `scripts/lib.mjs`), then
   `build-status.mjs` (`data/status.json`: when each part was built and its
   count, 0 when missing; Orbit-Core's admin panel reads it for 外部來源, as
-  every source step may fail without stopping the deploy), then
+  every source step may fail without stopping the deploy); in `pages.yml`,
   `stamp-version.mjs`, then `pack-data.mjs` (the Workers Free plan publishes
   20,000 files a site; the data is 77,000: each folder of 50 files or more
   into packs of about 96 KB, `<root>/_p/<b>-<hash>.json`, listed in
@@ -213,7 +220,7 @@ Live: https://orbit.jaypengx.com/law/
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
   each (`listRows`, iframcirculatedview's files by `pageFiles`). 金門's sites (*.kinmen.gov.tw) the door can't reach:
   read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
-  missing issuer given by pages.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first (竹東 before those), with 3 minutes of its own (`TOWN_FIRST_MINUTES`; its other papers on later builds), then the one built longest ago.
+  missing issuer given by data.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first (竹東 before those), with 3 minutes of its own (`TOWN_FIRST_MINUTES`; its other papers on later builds), then the one built longest ago.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the
@@ -348,9 +355,9 @@ Live: https://orbit.jaypengx.com/law/
 - **裁判, the courts** (`lib/rulings.mjs`): every court's judgments citing a law,
   3 years back. `scripts/backfill-rulings.mjs` (workflow `rulings.yml`, nightly
   00:05–06:00 Taiwan time, when 司法院 opens; it saves the store to the cache,
-  asks `pages.yml` for a deploy to Cloudflare and starts itself again while months remain) reads
+  asks `data.yml` for a build (which deploys) and starts itself again while months remain) reads
   司法院's monthly archives and JDoc into `.rulings-store/` (cache only, never
-  carried through a deploy). `scripts/build-rulings.mjs` (in `pages.yml`) makes what the
+  carried through a deploy). `scripts/build-rulings.mjs` (in `data.yml`) makes what the
   app reads: 最高法院 and 最高行政法院 whole, by article (`rulings/<pcode>.json`),
   month (`rulings/m/`, `months.json`) and number (`find.json`); the other courts'
   判決 (高等法院 and branches, 高等行政法院, 智財商業法院, 地方法院 and 簡易庭) by

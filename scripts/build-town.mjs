@@ -18,7 +18,7 @@ import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn,
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
 // 金門's sites the door can't reach (they leave their certificate's issuer out, TWCA's 2026 CA under its CYBER G3 root): read from here, the issuer
-// given by pages.yml (NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem).
+// given by data.yml (NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem).
 const DIRECT = /^https:\/\/[^/]+\.kinmen\.gov\.tw\//i;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
 const direct = url => fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'zh-TW,zh;q=0.9' }, signal: AbortSignal.timeout(60_000) });

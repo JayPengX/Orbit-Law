@@ -1,7 +1,7 @@
 # The rulings store: every court's judgments that cite a law, from 司法院's
 # monthly archives and JDoc, which open only 00:00-06:00 Taiwan time. Each
-# run reads for up to 45 minutes, saves the store to the cache, asks Pages
-# for a deploy, and starts itself again while months remain and the window
+# run reads for up to 45 minutes, saves the store to the cache, asks data.yml
+# for a build (which then deploys), and starts itself again while months remain and the window
 # lasts. The store lives only in the cache, so no deploy can empty it.
 name: Rulings store
 
@@ -62,7 +62,7 @@ jobs:
           key: rulings-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Deploy what was read
         if: steps.read.outputs.read == '1'
-        run: gh workflow run pages.yml --ref main
+        run: gh workflow run data.yml --ref main
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Read on while months remain tonight

@@ -1,25 +1,17 @@
-# Tests, builds the law data (全國法規資料庫 + 立法院 bills, never committed),
-# then deploys public/ to Cloudflare (Orbit-Core deploy/cf-site.mjs): on every push to main, and once a
-# day at 03:30 Taiwan time, after the ministry's midnight refresh. A failed
-# build deploys nothing, so the site keeps yesterday's data. Court rulings
-# come from the store rulings.yml fills each night (it asks for a deploy when
-# it has read more); 憲法法庭's rulings from its own site on every run.
+# Publishes the app to Cloudflare (Orbit-Core deploy/cf-site.mjs) with the newest law data that
+# data.yml built and kept in the Actions cache: tests, the data restored, minified, packed,
+# published, in a few minutes. On every push to main, and when data.yml has built new data (it
+# starts this workflow). The crawling and data building live in data.yml, never here.
 name: Deploy to Cloudflare
 
 on:
   push:
     branches: ['main']
-  schedule:
-    - cron: '30 19 * * *'
   workflow_dispatch:
-    inputs:
-      local_from_run:
-        description: Build the cities' rules on this earlier run's deploy (its local-data artifact) instead of the live site
-        required: false
 
 permissions:
   contents: read
-  actions: read
+  actions: write
 
 jobs:
   # One deploy at a time, without cancelling any (a cancelled run mails its
@@ -35,14 +27,12 @@ jobs:
         id: wait
         env:
           GH_TOKEN: ${{ github.token }}
-          RESTORE: ${{ inputs.local_from_run }}
         run: |
           api() { gh api "repos/$GITHUB_REPOSITORY/$1" --jq "$2" 2>/dev/null; }
           wf=$(api "actions/runs/$GITHUB_RUN_ID" .workflow_id) || wf=
           while [ -n "$wf" ]; do
             runs=$(api "actions/workflows/$wf/runs?branch=$GITHUB_REF_NAME&per_page=30" "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID) | {n: .run_number, done: (.status == \"completed\")}]") || runs='[]'
-            # A restore (local_from_run) always builds: a newer run would build on the copy it restores.
-            if [ -z "$RESTORE" ] && [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER)] | length" <<<"$runs")" != 0 ]; then
+            if [ "$(jq "[.[] | select(.n > $GITHUB_RUN_NUMBER)] | length" <<<"$runs")" != 0 ]; then
               echo "A newer run deploys instead."; echo go=false >> "$GITHUB_OUTPUT"; exit 0
             fi
             [ "$(jq "[.[] | select(.n < $GITHUB_RUN_NUMBER and (.done | not))] | length" <<<"$runs")" = 0 ] && break
@@ -50,7 +40,7 @@ jobs:
           done
           echo go=true >> "$GITHUB_OUTPUT"
 
-  build:
+
     needs: queue
     if: needs.queue.outputs.go == 'true'
     runs-on: ubuntu-latest
@@ -75,159 +65,47 @@ jobs:
       - run: ln -sfn .shared/kit .kit
       - name: Run tests
         run: npm test
-      # The ministry's last good files, used when it fails on a given day.
-      - uses: actions/cache@v4
+      # The newest data data.yml built (unpacked). None kept (the first run, or the cache emptied):
+      # nothing is published (quietly: the live site stays), and a data build is asked for, which
+      # starts this workflow again when it is done.
+      - name: The newest built data
+        id: data
+        uses: actions/cache/restore@v4
         with:
-          path: .moj-cache
-          key: moj-${{ github.run_id }}
-          restore-keys: moj-
-      - name: Build the law data
-        run: node scripts/build-data.mjs
-      # 預告 opened up: each draft's record and its text from the 公報 PDF
-      # (總說明, 條文對照表), read with poppler's pdftotext.
-      - name: Read the drafts open for comment
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-notices.mjs
-        continue-on-error: true
-      # 立法院: votes by name, each legislator's record and clips, budget bills.
-      - name: Build the 立法院 votes, legislators and budgets
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-ly.mjs
-        continue-on-error: true
-      # 地方議會: the 22 縣市議會 (sittings, bills, councillors) and the 鄉鎮市民代表 (all.cc.govapi.tw).
-      - name: Build the local councils
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council.mjs
-        timeout-minutes: 30
-        continue-on-error: true
+          path: public/data
+          key: law-data-none
+          restore-keys: law-data-
+      - name: Ask for a data build when none is kept
+        if: steps.data.outputs.cache-matched-key == ''
         env:
-          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
-      # Council bills whose text is only in a PDF (新竹縣, 新竹市): read into 說明, 辦法, 議決 (pdftotext), the newest first;
-      # what the last deploy read is kept, so each build adds more.
-      - name: Read the councils' bill PDFs
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-council-text.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 8 }}
-        timeout-minutes: 20
-        continue-on-error: true
-      # 鄉鎮市民代表會 from their own sites (竹北, 彰化's): members, sessions, 議事錄 PDFs (決議案, 總質詢 and the
-      # rest read into the app), each day's recording. Read through the proxy's door; 14 minutes, then the rest
-      # keep their last copies (scripts/build-town.mjs ENDS).
-      - name: Build the township councils from their own sites
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-town.mjs
-        timeout-minutes: 20
-        continue-on-error: true
-        env:
-          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
-          # (金門's sites leave their certificate's issuer out, and the door can't reach them: read from here.)
-          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
-      # Councillors' photos, mirrored small: kept between builds (only newcomers are fetched).
-      - uses: actions/cache@v4
-        with:
-          path: .council-photos
-          key: council-photos-${{ github.run_id }}
-          restore-keys: council-photos-
-      # Legislators' headshots, mirrored small (the committed ones, plus a newcomer's), then the councillors'.
-      - name: Mirror the legislators' photos
-        run: (npm i --no-save --no-package-lock sharp@0.33.5 || true) && node scripts/build-photos.mjs
-        timeout-minutes: 20
-        continue-on-error: true
-      # The budgets' money: 主計總處's 預算表 (ws.dgbas.gov.tw leaves its certificate's issuer out).
-      - name: Read the budget books
-        run: node scripts/build-budget.mjs
-        env:
-          NODE_EXTRA_CA_CERTS: scripts/twca-ssl.pem
-        continue-on-error: true
-      # Ministries' own 行政規則 (open data and their rule sites), linked to the
-      # laws they rest on. Scheduled runs crawl longer; each run adds to the last.
-      # The last build's ministries' and cities' rules (texts and all), kept in the cache: read from
-      # there, not fetched file by file from the live site.
-      - uses: actions/cache@v4
-        with:
-          path: .prev-data
-          key: prev-data-${{ github.run_id }}
-          restore-keys: prev-data-
-      - name: Build the ministries' rules
-        run: node scripts/build-agency.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }}
-        continue-on-error: true
-        env:
-          PREV_DIR: .prev-data/
-      # Cities' 自治條例, 自治規則 and 行政規則 (臺北市, 新北市, 高雄市, 臺中市, 新竹市, 金門縣),
-      # whole text, linked to the laws they rest on. Same budget, same carrying over.
-      # A deploy whose cities' data was lost is built on from an earlier run's copy, by hand.
-      - uses: actions/download-artifact@v4
-        if: inputs.local_from_run != ''
-        with:
-          name: local-data
-          run-id: ${{ inputs.local_from_run }}
-          github-token: ${{ github.token }}
-          path: .local-prev/data/local
-      - name: Build the cities' rules
-        run: node scripts/build-local.mjs --minutes ${{ github.event_name == 'schedule' && 15 || 3 }} ${{ inputs.local_from_run != '' && '--prev .local-prev/data/' || '' }}
-        continue-on-error: true
-        # The counties that serve only Taiwan are read through the proxy with this key.
-        env:
-          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
-          PREV_DIR: .prev-data/
-      # This build's copy for the next one (the cache saves it when the job ends well); a step that
-      # wrote nothing keeps the last copy of its part.
-      - name: Keep the ministries' and cities' rules for the next build
+          GH_TOKEN: ${{ github.token }}
         run: |
-          for d in agency local; do
-            if [ -s "public/data/$d/all.json" ]; then rm -rf ".prev-data/$d" && mkdir -p .prev-data && cp -r "public/data/$d" ".prev-data/$d"; fi
-          done
-          du -sh .prev-data/* || true
-      # Court rulings: made from the rulings store that rulings.yml fills each
-      # night (司法院 opens only 00:00-06:00 Taiwan time), restored from the cache.
-      - uses: actions/cache/restore@v4
-        with:
-          path: .rulings-store
-          key: rulings-latest
-          restore-keys: rulings-
-      - name: Build the court rulings
-        run: node --max-old-space-size=6144 scripts/build-rulings.mjs
-      # 憲法法庭: every 釋字 and 憲判字 from the court's own site (open all day).
-      # Each ruling read once and kept in the cache; this year's read again.
-      - uses: actions/cache@v4
-        with:
-          path: .cons-cache
-          key: cons-${{ github.run_id }}
-          restore-keys: cons-
-      - name: Build the constitutional rulings
-        run: node scripts/build-cons.mjs --minutes ${{ github.event_name == 'schedule' && 25 || 12 }}
-        continue-on-error: true
-      # 政府公告 (ministries' RSS) and the hand-kept key figures, for the AI.
-      - name: Build the government notices
-        run: node scripts/build-news.mjs || echo "notices skipped"
-      # 你追蹤的法案週報: this week's moved bills and amended laws, a plain line each (the AI door, its day's cap).
-      - name: Write the week's lines
-        run: node scripts/build-weekly.mjs
-        timeout-minutes: 10
-        continue-on-error: true
-        env:
-          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
-      # When each part above was built (the admin panel's 外部來源: a part that failed shows as old or missing).
-      - name: Note when each part was built
-        run: node scripts/build-status.mjs
-        continue-on-error: true
+          busy=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/data.yml/runs?branch=main&per_page=10" --jq '[.workflow_runs[] | select(.status != "completed")] | length' || echo 0)
+          [ "$busy" != 0 ] || gh workflow run data.yml --ref main || true
+          echo "::warning::No built law data in the cache yet: nothing published; data.yml builds it, then deploys."
+      - name: The data published
+        if: steps.data.outputs.cache-matched-key != ''
+        run: echo "data from ${{ steps.data.outputs.cache-matched-key }}, built $(date -ur public/data/status.json 2>/dev/null || echo '?')"
       # Explanations made ahead with the API credit (Orbit-Core tools/credit/): /law-ask serves them free.
       - name: Add the explanations made ahead
+        if: steps.data.outputs.cache-matched-key != ''
         run: mkdir -p public/data/ai && cp -r ai/ruling ai/explain ai/phrases.json public/data/ai/
       - name: Minify, and address every file by its content
+        if: steps.data.outputs.cache-matched-key != ''
         # Each script and stylesheet minified and stamped with its own content
         # hash (the kit's kit/stamp-app.mjs): browsers fetch a changed file at
         # once, never mix it with cached older ones, and keep every file the
         # deploy didn't change.
         run: node scripts/stamp-version.mjs "$(git rev-parse HEAD)"
-      # The cities' rules this run built, kept two weeks (local_from_run).
-      - uses: actions/upload-artifact@v4
-        with:
-          name: local-data
-          path: public/data/local
-          retention-days: 14
-          if-no-files-found: ignore
       # The Workers Free plan publishes 20,000 files a site, and the data alone is 77,000: each big
       # folder packed into files of about 96 KB, named by their content (the kit's data-pack.mjs).
-      # Last, so every step above (and the cities' copy kept for local_from_run) sees the files as built.
+      # Last, so every step above sees the files as built.
       - name: Pack the data's small files
+        if: steps.data.outputs.cache-matched-key != ''
         run: node scripts/pack-data.mjs
       # The site's files by folder; over 20,000, nothing is published (the deploy would fail half way).
       - name: Count the site's files
+        if: steps.data.outputs.cache-matched-key != ''
         run: |
           n=$(find public -type f | wc -l); echo "files: $n"
           find public -type f | awk -F/ '{n=NF-1; if(n>4)n=4; s=$1; for(i=2;i<=n;i++)s=s"/"$i; print s}' | sort | uniq -c | sort -rn | head -60
@@ -235,6 +113,7 @@ jobs:
       # The site on Cloudflare, at its address on the family's domain
       # (Orbit-Core deploy/cf-site.mjs): what phones are served.
       - name: Publish to Cloudflare
+        if: steps.data.outputs.cache-matched-key != ''
         run: node .shared/deploy/cf-site.mjs Orbit-Law public
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

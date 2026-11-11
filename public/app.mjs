@@ -907,50 +907,59 @@ function jump(q) {
 
 // ---- The reader --------------------------------------------------------------------------
 
+let lawRun = 0;
 async function openLaw(p, at, find = '') {
   const panel = $('panel-laws');
   // (The law already open, as 法規's tab tapped again from another tab: where you were reading.)
   const fresh = state.law?.p !== p || !panel.querySelector('.lw-law');
   if (fresh) {
-    let law;
-    try {
-      law = await lawFile(p);
-    } catch {
-      panel.innerHTML = emptyNote(W('這個法規打不開', 'This law can’t be opened'), W('請稍後再試。', 'Try again later.'), '');
-      return;
-    }
-    // The bills on this law mark its articles: waited for briefly (kept by the phone after the first time).
-    await Promise.race([itemsReady, new Promise(r => setTimeout(r, 1500))]);
+    // Everything the page marks on its articles is asked for at once, each waited for briefly
+    // (one after another they could hold a tap for over ten seconds on a slow phone: Jay 2026-11-11).
+    const run = ++lawRun;
+    const wait = (pr, ms, none) => Promise.race([Promise.resolve(pr).catch(() => none), new Promise(r => setTimeout(() => r(none), ms))]);
+    const lawP = lawFile(p);
+    lawP.catch(() => {});
+    // The bills on this law mark its articles (kept by the phone after the first time).
+    const itemsP = wait(itemsReady, 1500);
     // A regulation's row (its name's links, its family) comes with the regulations' index.
-    if (!state.byCode.has(p)) await Promise.race([ordersReady, new Promise(r => setTimeout(r, 3000))]);
-    // The top courts' judgments citing its articles: marked on them (waited for briefly).
-    state.lawRulings = {};
-    await Promise.race([rulingsReady, new Promise(r => setTimeout(r, 1500))]);
-    if (state.rulingLaws[p]) state.lawRulings = (await Promise.race([data(`rulings/${p}.json`).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
-    // Then the other courts' (高等法院, 地方法院…), after the top courts' on each article.
-    if (state.lowLaws[p]) {
-      const low = (await Promise.race([data(`rulings/low/law/${p}.json`).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
-      for (const [k, l] of Object.entries(low)) state.lawRulings[k] = [...(state.lawRulings[k] || []), ...l];
-    }
+    const rowP = lawP.then(() => !state.byCode.has(p) && wait(ordersReady, 3000), () => {});
+    // The top courts' judgments citing its articles, then the other courts' (高等法院, 地方法院…) after them on each article.
+    const rulingsP = wait(rulingsReady, 1500).then(async () => {
+      const [top, low] = await Promise.all([state.rulingLaws[p] ? wait(data(`rulings/${p}.json`), 2000, {}) : {}, state.lowLaws[p] ? wait(data(`rulings/low/law/${p}.json`), 2000, {}) : {}]);
+      const out = { ...(top || {}) };
+      for (const [k, l] of Object.entries(low || {})) out[k] = [...(out[k] || []), ...l];
+      return out;
+    });
     // 憲法法庭's rulings on it, by article ('' = the law as a whole).
     // ('#': the ones about this law, not just citing an article of it in passing.)
-    const { '#': core = [], ...cons } = (await Promise.race([consLaws().then(c => c[p] || {}).catch(() => ({})), new Promise(r => setTimeout(() => r({}), 2000))])) || {};
-    state.lawCons = cons;
-    state.lawCore = core;
-    state.consRows = state.lawCons && Object.keys(state.lawCons).length ? await consData().catch(() => null) : null;
-    // 授權: the regulations made under its articles, or (a regulation) what it rests on.
-    state.deleg = { to: {}, rest: [], from: [] };
-    await Promise.race([delegReady, new Promise(r => setTimeout(r, 1500))]);
-    if (state.regLaws[p] || state.byCode.get(p)?.[2] === '命令') state.deleg = { ...state.deleg, ...((await Promise.race([data(`deleg/${p}.json`).catch(() => null), new Promise(r => setTimeout(() => r(null), 2000))])) || {}) };
+    const consP = wait(consLaws().then(c => c[p] || {}), 2000, {}).then(async c => {
+      const { '#': core = [], ...cons } = c || {};
+      return { cons, core, rows: Object.keys(cons).length ? await consData().catch(() => null) : null };
+    });
+    // 授權: the regulations made under its articles, or (a regulation) what it rests on;
+    // and the ministries' own 行政規則 under it (from their open data): linked out.
+    const delegWait = wait(delegReady, 1500);
+    const delegP = Promise.all([delegWait, rowP]).then(async () => ({ to: {}, rest: [], from: [], ...((state.regLaws[p] || state.byCode.get(p)?.[2] === '命令' ? await wait(data(`deleg/${p}.json`), 2000, null) : null) || {}) }));
+    const agencyP = delegWait.then(async () => ({ to: {}, rest: [], ...((state.agencyLaws[p] ? await wait(data(`agency/${p}.json`), 2000, null) : null) || {}) }));
     // The cities' 地方法規 resting on it (local/law/<pcode>.json): [id, name, city, kind].
-    state.localUnder = [];
-    const counts = await Promise.race([localLaws(), new Promise(r => setTimeout(() => r({}), 1500))]);
-    if (!isRule(p)) {
-      if (counts?.[p]) state.localUnder = (await Promise.race([data(`local/law/${p}.json`).catch(() => []), new Promise(r => setTimeout(() => r([]), 2000))])) || [];
+    const localP = isRule(p) ? [] : wait(localLaws(), 1500, {}).then(counts => (counts?.[p] ? wait(data(`local/law/${p}.json`), 2000, []) : []));
+    let law;
+    try {
+      law = await lawP;
+    } catch {
+      if (run === lawRun) panel.innerHTML = emptyNote(W('這個法規打不開', 'This law can’t be opened'), W('請稍後再試。', 'Try again later.'), '');
+      return;
     }
-    // Ministries' own 行政規則 under it (from their open data): linked out.
-    state.agency = { to: {}, rest: [] };
-    if (state.agencyLaws[p]) state.agency = { ...state.agency, ...((await Promise.race([data(`agency/${p}.json`).catch(() => null), new Promise(r => setTimeout(() => r(null), 2000))])) || {}) };
+    const [, lawRulings, cons, deleg, agency, localUnder] = await Promise.all([itemsP, rulingsP, consP, delegP, agencyP, localP]);
+    // Another law tapped while this one loaded: that one draws.
+    if (run !== lawRun) return;
+    state.lawRulings = lawRulings || {};
+    state.lawCons = cons.cons;
+    state.lawCore = cons.core;
+    state.consRows = cons.rows;
+    state.deleg = deleg;
+    state.agency = agency;
+    state.localUnder = localUnder || [];
     state.law = law;
     state.showEn = en && Boolean(state.byCode.get(p)?.[6]);
     addRecent(state.mine, p);
@@ -1639,7 +1648,9 @@ function blocksHtml(blocks) {
 // A page read in the app: its title, date, text, pictures and attachments.
 async function openPage(u, label = '') {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
-  sheet({ title: label.slice(0, 40) || W('閱讀', 'Read'), closeLabel: W('關閉', 'Close'), body });
+  // Full height from the start: sized to its three loading lines it opened as a sliver, then
+  // jumped when the page came (Jay 2026-11-11: 'loads super small').
+  sheet({ title: label.slice(0, 40) || W('閱讀', 'Read'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
   // A picture its site won't share (CORP): its caption stays, the picture goes.
   body.addEventListener('error', e => e.target.tagName === 'IMG' && e.target.closest('figure')?.classList.add('broken'), true);
   const fallback = `<a class="q-more q-more-go lw-out" href="${esc(u)}" target="_blank" rel="noopener" data-out><span>${W('到原網站看', 'Open the original site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
@@ -1668,14 +1679,19 @@ const jdMore = open =>
   `<button type="button" class="q-more lw-jd-more" aria-expanded="${open}" hidden><span>${open ? W('收起', 'Less') : W('看全文', 'Read all')}</span></button>`;
 function fitJdPoints(root) {
   const fit = () => {
-    for (const p of root.querySelectorAll('.lw-jd-point:not(.open)')) {
+    // All unfolded, all measured, then all set: one layout, not one a point (a long ruling's
+    // dozens of points each laid the whole sheet out again: Jay 2026-11-11, laggy).
+    const points = [...root.querySelectorAll('.lw-jd-point:not(.open)')];
+    for (const p of points) p.classList.remove('clip');
+    // Folded only past six lines: one or two more lines are just shown.
+    const more = points.map(p => {
       const t = p.querySelector('.lw-jd-text');
-      // Folded only past six lines: one or two more lines are just shown.
-      p.classList.remove('clip');
-      const more = t.scrollHeight > parseFloat(getComputedStyle(t).lineHeight) * 6 + 4;
-      p.classList.toggle('clip', more);
-      p.querySelector('.lw-jd-more').hidden = !more;
-    }
+      return t.scrollHeight > parseFloat(getComputedStyle(t).lineHeight) * 6 + 4;
+    });
+    points.forEach((p, i) => {
+      p.classList.toggle('clip', more[i]);
+      p.querySelector('.lw-jd-more').hidden = !more[i];
+    });
   };
   requestAnimationFrame(fit);
   if (root.dataset.jdFit) return;
@@ -1743,7 +1759,7 @@ async function openJudgment(u, label = '') {
 // A rule whose whole text we kept (a ministry's or a city's, 'agency/<file>' or 'local/<file>'): read from this site.
 async function openRuleText(path, label) {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p>` });
-  sheet({ title: label.slice(0, 40), closeLabel: W('關閉', 'Close'), body });
+  sheet({ title: label.slice(0, 40), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
   try {
     const [dir, file] = path.split('/');
     const r = await data(`${dir}/text/${file}.json`);
@@ -1825,7 +1841,7 @@ function playHls(el, url, opts = {}) {
 // A bill by its 立法院 number, read in the app: who, why, its steps and 對照表.
 async function openBillById(id) {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p>` });
-  sheet({ title: W('法案', 'Bill'), closeLabel: W('關閉', 'Close'), body });
+  sheet({ title: W('法案', 'Bill'), closeLabel: W('關閉', 'Close'), body, detent: 'large' });
   try {
     const b = (await fetch(`https://v2.ly.govapi.tw/bill/${encodeURIComponent(id)}`).then(r => r.json()))?.data;
     if (!b) throw new Error('none');

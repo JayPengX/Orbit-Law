@@ -176,8 +176,9 @@ Live: https://orbit.jaypengx.com/law/
   each, `ccmsNews`; a session's recording on Drive). An agenda in .odt or .docx is read from inside the zip
   (`unzip`), and an old .doc for the runs of its UTF-16 text that read as a council's (秀水's agendas, 員山's
   minutes). 員山: its 議事錄 page and its recordings a page a kind (`{ url, kind }`: 2205-0512 → 第22屆第5次
-  定期會, 5月12日). 羅東: its own plain site (`files`: record.html, every file linked, `pageFiles`; days in a
-  name without dots, 1150413-0415, `nameSpan`). 蘇澳: its 議事錄 posts (News.aspx, twenty a page, `&page=`). 三星 (one Drive
+  定期會, 5月12日). 羅東: its own plain site (`files`: record.html, every file linked, `linkFiles`; days in a
+  name without dots, 1150413-0415, `nameSpan`; its recorder.html's YouTube sittings under their session's heading, `ytId`, its older
+  pages followed by `more`, `pageMore`: a day `{ d, yt, what }` played in the app's 代表會影音 sheet, a thumbnail a row). 蘇澳: its 議事錄 posts (News.aspx, twenty a page, `&page=`). 三星 (one Drive
   folder), 南澳 (proposal tracking only), 大同, 冬山: nothing to read; 宜蘭市, 五結: not reachable.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.

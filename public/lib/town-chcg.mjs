@@ -18,7 +18,7 @@
 //          article's attachments and Drive files (`joomlaList`, `joomlaArticle`).
 //   ccms:  pages on e-land's CCMS (宜蘭's 頭城): file blocks titled by paper and recordings under a line naming the
 //          session (`ccmsPage`); a recording dated in another session's days goes to that one.
-//   files: a 代表會's own plain pages (羅東's record.html), every file linked named by its session (`pageFiles`).
+//   files: a 代表會's own plain pages (羅東's record.html), every file linked named by its session (`linkFiles`).
 //   box:   a 代表會's own "boxlists" site (宜蘭's 壯圍): a list a kind (`boxList`), each line a file or a page of
 //          files (`boxFiles`: the 議事錄 and its sittings' recordings named by day, `westDay`).
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
@@ -402,20 +402,33 @@ export const westDay = name => {
 };
 
 // A plain site's page of files (羅東's own record.html): every link to a paper or a recording ({ n, url }), named by
-// its text when that names a session, else by its file (羅東鎮民代表會第22屆第1次定期會議事錄.pdf).
-export function pageFiles(html, base) {
+// its text when that names a session, else by its file (羅東鎮民代表會第22屆第1次定期會議事錄.pdf); a video on
+// YouTube (recorder.html: 1150511開議) by the heading over it naming its session (第22屆第7次定期會影音檔).
+export const ytId = url => (String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|live\/|embed\/))([\w-]{11})/) || [])[1] || '';
+export function linkFiles(html, base) {
   const out = [];
-  for (const [, href, name] of String(html).matchAll(/<a [^>]*href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+  let head = '';
+  for (const [, hx, href, name] of String(html).matchAll(/<h[1-4][^>]*>((?:(?!<a |<\/h)[\s\S])*?)<\/h[1-4]>|<a [^>]*href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    // (A heading over several, 第22屆第16-19次臨時會影音檔: its first; each video then goes to the session its day is in.)
+    if (hx !== undefined) {
+      const t = text(hx).replace(/\s+/g, '').replace(/第(\d+)[-~～]\d+次/, '第$1次');
+      if (sessionOf(t)) head = t;
+      continue;
+    }
+    if (!href) continue;
     let url;
     try {
       url = new URL(href.replace(/&amp;/g, '&'), base).href;
     } catch {
       continue;
     }
-    if (!/\.(pdf|docx?|odt|mp3|m4a|wav)$/i.test(url.split(/[?#]/)[0]) && !/drive\.google\.com\/file\/d\//.test(url)) continue;
+    const yt = ytId(url);
+    if (!yt && !/\.(pdf|docx?|odt|mp3|m4a|wav)$/i.test(url.split(/[?#]/)[0]) && !/drive\.google\.com\/file\/d\//.test(url)) continue;
     const t = text(name);
-    const n = sessionOf(t) ? t : fileName(url) || t;
+    const n = sessionOf(t) ? t : yt ? (head ? `${head} ${t}` : '') : fileName(url) || t;
     if (n && !out.some(o => o.url === url)) out.push({ n, url });
   }
   return out;
 }
+// A plain site's other pages to read with it (羅東's recorder22_1140825-1141217.html), by a pattern of their names.
+export const pageMore = (html, base, re) => [...new Set([...String(html).matchAll(/href="([^"#]+)"/g)].map(m => m[1]).filter(u => new RegExp(re).test(u)).map(u => new URL(u.replace(/&amp;/g, '&'), base).href))];

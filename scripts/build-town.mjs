@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay, pageFiles } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -364,7 +364,10 @@ async function chcgTown(tc, site) {
       const d = dayIn(n);
       const drive = driveId(url);
       // (Its name past the session and the day: what the sitting did, 綜合質詢.)
-      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])/, '').replace(/錄音檔?/g, '').replace(/[-_\s]+$/, '').trim();
+      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])/, '').replace(/(錄音|影音)檔?/g, '').replace(/^[-_\s]+|[-_\s]+$/g, '').trim();
+      const yt = ytId(url);
+      // (A sitting's video on YouTube, 羅東's: played in the app, its day and what it was.)
+      if (yt) return s.days.some(x => x.yt === yt) || s.days.push({ ...(d ? { d } : {}), yt, ...(what && !/^\d+$/.test(what) ? { what } : {}), ext });
       if (drive && d) s.days.push({ d, drive, ext, ...(what && !/^\d+$/.test(what) ? { what } : {}) });
       else if (/\.(mp3|m4a|wav)$/i.test(url)) s.days.push({ ...(d ? { d } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url });
       else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
@@ -472,11 +475,22 @@ async function chcgTown(tc, site) {
         }
     }
     // A 代表會's own plain pages (羅東's): each file linked, named by its session.
-    for (const url of c.files || [])
-      for (const f of pageFiles(await page(url, true), url)) {
-        const x = at(f.n);
-        if (x) put(x.s, x.ext, /\.(mp3|m4a|wav)$/i.test(f.url) || /錄音|音檔/.test(f.n) ? '錄音' : paperKind(f.n), f.n, f.url);
+    // (Its video pages too, a page a few months: 羅東's recorder22_*.html, by `more`'s pattern.)
+    const plain = [...(c.files || [])];
+    for (let i = 0; i < plain.length && i < 12; i++) {
+      let html;
+      try {
+        html = await page(plain[i], true);
+      } catch (e) {
+        notes.push(e.message);
+        continue;
       }
+      if (c.more) for (const u of pageMore(html, plain[i], c.more)) plain.includes(u) || plain.push(u);
+      for (const f of linkFiles(html, plain[i])) {
+        const x = at(f.n);
+        if (x) put(x.s, x.ext, /\.(mp3|m4a|wav)$/i.test(f.url) || ytId(f.url) || /錄音|音檔/.test(f.n) ? '錄音' : paperKind(f.n), f.n, f.url);
+      }
+    }
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
     // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
     // its session has no other.)
@@ -621,7 +635,7 @@ async function chcgTown(tc, site) {
       return !to;
     });
     s.days = s.days.filter(d => {
-      if (!d.d || !d.src || holds(s, d.d)) return true;
+      if (!d.d || !(d.src || d.yt) || holds(s, d.d)) return true;
       const to = all.find(o => o !== s && holds(o, d.d));
       to?.days.push(d);
       return !to;
@@ -640,7 +654,8 @@ async function chcgTown(tc, site) {
     const ds = s.days.map(d => d.d).filter(Boolean);
     if (!s.from && ds.length) Object.assign(s, { from: ds[0], to: ds.at(-1) });
     // (Recorded past its last day: its 延長會 when it has that agenda, else the session ran that long.)
-    if (s.to && ds.at(-1) > s.to) {
+    // (Not one a month past it: a recording put under the wrong session, 羅東's 第16-19次's.)
+    if (s.to && ds.at(-1) > s.to && ds.at(-1) <= addDays(s.to, 31)) {
       if (s.agenda.some(a => /延長/.test(a.n))) s.ext = { from: ds.find(d => d > s.to), to: ds.at(-1) };
       else s.to = ds.at(-1);
     }

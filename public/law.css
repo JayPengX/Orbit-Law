@@ -4707,8 +4707,10 @@ a.lw-h-art {
 .lw-cols {
   margin-top: var(--q-s-5, 24px);
 }
-/* Chips in a column wrap; what scrolls sideways fades at the column's edge. */
-.lw-col .q-chips {
+/* Chips in a column wrap; what scrolls sideways fades at the column's edge.
+   (Never a day strip: a council's term of days wrapped into a wall of dates
+   down the column, Jay's iPad 2026-11-11.) */
+.lw-col .q-chips:not(.q-day-strip) {
   flex-wrap: wrap;
   overflow: visible;
 }

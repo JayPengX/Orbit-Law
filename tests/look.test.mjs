@@ -32,3 +32,14 @@ test('the home never fills a card with the app\'s colour', () => {
   const accent = [...css.matchAll(/([^{}]+)\{[^}]*background: var\(--q-accent\)/g)].map(m => m[1].trim());
   assert.deepEqual(accent, ["html[data-look='native'] .nv-way.is-ask"]);
 });
+
+// A day strip is one row that scrolls, in a column too: Law's rule that wraps
+// a column's chips turned a council's term of days into a wall of dates down
+// the column (Jay's iPad, 2026-11-11).
+test('a column\'s wrapping chips never take the day strip', () => {
+  const css = read('law.css');
+  for (const m of css.matchAll(/([^{}]*\.q-chips[^{}]*)\{([^}]*)\}/g)) {
+    if (!/flex-wrap:\s*wrap/.test(m[2])) continue;
+    for (const sel of m[1].split(',')) if (/\.q-chips(?![-\w])/.test(sel) && !/\.q-day-strip|\.wrap\b/.test(sel)) assert.match(sel, /:not\(\.q-day-strip\)/, `${sel.trim()} wraps day strips`);
+  }
+});

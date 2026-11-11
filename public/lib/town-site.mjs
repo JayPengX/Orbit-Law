@@ -162,6 +162,9 @@ export const TOWN_SITES = {
     ends: '2026-12-25',
     chcg: { ccms: ['https://www.shlin.gov.tw/News.aspx?n=40844&sms=28909', 'https://www.shlin.gov.tw/News.aspx?n=40846&sms=28911', 'https://www.shlin.gov.tw/News.aspx?n=40847&sms=28912'] }
   },
+  // 花蓮's 鳳林 (議事錄 files listed) and 萬榮 (議事日程表, 議事錄, recordings a list each), on the county's CCMS.
+  10015020: { n: '鳳林鎮民代表會', home: 'https://www.fonglin.gov.tw/cl.aspx?n=11773', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.fonglin.gov.tw/News.aspx?n=5560&sms=26456'] } },
+  10015120: { n: '萬榮鄉民代表會', home: 'https://www.wanrung.gov.tw/cl.aspx?n=8781', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.wanrung.gov.tw/News.aspx?n=8783&sms=14642', 'https://www.wanrung.gov.tw/News.aspx?n=8784&sms=14643', 'https://www.wanrung.gov.tw/News.aspx?n=10554&sms=14644'] } },
   // 花蓮縣壽豐鄉: its 議事專區 on the 公所's site, a session's 議事日程表 a post.
   10015060: { n: '壽豐鄉民代表會', home: 'https://www.shoufeng.gov.tw/News.aspx?n=5266&sms=17220', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.shoufeng.gov.tw/News.aspx?n=5266&sms=17220'] } },
   // 苗栗縣苑裡鎮: its 議事日程公告 and 議事錄 on the 公所's site, lists of the files themselves.
@@ -182,6 +185,9 @@ export const TOWN_SITES = {
   10005140: { n: '西湖鄉民代表會', home: 'https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751'] } },
   10005160: { n: '三灣鄉民代表會', home: 'https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124'] } },
   10005180: { n: '泰安鄉民代表會', home: 'https://www.taian.gov.tw/cl.aspx?n=4249', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.taian.gov.tw/News.aspx?n=4912&sms=11757'] } },
+  // (竹南's minutes in a video list, News_Video.aspx; 三義's recordings a post a sitting.)
+  10005040: { n: '竹南鎮民代表會', home: 'https://www.chunan.gov.tw/News_Video.aspx?n=5504&sms=12999', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.chunan.gov.tw/News_Video.aspx?n=5504&sms=12999'] } },
+  10005130: { n: '三義鄉民代表會', home: 'https://www.sanyi.gov.tw/cl.aspx?n=3540', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.sanyi.gov.tw/News.aspx?n=5643&sms=13065'] } },
   // 南投縣鹿谷鄉: the 代表會's 會議資訊 on the 公所's Laravel site (`lara`), a post a session with its 議程表, 決議案 and
   // recordings.
   10008070: { n: '鹿谷鄉民代表會', home: 'https://www.lugu.gov.tw/representative/meetinginfor', term: 22, ends: '2026-12-25', chcg: { lara: 'https://www.lugu.gov.tw/representative/meetinginfor' } },

@@ -168,6 +168,8 @@ test('town chcg: CCMS pages that nest their papers (礁溪, 員山), a session�
   ]);
   assert.deepEqual(p.audio.map(a => [sessionOf(a.head, 22)?.key, a.url]), [['第22屆第8次定期會', 'https://drive.google.com/file/d/1U_B/view?usp=sharing']]);
   assert.deepEqual(ccmsNews('<a href="News_Content.aspx?n=14231&amp;s=408742" title="第22屆第19次臨時會會議紀錄">第22屆…</a>', 'https://jiaosi.e-land.gov.tw/News.aspx?n=14231'), [{ n: '第22屆第19次臨時會會議紀錄', url: 'https://jiaosi.e-land.gov.tw/News_Content.aspx?n=14231&s=408742' }]);
+  // (竹南's minutes in a video list, News_Video.aspx.)
+  assert.deepEqual(ccmsNews('<a  href="News_Video_Content.aspx?n=5504&s=996578" class="div"  title="第 22 屆第19次臨時會會議紀錄"  target="_self">', 'https://www.chunan.gov.tw/News_Video.aspx?n=5504&sms=12999'), [{ n: '第 22 屆第19次臨時會會議紀錄', url: 'https://www.chunan.gov.tw/News_Video_Content.aspx?n=5504&s=996578' }]);
 });
 
 test('town chcg: a plain page of files (羅東), its names’ days without dots', () => {

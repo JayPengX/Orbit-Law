@@ -439,10 +439,11 @@ export function ccmsTree(html, base) {
 // 屏東's short names for a session, 22-8定期會 (第22屆第8次), 22-9.10臨時會 (第9、10次): written out.
 export const pthgName = n => String(n).replace(/^\s*(\d{2})\s*-\s*(\d{1,2}(?:[.、]\d{1,2})*)\s*(?=(定期|臨時))/, (_, t, nos) => `第${t}屆第${nos.replace(/\./g, '、')}次`);
 // A CCMS list of posts (News.aspx: 礁溪's 臨時會 minutes, a post a session): { n, url } of each post.
+// (竹南's minutes in a video list, News_Video.aspx, read the same.)
 // (A list whose lines are the files themselves, 苑裡's 議事錄: { n, url, file: true }, the file's own address.)
 export function ccmsNews(html, base) {
   const out = [];
-  for (const [, href, title] of String(html).matchAll(/<a [^>]*href="(News_Content\.aspx\?[^"]+)"[^>]*title="([^"]*)"/g)) {
+  for (const [, href, title] of String(html).matchAll(/<a [^>]*href="(News(?:_Video)?_Content\.aspx\?[^"]+)"[^>]*title="([^"]*)"/g)) {
     const url = new URL(href.replace(/&amp;/g, '&'), base).href;
     if (!out.some(o => o.url === url)) out.push({ n: title.replace(/\[另開新視窗\]/g, '').trim(), url });
   }

@@ -556,7 +556,7 @@ async function chcgTown(tc, site) {
             notes.push(e.message);
           }
         }
-      } else if (!/News\d?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
+      } else if (!/News(?:_Video)?\d?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
       // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
         for (let pg = 1, posts = 0, seen = new Set(); pg <= 4; pg++) {

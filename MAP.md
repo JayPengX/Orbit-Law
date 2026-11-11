@@ -220,8 +220,9 @@ Live: https://orbit.jaypengx.com/law/
   a file's ending kept on its address (`#.doc`) for the text reader; recordings named by day (20201028.mp3).
   新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
   CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
-  each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安 on
-  their 公所's CCMS as 苑裡's (泰安's sittings: YouTube under 相關連結, `ccmsPage`); 南投's 鹿谷 on its 公所's Laravel
+  each (`listRows`, iframcirculatedview's files by `pageFiles`). 苗栗's 卓蘭, 大湖, 銅鑼, 南庄, 頭屋, 西湖, 三灣, 泰安,
+  竹南, 三義 and 花蓮's 鳳林, 萬榮 on their 公所's CCMS as 苑裡's (泰安's sittings: YouTube under 相關連結, `ccmsPage`;
+  竹南's minutes in a video list, News_Video.aspx, read as News.aspx); 南投's 鹿谷 on its 公所's Laravel
   CMS (`lara`: `laraList` rows, `laraFiles` file-download links). 金門's sites (*.kinmen.gov.tw) the door can't reach:
   read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
   missing issuer given by data.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first (竹東 before those), with 3 minutes of its own (`TOWN_FIRST_MINUTES`; its other papers on later builds), then the one built longest ago.

@@ -159,7 +159,13 @@ export const TOWN_SITES = {
     term: 22,
     ends: '2026-12-25',
     chcg: { ccms: ['https://www.yuanli.gov.tw/News.aspx?n=7527&sms=13770', 'https://www.yuanli.gov.tw/News.aspx?n=7528&sms=13771'] }
-  }
+  },
+  // 澎湖縣's 代表會, each a site on the county's platform (`penghu`): its lists by id, 開會日程表, 議事錄 and 開會影音檔
+  // (each sitting's MP4, played in the app).
+  10016010: { n: '馬公市民代表會', home: 'https://www.penghu.gov.tw/Rmarkun/', term: 12, ends: '2026-12-25', chcg: { penghu: { base: 'https://www.penghu.gov.tw/Rmarkun/', lists: { 25: '議事日程表', 23: '會議紀錄', 24: '錄音' } } } },
+  10016020: { n: '湖西鄉民代表會', home: 'https://event.penghu.gov.tw/Rhuxi/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rhuxi/', lists: { 14: '議事日程表', 15: '會議紀錄', 16: '錄音' } } } },
+  10016030: { n: '白沙鄉民代表會', home: 'https://event.penghu.gov.tw/Rbaisha/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rbaisha/', lists: { 13: '議事日程表', 33: '會議紀錄', 34: '錄音' } } } },
+  10016050: { n: '望安鄉民代表會', home: 'https://event.penghu.gov.tw/Rwangan/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rwangan/', lists: { 20: '議事日程表', 21: '會議紀錄', 22: '錄音' } } } }
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };

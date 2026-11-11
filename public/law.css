@@ -4947,6 +4947,15 @@ button.lw-meet {
   width: 100%;
   margin: 4px 0 12px;
 }
+/* A sitting's own video file (澎湖's MP4s): the sheet's width, 16:9, rounded like the app's other videos. */
+.lw-video-file {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 4px 0 12px;
+  border-radius: var(--q-r-cell);
+  background: #000;
+}
 
 /* A 代表會's papers read into the app: a paper's text, and 總質詢 as it was said (each member's turns marked in
    their party's colour, the chair's quieter). */

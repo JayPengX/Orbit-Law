@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -56,8 +56,8 @@ async function pdfBytes(url) {
     ? await fetch(`https://drive.usercontent.google.com/download?id=${drive}&export=download`, { signal: AbortSignal.timeout(90_000) })
     : await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
   // The PDF itself (passed straight through), or a JSON answer saying why not.
-  // (An .odt, .docx or .doc comes through as it came.)
-  const zip = /\.(odt|docx?)$/i.test(url);
+  // (An .odt, .ods, .docx or .doc comes through as it came; 澎湖's named in the address's query, file=….ods&flag=doc.)
+  const zip = /\.(odt|ods|docx?)(?=$|&)/i.test(url);
   const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok) || (zip && r.ok && !/json/i.test(r.headers.get('Content-Type') || ''));
   const b = pdf ? null : await r.json().catch(() => ({}));
   if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
@@ -67,7 +67,7 @@ async function pdfText(url) {
   const bytes = await pdfBytes(url);
   // (An old Word file, 員山's and 秀水's: its text is kept as UTF-16, Chinese and all; the runs of it that read as text,
   // a line kept when it holds what a council's papers are written with, not the file's other bytes read as Chinese.)
-  if (/\.doc$/i.test(url))
+  if (/\.doc(?=$|&)/i.test(url))
     return bytes
       .toString('utf16le')
       .replace(/[^\u0020-\u007e\u3000-\u303f\u4e00-\u9fff\uff00-\uffef\r\n]+/g, '\n')
@@ -77,10 +77,10 @@ async function pdfText(url) {
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
   await writeFile(file, bytes);
-  const zip = /\.(odt|docx)$/i.exec(url);
+  const zip = /\.(odt|ods|docx)(?=$|&)/i.exec(url);
   // (An OpenDocument or Word file, 礁溪's agendas: its text from inside the zip, a paragraph or a table cell a line.)
   if (zip) {
-    const xml = execFileSync('unzip', ['-p', file, zip[1].toLowerCase() === 'odt' ? 'content.xml' : 'word/document.xml'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+    const xml = execFileSync('unzip', ['-p', file, zip[1].toLowerCase() !== 'docx' ? 'content.xml' : 'word/document.xml'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
     return xml.replace(/<\/(text:p|text:h|w:p|table:table-cell|w:tc)>/g, '\n').replace(/<(text:s|text:tab|w:tab)\b[^>]*\/>/g, ' ').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   }
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
@@ -355,7 +355,7 @@ async function chcgTown(tc, site) {
     }
     return { s: by.get(x.key), ext: x.ext };
   };
-  const put = (s, ext, k, n, url) => {
+  const put = (s, ext, k, n, url, pic) => {
     if (folderOf(url)) return s.folders.some(f => f.url === url) || s.folders.push({ url });
     // (Its days in its name, 議事日程表(112.5.15-5.26): read from there, no PDF.)
     const sp = k !== '錄音' && nameSpan(n);
@@ -369,7 +369,11 @@ async function chcgTown(tc, site) {
       // (A sitting's video on YouTube, 羅東's: played in the app, its day and what it was.)
       if (yt) return s.days.some(x => x.yt === yt) || s.days.push({ ...(d ? { d } : {}), yt, ...(what && !/^\d+$/.test(what) ? { what } : {}), ext });
       if (drive && d) s.days.push({ d, drive, ext, ...(what && !/^\d+$/.test(what) ? { what } : {}) });
-      else if (/\.(mp3|m4a|wav)$/i.test(url)) s.days.push({ ...(d ? { d } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url });
+      // (Or its own MP4, 澎湖's, a day in parts, 1151006-2: its part, and its picture.)
+      else if (/\.(mp3|m4a|wav|mp4)$/i.test(url)) {
+        const part = d && (n.match(/-(\d{1,2})$/) || [])[1];
+        s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '') }), src: url, ...(pic ? { pic } : {}) });
+      }
       else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
       // (A session's recording on a video site, 田尾's on HiNet: opened there.)
       else s.folders.some(f => f.url === url) || s.folders.push({ url });
@@ -378,7 +382,8 @@ async function chcgTown(tc, site) {
     if (k === '議事日程表') return s.agenda.some(a => a.url === url) || s.agenda.push({ n: ext || /延長|延會/.test(n) ? '延長會議事日程表' : '議事日程表', url });
     if (s.items.some(i => i.files[0].url === url)) return;
     // (Its name past the session: 會期-議事錄(115.9.29-10.1) → 議事錄; 定期大會議事錄 → 議事錄.)
-    const nm = n.replace(/^.*?(定期|臨時)大?會(延長會|延會)?/, '').replace(/_\d{4}$/, '').replace(/[(（][\d.\-~～－及、\s]+[)）]/g, '').replace(/^[-_\s]+/, '').trim();
+    // (Minutes of several sessions in one, 第7次定期會暨第16.17.18次臨時會: 議事錄.)
+    const nm = n.replace(/^.*?(定期|臨時)大?會(延長會|延會)?/, '').replace(/^暨[第\d.、，,次及]*(臨時?會?|定期會?)/, '').replace(/_\d{4}$/, '').replace(/[(（][\d.\-~～－及、\s]+[)）]/g, '').replace(/^[-_\s]+/, '').trim();
     // (議事錄 and 會議紀錄 are both a session's minutes; a site with both keeps their names apart.)
     const named = k !== '會議紀錄' ? nm : /^(議事錄)?$/.test(nm) ? '議事錄' : /^(會議)?[紀記]錄$/.test(nm) ? '會議紀錄' : nm;
     s.items.push({ k, n: named || n, files: [{ url }], ...(sp ? { on: sp.from } : {}) });
@@ -494,6 +499,27 @@ async function chcgTown(tc, site) {
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
     // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
     // its session has no other.)
+    // 澎湖's (event.penghu.gov.tw/R…/): each list a kind, fifteen posts a page, each post a session's files or its
+    // sittings' videos (MP4s, named by day: 10.06-1 in the post's year).
+    if (c.penghu)
+      for (const [id, kind] of Object.entries(c.penghu.lists)) {
+        let posts = 0;
+        for (let pg = 1, pages = 1; pg <= Math.min(pages, 6); pg++) {
+          const r = penghuList(await page(`${c.penghu.base}home.jsp?id=${id}${pg > 1 ? `&pagenum=${pg}&intpage=1` : ''}`, true), c.penghu.base);
+          pages = r.pages;
+          let mine = 0;
+          for (const l of r.links) {
+            const x = at(l.n);
+            if (!x || posts++ >= 40 || late()) continue;
+            mine++;
+            // (A post of videos grows as the sittings go up: read again each day.)
+            const p = penghuPost(await page(l.url, kind === '錄音'), c.penghu.base);
+            for (const f of p.files) put(x.s, x.ext, kind === '錄音' ? '錄音' : kind === '議事日程表' || paperKind(f.n) === '議事日程表' ? '議事日程表' : kind, kind === '議事日程表' ? `${l.n}${/延長|延會/.test(f.n) ? '延長會' : ''}議事日程表` : f.n, f.url);
+            for (const v of p.videos) put(x.s, x.ext, '錄音', penghuDay(v.n, l.on), v.url, v.pic);
+          }
+          if (!mine) break;
+        }
+      }
     if (c.box) {
       const got = [];
       let reads = 0;

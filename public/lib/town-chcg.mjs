@@ -406,6 +406,60 @@ export function ccmsNews(html, base) {
   return out;
 }
 
+// 澎湖's 代表會, each a site on the county's platform (event.penghu.gov.tw/Rhuxi/, 馬公's www.penghu.gov.tw/Rmarkun/):
+// a list a kind (home.jsp?id=14: 開會日程表, 議事錄, 開會影音檔), fifteen a page (&pagenum=2), each line a post named by
+// its session, posted on its day ({ links: [{ n, url, on }], pages }).
+export function penghuList(html, base) {
+  const h = String(html);
+  const links = [];
+  for (const [, href, title, on] of h.matchAll(/<a href="(home\.jsp\?id=\d+&(?:amp;)?act=view&(?:amp;)?dataserno=\d+)" title="([^"]*)">\s*<div class="info">\s*<span class="date">([^<]*)<\/span>/g)) {
+    const url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    if (!links.some(l => l.url === url)) links.push({ n: text(title), url, on: on.trim() });
+  }
+  const pages = Math.max(1, ...[...h.matchAll(/list\((\d+),\s*\d+\)/g)].map(m => +m[1]));
+  return { links, pages };
+}
+// A post's files, each line's label then its formats (日程表.ods, 延長會.doc .pdf .odt: the PDF), and its videos, each
+// <video> then its caption (第22屆第8次定期會10.06-1, 第22屆第19次臨時會影音檔-2): { files: [{ n, url }], videos: [{ n, url }] }.
+export function penghuPost(html, base) {
+  const h = String(html).replace(/<script[\s\S]*?<\/script>/g, '');
+  const files = [];
+  // (Each label is the text ahead of its files; the formats after it, up to the next label, one paper.)
+  const groups = [];
+  let label = '';
+  for (const m of h.matchAll(/<a [^>]*href="(\/uploaddowndoc\?[^"]+)"[^>]*>[\s\S]*?<\/a>|<[^>]+>|([^<]+)/g)) {
+    if (m[1]) {
+      const url = new URL(m[1].replace(/&amp;/g, '&'), base).href;
+      if (label || !groups.length) groups.push({ n: label || (new URL(url).searchParams.get('filedisplay') || '').replace(/\.\w{2,4}$/, ''), urls: [] });
+      groups.at(-1).urls.push(url);
+      label = '';
+    } else if (m[2]?.trim()) label = text(m[2]).replace(/檔案大小\([^)]*\)/g, '').trim() || label;
+  }
+  for (const g of groups) files.push({ n: g.n, url: g.urls.find(u => /\.pdf(&|$)/i.test(u)) || g.urls[0] });
+  const videos = [];
+  for (const m of h.matchAll(/<video\b([^>]*)>\s*<source src="([^"]+\.mp4)"[^>]*>[\s\S]*?<\/video>([\s\S]*?)(?=<video|瀏覽人次|$)/g)) {
+    const pic = (m[1].match(/poster="([^"]+)"/) || [])[1];
+    videos.push({ n: text(m[3]).replace(/\s+/g, ''), url: new URL(m[2], base).href, ...(pic ? { pic: new URL(pic, base).href } : {}) });
+  }
+  return { files, videos };
+}
+// A video's caption as a day and part, 1151006-1: 第22屆第8次定期會10.06-1 (its year the post's, on 2026-11-09; a
+// December sitting posted in January, the year before), 第22屆第20次臨時會第2次會議 115年10月29日 (as written), or
+// 影音檔-2 with no day (its part, 2).
+export function penghuDay(n, on) {
+  const s = String(n);
+  const part = (s.match(/-(\d{1,2})$/) || [])[1];
+  const d = dayIn(s);
+  if (d) return `${+d.slice(0, 4) - 1911}${d.slice(5, 7)}${d.slice(8)}${part ? `-${part}` : ''}`;
+  const m = s.match(/會議?\s*(\d{1,2})\.(\d{1,2})(?![\d.])/);
+  const y = +String(on).slice(0, 4);
+  if (m && y && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= 31) {
+    const year = +m[1] > +String(on).slice(5, 7) + 1 ? y - 1 : y;
+    return `${year - 1911}${pad(m[1])}${pad(m[2])}${part ? `-${part}` : ''}`;
+  }
+  return part || s;
+}
+
 // A 代表會's own site on the "boxlists" CMS (宜蘭's 壯圍: juanwei.e-land.gov.tw/boxlists?menu_id=14): a list a kind,
 // each line its day and a link, 【會議記錄】 and the paper's name, either the file itself (/uploads/boxlists/…) or a
 // page of files (/boxlists/1105: 議事錄 and its sittings' recordings, 20260915.WAV); ?page=2… ({ links, pages }).

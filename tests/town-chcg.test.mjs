@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -238,4 +238,28 @@ test("town pdfSpan: a 月/日 table's weekdays kept (埔心's), the year they fi
   const p = pdfSpan('彰化縣埔心鄉民代表會第 22 屆第 14 次臨時會議事日程表\n月       日\n    9   22   一                報到、開幕典禮\n    9   23   二        一       討論提案\n    9   24   三        二       討論提案、臨時動議、閉會');
   assert.deepEqual(p, { md: [[9, 22, '一'], [9, 23, '二'], [9, 24, '三']] });
   assert.deepEqual(yearOf({ kind: '臨時會', no: 14, md: p.md }, []), { from: '2025-09-22', to: '2025-09-24' });
+});
+
+test("town penghu: 澎湖's 代表會 lists, a post's files and its sittings' videos", () => {
+  const base = 'https://event.penghu.gov.tw/Rhuxi/';
+  const list = `<div class="list "> <a href="home.jsp?id=16&act=view&dataserno=202611090006" title="第22屆第8次定期會"> <div class="info"> <span class="date">2026-11-09</span> <span class="unit">澎湖縣湖西鄉民代表會</span></div></a></div>
+<span class="num"> <a href="javascript:list(1,1)" title="第1頁">1</a>, <a href="javascript:list(4,1)" title="第4頁">4</a>, </span>`;
+  assert.deepEqual(penghuList(list, base), { links: [{ n: '第22屆第8次定期會', url: 'https://event.penghu.gov.tw/Rhuxi/home.jsp?id=16&act=view&dataserno=202611090006', on: '2026-11-09' }], pages: 4 });
+  const post = `<div>請以 LibreOffice 開啟文件</div><div>第22屆第8次定期會 </div><a href="/uploaddowndoc?file=unit01/202609171532020.ods&filedisplay=x.ods&flag=doc" onclick="readfile()">檔案大小(22K) </a>
+<div>第22屆第8次定期會延長會 </div><a href="/uploaddowndoc?file=unit01/202610141110250.doc&filedisplay=y.doc&flag=doc">檔案大小(52K) </a><a href="/uploaddowndoc?file=unit01/202610141110250.pdf&filedisplay=y.pdf&flag=pdf">檔案大小(61K)</a>
+<video id="movie" preload controls loop poster="/video/unit01/202611091539110.jpg"> <source src="/video/unit01/202611091539110.mp4" type="video/mp4" /> 不支援 </video> <div>第22屆第8次定期會10.06-1</div>
+<video id="movie" preload controls loop poster="/video/unit01/202611091542050.jpg"> <source src="/video/unit01/202611091542050.mp4" type="video/mp4" /> 不支援 </video> <div>第22屆第8次定期會10.06-2</div> 瀏覽人次：3 人`;
+  const p = penghuPost(post, base);
+  assert.deepEqual(p.files, [
+    { n: '第22屆第8次定期會', url: 'https://event.penghu.gov.tw/uploaddowndoc?file=unit01/202609171532020.ods&filedisplay=x.ods&flag=doc' },
+    { n: '第22屆第8次定期會延長會', url: 'https://event.penghu.gov.tw/uploaddowndoc?file=unit01/202610141110250.pdf&filedisplay=y.pdf&flag=pdf' }
+  ]);
+  assert.deepEqual(p.videos[1], { n: '第22屆第8次定期會10.06-2', url: 'https://event.penghu.gov.tw/video/unit01/202611091542050.mp4', pic: 'https://event.penghu.gov.tw/video/unit01/202611091542050.jpg' });
+  assert.equal(penghuDay(p.videos[1].n, '2026-11-09'), '1151006-2');
+  assert.equal(dayIn(penghuDay(p.videos[1].n, '2026-11-09')), '2026-10-06');
+  // (As written, 白沙's; a December sitting posted in January; no day, 望安's: its part.)
+  assert.equal(penghuDay('第22屆第20次臨時會第2次會議115年10月29日', '2026-10-29'), '1151029');
+  assert.equal(penghuDay('第22屆第5次臨時會12.20-1', '2027-01-05'), '1151220-1');
+  assert.equal(penghuDay('第22屆第19次臨時會影音檔-3', '2026-09-09'), '3');
+  for (const tc of ['10016010', '10016020', '10016030', '10016050']) assert.ok(TOWN_SITES[tc].chcg.penghu.lists);
 });

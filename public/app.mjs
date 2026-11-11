@@ -284,6 +284,11 @@ const backOf = () => document.getElementById(`panel-${state.tab}`)?.querySelecto
 kitUI.edgeBack?.({ target: () => (backOf()?.offsetParent ? document.getElementById(`panel-${state.tab}`) : null), back: () => backOf()?.click() });
 
 async function route() {
+  // 問 Orbit's question (the Pass sheet, kit ask-orbit.mjs: #ask=<words>): asked on 問法律, as #tab=ask&q= is.
+  if (/(?:^#|&)ask=/.test(location.hash)) {
+    const asked = await import('#kit/ask-orbit.mjs').then(m => m.takeAsk?.() || '').catch(() => '');
+    history.replaceState(null, '', asked ? `#tab=ask&q=${encodeURIComponent(asked)}` : '#tab=ask');
+  }
   const p = new URLSearchParams(location.hash.slice(1));
   document.documentElement.toggleAttribute('data-lw-law', p.has('law'));
   document.querySelector('dialog[open]')?.close();

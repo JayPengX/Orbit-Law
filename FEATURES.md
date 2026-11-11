@@ -5,6 +5,7 @@ Every feature a person uses in this app, with the code that makes it.
 drop a feature silently (2026-11-03, after the lost-features audit).
 To remove a feature on purpose, delete its line here in the same commit and say why.
 - 問法律: the AI, its verdict streamed as written, 新對話 — `public/app.mjs`: `draftHtml`, `新對話`
+- 問 Orbit's question (`#ask=`, the Pass sheet's box) asked on 問法律 — `public/app.mjs`: `takeAsk?.()`
 - 對話紀錄 (kept chats) — `public/lib/chats.mjs`: `對話紀錄`
 - A ruling's own AI, 白話解釋 of articles, bills and diffs — `public/app.mjs`, `public/lib/ask.mjs`: `askRuling`, `rulingAiBtn`, `白話解釋`, `askBill`, `askDiff`
 - One search across laws, rules, rulings, bills and legislators — `public/app.mjs`: `findAll`

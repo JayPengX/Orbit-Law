@@ -72,3 +72,8 @@ test('an AI line never sets the answer\'s width: its words take the head\'s', ()
   assert.match(verdict, /flex:\s*1 1 0;/);
   assert.match(rule('.lw-ai-head'), /min-width:\s*0;/);
 });
+
+// Jay 11-11: the facts at an answer's top were almost always three, the third alone beside a hole.
+test('an answer\'s facts sit in pairs: an odd last one takes the whole row', () => {
+  assert.match(css, /\.lw-facts > div:last-child:nth-child\(odd\)\s*\{\s*grid-column: 1 \/ -1;/);
+});

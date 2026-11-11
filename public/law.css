@@ -3910,8 +3910,13 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-facts.one {
   grid-template-columns: minmax(0, 1fr);
 }
+/* An odd last box (3 facts in 2 columns) takes the whole row: no box left alone beside a hole (Jay 11-11). */
+.lw-facts > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .lw-facts > div {
   display: grid;
+  align-content: start;
   gap: 2px;
   min-width: 0;
   padding: 8px 10px;
@@ -4660,6 +4665,13 @@ a.lw-h-art {
   margin-top: 20px;
 }
 @container lw-chat (min-width: 760px) {
+  /* (Room for all of them in one row: three or four side by side, none spanning.) */
+  .lw-msg.ai .lw-facts:not(.one) {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  .lw-msg.ai .lw-facts > div:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
   .lw-msg.ai:has(> .lw-msg-side) {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
     column-gap: 24px;
@@ -5141,6 +5153,9 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 }
 .lw-contract .lw-facts {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lw-contract .lw-facts > div:last-child:nth-child(odd) {
+  grid-column: auto;
 }
 .lw-contract .lw-fact-red {
   background: color-mix(in srgb, var(--q-red) 12%, transparent);

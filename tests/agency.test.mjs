@@ -149,7 +149,29 @@ test('vendor rules: 行政規則 and 其他 kept (教育部 files the 學生會 
     ['GL7', li('GL7', '教育部令', '其他')]
   ]);
   const want = vendorWant(items, new Set(['已有的辦法']));
-  assert.deepEqual(want.map(r => r.id).sort(), ['GL001809', 'GL5'], 'one per name, the newest; no 令, 法律, 命令, known or repealed');
+  assert.deepEqual(want.map(r => r.id).sort(), ['GL001809', 'GL2', 'GL5'], 'one per name, the newest; a ministry\'s own 命令 the national database lacks; no 令, 法律, known or repealed');
+});
+
+// Jay 11-11, 「起徵點是多少？」: 營業稅法 第26條 leaves the figure to 財政部, whose 令 sets it on its own
+// site only (filed as 命令, named by what it sets); short 函釋 titles too, never a letter or a sentence.
+test('vendor rules: a ministry\'s own 命令 and rules named by what they set are kept, with their basis', async () => {
+  const items = new Map([
+    ['FL006090', li('FL006090', '小規模營業人營業稅起徵點', '命令', '2024-12-12')],
+    ['FL1', li('FL1', '統一發票使用辦法', '命令')],
+    ['GL3', li('GL3', '稅務違章案件裁罰金額或倍數參考表', '行政規則')],
+    ['GL4', li('GL4', '透過網路銷售貨物或勞務月銷售額達起徵點者，應即辦理稅籍登記', '行政規則')],
+    ['GL5', li('GL5', '核釋營業人提供遊戲幣交易服務按收付價款差額課徵營業稅認定基準', '行政規則')],
+    ['GL6', li('GL6', '台財稅字第09504553860號令', '行政規則')],
+    ['GL7', li('GL7', '教育部令', '其他')],
+    ['GL8', li('GL8', '財政部組織法', '法律')]
+  ]);
+  const want = vendorWant(items, new Set(['統一發票使用辦法']));
+  assert.deepEqual(want.map(r => r.id).sort(), ['FL006090', 'GL3', 'GL5'], 'not a sentence, a letter\'s number, a known 命令 or a 法律');
+  assert.deepEqual(listedKeep([li('FL006090', '小規模營業人營業稅起徵點', '命令'), li('2', 'y', '法律')]).map(r => r[0]), ['FL006090'], 'listed rows carry the 命令');
+  const { basisOf } = await import('../public/lib/deleg.mjs');
+  const names = new Map([['加值型及非加值型營業稅法', 'G0340080']]);
+  assert.deepEqual(basisOf('一、依據加值型及非加值型營業稅法第二十六條規定辦理。\n二、買賣業…之起徵點為每月銷售額新臺幣十萬元。', names), ['G0340080:26']);
+  assert.deepEqual(basisOf('營業人依加值型及非加值型營業稅法第二十六條規定辦理登記者，應另行申請。', names), [], 'only a 令\'s own opening says what it rests on');
 });
 
 test('listing carries over: the longest unlisted category first, rows kept in between, a dropped category leaves', () => {

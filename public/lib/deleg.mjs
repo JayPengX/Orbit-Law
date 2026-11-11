@@ -17,6 +17,8 @@ const keyOf = (a, b) => {
   return m > 0 ? `${n}-${m}` : String(n);
 };
 
+// (A 令's own first point: 「一、依據加值型及非加值型營業稅法第二十六條規定辦理。」)
+const MADE_UNDER = /^\s*(?:[一二三四五六七八九十]+[、.．]\s*)?依(?:據|照)?[^，。；]{2,60}第[^。；]*規定辦理$/;
 // The articles a regulation rests on, from its text: ['B0000001:7', …], once each.
 export function basisOf(text, names) {
   const t = String(text || '');
@@ -27,7 +29,7 @@ export function basisOf(text, names) {
   // (第 4  條: spaces inside an article number, as 編制表 notes write them, closed up.)
   const said = t
     .split(/[。\n]/)
-    .filter(x => /訂定|訂之|授權|制定/.test(x))
+    .filter(x => /訂定|訂之|授權|制定/.test(x) || MADE_UNDER.test(x))
     .join('。')
     .replace(/第\s*(\d+)\s*(條|項)/g, '第$1$2');
   for (const [, raw, arts] of said.matchAll(BASIS)) {

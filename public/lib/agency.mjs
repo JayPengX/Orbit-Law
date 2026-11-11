@@ -151,15 +151,28 @@ export function vendorList(html) {
 }
 
 // The kinds of rows the rule sites file rules under: 行政規則, and 其他 (教育部 files
-// 高級中等學校輔導學生會及其他相關自治組織運作注意事項 there).
-const VENDOR_KINDS = new Set(['行政規則', '其他']);
+// 高級中等學校輔導學生會及其他相關自治組織運作注意事項 there); and a ministry's own
+// 命令 that 全國法規資料庫 doesn't carry (財政部's 小規模營業人營業稅起徵點, the
+// figure 營業稅法 第26條 leaves to it: Jay 11-11, 「起徵點是多少？」).
+const VENDOR_KINDS = new Set(['行政規則', '其他', '命令', '法規命令', '實質法規']);
+
+// A rule known by what it sets rather than by a rule's word at its end (小規模營業人營業稅起徵點,
+// 稅務違章案件裁罰金額或倍數參考表, a 函釋's short title): a short name, a noun, not a
+// letter's number, not a sentence (核釋…，…者，應即…).
+const LETTER = /字第|號(?:令|函)?$|^(?:核釋|核定|有關|關於|檢送|修正|訂定|廢止|停止|公告|函|釋|補充|重申|說明|解釋|自|為|請|檢附)/;
+export const titledRule = n => {
+  const t = String(n || '');
+  return t.length >= 6 && t.length <= 24 && !/[，,。；;：:、「」？?！!]/.test(t) && !LETTER.test(t) && !DEAD_NAME.test(t);
+};
+// (Of 其他, only what's named as a rule: 教育部 files its 令 there too.)
+const keepName = r => isRuleName(r.name) || (r.type !== '其他' && titledRule(r.name));
 
 // The listed rows (id → { id, name, date, type }) that are rules to keep: of those kinds, named like
-// one, not already a 命令 of 全國法規資料庫; one per name, the newest.
+// one (or titled like one, above), not already in 全國法規資料庫; one per name, the newest.
 export function vendorWant(items, known = new Set()) {
   const byName = new Map();
   for (const r of items.values()) {
-    if (!VENDOR_KINDS.has(r.type) || !isRuleName(r.name) || known.has(r.name)) continue;
+    if (!VENDOR_KINDS.has(r.type) || !keepName(r) || known.has(r.name)) continue;
     if (!byName.has(r.name) || byName.get(r.name).date < r.date) byName.set(r.name, r);
   }
   return [...byName.values()];

@@ -446,7 +446,12 @@ Live: https://orbit.jaypengx.com/law/
   platform: 農業部, 環境部, 財政部, 教育部, 客委會, 國科會) are listed and read
   all at once, each host a request a second; `agency/state.json` carries
   each category's rows between deploys, so every night lists the longest
-  unlisted categories and reads the pages not read yet.
+  unlisted categories and reads the pages not read yet. Kept from them: 行政規則
+  and 其他 named as a rule, short-titled ones named by what they set (函釋 titles,
+  never a sentence or a letter's number: `titledRule`), and a ministry's own 命令
+  the national database lacks (財政部's 小規模營業人營業稅起徵點, the figure
+  營業稅法 第26條 leaves to it). A 令's 「一、依據…第N條規定辦理」 is its basis
+  (`deleg.mjs`), so it shows under that article and 問法律 lifts it.
 - **地方法規** (`lib/local.mjs`, `build-local.mjs`): the cities' 自治條例,
   自治規則, 委辦規則 and 行政規則 from their own 法規查詢系統 (臺北市
   laws.gov.taipei, 新北市 web.law.ntpc.gov.tw, and the 主管法規 platform of

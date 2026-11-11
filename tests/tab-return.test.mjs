@@ -22,20 +22,40 @@ test('paint() leaves a part alone when its words are the same', () => {
   const code = src.slice(src.indexOf('const drawn = new WeakMap();'), src.indexOf('// A part filled after its tab is drawn'));
   const paint = new Function(`${code}; return paint;`)();
   let writes = 0;
+  // (Each write puts in new nodes, as innerHTML does.)
   const el = {
     _h: '',
+    _node: null,
     get firstChild() {
-      return this._h ? {} : null;
+      return this._node;
+    },
+    get innerHTML() {
+      return this._h;
     },
     set innerHTML(v) {
       writes++;
       this._h = v;
+      this._node = v ? { html: v } : null;
     }
   };
   assert.equal(paint(el, '<p>a</p>'), true);
   assert.equal(paint(el, '<p>a</p>'), false);
   assert.equal(paint(el, '<p>b</p>'), true);
   assert.equal(writes, 2);
+  // Written over in between (a skeleton, another door's list): the same words are drawn again (Jay 2026-11-11:
+  // 議會 → 立委 → 議會 stayed on its skeletons).
+  el.innerHTML = '<span class="q-skel"></span>';
+  assert.equal(paint(el, '<p>b</p>'), true);
+  assert.equal(el.innerHTML, '<p>b</p>');
+});
+
+test('議會 comes back drawn after another door wrote the list', () => {
+  // councilList puts its skeleton in with innerHTML, so its paint() must not take the old drawing for the one shown.
+  const b = body('councilList');
+  assert.match(b, /out\.innerHTML = `<div class="lw-grid">/);
+  assert.match(b, /paint\(out, html\)/);
+  const code = src.slice(src.indexOf('const drawn = new WeakMap();'), src.indexOf('// A part filled after its tab is drawn'));
+  assert.match(code, /el\.firstChild === was\.node/);
 });
 
 test('every tab is drawn again through paint(), never rebuilt whole', () => {
@@ -74,4 +94,13 @@ test('立法\'s pages tapped outside 立法 (a bill, a 立委 in 我的) open ov
   assert.match(src, /state\.tab !== 'bills' && \(m = [^\n]*\^#\(item\|who\|budget\|notice\|meet\)=/);
   const over = body('overHere');
   for (const open of ['openItem', 'openPerson', 'openNotice', 'openBudget', 'openMeet']) assert.match(over, new RegExp(open));
+});
+
+test('a swipe on 立法 leads somewhere or the list stays put (Jay 2026-11-11: "it can swipe left and right but it does nothing")', () => {
+  // The list follows a finger only on 議程, toward a day there is.
+  assert.match(body('drawBills'), /daySwipe\(\$\('bill-list'\)[\s\S]*?\{ can: dir => Boolean\(agendaNext\(dir\)\) \}\)/);
+  // 議會's 議程 swipes its own days, the part alone (not the whole page).
+  const a = body('councilAgenda');
+  assert.match(a, /daySwipe\(box, dir => box\.step\(dir\), \{ can: [^}]*page: false \}\)/);
+  assert.match(a, /box\.next = dir => dayStep\(days, councilAgendaDay, dir\)/);
 });

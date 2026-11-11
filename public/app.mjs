@@ -65,11 +65,14 @@ const $ = id => document.getElementById(id);
 // decoded again (a flash on an iPhone) and a part filled later (我的's 立委,
 // 首頁's 政府公告) was gone for a moment, so the page was short and your place
 // fell back up (Jay 2026-11-05). Now the same words leave the same nodes.
+// Only while they are still the nodes it drew: a part written over in between (a skeleton, another door's
+// list) is drawn again, or 議會 came back from 立委 as skeletons for good (Jay 2026-11-11).
 const drawn = new WeakMap();
 function paint(el, html) {
-  if (!el || (drawn.get(el) === html && el.firstChild)) return false;
-  drawn.set(el, html);
+  const was = el && drawn.get(el);
+  if (!el || (was?.html === html && el.firstChild && el.firstChild === was.node)) return false;
   el.innerHTML = html;
+  drawn.set(el, { html, node: el.firstChild });
   return true;
 }
 // A part filled after its tab is drawn (an id'd placeholder): its last drawing
@@ -2795,11 +2798,13 @@ function drawBills() {
     const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id)) })));
     // The stage chips sit above 這週 so a tap never moves them.
     panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-list' }));
-    // 議程's days: a swipe across the list for the day either side.
+    // 議程's days: a swipe across the list for the day either side; on any other door the list never follows a
+    // finger that leads nowhere (議會's own 議程 swipes its days: councilAgenda).
+    const agendaNext = dir => billFilter === 'agenda' && billStep < 0 && dayStep(agendaDays, agendaDay, dir);
     daySwipe($('bill-list'), dir => {
-      const d = billFilter === 'agenda' && billStep < 0 && dayStep(agendaDays, agendaDay, dir);
+      const d = agendaNext(dir);
       return Boolean(d && (pickAgendaDay(d), true));
-    });
+    }, { can: dir => Boolean(agendaNext(dir)) });
     wireTitles(panel);
     panel.addEventListener('click', e => {
       const col = e.target.closest('.lw-funnel-col');
@@ -4263,6 +4268,7 @@ async function councilAgenda(c, out) {
   const draw = (sits, vids) => {
     const all = councilDays(sits, vids);
     const days = [...new Set(all.map(x => x.d))];
+    box.next = () => null;
     if (!days.length) return void (box.innerHTML = `<p class="lw-none">${W('這個議會還沒有公布議程', 'No agenda published yet')}</p>`);
     if (councilAgendaRec.c !== c.c || !days.includes(councilAgendaDay)) councilAgendaDay = days.find(d => d >= day) || days.at(-1);
     councilAgendaRec.c = c.c;
@@ -4285,6 +4291,13 @@ async function councilAgenda(c, out) {
     kitUI.dayRecenter?.(councilAgendaRec);
     box.replaceChildren(bar(councilAgendaDay), list);
     show(councilAgendaDay);
+    // A swipe across the day's sittings: the day either side, as 立法's 議程 (Jay 2026-11-11).
+    box.next = dir => dayStep(days, councilAgendaDay, dir);
+    box.step = dir => {
+      const d = box.next(dir);
+      return Boolean(d && (show(d), bar(d), true));
+    };
+    if (!box.swipes) ((box.swipes = true), daySwipe(box, dir => box.step(dir), { can: dir => Boolean(box.next?.(dir)), page: false }));
   };
   const vids = c.video?.vids?.length ? termVids.get(c.c) || c.video.vids : [];
   draw(c.sittings || [], vids);

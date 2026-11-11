@@ -40,7 +40,7 @@ jobs:
           done
           echo go=true >> "$GITHUB_OUTPUT"
 
-
+  build:
     needs: queue
     if: needs.queue.outputs.go == 'true'
     runs-on: ubuntu-latest

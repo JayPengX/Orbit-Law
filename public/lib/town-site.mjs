@@ -128,6 +128,14 @@ export const TOWN_SITES = {
   },
   // 宜蘭縣蘇澳鎮: its 議事錄 on the 公所's site, a post a session (CCMS News.aspx).
   10002030: { n: '蘇澳鎮民代表會', home: 'https://www.suao.gov.tw/News.aspx?n=14773&sms=15166', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.suao.gov.tw/News.aspx?n=14773&sms=15166'] } },
+  // 宜蘭縣員山鄉: its pages on the 公所's site (議事錄, Word or PDF; recordings by kind, named 2205-0512).
+  10002070: {
+    n: '員山鄉民代表會',
+    home: 'https://www.yuanshan.gov.tw/cl.aspx?n=12811',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { ccms: ['https://www.yuanshan.gov.tw/cp.aspx?n=15082', { url: 'https://www.yuanshan.gov.tw/cp.aspx?n=15127', kind: '定期會' }, { url: 'https://www.yuanshan.gov.tw/cp.aspx?n=15128', kind: '臨時會' }] }
+  },
   // 宜蘭縣壯圍鄉: its own site ("boxlists", `box`): 議事日程, 會議記錄, 議事錄下載 (with its sittings' recordings).
   10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } }
 };

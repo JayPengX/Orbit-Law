@@ -56,8 +56,8 @@ async function pdfBytes(url) {
     ? await fetch(`https://drive.usercontent.google.com/download?id=${drive}&export=download`, { signal: AbortSignal.timeout(90_000) })
     : await fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(90_000) });
   // The PDF itself (passed straight through), or a JSON answer saying why not.
-  // (An .odt or .docx comes through as it came.)
-  const zip = /\.(odt|docx)$/i.exec(url);
+  // (An .odt, .docx or .doc comes through as it came.)
+  const zip = /\.(odt|docx?)$/i.test(url);
   const pdf = /pdf/i.test(r.headers.get('Content-Type') || '') || (drive && r.ok) || (zip && r.ok && !/json/i.test(r.headers.get('Content-Type') || ''));
   const b = pdf ? null : await r.json().catch(() => ({}));
   if (!r.ok || (!pdf && !b.b64)) throw new Error(`${r.status} ${b?.error || (b?.size ? `${b.size} bytes` : '')}`.trim());
@@ -65,6 +65,15 @@ async function pdfBytes(url) {
 }
 async function pdfText(url) {
   const bytes = await pdfBytes(url);
+  // (An old Word file, 員山's and 秀水's: its text is kept as UTF-16, Chinese and all; the runs of it that read as text,
+  // a line kept when it holds what a council's papers are written with, not the file's other bytes read as Chinese.)
+  if (/\.doc$/i.test(url))
+    return bytes
+      .toString('utf16le')
+      .replace(/[^\u0020-\u007e\u3000-\u303f\u4e00-\u9fff\uff00-\uffef\r\n]+/g, '\n')
+      .split(/[\r\n]+/)
+      .filter(l => (l.match(/[\d會議代表第屆次臨時定期年月日鄉鎮市民公所提案討論報告主席間地點出列紀記錄由說明辦法決通過一二三四五六七八九十、，。：（）]/g) || []).length >= 2)
+      .join('\n');
   tmp ||= await mkdtemp(`${tmpdir()}/town-`);
   const file = `${tmp}/p.pdf`;
   await writeFile(file, bytes);
@@ -431,18 +440,24 @@ async function chcgTown(tc, site) {
     // e-land's CCMS (宜蘭's 頭城): a page with every session's papers, and its recordings under a line naming the
     // session.
     // (A list of posts, 礁溪's 臨時會 minutes, News.aspx: each post of this term read as a page.)
-    const ccms = (url, p, x0) => {
+    // (A page of one kind's recordings, 員山's: files named by term, session and day, 2205-0512 → 第22屆第5次定期會
+    // 5月12日, or part, 2209-1.)
+    const ccms = (url, p, x0, kind) => {
       for (const f of p.files) {
-        const x = at(f.n) || x0;
-        if (x) put(x.s, x.ext, paperKind(f.n) === '其他' && x0 ? paperKind(x0.n) : paperKind(f.n), f.n, f.url);
+        const audio = /\.(mp3|m4a|wav)$/i.test(f.url);
+        const m = kind && f.n.match(/^(\d{2})(\d{2})-(\d+)/);
+        const n = m ? `第${m[1]}屆第${+m[2]}次${kind} ${m[3].length === 4 ? `${+m[3].slice(0, 2)}月${+m[3].slice(2)}日` : `錄音檔${m[3]}`}` : f.n;
+        const x = at(n) || x0;
+        if (x) put(x.s, x.ext, audio ? '錄音' : paperKind(n) === '其他' && x0 ? paperKind(x0.n) : paperKind(n), audio ? n.replace(/^\S*?(定期|臨時)會\s*/, '') : n, f.url);
       }
       for (const a of p.audio) {
         const x = at(a.head);
         if (x) put(x.s, x.ext, '錄音', a.n, a.url);
       }
     };
-    for (const url of c.ccms || []) {
-      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url));
+    for (const it of c.ccms || []) {
+      const { url, kind } = typeof it === 'string' ? { url: it } : it;
+      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
       // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
         for (let pg = 1, posts = 0; pg <= 4; pg++) {
@@ -567,8 +582,8 @@ async function chcgTown(tc, site) {
     } else if (was?.from && !was.md) Object.assign(s, { from: was.from, to: was.to });
     else if (was?.md) s.md = was.md;
     else {
-      // (Its agenda, else its minutes: 秀水's old Word files aren't read; .odt and .docx are, from inside.)
-      const pdf = u => !/\.(doc|xlsx?|webp|jpe?g|png)$/i.test(u);
+      // (Its agenda, else its minutes: PDFs, and Word and OpenDocument files too, 秀水's and 員山's.)
+      const pdf = u => !/\.(xlsx?|webp|jpe?g|png)$/i.test(u);
       const fs = [s.agenda.find(a => !/延長/.test(a.n) && pdf(a.url))?.url, s.items.find(i => i.k === '會議紀錄' && pdf(i.files[0].url))?.files[0].url].filter(Boolean);
       for (const f of fs) {
         if (pdfs-- <= 0 || late()) break;

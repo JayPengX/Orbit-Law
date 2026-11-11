@@ -683,7 +683,7 @@ export function hlcList(html, base) {
   const out = [];
   for (const [, href, t] of String(html).matchAll(/<a href="(\/citizen\/news\/[A-Za-z0-9]+)" class="link news-grid[^"]*" title="([^"]*)"/g)) {
     const url = new URL(href, base).href;
-    if (!out.some(o => o.url === url)) out.push({ n: unAmp(t).replace(/次臨會/, '次臨時會').trim(), url });
+    if (!out.some(o => o.url === url)) out.push({ n: unAmp(t).replace(/次臨會議(?=[紀記]錄)/, '次臨時會會議').replace(/次臨會/, '次臨時會').trim(), url });
   }
   return out;
 }

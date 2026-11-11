@@ -414,7 +414,7 @@ async function chcgTown(tc, site) {
         // (A recorder's own name, 金沙's REC_002: its number.)
         s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}), ...(what && !/^[\d-]+$/.test(what) ? { what } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '').replace(/^REC_0*(\d+)$/i, '$1') }), src: url, ...(pic ? { pic } : {}) });
       }
-      else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
+      else if (drive) s.days.push({ n: n.replace(/^.*?(定期大?會|臨時大?會)(延長會)?/, '').replace(/^[-_\s]+/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
       // (A session's recording on a video site, 田尾's on HiNet: opened there.)
       else s.folders.some(f => f.url === url) || s.folders.push({ url });
       return;

@@ -414,3 +414,9 @@ test("town lara: 鹿谷's list rows link only by onclick, so the build reads the
   const src = await readFile(new URL('../scripts/build-town.mjs', import.meta.url), 'utf8');
   assert.match(src, /laraList\(await page\(`\$\{c\.lara\}[^\n]*, true, true\)\)/);
 });
+
+test("town hlc: 花蓮市's 臨會議紀錄 is the 臨時會's 會議紀錄", async () => {
+  const { hlcList } = await import('../public/lib/town-chcg.mjs');
+  const [p] = hlcList('<li class="news-item" data-v-c4><a href="/citizen/news/abc" class="link news-grid" title="第22屆第19次臨會議紀錄" data-v-c4>', 'https://www.hualien.gov.tw/citizen/news');
+  assert.equal(p.n, '第22屆第19次臨時會會議紀錄');
+});

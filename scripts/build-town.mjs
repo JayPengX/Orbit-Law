@@ -29,7 +29,7 @@ const addDays = (d, n) => new Date(Date.parse(d) + n * 86_400e3).toISOString().s
 
 let reads = 0;
 // The build's time (the deploy's step allows 20 minutes): past it, no more PDFs are read and the towns not yet
-// built keep their last copies. Towns take turns going first, a day each, so none waits behind the others.
+// built keep their last copies. The one built longest ago goes first, so none waits behind the others.
 const ENDS = Date.now() + Number(process.env.TOWN_MINUTES || 14) * 60e3;
 // (A town built for the first time gets a few minutes of its own, not the whole step: with many just added, each
 // shows the day it's added, its lists read and a few papers, the rest of its papers read on the next builds.)
@@ -811,12 +811,14 @@ async function chcgTown(tc, site) {
 
 await mkdir(out, { recursive: true });
 const towns = Object.entries(TOWN_SITES);
-const first = Math.floor(Date.now() / 86_400e3) % towns.length;
-// (A town never built yet goes before the rest: one just added shows the day it's added.)
-const unbuilt = new Set();
-for (const [tc] of towns) if (!(await prevJson(`council/town/${tc}.json`).catch(() => null))) unbuilt.add(tc);
-const turn = [...towns.slice(first), ...towns.slice(0, first)];
-for (const [tc, site] of [...turn.filter(([tc]) => unbuilt.has(tc)), ...turn.filter(([tc]) => !unbuilt.has(tc))]) {
+// A town never built yet goes first (竹東, the owner's home, before the rest of those), one just added showing the
+// day it's added; then the one built longest ago, so each build carries on where the last one ran out of time.
+const HOME = '10004020';
+const builtAt = new Map();
+for (const [tc] of towns) builtAt.set(tc, (await prevJson(`council/town/${tc}.json`).catch(() => null))?.built || '');
+const unbuilt = new Set(towns.filter(([tc]) => !builtAt.get(tc)).map(([tc]) => tc));
+const turn = [...towns].sort(([a], [b]) => (a === HOME && unbuilt.has(a) ? -1 : b === HOME && unbuilt.has(b) ? 1 : builtAt.get(a) < builtAt.get(b) ? -1 : builtAt.get(a) > builtAt.get(b) ? 1 : 0));
+for (const [tc, site] of turn) {
   const started = Date.now();
   townEnds = unbuilt.has(tc) ? started + Number(process.env.TOWN_FIRST_MINUTES || 3) * 60e3 : Infinity;
   try {

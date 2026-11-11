@@ -573,6 +573,8 @@ export function boxFiles(html, base) {
 }
 // A recording's file named by its day as the West writes it (20260511112647, 20260915, 20251007第一日): that day as
 // the sites write it, 1150511 (and the rest of its name).
+// A recording named by a short Western day, 義竹's 審議總決算260508 or 20260702: that day as the island's (1150508).
+export const shortDay = name => String(name).replace(/(?<!\d)(?:20)?(2\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)/, (m, y, mm, dd) => `${+y + 89}${mm}${dd}`);
 export const westDay = name => {
   const m = String(name).match(/^(20\d{2})(\d{2})(\d{2})(?:\d{6})?(?!\d)(.*)$/);
   return m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31 ? `${+m[1] - 1911}${m[2]}${m[3]}${m[4]}` : '';

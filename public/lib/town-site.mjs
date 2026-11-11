@@ -137,7 +137,7 @@ export const TOWN_SITES = {
   10010140: { n: '竹崎鄉民代表會', home: 'https://chuchi.cyhg.gov.tw/cp.aspx?n=1645', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://chuchi.cyhg.gov.tw/News.aspx?n=10285&sms=21208'] } },
   10010180: { n: '阿里山鄉民代表會', home: 'https://alishan.cyhg.gov.tw/News.aspx?n=102886&sms=111390', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://alishan.cyhg.gov.tw/News.aspx?n=102886&sms=111390'] } },
   10010070: { n: '新港鄉民代表會', home: 'https://singang.cyhg.gov.tw/News.aspx?n=9205&sms=20550', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://singang.cyhg.gov.tw/News.aspx?n=9205&sms=20550'] } },
-  10010100: { n: '義竹鄉民代表會', home: 'https://yijhu.cyhg.gov.tw/News.aspx?n=10216&sms=21195', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://yijhu.cyhg.gov.tw/News.aspx?n=10216&sms=21195'] } },
+  10010100: { n: '義竹鄉民代表會', home: 'https://yijhu.cyhg.gov.tw/News.aspx?n=10216&sms=21195', term: 22, ends: '2026-12-25', chcg: { drive: { '1VYqiWlm0P5EqkApZHO53o6FZDt4esC5C': '會議紀錄', '1Lnz12QWzM5lSDgIraCeHSAR3KEldsU11': '議事日程表', '1c-IsTMbXf0O2Uteho1BhGEPvbCdKqW6p': '錄音' } } },
   10010110: { n: '鹿草鄉民代表會', home: 'https://lutsau.cyhg.gov.tw/News.aspx?n=10282&sms=21207', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://lutsau.cyhg.gov.tw/News.aspx?n=10282&sms=21207'] } },
   // (大埔, 布袋, 民雄 and 六腳: Drive folders linked from their 公所's 代表會 pages.)
   10010170: { n: '大埔鄉民代表會', home: 'https://dapu.cyhg.gov.tw/cp.aspx?n=10534', term: 22, ends: '2026-12-25', chcg: { drive: { '1AcKW-N5GD3UyM5O4_uXQ2piMkpH-rDgk': '會議紀錄' } } },

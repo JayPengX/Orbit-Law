@@ -13,13 +13,15 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, shortDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
 // 金門's sites the door can't reach (they leave their certificate's issuer out, TWCA's 2026 CA under its CYBER G3 root): read from here, the issuer
 // given by data.yml (NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem).
 const DIRECT = /^https:\/\/[^/]+\.kinmen\.gov\.tw\//i;
+// (A 代表會's own site the door won't open, 南投市's www.ntrc.tw (401): its PDFs read from here too.)
+const OWN = /^https:\/\/www\.ntrc\.tw\//i;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
 const direct = url => fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'zh-TW,zh;q=0.9' }, signal: AbortSignal.timeout(60_000) });
 const out = new URL('../public/data/council/town/', import.meta.url).pathname;
@@ -77,7 +79,7 @@ async function pdfBytes(url) {
   reads++;
   // (A PDF on Google Drive, 線西's: from Drive itself; the rest through the door.)
   const drive = driveId(url);
-  if (DIRECT.test(url)) {
+  if (DIRECT.test(url) || OWN.test(url)) {
     const r = await direct(url);
     if (!r.ok) throw new Error(`${r.status}`);
     return Buffer.from(await r.arrayBuffer());
@@ -394,7 +396,7 @@ async function chcgTown(tc, site) {
       const d = dayIn(n);
       const drive = driveId(url);
       // (Its name past the session and the day: what the sitting did, 綜合質詢.)
-      const what = n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])|(?<!\d)1\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/, '').replace(/(錄音|影音)檔?/g, '').replace(/^[-_\s]+|[-_\s]+$/g, '').trim();
+      const what = n.replace(/^.*?(定期大?會|臨時大?會)(延長會)?/, '').replace(/(?<!\d)1\d{2}(\d{4}|\.\d{1,2}\.\d{1,2})(?![\d.])|(?<!\d)1\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/, '').replace(/(錄音|影音)檔?/g, '').replace(/^[-_\s]+|[-_\s]+$/g, '').trim();
       const yt = ytId(url);
       // (A sitting's video on YouTube, 羅東's: played in the app, its day and what it was.)
       if (yt) return s.days.some(x => x.yt === yt) || s.days.push({ ...(d ? { d } : {}), yt, ...(what && !/^\d+$/.test(what) ? { what } : {}), ext });
@@ -718,7 +720,7 @@ async function chcgTown(tc, site) {
             const seen = `${x.s.key}|${k}|${e.n}`;
             if (driveSeen.has(seen)) continue;
             driveSeen.add(seen);
-            put(x.s, x.ext, k, audio ? westDay(e.n) || e.n : e.n, e.url);
+            put(x.s, x.ext, k, audio ? westDay(e.n) || shortDay(e.n) : e.n, e.url);
           }
         };
         await walk(id, null, 0, folderKind);

@@ -395,3 +395,11 @@ test("town ntrc: 南投市's JSON rows, a session by its fields and a recording'
   assert.equal(rows[2].n, '市政質詢(三)');
   assert.equal(rows[3].n, '市政質詢(一) 1150506');
 });
+
+test("town shortDay: 義竹's recordings named by a short Western day", async () => {
+  const { shortDay, dayIn } = await import('../public/lib/town-chcg.mjs');
+  assert.equal(shortDay('義竹鄉民代表會第22屆第7次定期大會 審議總決算260508'), '義竹鄉民代表會第22屆第7次定期大會 審議總決算1150508');
+  assert.equal(dayIn(shortDay('20260702')), '2026-07-02');
+  assert.equal(shortDay('1150508'), '1150508');
+  assert.equal(shortDay('-2260805'), '-2260805');
+});

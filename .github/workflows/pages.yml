@@ -221,6 +221,11 @@ jobs:
           path: public/data/local
           retention-days: 14
           if-no-files-found: ignore
+      # The site's files by folder (the Workers Free plan takes 20,000 files a site).
+      - name: Count the site's files
+        run: |
+          echo "files: $(find public -type f | wc -l)"
+          find public -type f | awk -F/ '{n=NF-1; if(n>4)n=4; s=$1; for(i=2;i<=n;i++)s=s"/"$i; print s}' | sort | uniq -c | sort -rn | head -60
       # The site on Cloudflare, at its address on the family's domain
       # (Orbit-Core deploy/cf-site.mjs): what phones are served.
       - name: Publish to Cloudflare

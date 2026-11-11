@@ -125,7 +125,21 @@ export const TOWN_SITES = {
   // 臺東's 關山 and 鹿野, 南投's 中寮: their 代表會's papers and recordings in Drive folders linked from the 公所's site.
   10014030: { n: '關山鎮民代表會', home: 'https://www.guanshan.gov.tw/about/about12', term: 22, ends: '2026-12-25', chcg: { drive: { '1nQE-X1IY4kHg1BymoaCtnB-sEi5M330b': '議事日程表', '1OaW0E_09OYgJ3tuaeUJ8A9rLyliG5EGW': '會議紀錄', '1bzOb-3YUidiDQcKaCxDhNCSCXeLz10G9': '會議紀錄', '18-zPlfeUMvtMWxeh6gbGXB2MHXdQLHpk': '錄音' } } },
   10014050: { n: '鹿野鄉民代表會', home: 'https://drive.google.com/drive/folders/1xo7nirbK-GTIfkmTxaKD0yCzcUoUNBx0', term: 22, ends: '2026-12-25', chcg: { drive: { '16OGEOiO2ANt7EvRB1IEdwkSsSbmaKVVF': '議事日程表', '16_wgYsUkEmQdpYbG2QEz41pTfIt9U8WW': '會議紀錄', '14cG5KMtVRCey68ovOCTZ3cN5xcKQuulS': '會議紀錄', '1Vs2ijFOprR16EmhdKSke9QubCvqK-jH5': '錄音' } } },
+  // 南投縣草屯鎮: the 代表會's 議事錄, 議事紀錄 and 議事錄音 lists on its 公所's site, a post each (`files`, `more`).
+  10008030: { n: '草屯鎮民代表會', home: 'https://www.tsaotun.gov.tw/list/epresentative01', term: 22, ends: '2026-12-25', chcg: { files: ['https://www.tsaotun.gov.tw/list/epresentative07-2', 'https://www.tsaotun.gov.tw/list/epresentative07-4', 'https://www.tsaotun.gov.tw/list/epresentative07-5'], more: 'epresentative07-[245]\\?model=view&(amp;)?view=\\d+', reads: 20 } },
   10008080: { n: '中寮鄉民代表會', home: 'https://drive.google.com/drive/folders/19OSUnadZd10nQftJuhCVbTEKe-Ww11H_', term: 22, ends: '2026-12-25', chcg: { drive: { '13sJWQ6RShIgB3OrT4KvvO0d5jAx9uZaN': '議事日程表', '151pWSSZjaRkJBuo41r6OLFWfO20fbIQY': '會議紀錄', '1Bof6SzTPnb0OPHgM74pcQscJF8bEtKef': '會議紀錄', '13OluT6EbOdfJYlfeMrEoOAI853VnRtcF': '錄音' } } },
+  // 嘉義縣's other 代表會 on their 公所's CCMS (<town>.cyhg.gov.tw, read through the door): 竹崎 a post a session,
+  // 阿里山 a post a paper or recording, 新港, 義竹 and 鹿草 their 議事公開 lists.
+  10010140: { n: '竹崎鄉民代表會', home: 'https://chuchi.cyhg.gov.tw/cp.aspx?n=1645', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://chuchi.cyhg.gov.tw/News.aspx?n=10285&sms=21208'] } },
+  10010180: { n: '阿里山鄉民代表會', home: 'https://alishan.cyhg.gov.tw/News.aspx?n=102886&sms=111390', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://alishan.cyhg.gov.tw/News.aspx?n=102886&sms=111390'] } },
+  10010070: { n: '新港鄉民代表會', home: 'https://singang.cyhg.gov.tw/News.aspx?n=9205&sms=20550', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://singang.cyhg.gov.tw/News.aspx?n=9205&sms=20550'] } },
+  10010100: { n: '義竹鄉民代表會', home: 'https://yijhu.cyhg.gov.tw/News.aspx?n=10216&sms=21195', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://yijhu.cyhg.gov.tw/News.aspx?n=10216&sms=21195'] } },
+  10010110: { n: '鹿草鄉民代表會', home: 'https://lutsau.cyhg.gov.tw/News.aspx?n=10282&sms=21207', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://lutsau.cyhg.gov.tw/News.aspx?n=10282&sms=21207'] } },
+  // (大埔, 布袋, 民雄 and 六腳: Drive folders linked from their 公所's 代表會 pages.)
+  10010170: { n: '大埔鄉民代表會', home: 'https://dapu.cyhg.gov.tw/cp.aspx?n=10534', term: 22, ends: '2026-12-25', chcg: { drive: { '1AcKW-N5GD3UyM5O4_uXQ2piMkpH-rDgk': '會議紀錄' } } },
+  10010030: { n: '布袋鎮民代表會', home: 'https://budai.cyhg.gov.tw/cp.aspx?n=373', term: 22, ends: '2026-12-25', chcg: { drive: { '1txo2kn8kPV01GHryZYTcBwZvlD2kzE5M': '議事日程表', '13oLEugcAaLZLkzzGrfyO-GktA4JAVwlH': '會議紀錄', '1YElJ7O8Q-wxC3yjFEn5hwaBJWFGPkip1': '會議紀錄', '1mHS6ERy2Tny8L3goyuY7NZiYWJMAAPYY': '錄音' } } },
+  10010050: { n: '民雄鄉民代表會', home: 'https://minsyong.cyhg.gov.tw/cp.aspx?n=458', term: 22, ends: '2026-12-25', chcg: { drive: { '1vKtcSHUv6rrAqWySnOqoUeuK5oAOJhuY': '議事日程表', '1EWQYEVmZARfXMawQSDkUB4O69_moQf3w': '會議紀錄', '1AIyLgYdNeMHDLMA87AyOMBhgBZ8mR7pR': '錄音', '108iwVTX5OBEOf2B5jOSJLIYzPNUqMPvv': '施政報告' } } },
+  10010080: { n: '六腳鄉民代表會', home: 'https://lioujiao.cyhg.gov.tw/cp.aspx?n=657', term: 22, ends: '2026-12-25', chcg: { drive: { '1vuDhUuzrEYsNI9h8-Co028zyCrpoxB4W': '議事日程表', '1I6qbHdlos22sRGWArxEpK-EvVcbGMB4J': '會議紀錄', '1RtdnDlD2JhzM75AyWiXNXP38wJ-qAnNI': '錄音' } } },
   // 嘉義縣梅山鄉: its 議事公開區 (a Google Site) one Drive folder, a folder a session with its 日程表, 議事錄 and
   // recording.
   10010150: { n: '梅山鄉民代表會', home: 'https://sites.google.com/view/meishan-2017/', term: 22, ends: '2026-12-25', chcg: { drive: { '1Aq504mbojd2be0hhS4UMRckPmqyjjy8R': '其他' } } },

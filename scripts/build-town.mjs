@@ -590,7 +590,8 @@ async function chcgTown(tc, site) {
     // A 代表會's own plain pages (羅東's): each file linked, named by its session.
     // (Its video pages too, a page a few months: 羅東's recorder22_*.html, by `more`'s pattern.)
     const plain = [...(c.files || [])];
-    for (let i = 0; i < plain.length && i < 12; i++) {
+    // (草屯's lists and their posts, 20 pages: `reads`.)
+    for (let i = 0; i < plain.length && i < (c.reads || 12); i++) {
       let html;
       try {
         html = await page(plain[i], true);
@@ -601,7 +602,10 @@ async function chcgTown(tc, site) {
       if (c.more) for (const u of pageMore(html, plain[i], c.more)) plain.includes(u) || plain.push(u);
       for (const f of linkFiles(html, plain[i])) {
         const x = at(f.n);
-        if (x) put(x.s, x.ext, /\.(mp3|m4a|wav)$/i.test(f.url) || ytId(f.url) || /錄音|音檔/.test(f.n) ? '錄音' : paperKind(f.n), f.n, f.url);
+        const sound = /\.(mp3|m4a|wav)$/i.test(f.url) || ytId(f.url) || /錄音|音檔/.test(f.n);
+        // (A recording named only by its place under its session's heading, 草屯's 第22屆第七次定期會錄音檔 1: 錄音檔1.)
+        const part = sound && (f.n.match(/(?:定期會|臨時會)(?:延長會)?(?:錄音檔?|音檔)\s+(\d+)$/) || [])[1];
+        if (x) put(x.s, x.ext, sound ? '錄音' : paperKind(f.n), part ? `錄音檔${part}` : f.n, f.url);
       }
     }
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
@@ -632,7 +636,10 @@ async function chcgTown(tc, site) {
           for (const e of es) {
             if (!e.folder && yearIn(e.n) && yearIn(e.n) < newest - 2) continue;
             if (termed && e.folder && !/屆/.test(e.n) && /\d/.test(e.n)) continue;
-            let nm = pthgName(e.n);
+            // (布袋's 定期會-第22屆第01次 20230427-0508, 民雄's 1120118 22屆1次臨時會…: read as 第22屆第1次定期會.)
+            let nm = pthgName(e.n)
+              .replace(/(定期大會|臨時大會|定期會|臨時會)\s*-\s*第(\d+)屆第0*(\d+)次/, (_, k, t, no) => `第${t}屆第${no}次${k.replace('大會', '會')}`)
+              .replace(/(?<![第\d])(\d{2})屆(\d{1,2})次/, '第$1屆第$2次');
             if (sort && !sessionOf(nm, site.term)) nm = nm.replace(/^\s*(\d{2})\s*-\s*(\d{1,2})(?!\d)\.?/, (_, t, no) => `第${t}屆第${no}次${sort}`);
             const s = sessionOf(nm, site.term);
             const t = +(nm.match(/^(\d+)屆|第(\d+)屆/) || []).slice(1).find(Boolean);

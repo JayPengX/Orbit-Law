@@ -585,7 +585,8 @@ export const ytId = url => (String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:w
 export function linkFiles(html, base) {
   const out = [];
   let head = '';
-  for (const [, hx, href, name] of String(html).matchAll(/<h[1-4][^>]*>((?:(?!<a |<\/h)[\s\S])*?)<\/h[1-4]>|<a [^>]*href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+  // (草屯's: its links in single quotes; its recordings 1, 2, 3 under a heading naming the session.)
+  for (const [, hx, href, name] of String(html).matchAll(/<h[1-4][^>]*>((?:(?!<a |<\/h)[\s\S])*?)<\/h[1-4]>|<a [^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/g)) {
     // (A heading over several, 第22屆第16-19次臨時會影音檔: its first; each video then goes to the session its day is in.)
     if (hx !== undefined) {
       const t = text(hx).replace(/\s+/g, '').replace(/第(\d+)[-~～]\d+次/, '第$1次');
@@ -602,13 +603,14 @@ export function linkFiles(html, base) {
     const yt = ytId(url);
     if (!yt && !/\.(pdf|docx?|odt|mp3|m4a|wav)$/i.test(url.split(/[?#]/)[0]) && !/drive\.google\.com\/file\/d\//.test(url)) continue;
     const t = text(name);
-    const n = sessionOf(t) ? t : yt ? (head ? `${head} ${t}` : '') : fileName(url) || t;
+    const sound = yt || /\.(mp3|m4a|wav)$/i.test(url.split(/[?#]/)[0]);
+    const n = sessionOf(t) ? t : sound && head ? `${head} ${t}` : yt ? '' : fileName(url) || t;
     if (n && !out.some(o => o.url === url)) out.push({ n, url });
   }
   return out;
 }
 // A plain site's other pages to read with it (羅東's recorder22_1140825-1141217.html), by a pattern of their names.
-export const pageMore = (html, base, re) => [...new Set([...String(html).matchAll(/href="([^"#]+)"/g)].map(m => m[1]).filter(u => new RegExp(re).test(u)).map(u => new URL(u.replace(/&amp;/g, '&'), base).href))];
+export const pageMore = (html, base, re) => [...new Set([...String(html).matchAll(/href=["']([^"'#]+)["']/g)].map(m => m[1]).filter(u => new RegExp(re).test(u)).map(u => new URL(u.replace(/&amp;/g, '&'), base).href))];
 
 // A 公所 site on the Laravel CMS 南投's towns share (鹿谷's www.lugu.gov.tw): the 代表會's 會議資訊 list, ten rows a page
 // (?page=2), each row opening its post (representative/detail/<id>/<title>) by a click: { posts: [{ n, url, d }] }.

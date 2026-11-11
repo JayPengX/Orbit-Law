@@ -349,3 +349,10 @@ test("town ccms: a page in tabs, a session a tab (公館's 錄音檔), and 第21
   const agenda = ccmsPage(file('第21-6臨時會議事日程表', 'https://webws.miaoli.gov.tw/001/c.pdf'), 'https://www.kungkuan.gov.tw/cp.aspx?n=5687');
   assert.equal(sessionOf(agenda.files[0].n, 22)?.key, '第21屆第6次臨時會');
 });
+
+test("town files: 草屯's single-quoted links, its recordings named under the session's heading", async () => {
+  const { linkFiles, pageMore } = await import('../public/lib/town-chcg.mjs');
+  const html = `<h3>第22屆第七次定期會錄音檔</h3><p><a href='/mediafile/1040/news/148/2026-10/REC_001.MP3' target='_blank'>1<img src='/images/MP3.png'></a></p><p><a href='/mediafile/1040/news/142/2026-3/第22屆第1次定期會記錄.pdf'>第22屆第1次定期會記錄<img/></a></p>`;
+  assert.deepEqual(linkFiles(html, 'https://www.tsaotun.gov.tw/list/x').map(f => f.n), ['第22屆第七次定期會錄音檔 1', '第22屆第1次定期會記錄']);
+  assert.deepEqual(pageMore(`<a href='/list/epresentative07-5?model=view&view=14597'>x</a><a href="/list/about01">y</a>`, 'https://www.tsaotun.gov.tw/list/epresentative07-5', 'epresentative07-[245]\\?model=view&(amp;)?view=\\d+'), ['https://www.tsaotun.gov.tw/list/epresentative07-5?model=view&view=14597']);
+});

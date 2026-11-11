@@ -126,6 +126,8 @@ export const TOWN_SITES = {
     ends: '2026-12-25',
     chcg: { ccms: ['https://jiaosi.e-land.gov.tw/cp.aspx?n=12800', 'https://jiaosi.e-land.gov.tw/cp.aspx?n=14230', 'https://jiaosi.e-land.gov.tw/News.aspx?n=14231&sms=13265', 'https://jiaosi.e-land.gov.tw/cp.aspx?n=12801'] }
   },
+  // 宜蘭縣蘇澳鎮: its 議事錄 on the 公所's site, a post a session (CCMS News.aspx).
+  10002030: { n: '蘇澳鎮民代表會', home: 'https://www.suao.gov.tw/News.aspx?n=14773&sms=15166', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.suao.gov.tw/News.aspx?n=14773&sms=15166'] } },
   // 宜蘭縣壯圍鄉: its own site ("boxlists", `box`): 議事日程, 會議記錄, 議事錄下載 (with its sittings' recordings).
   10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } }
 };

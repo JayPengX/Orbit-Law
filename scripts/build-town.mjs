@@ -442,12 +442,18 @@ async function chcgTown(tc, site) {
       }
     };
     for (const url of c.ccms || []) {
-      const html = await page(url, true);
-      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(html, url));
+      if (!/News\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url));
+      // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
-        for (const post of ccmsNews(html, url).slice(0, 40)) {
-          const x = at(post.n);
-          if (x && !late()) ccms(post.url, ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
+        for (let pg = 1, posts = 0; pg <= 4; pg++) {
+          let mine = 0;
+          for (const post of ccmsNews(await page(pg > 1 ? `${url}&page=${pg}&PageSize=20` : url, true), url)) {
+            const x = at(post.n);
+            if (!x || posts++ >= 50 || late()) continue;
+            mine++;
+            ccms(post.url, ccmsPage(await page(post.url, true), post.url), { ...x, n: post.n });
+          }
+          if (!mine) break;
         }
     }
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this

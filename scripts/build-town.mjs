@@ -55,7 +55,16 @@ async function page(url, fresh = false) {
       if (!r.ok || !b.html) throw new Error(`${r.status} ${b.error || ''}`.trim());
       return b.html;
     } catch (e) {
-      if (tries >= 1) throw new Error(`${url}: ${e.message}`);
+      if (tries >= 1) {
+        // (A site the door can't read twice, read once from the build itself: most 公所 sites answer anyone.)
+        if (!DIRECT.test(url))
+          try {
+            const r = await direct(url);
+            const html = r.ok ? await r.text() : '';
+            if (html) return html;
+          } catch {}
+        throw new Error(`${url}: ${e.message}`);
+      }
       await sleep(3000);
     }
   }
@@ -812,7 +821,10 @@ async function chcgTown(tc, site) {
     }
   } catch (e) {
     notes.push(`pages: ${e.message}`);
-    if (!by.size) return old;
+    if (!by.size) {
+      console.log(`town ${tc}: ${notes.slice(-3).join(' · ')}`);
+      return old;
+    }
   }
   // Each session's days, read once from its 議事日程表 or 議事錄.
   let pdfs = 40;

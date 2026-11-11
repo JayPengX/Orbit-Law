@@ -231,7 +231,7 @@ Live: https://orbit.jaypengx.com/law/
   two folders once, a year more than two before the newest in its folder left out (the term before's).
   嘉義縣's 梅山: one Drive folder, a folder a session with every kind (a recording by its name, 錄音檔; desktop.ini
   left out); 大埔, 布袋 (定期會-第22屆第01次 folders), 民雄 (22屆1次臨時會 names) and 六腳 the same. 竹崎, 阿里山,
-  新港, 義竹, 鹿草 on their 公所's CCMS (`ccms`, through the door). 南投's 草屯 on its 公所's own CMS (`files` with
+  新港, 義竹, 鹿草 on their 公所's CCMS (`ccms`, through the door); 朴子市 (term 9) its tabbed cp page. 南投's 草屯 on its 公所's own CMS (`files` with
   `more`: its lists' posts, `reads` 20 pages; `linkFiles` takes single-quoted links and names a recording under its
   session's heading, 錄音檔1). 臺東's 池上 on the 代表會's own site (`csc`: /calendar, /notes, /sound ?period=22,
   `cscList` rows by session, `cscPost` its Drive file, `cscDay` a sitting's 10/12 in the session's year).

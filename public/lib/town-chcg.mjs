@@ -413,8 +413,8 @@ export function ccmsPage(html, base) {
     // (A block titled by its paper: that paper, in one format or more, its PDF; 相關檔案: each file by its own name.)
     const one = hd && !/^(相關檔案|附件)/.test(hd);
     for (const [t, urls] of one && got.size ? [[hd, [...got.values()].flat()]] : got) {
-      // (公館's 第21-6臨時會議事日程表: the term, then the session.)
-      const n = (t || hd).replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`).replace(/第(\d{2})\s*-\s*(\d{1,2})次?(?=定期|臨時)/, '第$1屆第$2次');
+      // (公館's 第21-6臨時會議事日程表: the term, then the session; 朴子's 第9屆12次臨時會.)
+      const n = (t || hd).replace(/^(\d{2})(\d{2})(?=(定期|臨時)會)/, (_, t, n) => `第${t}屆第${+n}次`).replace(/第(\d{2})\s*-\s*(\d{1,2})次?(?=定期|臨時)/, '第$1屆第$2次').replace(/第(\d{1,2})屆(\d{1,2})次/, '第$1屆第$2次');
       const url = urls.find(u => /\.pdf$/i.test(u)) || urls[0];
       if (n && url) files.push({ n, url });
     }

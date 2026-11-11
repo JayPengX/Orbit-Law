@@ -130,6 +130,8 @@ export const TOWN_SITES = {
   // 南投縣草屯鎮: the 代表會's 議事錄, 議事紀錄 and 議事錄音 lists on its 公所's site, a post each (`files`, `more`).
   10008030: { n: '草屯鎮民代表會', home: 'https://www.tsaotun.gov.tw/list/epresentative01', term: 22, ends: '2026-12-25', chcg: { files: ['https://www.tsaotun.gov.tw/list/epresentative07-2', 'https://www.tsaotun.gov.tw/list/epresentative07-4', 'https://www.tsaotun.gov.tw/list/epresentative07-5'], more: 'epresentative07-[245]\\?model=view&(amp;)?view=\\d+', reads: 20 } },
   10008080: { n: '中寮鄉民代表會', home: 'https://drive.google.com/drive/folders/19OSUnadZd10nQftJuhCVbTEKe-Ww11H_', term: 22, ends: '2026-12-25', chcg: { drive: { '13sJWQ6RShIgB3OrT4KvvO0d5jAx9uZaN': '議事日程表', '151pWSSZjaRkJBuo41r6OLFWfO20fbIQY': '會議紀錄', '1Bof6SzTPnb0OPHgM74pcQscJF8bEtKef': '會議紀錄', '13OluT6EbOdfJYlfeMrEoOAI853VnRtcF': '錄音' } } },
+  // 嘉義縣朴子市 (its 9th term): the 代表會's page on the city's CCMS, in tabs (議事日程, 議事紀錄, 議事錄影).
+  10010020: { n: '朴子市民代表會', home: 'https://puzi.cyhg.gov.tw/cp.aspx?n=9520', term: 9, ends: '2026-12-25', chcg: { ccms: ['https://puzi.cyhg.gov.tw/cp.aspx?n=9520'] } },
   // 嘉義縣's other 代表會 on their 公所's CCMS (<town>.cyhg.gov.tw, read through the door): 竹崎 a post a session,
   // 阿里山 a post a paper or recording, 新港, 義竹 and 鹿草 their 議事公開 lists.
   10010140: { n: '竹崎鄉民代表會', home: 'https://chuchi.cyhg.gov.tw/cp.aspx?n=1645', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://chuchi.cyhg.gov.tw/News.aspx?n=10285&sms=21208'] } },

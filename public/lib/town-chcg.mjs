@@ -18,6 +18,7 @@
 //          article's attachments and Drive files (`joomlaList`, `joomlaArticle`).
 //   ccms:  pages on e-land's CCMS (宜蘭's 頭城): file blocks titled by paper and recordings under a line naming the
 //          session (`ccmsPage`); a recording dated in another session's days goes to that one.
+//   files: a 代表會's own plain pages (羅東's record.html), every file linked named by its session (`pageFiles`).
 //   box:   a 代表會's own "boxlists" site (宜蘭's 壯圍): a list a kind (`boxList`), each line a file or a page of
 //          files (`boxFiles`: the 議事錄 and its sittings' recordings named by day, `westDay`).
 // The build (scripts/build-town.mjs chcgTown) writes council/town/<tc>.json in the same shape as the twgov sites'.
@@ -124,7 +125,8 @@ export const driveId = url => (String(url).match(/drive\.google\.com\/file\/d\/(
 // days written 115.8.12.
 // A session's days as its paper's name gives them: 第22屆第1次定期會議事日程表(112.5.15-5.26).
 export function nameSpan(name) {
-  const m = String(name || '').match(/(?<![\d.])(1\d{2})\.(\d{1,2})\.(\d{1,2})\s*[-~～－]\s*(?:(1\d{2})\.)?(\d{1,2})\.(\d{1,2})(?![\d.])/);
+  // (Or without dots, 羅東's 議事錄1150413-0415.)
+  const m = String(name || '').match(/(?<![\d.])(1\d{2})\.(\d{1,2})\.(\d{1,2})\s*[-~～－]\s*(?:(1\d{2})\.)?(\d{1,2})\.(\d{1,2})(?![\d.])/) || String(name || '').match(/(?<!\d)(1\d{2})(\d{2})(\d{2})\s*[-~～－]\s*(1\d{2})?(\d{2})(\d{2})(?!\d)/);
   if (!m || +m[2] > 12 || +m[5] > 12) return null;
   const from = roc(m[1], m[2], m[3]);
   // (Its last day's year when it says one that fits, else the first's, or the next past December.)
@@ -398,3 +400,22 @@ export const westDay = name => {
   const m = String(name).match(/^(20\d{2})(\d{2})(\d{2})(?:\d{6})?(?!\d)(.*)$/);
   return m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31 ? `${+m[1] - 1911}${m[2]}${m[3]}${m[4]}` : '';
 };
+
+// A plain site's page of files (羅東's own record.html): every link to a paper or a recording ({ n, url }), named by
+// its text when that names a session, else by its file (羅東鎮民代表會第22屆第1次定期會議事錄.pdf).
+export function pageFiles(html, base) {
+  const out = [];
+  for (const [, href, name] of String(html).matchAll(/<a [^>]*href="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    let url;
+    try {
+      url = new URL(href.replace(/&amp;/g, '&'), base).href;
+    } catch {
+      continue;
+    }
+    if (!/\.(pdf|docx?|odt|mp3|m4a|wav)$/i.test(url.split(/[?#]/)[0]) && !/drive\.google\.com\/file\/d\//.test(url)) continue;
+    const t = text(name);
+    const n = sessionOf(t) ? t : fileName(url) || t;
+    if (n && !out.some(o => o.url === url)) out.push({ n, url });
+  }
+  return out;
+}

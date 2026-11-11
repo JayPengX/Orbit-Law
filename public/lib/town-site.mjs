@@ -136,6 +136,8 @@ export const TOWN_SITES = {
     ends: '2026-12-25',
     chcg: { ccms: ['https://www.yuanshan.gov.tw/cp.aspx?n=15082', { url: 'https://www.yuanshan.gov.tw/cp.aspx?n=15127', kind: '定期會' }, { url: 'https://www.yuanshan.gov.tw/cp.aspx?n=15128', kind: '臨時會' }] }
   },
+  // 宜蘭縣羅東鎮: its own plain site (`files`): every 議事錄 on one page.
+  10002020: { n: '羅東鎮民代表會', home: 'https://lotong200.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { files: ['https://lotong200.e-land.gov.tw/record.html'] } },
   // 宜蘭縣壯圍鄉: its own site ("boxlists", `box`): 議事日程, 會議記錄, 議事錄下載 (with its sittings' recordings).
   10002060: { n: '壯圍鄉民代表會', home: 'https://juanwei.e-land.gov.tw/', term: 22, ends: '2026-12-25', chcg: { box: { base: 'https://juanwei.e-land.gov.tw/', menus: { 13: '議事日程表', 14: '會議紀錄', 15: '會議紀錄' } } } }
 };

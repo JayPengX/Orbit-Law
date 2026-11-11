@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsNews, boxList, boxFiles, westDay, pageFiles } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -29,7 +29,7 @@ const ENDS = Date.now() + Number(process.env.TOWN_MINUTES || 14) * 60e3;
 const late = () => Date.now() > ENDS;
 // A page through the door. Lists carry the day (the door keeps a page a day: a list read today is today's).
 async function page(url, fresh = false) {
-  const u = fresh ? `${url}&ob=${day.replace(/-/g, '')}` : url;
+  const u = fresh ? `${url}${url.includes('?') ? '&' : '?'}ob=${day.replace(/-/g, '')}` : url;
   for (let tries = 0; ; tries++) {
     await sleep(process.env.FAST ? 0 : 500);
     reads++;
@@ -471,6 +471,12 @@ async function chcgTown(tc, site) {
           if (!mine) break;
         }
     }
+    // A 代表會's own plain pages (羅東's): each file linked, named by its session.
+    for (const url of c.files || [])
+      for (const f of pageFiles(await page(url, true), url)) {
+        const x = at(f.n);
+        if (x) put(x.s, x.ext, /\.(mp3|m4a|wav)$/i.test(f.url) || /錄音|音檔/.test(f.n) ? '錄音' : paperKind(f.n), f.n, f.url);
+      }
     // A 代表會's own "boxlists" site (壯圍's): each list a kind, ten a line, read until a page holds none of this
     // term; a line is the file, or a page of files (the 議事錄 and its sittings' recordings). (A 預定 agenda only when
     // its session has no other.)

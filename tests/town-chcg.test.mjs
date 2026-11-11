@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, ccmsPage, ccmsFile, ccmsNews, boxList, boxFiles, westDay, pageFiles } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -168,4 +168,11 @@ test('town chcg: CCMS pages that nest their papers (礁溪, 員山), a session�
   ]);
   assert.deepEqual(p.audio.map(a => [sessionOf(a.head, 22)?.key, a.url]), [['第22屆第8次定期會', 'https://drive.google.com/file/d/1U_B/view?usp=sharing']]);
   assert.deepEqual(ccmsNews('<a href="News_Content.aspx?n=14231&amp;s=408742" title="第22屆第19次臨時會會議紀錄">第22屆…</a>', 'https://jiaosi.e-land.gov.tw/News.aspx?n=14231'), [{ n: '第22屆第19次臨時會會議紀錄', url: 'https://jiaosi.e-land.gov.tw/News_Content.aspx?n=14231&s=408742' }]);
+});
+
+test('town chcg: a plain page of files (羅東), its names’ days without dots', () => {
+  const html = `<a href="records/no22/temp/%E7%BE%85%E6%9D%B1%E9%8E%AE%E6%B0%91%E4%BB%A3%E8%A1%A8%E6%9C%83%E7%AC%AC22%E5%B1%86%E7%AC%AC17%E6%AC%A1%E8%87%A8%E6%99%82%E6%9C%83%E8%AD%B0%E4%BA%8B%E9%8C%84.pdf"><img src="x.png"/></a><a href="records/a.pdf">第二十二屆第十八次臨時會議事錄1150629-0701</a><a href="record22.html">第22屆</a>`;
+  const f = pageFiles(html, 'https://lotong200.e-land.gov.tw/record.html');
+  assert.deepEqual(f.map(x => sessionOf(x.n, 22)?.key), ['第22屆第17次臨時會', '第22屆第18次臨時會']);
+  assert.deepEqual(nameSpan(f[1].n), { from: '2026-06-29', to: '2026-07-01' });
 });

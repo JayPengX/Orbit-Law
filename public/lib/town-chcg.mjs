@@ -414,10 +414,20 @@ export function ccmsPage(html, base) {
       const n = pthgName(westDay(text(name)) || text(name)).replace(/\.(pdf|docx?|odt|ods|mp3)$/i, '');
       const urls = [...links.matchAll(/<a [^>]*href="([^"]+)"/g)].map(m => ccmsFile(m[1], base)).filter(Boolean);
       const sound = urls.find(u => /\.(mp3|m4a|wav|mp4)$/i.test(u) || driveId(u) || ytId(u));
-      if (sound && (/錄音|音檔|影音/.test(n) || /\.(mp3|m4a|wav|mp4)$/i.test(sound))) audio.push({ head: '', n, url: sound });
+      if (sound && (/錄音|音檔|影音/.test(n) || /\.(mp3|m4a|wav|mp4)$/i.test(sound) || ytId(sound))) audio.push({ head: '', n, url: sound });
       else if (urls.length && !/drive\.google\.com\/drive|youtu/.test(urls[0])) files.push({ n, url: urls.find(u => /\.pdf$/i.test(u)) || urls[0] });
     }
   return { files, audio };
+}
+// A CCMS page whose links are a page each, named by its session (高樹's Content_List: 第22屆第8次定期會): { n, url }.
+export function ccmsTree(html, base) {
+  const out = [];
+  for (const [, href, name] of String(html).matchAll(/<a [^>]*?href="((?:Content_List|cp)\.aspx\?n=\w+)"[^>]*>([^<]*)<\/a>/g)) {
+    const url = new URL(href, base).href;
+    const n = text(name);
+    if (/屆|定期|臨時/.test(n) && !out.some(o => o.url === url)) out.push({ n, url });
+  }
+  return out;
 }
 // 屏東's short names for a session, 22-8定期會 (第22屆第8次), 22-9.10臨時會 (第9、10次): written out.
 export const pthgName = n => String(n).replace(/^\s*(\d{2})\s*-\s*(\d{1,2}(?:[.、]\d{1,2})*)\s*(?=(定期|臨時))/, (_, t, nos) => `第${t}屆第${nos.replace(/\./g, '、')}次`);

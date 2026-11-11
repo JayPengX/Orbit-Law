@@ -1,7 +1,7 @@
 // 彰化's 代表會 on the county's platform (public/lib/town-chcg.mjs): 和美, 福興, 伸港's pages as they draw them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsFile, ccmsNews, pthgName, driveEntries, driveFolderId, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { sessionOf, paperKind, chcgLinks, chcgMenu, chcgMembers, dayIn, driveId, pdfSpan, yearOf, chcgUrl, tsoPage, tsoUrl, folderOf, nameSpan, formUrl, formList, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, ccmsPage, ccmsFile, ccmsNews, ccmsTree, pthgName, driveEntries, driveFolderId, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 import { TOWN_SITES } from '../public/lib/town-site.mjs';
 
 test('town chcg: a session from however a link names it', () => {
@@ -299,4 +299,12 @@ test("town drive: a Drive folder's entries as Drive shows it embedded, folders a
   ]);
   assert.equal(driveFolderId('https://drive.google.com/open?id=1YGBURDkKrsc_GwZUxUiTff3iEFa2Qs0i'), '1YGBURDkKrsc_GwZUxUiTff3iEFa2Qs0i');
   assert.equal(dayIn(westDay('20201028')), '2020-10-28');
+});
+
+test("town ccmsTree: 高樹's pages a session, each sitting's video on YouTube by its day", () => {
+  const tree = ccmsTree('<li><span><a target="_self" rel="" href="Content_List.aspx?n=2C19605E895A9C76" title="第22屆第8次定期會">第22屆第8次定期會</a></span></li><a href="Content_List.aspx?n=42795C818348CF9A">本鄉簡介</a>', 'https://www.pthg.gov.tw/towngto/Content_List.aspx?n=48BD604FB3730F2C');
+  assert.deepEqual(tree, [{ n: '第22屆第8次定期會', url: 'https://www.pthg.gov.tw/towngto/Content_List.aspx?n=2C19605E895A9C76' }]);
+  const p = ccmsPage('<div class="news_box03_data"><ol><li><span>屏東縣高樹鄉民代表會第22屆第8次定期會115.10.28</span><ul><li><a title="屏東縣高樹鄉民代表會第22屆第8次定期會115.10.28" target="_blank" href="https://www.youtube.com/watch?v=psD8pMogIn0"><img src="images/Icons/link.gif" /></a></li></ul></li></ol></div>', 'https://www.pthg.gov.tw/towngto/Content_List.aspx');
+  assert.deepEqual(p.audio, [{ head: '', n: '屏東縣高樹鄉民代表會第22屆第8次定期會115.10.28', url: 'https://www.youtube.com/watch?v=psD8pMogIn0' }]);
+  assert.equal(dayIn(p.audio[0].n), '2026-10-28');
 });

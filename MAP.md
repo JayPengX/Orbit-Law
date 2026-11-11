@@ -190,12 +190,14 @@ Live: https://orbit.jaypengx.com/law/
   files by label, the PDF of its formats, and its sittings' own MP4s (`penghuPost`; named 10.06-1, `penghuDay`): a
   day `{ d, n, src, pic }` the app plays as a video (`townVideo`, `.lw-video-file`). Files named in the query
   (file=….ods&flag=doc) are read as their kind; .ods like .odt.
-  屏東's (`pthg` in town-site.mjs; 潮州, 東港, 恆春, 萬丹, 長治, 九如, 鹽埔, 萬巒, 竹田, 新埤, 枋寮, 南州, 崁頂, 琉球, 車城, 三地門, 霧臺, 泰武, 來義, 春日,
+  屏東's (`pthg` in town-site.mjs; 潮州, 東港, 恆春, 萬丹, 長治, 九如, 鹽埔, 萬巒, 竹田, 新埤, 高樹, 枋寮, 南州, 崁頂, 琉球, 車城, 三地門, 霧臺, 泰武, 來義, 春日,
   牡丹; 內埔 on its own www.neipu.gov.tw): each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS): lists of posts (News.aspx, News9.aspx,
   `ccmsNews` by the line's text), or of the files themselves (News4.aspx, through HitCount.ashx, named 22-8定期會…:
   `pthgName` writes the session out, the file's ending kept on the address as `#.pdf`/`#.mp3` for what reads by it);
   a post's 相關檔案/相關連結 lines (`news_box03_data` in `ccmsPage`), a recording named by its day, 20260909錄音檔
   (`westDay`), on Drive. A post that can't be read is noted and passed; a list's later page that can't, ends it.
+  高樹's lists are a page a session (`tree`: `ccmsTree`, each page read for its session, its sittings' videos on
+  YouTube by day, 115.10.28); a session long over keeps its kind from before (`kept`), its page not read again.
   里港, 新園, 林邊 (and 恆春's recordings and minutes) keep theirs in Google Drive folders (`drive`: a folder id a
   kind): read from Drive itself as it shows a folder embedded (`driveEntries`, embeddedfolderview), a folder a
   session (or the session in each file's name), another term's never opened, a session long over kept from before;

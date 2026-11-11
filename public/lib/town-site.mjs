@@ -183,6 +183,18 @@ export const TOWN_SITES = {
   10013060: pthg('長治鄉民代表會', 'TownCgt', 'Content_List.aspx?n=8828DA518CB9BFB6', ['News.aspx?n=4CCADEECFDAC9FC5&sms=6686DC0E36079892', 'News.aspx?n=D724C4D44EB03CF2&sms=3C1F79E16CBC03BB', 'News.aspx?n=7BFAC30E7552C8A0&sms=3B9213EA1EBD2082', 'News.aspx?n=C6A575245A3C0BFB&sms=C810C4B52132AA86']),
   10013080: pthg('九如鄉民代表會', 'townjrt', '', ['News4.aspx?n=F4792B1C105B5191&sms=2AB978601B0F61DD', 'News4.aspx?n=FB04D9A78A3C739D&sms=9D5E61992BB25CB6', 'News4.aspx?n=919502A395B67BD0&sms=FFD817132E8F6E86', 'News4.aspx?n=1567CED5D1624614&sms=A5AE589FCBB93C8A']),
   10013100: pthg('鹽埔鄉民代表會', 'townyto', 'Content_List.aspx?n=EA60C5A2A7C878EB', ['News.aspx?n=FF9E5B2B0CD52C88&sms=52997E49D0423677', 'News.aspx?n=1CDED89AFEAB5662&sms=AA293155FC682C35', 'News.aspx?n=8E2C79DD23F3259B&sms=66FB242F0BCD1ED5', 'News.aspx?n=F347290E7ADD0B35&sms=F4D37FADDF9AA0CE']),
+  // (高樹's lists a page a session, `tree`.)
+  10013110: {
+    ...pthg('高樹鄉民代表會', 'towngto', 'Content_List.aspx?n=676E4F46FF4E28A3', []),
+    chcg: {
+      ccms: [
+        ['AF3772AECB4BB6EF', '議事日程表'],
+        ['30D2791FE1D783FB', '會議紀錄'],
+        ['53B60E340F199962', '會議紀錄'],
+        ['48BD604FB3730F2C', '錄音']
+      ].map(([n, kind]) => ({ url: `https://www.pthg.gov.tw/towngto/Content_List.aspx?n=${n}`, kind, tree: true }))
+    }
+  },
   10013120: pthg('萬巒鄉民代表會', 'townwlt', 'Content_List.aspx?n=D9DFE2863442AA76', ['News4.aspx?n=551C8DD2D964BFCB&sms=71EE79FCECB60957', 'News4.aspx?n=DFB1DBE7F843A07C&sms=A4955D72353BA43A', 'News4.aspx?n=6B6248F2DAFDE5D2&sms=D6848D760540FAB5', 'News4.aspx?n=72168AA13C1702C3&sms=507BFDE5988D5E73']),
   10013130: {
     n: '內埔鄉民代表會',

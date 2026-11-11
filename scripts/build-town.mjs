@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -388,6 +388,22 @@ async function chcgTown(tc, site) {
     const named = k !== '會議紀錄' ? nm : /^(議事錄)?$/.test(nm) ? '議事錄' : /^(會議)?[紀記]錄$/.test(nm) ? '會議紀錄' : nm;
     s.items.push({ k, n: named || n, files: [{ url }], ...(sp ? { on: sp.from } : {}) });
   };
+  // A session's papers of one kind as the last build had them, when the session is long over (two months): kept,
+  // its page or folder not read again (里港's Drive folders, 高樹's pages).
+  const kept = (x, kind) => {
+    const was = before.get(x.s.key);
+    if (!(was?.to && was.to < addDays(day, -60))) return false;
+    const same = (list, y, key) => list.some(z => key(z) === key(y));
+    if (kind === '錄音') {
+      for (const d of was.days || []) same(x.s.days, d, z => z.drive || z.src || z.yt) || x.s.days.push(d);
+      return !!was.days?.length;
+    }
+    const mine = (was.items || []).filter(i => (kind === '會議紀錄') === (i.k === '會議紀錄'));
+    if (!(kind === '議事日程表' ? was.agenda?.length : mine.length)) return false;
+    if (kind === '議事日程表') for (const a of was.agenda) same(x.s.agenda, a, z => z.url) || x.s.agenda.push(a);
+    for (const i of mine) same(x.s.items, i, z => z.files[0].url) || x.s.items.push(i);
+    return true;
+  };
   try {
     // Lists: each link a paper of the list's kind (or, a list of papers, its own name's).
     for (const [id, kind] of Object.entries(c.lists || {})) {
@@ -464,8 +480,20 @@ async function chcgTown(tc, site) {
       }
     };
     for (const it of c.ccms || []) {
-      const { url, kind } = typeof it === 'string' ? { url: it } : it;
-      if (!/News\d?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
+      const { url, kind, tree } = typeof it === 'string' ? { url: it } : it;
+      // (A page whose links are a page a session, 高樹's Content_List: each read, its session from the link.)
+      if (tree) {
+        let n = 0;
+        for (const l of ccmsTree(await page(url, true), url)) {
+          const x = at(l.n);
+          if (!x || kept(x, kind) || n++ >= 30 || late()) continue;
+          try {
+            ccms(l.url, ccmsPage(await page(l.url, true), l.url), { ...x, n: l.n });
+          } catch (e) {
+            notes.push(e.message);
+          }
+        }
+      } else if (!/News\d?\.aspx/.test(url)) ccms(url, ccmsPage(await page(url, true), url), null, kind);
       // (Twenty a page, 蘇澳's: the next page while one holds this term's.)
       else
         for (let pg = 1, posts = 0, seen = new Set(); pg <= 4; pg++) {
@@ -528,20 +556,7 @@ async function chcgTown(tc, site) {
             const x = (s && at(e.n)) || x0;
             if (e.folder) {
               // (A session's folder long over, its kind kept from before: not opened again.)
-              const was = x && x !== x0 && before.get(x.s.key);
-              if (was?.to && was.to < addDays(day, -60)) {
-                const same = (list, y, key) => list.some(z => key(z) === key(y));
-                if (kind === '錄音' && was.days?.length) {
-                  for (const d of was.days) same(x.s.days, d, z => z.drive || z.src || z.yt) || x.s.days.push(d);
-                  continue;
-                }
-                const mine = (was.items || []).filter(i => (kind === '會議紀錄') === (i.k === '會議紀錄'));
-                if (kind === '議事日程表' ? was.agenda?.length : mine.length) {
-                  if (kind === '議事日程表') for (const a of was.agenda) same(x.s.agenda, a, z => z.url) || x.s.agenda.push(a);
-                  for (const i of mine) same(x.s.items, i, z => z.files[0].url) || x.s.items.push(i);
-                  continue;
-                }
-              }
+              if (x && x !== x0 && kept(x, kind)) continue;
               if (depth < 3) await walk(e.folder, x, depth + 1);
               continue;
             }

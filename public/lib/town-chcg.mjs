@@ -695,3 +695,20 @@ export function hlcFiles(html) {
   }
   return out;
 }
+
+// 南投市's (`ntrc`): its site's lists come as JSON, asked for by kind (議事日程表, 議事記錄, 議事錄, 錄音); each row
+// a session's file, its session told by its fields (a title's number is sometimes a session's before). A recording
+// named by what the sitting did, and its day when its file's name holds one (第12屆第7次定期會1150506市政質詢.mp3).
+export const NTRC_KINDS = { agenda: '議事日程表', meeting_minutes: '會議紀錄', meeting_document: '會議紀錄', meeting_recordings: '錄音' };
+export function ntrcRows(rows, base) {
+  return (Array.isArray(rows) ? rows : []).flatMap(r => {
+    const k = NTRC_KINDS[r?.agenda_type];
+    if (!k || !r.agenda_document || !/^\d+$/.test(r.session_num) || !/^\d+$/.test(r.agenda_count)) return [];
+    const s = `第${r.session_num}屆第${r.agenda_count}次${r.regular === 'temporary' ? '臨時會' : '定期會'}`;
+    const url = new URL(String(r.agenda_document).split('/').map(encodeURIComponent).join('/'), base).href;
+    const what = String(r.agenda_title || '').replace(/^.*?(定期|臨時)大?會/, '').replace(/^[-－_\s]+/, '').trim();
+    if (k !== '錄音') return [{ s, k, n: `${s}${what || k}`, url }];
+    const d = (String(r.agenda_document).match(/(?<!\d)1\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)/) || [])[0];
+    return [{ s, k, n: [what || '錄音', d].filter(Boolean).join(' '), url }];
+  });
+}

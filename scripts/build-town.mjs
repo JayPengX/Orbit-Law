@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -403,7 +403,7 @@ async function chcgTown(tc, site) {
       else if (!drive && /\.(mp3|m4a|wav|mp4)$/i.test(url)) {
         const part = d && (n.match(/-(\d{1,2})$/) || [])[1];
         // (A recorder's own name, 金沙's REC_002: its number.)
-        s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '').replace(/^REC_0*(\d+)$/i, '$1') }), src: url, ...(pic ? { pic } : {}) });
+        s.days.some(x => x.src === url) || s.days.push({ ...(d ? { d, ...(part ? { n: part } : {}), ...(what && !/^[\d-]+$/.test(what) ? { what } : {}) } : { n: n.replace(/^錄音(分割)?檔\s*/, '').replace(/_\d{4}$/, '').replace(/^REC_0*(\d+)$/i, '$1') }), src: url, ...(pic ? { pic } : {}) });
       }
       else if (drive) s.days.push({ n: n.replace(/^.*?(定期會|臨時會)(延長會)?/, '').replace(/^錄音(檔)?\s*/, '') || n, drive, ext });
       // (A session's recording on a video site, 田尾's on HiNet: opened there.)
@@ -527,6 +527,22 @@ async function chcgTown(tc, site) {
           for (const f of hlcFiles(await page(post.url, true))) put(x.s, x.ext, kind, kind === '錄音' ? f.n : post.n, f.url);
         } catch (e) {
           notes.push(`${post.n}: ${e.message}`);
+        }
+      }
+    // 南投市's (`ntrc`): its lists as JSON, one POST a kind (the door reads only GETs: asked from the build itself).
+    if (c.ntrc)
+      for (const type of Object.keys(NTRC_KINDS)) {
+        let rows = [];
+        try {
+          reads++;
+          const r = await fetch(`${c.ntrc}DB/DB.php`, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ A: 'get_agenda', 'B[type]': type }), signal: AbortSignal.timeout(60_000) });
+          rows = ntrcRows(JSON.parse((await r.text()).trim()), c.ntrc);
+        } catch (e) {
+          notes.push(`${type}: ${e.message}`);
+        }
+        for (const f of rows) {
+          const x = at(f.s);
+          if (x) put(x.s, x.ext, f.k, f.n, f.url);
         }
       }
     // A 公所 site on Joomla (東河's): its lists' articles named by session, ten a page, each read for its files.

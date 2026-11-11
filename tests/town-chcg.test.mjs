@@ -375,3 +375,23 @@ test("town hlc: 花蓮市's newest posts and a post's files", async () => {
   assert.equal(sessionOf(list[0].n, 22)?.key, '第22屆第19次臨時會');
   assert.deepEqual(hlcFiles('<li class="file-item" ><p class="title" >19臨會錄音</p><div class="links" ><a class="link" href="https://www.hualien.gov.tw/storage/files/ls.mp3" target="_blank"></a></div></li>'), [{ n: '19臨會錄音', url: 'https://www.hualien.gov.tw/storage/files/ls.mp3' }]);
 });
+
+test("town ntrc: 南投市's JSON rows, a session by its fields and a recording's day from its file", async () => {
+  const { ntrcRows } = await import('../public/lib/town-chcg.mjs');
+  const base = 'https://www.ntrc.tw/NTCT_ntrc/';
+  const rows = ntrcRows([
+    { agenda_count: '8', regular: 'regularly', session_num: '12', agenda_title: '第12屆第8次定期大會議事日程表', agenda_document: 'media/agenda/第12屆第8次定期會議事日程表.pdf', agenda_type: 'agenda' },
+    { agenda_count: '15', regular: 'temporary', session_num: '12', agenda_title: '第12屆第15次臨時會議事錄', agenda_document: 'media/agenda/第12 屆第15 次臨時大會議事錄.pdf', agenda_type: 'meeting_document' },
+    { agenda_count: '6', regular: 'regularly', session_num: '12', agenda_title: '第12屆第5次定期會-市政質詢(三)', agenda_document: 'media/agenda/第12屆第6次定期會1121市政質詢及答覆.MP3', agenda_type: 'meeting_recordings' },
+    { agenda_count: '7', regular: 'regularly', session_num: '12', agenda_title: '第12屆第7次定期會-市政質詢(一)', agenda_document: 'media/agenda/第12屆第7次定期會1150506市政質詢.mp3', agenda_type: 'meeting_recordings' },
+    { agenda_count: '7', regular: 'regularly', session_num: '12', agenda_title: 'x', agenda_document: '', agenda_type: 'meeting_recordings' },
+  ], base);
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows[0], { s: '第12屆第8次定期會', k: '議事日程表', n: '第12屆第8次定期會議事日程表', url: `${base}media/agenda/${encodeURIComponent('第12屆第8次定期會議事日程表.pdf')}` });
+  assert.equal(rows[1].s, '第12屆第15次臨時會');
+  assert.equal(rows[1].k, '會議紀錄');
+  assert.match(rows[1].url, /%E7%AC%AC12%20/);
+  assert.equal(rows[2].s, '第12屆第6次定期會');
+  assert.equal(rows[2].n, '市政質詢(三)');
+  assert.equal(rows[3].n, '市政質詢(一) 1150506');
+});

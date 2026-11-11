@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf, digest } from '../public/lib/minutes.mjs';
-import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId } from '../public/lib/town-chcg.mjs';
+import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, linkFiles, pageMore, ytId, laraList, laraFiles } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
 const KEY = process.env.LAW_BUILD_KEY || '';
@@ -464,6 +464,27 @@ async function chcgTown(tc, site) {
             put(x.s, x.ext, audio || k === '錄音' ? '錄音' : k, d ? `${+d.slice(0, 4) - 1911}${d.slice(5, 7)}${d.slice(8)}` : audio ? l.n : w.title, l.url);
           }
         }
+      }
+    // A 公所 site on 南投's Laravel CMS (鹿谷's): the 代表會's 會議資訊 posts, ten a page, read until a page holds none of
+    // this term; each post's files by their names (議程表, 決議案, 錄音資料1…).
+    if (c.lara)
+      for (let pg = 1; pg <= 6; pg++) {
+        let mine = 0;
+        for (const p of laraList(await page(`${c.lara}${pg > 1 ? `?page=${pg}` : ''}`, true)).posts) {
+          const x = at(p.n);
+          if (!x || late()) continue;
+          mine++;
+          if (kept(x, '會議紀錄') && kept(x, '錄音') && kept(x, '議事日程表')) continue;
+          try {
+            for (const f of laraFiles(await page(p.url))) {
+              const audio = /\.(mp3|m4a|wav)$/i.test(f.url);
+              put(x.s, x.ext, audio ? '錄音' : /執行情形/.test(f.n) ? '其他' : paperKind(f.n), audio ? `錄音檔${(f.n.match(/(\d+)\s*$/) || [])[1] || f.n}` : f.n, f.url);
+            }
+          } catch (e) {
+            notes.push(`${p.n}: ${e.message}`);
+          }
+        }
+        if (!mine) break;
       }
     // A 公所 site on Joomla (東河's): its lists' articles named by session, ten a page, each read for its files.
     if (c.joomla) {

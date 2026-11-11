@@ -172,6 +172,19 @@ export const TOWN_SITES = {
     ends: '2026-12-25',
     chcg: { ccms: ['https://www.yuanli.gov.tw/News.aspx?n=7527&sms=13770', 'https://www.yuanli.gov.tw/News.aspx?n=7528&sms=13771'] }
   },
+  // 苗栗縣's other 代表會 on their 公所's CCMS sites, as 苑裡's: 卓蘭, 銅鑼, 頭屋 (lists of the files themselves), 南庄,
+  // 西湖, 三灣 (a post a paper), 大湖 (a post a session, its recordings by day), 泰安 (its sittings' videos).
+  10005070: { n: '卓蘭鎮民代表會', home: 'https://www.juolan.gov.tw/cl.aspx?n=3171', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.juolan.gov.tw/News.aspx?n=4462&sms=13067'] } },
+  10005080: { n: '大湖鄉民代表會', home: 'https://www.dahu.gov.tw/News.aspx?n=3225&sms=10566', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.dahu.gov.tw/News.aspx?n=3225&sms=10566'] } },
+  10005100: { n: '銅鑼鄉民代表會', home: 'https://www.tongluo.gov.tw/News.aspx?n=3358&sms=10617', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.tongluo.gov.tw/News.aspx?n=3358&sms=10617'] } },
+  10005110: { n: '南庄鄉民代表會', home: 'https://www.nanchuang.gov.tw/News.aspx?n=5586&sms=13179', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.nanchuang.gov.tw/News.aspx?n=5586&sms=13179'] } },
+  10005120: { n: '頭屋鄉民代表會', home: 'https://www.touwu.gov.tw/cl.aspx?n=3494', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.touwu.gov.tw/News.aspx?n=4498&sms=11454'] } },
+  10005140: { n: '西湖鄉民代表會', home: 'https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.xihu.gov.tw/News.aspx?n=3648&sms=10751'] } },
+  10005160: { n: '三灣鄉民代表會', home: 'https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.sanwan.gov.tw/News.aspx?n=5795&sms=13124'] } },
+  10005180: { n: '泰安鄉民代表會', home: 'https://www.taian.gov.tw/cl.aspx?n=4249', term: 22, ends: '2026-12-25', chcg: { ccms: ['https://www.taian.gov.tw/News.aspx?n=4912&sms=11757'] } },
+  // 南投縣鹿谷鄉: the 代表會's 會議資訊 on the 公所's Laravel site (`lara`), a post a session with its 議程表, 決議案 and
+  // recordings.
+  10008070: { n: '鹿谷鄉民代表會', home: 'https://www.lugu.gov.tw/representative/meetinginfor', term: 22, ends: '2026-12-25', chcg: { lara: 'https://www.lugu.gov.tw/representative/meetinginfor' } },
   // 澎湖縣's 代表會, each a site on the county's platform (`penghu`): its lists by id, 開會日程表, 議事錄 and 開會影音檔
   // (each sitting's MP4, played in the app).
   10016010: { n: '馬公市民代表會', home: 'https://event.penghu.gov.tw/Rmarkun/', term: 12, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rmarkun/', lists: { 25: '議事日程表', 23: '會議紀錄', 24: '錄音' } } } },

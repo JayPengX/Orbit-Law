@@ -404,6 +404,13 @@ export function ccmsPage(html, base) {
     for (const [, href, name] of p.matchAll(/<a [^>]*href="(https:\/\/(?:youtu\.be\/|(?:www\.)?youtube\.com\/(?:watch|live\/))[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) audio.push({ head, n: text(name).replace(/\s+/g, ''), url: href.replace(/&amp;/g, '&') });
     if (!as.length && /錄音/.test(text(p))) head = text(p).replace(/\s+/g, '');
   }
+  // (A sitting's video on YouTube linked under 相關連結, named by its day the Western way: 泰安's 第22屆第04次定期會
+  // 會議影片 20241120, its day as the sites write it, 1131120.)
+  for (const [, href, name] of h.matchAll(/<li[^>]*class="link"[^>]*>\s*<span[^>]*>\s*<a [^>]*href="(https:\/\/(?:youtu\.be\/|(?:www\.)?youtube\.com\/(?:watch|live\/))[^"]+)"[^>]*title="([^"]*)"/g)) {
+    const url = href.replace(/&amp;/g, '&');
+    const n = name.replace(/\[另開新視窗\]/g, '').replace(/(?<!\d)(20\d{2})[.\-]?(\d{2})[.\-]?(\d{2})(?!\d)/, (_, y, m, d) => `${y - 1911}${m}${d}`).replace(/\s+/g, ' ').trim();
+    if (!audio.some(a => a.url === url)) audio.push({ head: n, n: n.replace(/(會議)?影片/, ''), url });
+  }
   // (A session's recordings in a Drive folder, linked under 相關連結: 頭份's 第二屆第八次定期會及延會錄音檔.)
   for (const [, href, name] of h.matchAll(/<a [^>]*href="(https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g))
     if (/錄音|影音/.test(text(name))) audio.push({ head: text(name).replace(/\s+/g, ''), n: text(name), url: href.replace(/&amp;/g, '&') });
@@ -575,3 +582,27 @@ export function linkFiles(html, base) {
 }
 // A plain site's other pages to read with it (羅東's recorder22_1140825-1141217.html), by a pattern of their names.
 export const pageMore = (html, base, re) => [...new Set([...String(html).matchAll(/href="([^"#]+)"/g)].map(m => m[1]).filter(u => new RegExp(re).test(u)).map(u => new URL(u.replace(/&amp;/g, '&'), base).href))];
+
+// A 公所 site on the Laravel CMS 南投's towns share (鹿谷's www.lugu.gov.tw): the 代表會's 會議資訊 list, ten rows a page
+// (?page=2), each row opening its post (representative/detail/<id>/<title>) by a click: { posts: [{ n, url, d }] }.
+const unAmp = s => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'");
+const tdText = s => unAmp(s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+export function laraList(html) {
+  const posts = [];
+  for (const m of String(html).matchAll(/<tr[^>]*location\.href='([^']+\/detail\/\d+[^']*)'[^>]*>([\s\S]*?)<\/tr>/g)) {
+    const n = tdText(m[2].match(/data-label="標題"[^>]*>([\s\S]*?)<\/td>/)?.[1] || '');
+    const d = m[2].match(/datetime="(\d{4}-\d{2}-\d{2})"/)?.[1];
+    if (n) posts.push({ n, url: unAmp(m[1]), ...(d ? { d } : {}) });
+  }
+  return { posts };
+}
+// A post's files (file-download?link=…), each named by its link's title: [{ n, url }].
+export function laraFiles(html) {
+  const out = [];
+  for (const m of String(html).matchAll(/<a[^>]*href="([^"]*file-download\?link=[^"]+)"[^>]*>/g)) {
+    const url = unAmp(m[1]);
+    const n = tdText(m[0].match(/title="([^"]*)"/)?.[1] || '');
+    if (!out.some(f => f.url === url)) out.push({ n, url });
+  }
+  return out;
+}

@@ -308,3 +308,23 @@ test("town ccmsTree: 高樹's pages a session, each sitting's video on YouTube b
   assert.deepEqual(p.audio, [{ head: '', n: '屏東縣高樹鄉民代表會第22屆第8次定期會115.10.28', url: 'https://www.youtube.com/watch?v=psD8pMogIn0' }]);
   assert.equal(dayIn(p.audio[0].n), '2026-10-28');
 });
+
+test("town lara: 南投's Laravel CMS (鹿谷): the 會議資訊 rows and a post's files by their names", async () => {
+  const { laraList, laraFiles } = await import('../public/lib/town-chcg.mjs');
+  const list = `<tbody><tr class="row-link" onclick="location.href='https://www.lugu.gov.tw/representative/detail/7205/%E7%AC%AC22'" tabindex="0">
+    <td data-label="分類">會議資訊</td><td data-label="標題">第22屆第7次定期大會會議資料</td><td data-label="發布單位">代表會</td>
+    <td data-label="發布日期"><time datetime="2026-10-13">2026-10-13</time></td></tr></tbody>`;
+  assert.deepEqual(laraList(list).posts, [{ n: '第22屆第7次定期大會會議資料', url: 'https://www.lugu.gov.tw/representative/detail/7205/%E7%AC%AC22', d: '2026-10-13' }]);
+  const post = `<a href="https://www.lugu.gov.tw/file-download?link=file-download%2Fa.pdf" target="_blank" title="第22屆第7次定期大會議程表">
+    <a href="https://www.lugu.gov.tw/file-download?link=file-download%2Fb.mp3" target="_blank" title="第22屆第7次定期大會-錄音資料1">`;
+  assert.deepEqual(laraFiles(post).map(f => f.n), ['第22屆第7次定期大會議程表', '第22屆第7次定期大會-錄音資料1']);
+});
+
+test("town ccms: a sitting's video under 相關連結 named by its Western day (泰安's)", async () => {
+  const { ccmsPage, dayIn } = await import('../public/lib/town-chcg.mjs');
+  const html = `<ul data-index="1"><li   data-index="1"  class="link"  >		<span  ><a   href="https://youtu.be/_g_MniWOnYU"   title="[另開新視窗]苗栗縣泰安鄉民代表會第22屆第04次定期會會議影片  2024.11.20 002"   target="_blank"  >x</a></span></li></ul>`;
+  const [a] = ccmsPage(html, 'https://www.taian.gov.tw/x').audio;
+  assert.equal(a.url, 'https://youtu.be/_g_MniWOnYU');
+  assert.match(a.head, /第22屆第04次定期會/);
+  assert.equal(dayIn(a.n), '2024-11-20');
+});

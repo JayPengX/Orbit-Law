@@ -202,6 +202,11 @@ Live: https://orbit.jaypengx.com/law/
   kind): read from Drive itself as it shows a folder embedded (`driveEntries`, embeddedfolderview), a folder a
   session (or the session in each file's name), another term's never opened, a session long over kept from before;
   a file's ending kept on its address (`#.doc`) for the text reader; recordings named by day (20201028.mp3).
+  新竹縣's (`hcg`: 竹東, 關西, 芎林, 寶山, 五峰) on their 公所's sites on the county's platform (<town>.hsinchu.gov.tw,
+  CCMS News.aspx lists, read like 屏東's); 北埔's on its 公所's twgov CMS (竹北's kind): `circ`, lists of rows a paper
+  each (`listRows`, iframcirculatedview's files by `pageFiles`). 金門's sites (*.kinmen.gov.tw) the door can't reach:
+  read from the build itself (`DIRECT`, two seconds apart, a firewall's refusal read again), their certificate's
+  missing issuer given by pages.yml (`NODE_EXTRA_CA_CERTS=scripts/twca-ssl.pem`). A town never built yet goes first.
   The picked council is this device's
   (`orbit-law.council.v1`), first your 我的 city's.
   **議程** (`councilAgenda`): a council's days on the family's day strip, the whole term (the phone reads the

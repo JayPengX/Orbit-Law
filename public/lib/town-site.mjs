@@ -17,6 +17,12 @@ const pthg = (n, town, home, lists, drive) => {
   const base = `https://www.pthg.gov.tw/${town}/`;
   return { n, home: base + (home || 'Default.aspx'), term: 22, ends: '2026-12-25', chcg: { ccms: lists.map(l => base + l), ...(drive ? { drive } : {}) } };
 };
+// 新竹縣's 公所 sites on the county's platform (<town>.hsinchu.gov.tw, CCMS): a 代表會's lists, News.aspx, a post a paper
+// or a session's recordings (`ccms`).
+const hcg = (n, town, term, lists) => {
+  const base = `https://${town}.hsinchu.gov.tw/`;
+  return { n, home: base + lists[0], term, ends: '2026-12-25', chcg: { ccms: lists.map(l => base + l) } };
+};
 export const TOWN_SITES = {
   // 新竹縣竹北市 (內政部's town code)
   10004010: {
@@ -174,6 +180,19 @@ export const TOWN_SITES = {
   10016050: { n: '望安鄉民代表會', home: 'https://event.penghu.gov.tw/Rwangan/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rwangan/', lists: { 20: '議事日程表', 21: '會議紀錄', 22: '錄音' } } } },
   10016040: { n: '西嶼鄉民代表會', home: 'https://event.penghu.gov.tw/Rhsiyu/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rhsiyu/', lists: { 31: '議事日程表', 32: '議事日程表', 34: '會議紀錄', 35: '錄音' } } } },
   10016060: { n: '七美鄉民代表會', home: 'https://event.penghu.gov.tw/Rchimi/', term: 22, ends: '2026-12-25', chcg: { penghu: { base: 'https://event.penghu.gov.tw/Rchimi/', lists: { 14: '議事日程表', 15: '會議紀錄', 16: '錄音' } } } },
+  // 新竹縣's 代表會 on their 公所's sites (`hcg`); 北埔's on its 公所's twgov CMS, lists of rows a paper each (`circ`).
+  10004020: hcg('竹東鎮民代表會', 'zhudong', 20, ['News.aspx?n=1805&sms=12085', 'News.aspx?n=1806&sms=12086']),
+  10004040: hcg('關西鎮民代表會', 'guanxi', 22, ['News.aspx?n=1881&sms=12120']),
+  10004070: hcg('芎林鄉民代表會', 'qionglin', 22, ['News.aspx?n=702&sms=10954', 'News.aspx?n=703&sms=10955', 'News.aspx?n=704&sms=10956']),
+  10004090: {
+    n: '北埔鄉民代表會',
+    home: 'https://www.beipu.gov.tw/iframcirculated_list.php?menu=2503&typeid=2588&typeid2=2589',
+    term: 22,
+    ends: '2026-12-25',
+    chcg: { base: 'https://www.beipu.gov.tw/', circ: { 'iframcirculated_list.php?menu=2503&typeid=2588&typeid2=2589': '議事日程表', 'iframcirculated_list.php?menu=2503&typeid=2588&typeid2=2590': '會議紀錄', 'iframcirculated_list.php?menu=2503&typeid=2588&typeid2=2591': '議事錄' } }
+  },
+  10004100: hcg('寶山鄉民代表會', 'baoshan', 20, ['News.aspx?n=1207&sms=11702']),
+  10004130: hcg('五峰鄉民代表會', 'wufeng', 22, ['News.aspx?n=2446&sms=12605', 'News.aspx?n=2447&sms=12606', 'News.aspx?n=2448&sms=12607', 'News.aspx?n=2451&sms=12610']),
   // 屏東縣's 代表會, each on its 公所's site on the county's platform (www.pthg.gov.tw/<town>/, CCMS, `pthg`): its
   // lists, 議事日程, 議事錄, 會議紀錄, 錄音檔, a post a paper (News.aspx) or the files themselves (News4.aspx).
   10013020: pthg('潮州鎮民代表會', 'chaujou', '', ['News.aspx?n=2BD7E34B1FA9DE68&sms=FE998E099AB9C80D', 'News.aspx?n=552B4C06A26159F0&sms=A47C0C44021E1F8B', 'News.aspx?n=48999AEAF832497E&sms=6C99D43425CF7F1E']),

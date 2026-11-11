@@ -480,6 +480,26 @@ async function chcgTown(tc, site) {
           if (!mine) break;
         }
     }
+    // A 公所 on the twgov CMS (北埔's, the CMS 竹北's is on): its lists' rows named by session, ten a page, each row's
+    // page read for its files.
+    for (const [path, kind] of Object.entries(c.circ || {})) {
+      const list = c.base + path;
+      for (let pg = 0; pg < 3; pg++) {
+        let mine = 0;
+        for (const r of listRows(await page(`${list}${pg ? `&Page=${pg}` : ''}`, true))) {
+          const x = at(r.t);
+          if (!x || late()) continue;
+          mine++;
+          try {
+            const { files } = pageFiles(await page(`${list.replace('iframcirculated_list', 'iframcirculatedview')}&circulated_id=${r.id}`), c.base);
+            for (const f of files) put(x.s, x.ext, /\.(mp3|m4a)$/i.test(f.url) ? '錄音' : paperKind(r.t) === '議事日程表' ? '議事日程表' : kind, r.t, f.url);
+          } catch (e) {
+            notes.push(e.message);
+          }
+        }
+        if (!mine) break;
+      }
+    }
     // e-land's CCMS (宜蘭's 頭城): a page with every session's papers, and its recordings under a line naming the
     // session.
     // (A list of posts, 礁溪's 臨時會 minutes, News.aspx: each post of this term read as a page.)
@@ -789,7 +809,11 @@ async function chcgTown(tc, site) {
 await mkdir(out, { recursive: true });
 const towns = Object.entries(TOWN_SITES);
 const first = Math.floor(Date.now() / 86_400e3) % towns.length;
-for (const [tc, site] of [...towns.slice(first), ...towns.slice(0, first)]) {
+// (A town never built yet goes before the rest: one just added shows the day it's added.)
+const unbuilt = new Set();
+for (const [tc] of towns) if (!(await prevJson(`council/town/${tc}.json`).catch(() => null))) unbuilt.add(tc);
+const turn = [...towns.slice(first), ...towns.slice(0, first)];
+for (const [tc, site] of [...turn.filter(([tc]) => unbuilt.has(tc)), ...turn.filter(([tc]) => !unbuilt.has(tc))]) {
   const started = Date.now();
   try {
     if (late()) throw new Error('out of time: kept as it was');

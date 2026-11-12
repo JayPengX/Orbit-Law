@@ -172,6 +172,8 @@ test('vendor rules: a ministry\'s own 命令 and rules named by what they set ar
   const names = new Map([['加值型及非加值型營業稅法', 'G0340080']]);
   assert.deepEqual(basisOf('一、依據加值型及非加值型營業稅法第二十六條規定辦理。\n二、買賣業…之起徵點為每月銷售額新臺幣十萬元。', names), ['G0340080:26']);
   assert.deepEqual(basisOf('營業人依加值型及非加值型營業稅法第二十六條規定辦理登記者，應另行申請。', names), [], 'only a 令\'s own opening says what it rests on');
+  // MOF's pages space the numbers (「民法第 1030條之 1」): 第1030條之1, not the deleted 第1030條.
+  assert.deepEqual(basisOf('本標準依民法第 1030條之 1 規定訂定之。', new Map([['民法', 'B0000001']])), ['B0000001:1030-1']);
 });
 
 test('listing carries over: the longest unlisted category first, rows kept in between, a dropped category leaves', () => {

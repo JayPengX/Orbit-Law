@@ -7,7 +7,8 @@ import { cnNumber, parentLaw } from './refs.mjs';
 const N = '[零〇一二三四五六七八九十百千0-9]+';
 // 依(據/照)「○○法」(（以下簡稱本法）)第N條…: the law's name, then the rest of the clause.
 const BASIS = new RegExp(`依(?:據|照)?「?([^，。；「」（）、\\n]{2,40}?)」?(?:（[^）]*）)?(第${N}條[^。；\\n]*?)(?:規定|訂定|之授權|授權|。|；|$)`, 'g');
-const ART = new RegExp(`第(${N})條(?:之(${N}))?`, 'g');
+// (「第 1030條之 1」: MOF's pages put spaces around the numbers.)
+const ART = new RegExp(`第\\s*(${N})\\s*條(?:之\\s*(${N}))?`, 'g');
 const ALIAS = /([^，。；「」（）、\n]{2,40}?)（以下簡稱(本法|本條例|本通則)）/g;
 
 const keyOf = (a, b) => {

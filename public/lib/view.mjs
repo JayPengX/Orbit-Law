@@ -10,6 +10,8 @@ import { noticeBefore } from './notices.mjs';
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export const artLabel = (k, en = false, unit = '條') => (en ? `${unit === '點' ? 'Point' : 'Article'} ${k}` : `第 ${k} ${unit === '點' ? '點' : '條'}`);
+// A run of them: 第 78–83 條 (not 第 78 條–83).
+export const rangeLabel = (a, b, en = false, unit = '條') => (en ? `${unit === '點' ? 'Points' : 'Articles'} ${a}–${b}` : `第 ${a}–${b} ${unit === '點' ? '點' : '條'}`);
 
 // One article: its 項 as paragraphs (款 lines inside), every reference a
 // link carrying where it goes. `ctx`: { names, keys, p (this law), en, marked,

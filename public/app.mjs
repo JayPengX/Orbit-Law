@@ -25,7 +25,7 @@ import { searchLaws, rankLaws, parseJump, likelyLaw, ymd, relatedLaws } from './
 import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN, phraseHits } from './lib/find.mjs';
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
-import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
+import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, rangeLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { keptRules, loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
@@ -1493,7 +1493,7 @@ function explain(law, ks) {
   const form = h('form', { class: 'lw-composer in-sheet', onsubmit: e => (e.preventDefault(), input.value.trim() && ask(input.value)) }, [input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('問', 'Ask'), html: ICON_SEND })]);
   const sugg = h('div', { class: 'lw-starters', html: [W('適用在誰身上？', 'Who does it apply to?'), W('違反會怎樣？', 'What if it’s broken?'), W('有什麼例外？', 'Any exceptions?')].map(t => `<button type="button" class="lw-starter">${esc(t)}</button>`).join(''), onclick: e => { const b = e.target.closest('button'); if (b) ask(b.textContent); } });
   const note = h('p', { class: 'lw-ask-note', text: W('AI 依條文和公開的背景知識整理，只是一般資訊，不是法律意見。', 'AI, from the text and well-known background. General information, not legal advice.') });
-  sheet({ title: `${lawAt(law)}${one ? artLabel(ks[0], en) : `${artLabel(ks[0], en)}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [quote, out, qa, sugg, form, note].filter(Boolean) });
+  sheet({ title: `${lawAt(law)}${one ? artLabel(ks[0], en) : rangeLabel(ks[0], ks[ks.length - 1], en)}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [quote, out, qa, sugg, form, note].filter(Boolean) });
   const chips = pt => (one ? '' : pt.cites.map(c => citeChip(law.p, c, '')).join(''));
   const part = (title, html) => (html ? `<section class="lw-x-part"><h3>${esc(title)}</h3>${html}</section>` : '');
   (async () => {
@@ -1966,7 +1966,7 @@ async function peek(p, from, to, para, { back = false } = {}) {
   const content = h('div', { class: 'lw-peek', html: body });
   const openFull = h('button', { class: 'q-btn block', type: 'button', text: W('打開整部法規', 'Open the whole law'), onclick: () => (trail.current?.close(), go(`law=${p}&a=${from}`)) });
   const lead = trail.length + (back ? 0 : 1) > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => { const prev = trail.back(); if (prev) peek(...prev, { back: true }); } }) : null;
-  const title = `${law.n === state.law?.n ? '' : lawAt(law)}${from === to ? artLabel(from, en) : `${artLabel(from, en)}–${to}`}`;
+  const title = `${law.n === state.law?.n ? '' : lawAt(law)}${from === to ? artLabel(from, en) : rangeLabel(from, to, en)}`;
   // 白話解釋 of what's shown: the article, or a range of up to 8 together.
   const live = arts.filter(a => !/^[（(]刪除[）)]$/.test(a[2].trim())).map(a => a[1]);
   const explainBtn = live.length && live.length <= 8 ? h('button', { class: 'q-btn primary block lw-spark-btn', type: 'button', html: `${ICON_SPARK}<span>${live.length > 1 ? W(`白話解釋這 ${live.length} 條`, `Explain these ${live.length}`) : W('白話解釋', 'Explain in plain words')}</span>`, onclick: () => (trail.current?.close(), explain(law, live)) }) : null;

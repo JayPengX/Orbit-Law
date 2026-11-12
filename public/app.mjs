@@ -1025,7 +1025,8 @@ async function drawLaw() {
   // A rule's newest version as an amendment (its text file's x), as a law's is in 修法追蹤.
   const change = rule ? (law.x && law.x.m === law.m ? { p: law.p, m: law.x.m, added: law.x.added, amended: law.x.amended, removed: law.x.removed } : null) : state.changes.items.find(c => c.p === law.p && c.m === law.m);
   const kind = law.l === '憲法' ? W('憲法', 'Constitution') : kindName(row);
-  const unitN = law.u === '點' ? W(`${nArts} 點`, `${nArts} points`) : W(`${nArts} 條`, `${nArts} articles`);
+  const nN = nArts.toLocaleString('en-US');
+  const unitN = law.u === '點' ? W(`${nN} 點`, `${nN} points`) : W(`${nN} 條`, `${nN} articles`);
   const facts = [nArts ? unitN : '', law.m && W(`${ymd(law.m)} ${rule ? '發布' : '修正'}`, `${rule ? 'issued' : 'amended'} ${ymd(law.m)}`)].filter(Boolean).join(' · ');
   const partyText = live ? partyChips(live.by, en, 2).replace(/<b>/g, '\u00a0').replace(/<[^>]+>/g, '  ').replace(/\s{2,}/g, ' · ').replace(/^ · | · $/g, '').trim() : '';
   // What's moving on it: rows on the card, a hairline apart (a tap: over this page, the reading kept).
@@ -1113,7 +1114,7 @@ const overRow = (tone, title, sub, onclick, extra = '') => h('button', { type: '
 const ICON_CHEV = '<svg class="lw-chev" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 // 最高法院判決: how many cite this law, and which articles (a tap: the list, by article).
-const door = (cls, icon, n, label, onclick) => h('button', { type: 'button', class: `lw-door ${cls}`, html: `<b>${esc(String(n))}</b><small>${esc(label)}</small>`, onclick });
+const door = (cls, icon, n, label, onclick) => h('button', { type: 'button', class: `lw-door ${cls}`, html: `<b>${esc(typeof n === 'number' ? n.toLocaleString('en-US') : String(n))}</b><small>${esc(label)}</small>`, onclick });
 // 目錄: the chapters (a tap: there); a law without chapters opens 找字.
 function tocDoor(law, toc, nArts) {
   if (toc.length < 2) return door('slate', ICON.find, nArts, law.u === '點' ? W('點・找字', 'points · find') : W('條・找字', 'articles · find'), () => toggleFind());
@@ -1444,8 +1445,12 @@ async function diffSheet(law, change) {
     ? keys
         .map(k => {
           const [was, now] = d?.arts?.[k] || [null, law.a.find(a => a[0] === 'A' && a[1] === k)?.[2] || null];
-          const kind = !was ? ['新增', 'New', 'green'] : !now || /^[（(]刪除[）)]$/.test(now.trim()) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo'];
-          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(k ? artOf(k, law) : W('全文', 'Whole text'))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${diffBlocks(was || null, now || null)}</div></article>`;
+          // No old text: the kind is the change's own word for it, and an amended article reads plain (not all green as if new).
+          const kind = d?.arts
+            ? !was ? ['新增', 'New', 'green'] : !now || /^[（(]刪除[）)]$/.test(now.trim()) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo']
+            : change.removed.includes(k) ? ['刪除', 'Removed', 'red'] : change.added.includes(k) ? ['新增', 'New', 'green'] : ['修正', 'Amended', 'indigo'];
+          const text = d?.arts || kind[2] === 'green' ? diffBlocks(was || null, now || null) : diffBlocks(now, now, { keep: Infinity });
+          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(k ? artOf(k, law) : W('全文', 'Whole text'))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${text}</div></article>`;
         })
         .join('') + (d ? '' : `<p class="lw-none">${W('舊條文這次讀不到，先列出修正後的條文', 'The old text isn’t here; the articles as they are now')}</p>`)
     : `<p class="lw-none">${change.whole ? W('整部法律都是這次的條文，直接讀全文', 'The whole law is this version: read it in full') : W('這次修正沒有條文變動', 'No articles changed')}</p>`;

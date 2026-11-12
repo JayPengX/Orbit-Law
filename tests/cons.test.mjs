@@ -60,6 +60,10 @@ test('cons: a ruling is about a law its 爭點 or 解釋文 names, not one its �
   assert.deepEqual(aboutLaws(s764, name), ['A0000001', 'J0120044']);
   assert.deepEqual(aboutLaws({ n: '', issue: '政院停建核四廠應向立院報告？', main: ['…預算案經立法院通過…'], cites: ['T0020001:6'] }, name), ['T0020001']);
   assert.equal(lawStem('預算法'), '預算');
+  // 民法 and 刑法 keep their names: 釋字748 is about 民法, 釋字791 about 刑法.
+  assert.equal(lawStem('民法'), '民法');
+  assert.equal(lawStem('中華民國刑法'), '刑法');
+  assert.deepEqual(aboutLaws({ n: '同性二人婚姻自由案', issue: '民法第4編親屬第2章婚姻規定，未使相同性別二人得成立婚姻關係，是否違憲？', main: [], cites: ['B0000001:972'] }, () => '民法'), ['B0000001']);
   const rows = [['s764', '2018-05-04', '', 'q', ['T0020001:85', 'J0120044:8'], [], [], ['J0120044']]];
   assert.deepEqual(consByLaw(rows), { T0020001: { 85: ['s764'] }, J0120044: { 8: ['s764'], '#': ['s764'] } });
 });

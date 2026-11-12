@@ -222,6 +222,7 @@ export function diffWords(a = '', b = '') {
 // hung under it, the leading 第X條 (the card says it) and blank lines gone.
 // `a` null: all new; `b` null: all removed.
 const ART_HEAD = /^[\s　]*第\s*[一二三四五六七八九十百零〇\d]+\s*條(?:之[一二三四五六七八九十\d]+)?[\s　]+/;
+// keep: Infinity shows every unchanged line whole (an article read plain).
 export function diffBlocks(a, b, { keep = 60 } = {}) {
   const tidy = s => (s == null ? '' : String(s).replace(/\r/g, '').replace(ART_HEAD, '').replace(/\n[\s　]*(?=\n)/g, '').replace(/^\n+|\n+$/g, ''));
   const x = tidy(a), y = tidy(b);
@@ -240,7 +241,7 @@ export function diffBlocks(a, b, { keep = 60 } = {}) {
     t.split('\n').forEach((part, i, all) => {
       if (i) lines.push([]);
       const whole = (i > 0 || si === 0) && (i < all.length - 1 || si === segs.length - 1);
-      const kept = whole ? (part.length > 40 ? [part.slice(0, 24), ''] : [part]) : cut(part, i === 0, i === all.length - 1);
+      const kept = whole && keep < Infinity ? (part.length > 40 ? [part.slice(0, 24), ''] : [part]) : cut(part, i === 0, i === all.length - 1);
       kept.forEach((k, j) => {
         if (j) lines.at(-1).push({ gap: true });
         if (k) lines.at(-1).push({ t: k, op });

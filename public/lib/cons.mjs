@@ -218,11 +218,15 @@ export function consItem(id, page, { names = new Map(), rewriteOf, url = '' } = 
 export const consRow = (it, bills = [], nameOf = () => '') => [it.id, it.d, it.n, it.issue.length > 90 ? `${it.issue.slice(0, 89)}…` : it.issue, it.cites, it.refs, bills, aboutLaws(it, nameOf)];
 
 // The words a law goes by in a ruling's text: 憲法 for the constitution and its
-// 增修條文, else its name without 中華民國 and its kind (預算法 → 預算).
+// 增修條文, else its name without 中華民國 and its kind (預算法 → 預算;
+// 中華民國刑法 → 刑法, too short to cut).
 export function lawStem(name) {
   const n = String(name || '');
   if (n.includes('憲法')) return '憲法';
-  return n.replace(/^中華民國/, '').replace(/(施行細則|施行法|組織法|組織條例|條例|通則|規則|辦法|細則|法)$/, '');
+  const bare = n.replace(/^中華民國/, '');
+  const stem = bare.replace(/(施行細則|施行法|組織法|組織條例|條例|通則|規則|辦法|細則|法)$/, '');
+  // 民法, 刑法: one character left says nothing, so the name itself.
+  return stem.length >= 2 ? stem : bare;
 }
 export function aboutLaws(it, nameOf) {
   const text = [it.n, it.issue, ...(it.main || [])].join('\n');

@@ -2042,9 +2042,10 @@ function chatHistory() {
   const body = h('div', { class: 'lw-chat-list' }, [startNew, find, list, foot]);
   redraw();
   const s = sheet({ title: W('對話紀錄', 'Chats'), closeLabel: W('關閉', 'Close'), cls: 'lw-chats-sheet', body });
+  // (Once the sheet has gone: a dialog closing hands focus back to what opened it, the 對話紀錄 button.)
   const toComposer = () => {
+    s.el.addEventListener('close', () => $('panel-ask')?.querySelector('.lw-ask-q')?.focus(), { once: true });
     s.close();
-    requestAnimationFrame(() => $('panel-ask')?.querySelector('.lw-ask-q')?.focus());
   };
   const drop = c => {
     const before = chats;
@@ -2356,6 +2357,8 @@ const aiLine = (t, cls = 'lw-verdict q-fit-wrap') => `<div class="lw-ai-head"><s
 const draftHtml = d => (d?.verdict ? `${aiLine(d.verdict)}${d.answer ? `<p class="lw-why">${esc(d.answer)}</p>` : ''}` : '');
 
 function turnHtml(t) {
+  // (A chat saved by an older app may lack a part: each list there, empty.)
+  if (t.r) t = { ...t, r: { points: [], consequences: [], next: [], followups: [], sources: [], ...t.r } };
   if (t.role === 'user') return `<div class="lw-msg me"><p>${esc(t.text)}</p></div>`;
   if (t.wait) return `<div class="lw-msg ai"><div class="lw-draft">${draftHtml(t.draft)}</div><div class="lw-typing"><i></i><i></i><i></i></div><small class="lw-srcs lw-stage">${esc(stageText(t.stage, en))}</small></div>`;
   if (t.error) return `<div class="lw-msg ai"><p class="lw-none">${esc(chatError(t.error, en))}</p></div>`;

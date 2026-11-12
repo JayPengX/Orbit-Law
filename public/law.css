@@ -5100,8 +5100,32 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
   padding: 10px 12px;
 }
 .lw-contract-read summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  list-style: none;
   font: 600 15px/22px var(--q-font);
   cursor: pointer;
+}
+/* (The family's fold: a chevron at the end, never the browser's ▶.) */
+.lw-contract-read summary::-webkit-details-marker,
+.lw-flag-text summary::-webkit-details-marker {
+  display: none;
+}
+.lw-contract-read summary::after,
+.lw-flag-text summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--q-label-3);
+  border-bottom: 2px solid var(--q-label-3);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.2s;
+}
+.lw-contract-read[open] summary::after,
+.lw-flag-text[open] summary::after {
+  transform: rotate(-135deg) translateY(-2px);
 }
 .lw-contract-read ol {
   display: grid;
@@ -5165,9 +5189,17 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
   color: var(--c);
 }
 .lw-flag-text summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
   color: var(--q-label-3, var(--q-label-2));
   font: var(--q-t-footnote);
   cursor: pointer;
+}
+.lw-flag-text summary::after {
+  width: 6px;
+  height: 6px;
 }
 .lw-flag-text p {
   margin-top: 4px;

@@ -3,13 +3,16 @@
 # run reads for up to 45 minutes, saves the store to the cache, asks data.yml
 # for a build (which then deploys), and starts itself again while months remain and the window
 # lasts. The store lives only in the cache, so no deploy can empty it.
+# GitHub starts a schedule hours late (11-08 to 11-12: the 00:05, 02:05 and 04:05
+# runs all began between 05:43 and 10:39 Taiwan time, so for days none read a
+# month), so it is asked every hour: a run outside the window ends in seconds in
+# `when`, touching nothing, and the first one that lands inside it reads and
+# chains on by dispatch, which isn't held back.
 name: Rulings store
 
 on:
   schedule:
-    - cron: '5 16 * * *'
-    - cron: '5 18 * * *'
-    - cron: '5 20 * * *'
+    - cron: '5 * * * *'
   workflow_dispatch:
     inputs:
       force:
@@ -26,7 +29,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 司法院's doors open 00:00-06:00 Taiwan (16:00-22:00 UTC); a run with under
+  # 15 minutes of it left would read nothing, so it doesn't start either.
+  when:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      open: ${{ steps.w.outputs.open }}
+    steps:
+      - id: w
+        run: |
+          m=$(( $(date -u +%-H) * 60 + $(date -u +%-M) ))
+          if [ -n "${{ inputs.force }}" ] || { [ $m -ge 960 ] && [ $m -lt 1305 ]; }; then echo "open=1" >> "$GITHUB_OUTPUT"; else echo "outside 司法院 hours: nothing to do"; fi
+
   backfill:
+    needs: when
+    if: needs.when.outputs.open == '1'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

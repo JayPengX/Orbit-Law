@@ -4168,7 +4168,8 @@ function councilOf(list) {
 const ccJson = url => fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
 const outcomeTag = k => (OUTCOME[k] ? countTag(OUTCOME[k][en ? 1 : 0], OUTCOME[k][2]) : '');
 const sessionShort = (c, id) => (c.sessions || []).find(s => s.id === id)?.n.replace(/^第\d+屆/, '') || '';
-const cbillRow = (c, b) => `<button type="button" class="lw-row lw-cbill" data-cbill="${esc(b.id || b['代碼'])}"><span class="lw-row-text"><span class="lw-row-name">${esc(b.t)}</span><small>${esc([b.by, b.cat, sessionShort(c, b.s) || (b.d ? shortDay(b.d) : '')].filter(Boolean).join(' · '))}</small></span>${outcomeTag(b.out)}</button>`;
+// (Its decided day first, the session after: Jay 11-11 "a council bill's card carries its decision date".)
+const cbillRow = (c, b) => `<button type="button" class="lw-row lw-cbill" data-cbill="${esc(b.id || b['代碼'])}"><span class="lw-row-text"><span class="lw-row-name">${esc(b.t)}</span><small>${esc([b.d && shortDay(b.d), b.by, b.cat, sessionShort(c, b.s)].filter(Boolean).join(' · '))}</small></span>${outcomeTag(b.out)}</button>`;
 // A council's state in a line: 開會中 (to its last day), else the next session or the last one.
 function councilLine(c, day) {
   const st = councilState(c, day);

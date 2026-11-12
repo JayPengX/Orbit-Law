@@ -1,7 +1,7 @@
 // 地方議會 (public/lib/council.mjs): what each council's own words mean, kept small.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf, zhName, saneSittings } from '../public/lib/council.mjs';
+import { outcomeOf, compactCouncilBill, newestBills, repsByPlace, compactRep, sessionOn, compactSitting, compactCouncilor, theirBills, whoOf, councilState, hccRows, hszRows, hlcRows, chaCounts, chaListRows, chaDetail, chaSessions, chaSession, transcriptBills, mccList, mccFiles, mccBills, cyiSession, cyiOptions, cyiLinks, cyiDays, cyiBill, gapOf, speechesOf, zhName, saneSittings, decidedDay } from '../public/lib/council.mjs';
 
 test('council: an outcome in a word, whichever way a council writes it', () => {
   assert.equal(outcomeOf('照審查意見通過。'), 'yes');
@@ -232,4 +232,11 @@ test('every council’s 議程 in one list: the window, the days only recordings
   );
   assert.deepEqual(rows.map(x => [x.c, x.d, x.v?.id || '']), [['kee', '2026-11-03', 'm2'], ['kee', '2026-11-09', 'm1'], ['tpe', '2026-11-10', '']]);
   assert.equal(rows[0].video, true, 'a day only its recordings know');
+});
+
+test('a bill carries the day it was decided, where its council says it', () => {
+  assert.equal(decidedDay({ 議決: '決議大會屆次：第4屆第3次定期大會\n決議日期：2024-05-31\n送請市政府研究辦理。' }), '2024-05-31', '高雄: in 議決');
+  assert.equal(decidedDay({ 來源檔案: '第14屆第13次臨時大會_大會_115年10月27日_202600014332.pdf' }), '2026-10-27', '臺北: the minutes named by day');
+  assert.equal(decidedDay({ 來源檔案: 'json/第1屆第10次臨時會_第3號.json' }), '', 'none said');
+  assert.equal(compactCouncilBill({ 代碼: 'x', 案由: 'a', 來源檔案: '大會_98年04月22日_x.pdf' }).d, '2009-04-22');
 });

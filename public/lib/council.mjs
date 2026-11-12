@@ -129,8 +129,20 @@ export function whoOf(by, office) {
   return String(office || '').trim();
 }
 
-// A bill kept small: { id, t: 案由, by, cat: 類別, out, s: 會期代碼, no: 案號 }.
+// The day a bill was decided, where the council says it: 高雄's 議決 「決議日期：2024-05-31」, a 議決日期
+// field, 臺北's minutes named 「…_115年10月27日_….pdf」, else an own-site bill's 日期.
+export function decidedDay(b) {
+  const said = String(b['議決'] || '').match(/決議日期[：:]\s*(\d{4}-\d{2}-\d{2})/);
+  if (said) return said[1];
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(b['議決日期'] || ''))) return String(b['議決日期']).slice(0, 10);
+  const file = String(b['來源檔案'] || '').match(/(?<!\d)(\d{2,3})年(\d{1,2})月(\d{1,2})日/);
+  if (file) return `${+file[1] + 1911}-${file[2].padStart(2, '0')}-${file[3].padStart(2, '0')}`;
+  return b['日期'] ? String(b['日期']) : '';
+}
+
+// A bill kept small: { id, t: 案由, by, cat: 類別, out, s: 會期代碼, no: 案號, d: the day decided }.
 export function compactCouncilBill(b) {
+  const d = decidedDay(b);
   return {
     id: b['代碼'],
     t: clip(String(b['案由'] || '').replace(/^<[一二三四五六七八九十]+>/, ''), 120),
@@ -140,7 +152,7 @@ export function compactCouncilBill(b) {
     out: outcomeOf(b['議決'], b['審查意見']),
     s: b['會議代碼'] || '',
     no: String(b['案號'] || ''),
-    ...(b['日期'] ? { d: String(b['日期']) } : {})
+    ...(d ? { d } : {})
   };
 }
 

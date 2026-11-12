@@ -3823,11 +3823,11 @@ function roadLine(x, long = false) {
   const r = stepsOf(x);
   const now = roadOf(x)[r.now][en ? 1 : 0];
   const day = r.days[r.now] || x.last;
-  const parts = [`${lapsed(x) && r.now === 3 ? W('逾期視為審完', 'Deemed reviewed') : now}${day ? ` ${ymd(day)}` : ''}`];
+  const parts = [`${lapsed(x) && r.now === 3 ? W('逾期視為審完', 'Deemed reviewed') : now}${day ? ` ${shortDay(day)}` : ''}`];
   const today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
   if (long && lapsed(x)) parts.push(W('審查期限已過，依法視為審查完畢', 'the review period ran out'));
   const quiet = quietMonths(x, r, today);
-  if (quiet) parts.push(long ? W(`${ymd(x.last)} 後就沒有進度`, `no progress since ${ymd(x.last)}`) : W(`${quiet} 個月沒進度`, `stuck ${quiet} months`));
+  if (quiet) parts.push(long ? W(`${shortDay(x.last)} 後就沒有進度`, `no progress since ${shortDay(x.last)}`) : W(`${quiet} 個月沒進度`, `stuck ${quiet} months`));
   if (r.now === 5 && r.days[0] && day) parts.push(W(`歷時 ${daysBetween(r.days[0], day)} 天`, `${daysBetween(r.days[0], day)} days`));
   if (long && /^\d+$/.test(x.k)) {
     const due = budgetDue(x.k);
@@ -3890,8 +3890,8 @@ async function openBudget(k) {
   const body = h('div', { class: 'lw-bud-page' });
   const close = () => location.hash.includes('budget=') && history.replaceState(history.state, '', '#tab=bills&f=budget');
   sheet({ title: W('預算', 'Budget'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
-  const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage, x.k)}">${esc(budgetStep(x.stage))}</span>${x.last ? `<span class="lw-tag">${esc(ymd(x.last))}</span>` : ''}</div><div class="lw-bud-road">${roadHtml(x, true)}<span class="lw-bud-road-note">${roadLine(x, true).map(dueSpan).join('')}</span></div>`;
-  const steps = x.flow?.length ? `<section class="lw-person-sec"><h4>${W('進度', 'Steps')}</h4><ol class="lw-timeline">${x.flow.map(f => `<li class="done"><b>${esc(budgetStep(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol></section>` : '';
+  const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage, x.k)}">${esc(budgetStep(x.stage))}</span>${(sd => (sd ? `<span class="lw-tag">${esc(shortDay(sd))}</span>` : ''))((r => r.days[r.now])(stepsOf(x)) || x.done || x.last)}</div><div class="lw-bud-road">${roadHtml(x, true)}<span class="lw-bud-road-note">${roadLine(x, true).map(dueSpan).join('')}</span></div>`;
+  const steps = x.flow?.length ? `<section class="lw-person-sec"><h4>${W('進度', 'Steps')}</h4><ol class="lw-timeline">${x.flow.map(f => `<li class="done"><b>${esc(budgetStep(f[1]))}</b><span>${esc(shortDay(f[0]))}</span></li>`).join('')}</ol></section>` : '';
   const votesBox = h('section', { class: 'lw-person-sec' });
   if (x.votes?.length)
     votesData().then(d => {

@@ -98,9 +98,10 @@ const zhIn = t => (en && /[\u4e00-\u9fff]/.test(t) ? `<span lang="zh-Hant">${esc
 let screen = kit.screenFit?.() || { wide: false, w3: false };
 const nCols = (most = 2) => Math.min(most, screen.w3 ? 3 : screen.wide ? 2 : 1);
 function cols(parts, most = 2) {
-  const n = nCols(most);
   const shown = parts.filter(p => p[0]);
-  if (n === 1) return shown.map(p => p[0]).join('');
+  // (No more columns than sections: one alone, as 我的 with only 最近看過, spans the page, no empty column beside it.)
+  const n = Math.min(nCols(most), shown.length);
+  if (n <= 1) return shown.map(p => p[0]).join('');
   const out = spreadCols(shown, n);
   return `<div class="q-cols${n === 3 ? ' q-cols-3' : ''} lw-cols">${out.map(c => `<div class="lw-col">${c.join('')}</div>`).join('')}</div>`;
 }
@@ -229,6 +230,9 @@ const shortName = abbr;
 const nameSize = n => (String(n || '').length > 24 ? ' xlong' : String(n || '').length > 13 ? ' long' : '');
 // A law's or regulation's name by its code, in English when it has one.
 const nameOf = (p, fallback = '') => { const r = state.byCode.get(p); return (en && r?.[6]) || String(r?.[1] || fallback).replace(/^中華民國/, ''); };
+// A law's short name in a sheet's title (English: its English name), and the same before an article ("Civil Code Article 184").
+const lawShort = law => (en ? nameOf(law.p, law.n) : shortName(law.n));
+const lawAt = law => (en ? `${nameOf(law.p, law.n)} ` : shortName(law.n));
 
 // ---- Tabs ------------------------------------------------------------------------------
 
@@ -1258,7 +1262,7 @@ function basisDoor(law) {
 
 function openRulings(k) {
   const law = state.law;
-  if (state.lawRulings[k]?.length || state.lawCons[k]?.length) rulingsSheet(`${shortName(law.n)}${artOf(k)}`, state.lawRulings[k] || [], state.lawCons[k] || []);
+  if (state.lawRulings[k]?.length || state.lawCons[k]?.length) rulingsSheet(`${lawAt(law)}${artOf(k)}`, state.lawRulings[k] || [], state.lawCons[k] || []);
 }
 // 憲法法庭 on this law: only the rulings about it (its 爭點 or 解釋文 name
 // it), the newest named; one that cites an article in passing (釋字764 on
@@ -1385,8 +1389,8 @@ function lawMenu(law, row) {
   if (law.h) rows.push([W('沿革', 'History'), () => historySheet(law)]);
   if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff, law)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W(`立法院第 ${it.term} 屆`, `Legislative Yuan, term ${it.term}`)} · ${stageShort(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
-  for (const r of relatedLaws(state.rows, row)) rows.push([r[1], () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
-  const s = sheet({ title: law.n, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
+  for (const r of relatedLaws(state.rows, row)) rows.push([nameOf(r[0], r[1]), () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
+  const s = sheet({ title: nameOf(law.p, law.n), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
 }
 // 沿革 as a timeline, newest first: the day, what each order did (the
 // articles a tap away), the order's number quiet under it.
@@ -1428,7 +1432,7 @@ function textSheet(title, text, law) {
 // 修了什麼: the latest amendment, article by article, the changed words marked.
 async function diffSheet(law, change) {
   const out = h('div', { class: 'lw-diffs', html: `<span class="q-skel" style="height:96px"></span>` });
-  sheet({ title: `${shortName(law.n)} · ${W('修了什麼', 'What changed')}`, closeLabel: W('關閉', 'Close'), cls: 'lw-diff-sheet', body: [h('p', { class: 'lw-sub', text: changeText(change) }), out] });
+  sheet({ title: `${lawShort(law)} · ${W('修了什麼', 'What changed')}`, closeLabel: W('關閉', 'Close'), cls: 'lw-diff-sheet', body: [h('p', { class: 'lw-sub', text: changeText(change) }), out] });
   let d;
   try {
     // (A rule's old and new parts ride in its own text file, x.)
@@ -1463,7 +1467,7 @@ async function diffSheet(law, change) {
 function articleMenu(k) {
   const law = state.law;
   const marked = isMarked(state.mine, law.p, k);
-  const label = `${law.n}${artOf(k, law)}`;
+  const label = `${en ? lawAt(law) : law.n}${artOf(k, law)}`;
   const rows = [
     ...(isRule(law.p) ? [] : [[W('白話解釋', 'Explain in plain words'), () => explain(law, k), 'spark'], [W('問法律：帶著這一條問', 'Ask about this article'), () => askWith(law, [k]), 'ask']]),
     [marked ? W('取消書籤', 'Remove bookmark') : W('加入書籤', 'Bookmark'), () => (toggleMark(state.mine, law.p, k), save(), document.getElementById(`a-${k}`)?.classList.toggle('marked', !marked)), 'mark'],
@@ -1489,7 +1493,7 @@ function explain(law, ks) {
   const form = h('form', { class: 'lw-composer in-sheet', onsubmit: e => (e.preventDefault(), input.value.trim() && ask(input.value)) }, [input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('問', 'Ask'), html: ICON_SEND })]);
   const sugg = h('div', { class: 'lw-starters', html: [W('適用在誰身上？', 'Who does it apply to?'), W('違反會怎樣？', 'What if it’s broken?'), W('有什麼例外？', 'Any exceptions?')].map(t => `<button type="button" class="lw-starter">${esc(t)}</button>`).join(''), onclick: e => { const b = e.target.closest('button'); if (b) ask(b.textContent); } });
   const note = h('p', { class: 'lw-ask-note', text: W('AI 依條文和公開的背景知識整理，只是一般資訊，不是法律意見。', 'AI, from the text and well-known background. General information, not legal advice.') });
-  sheet({ title: `${shortName(law.n)}${one ? artLabel(ks[0], en) : `${artLabel(ks[0], en)}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [quote, out, qa, sugg, form, note].filter(Boolean) });
+  sheet({ title: `${lawAt(law)}${one ? artLabel(ks[0], en) : `${artLabel(ks[0], en)}–${ks[ks.length - 1]}`}`, closeLabel: W('關閉', 'Close'), cls: 'lw-ask-sheet', body: [quote, out, qa, sugg, form, note].filter(Boolean) });
   const chips = pt => (one ? '' : pt.cites.map(c => citeChip(law.p, c, '')).join(''));
   const part = (title, html) => (html ? `<section class="lw-x-part"><h3>${esc(title)}</h3>${html}</section>` : '');
   (async () => {
@@ -1960,7 +1964,7 @@ async function peek(p, from, to, para, { back = false } = {}) {
   const content = h('div', { class: 'lw-peek', html: body });
   const openFull = h('button', { class: 'q-btn block', type: 'button', text: W('打開整部法規', 'Open the whole law'), onclick: () => (trail.current?.close(), go(`law=${p}&a=${from}`)) });
   const lead = trail.length + (back ? 0 : 1) > 1 ? h('button', { class: 'lw-back', type: 'button', 'aria-label': W('上一條', 'Back'), html: ICON.back, onclick: () => { const prev = trail.back(); if (prev) peek(...prev, { back: true }); } }) : null;
-  const title = `${law.n === state.law?.n ? '' : shortName(law.n)}${from === to ? artLabel(from, en) : `${artLabel(from, en)}–${to}`}`;
+  const title = `${law.n === state.law?.n ? '' : lawAt(law)}${from === to ? artLabel(from, en) : `${artLabel(from, en)}–${to}`}`;
   // 白話解釋 of what's shown: the article, or a range of up to 8 together.
   const live = arts.filter(a => !/^[（(]刪除[）)]$/.test(a[2].trim())).map(a => a[1]);
   const explainBtn = live.length && live.length <= 8 ? h('button', { class: 'q-btn primary block lw-spark-btn', type: 'button', html: `${ICON_SPARK}<span>${live.length > 1 ? W(`白話解釋這 ${live.length} 條`, `Explain these ${live.length}`) : W('白話解釋', 'Explain in plain words')}</span>`, onclick: () => (trail.current?.close(), explain(law, live)) }) : null;

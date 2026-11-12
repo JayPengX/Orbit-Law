@@ -141,7 +141,7 @@ export function billCard(it, { topic = 'gov', en = false, now, wide = false, on 
   const meta = [it.count > 1 ? (en ? `${it.count} versions` : `${it.count} 版本`) : '', arts ? (en ? `${arts} articles` : `改 ${arts} 條`) : ''].filter(Boolean).slice(0, wide ? 2 : 1);
   return `<a class="lw-bill${wide ? ' wide' : ''}" href="${itemHref(it)}" style="--t:${(TOPICS[topic] || TOPICS.gov).color}">
 <span class="lw-bill-top">${topicTile(topic, 'sm')}<span class="lw-bill-stage ${toneOf(it)}">${esc(stageShort(it, en))}</span><span class="lw-bill-day">${esc(day)}</span></span>
-<span class="lw-bill-name${fit(it.n)}">${esc(String(it.n).replace(/^中華民國(?!\d)/, ''))}</span>
+<span class="lw-bill-name${fit(it.n)}" lang="zh-Hant">${esc(String(it.n).replace(/^中華民國(?!\d)/, ''))}</span>
 ${it.about && !en ? `<span class="lw-bill-about">${esc(it.about)}</span>` : ''}
 ${progress(it, en)}
 <span class="lw-bill-foot"><span class="lw-bill-parties">${partyChips((it.by || []).map(([who]) => [who, 0]), en, 1)}${it.by?.length > 1 ? `<span class="lw-party more">+${it.by.length - 1}</span>` : ''}</span>${meta.length ? `<small class="lw-bill-meta">${esc(meta.join(en ? ' · ' : '・'))}</small>` : ''}</span>

@@ -230,7 +230,7 @@ html[data-look='native'] .nv-ask-text {
   flex: 1;
   min-width: 0;
 }
-html[data-look='native'] .nv-ask-text :is(b, small) {
+html[data-look='native'] .nv-ask-text small {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

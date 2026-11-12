@@ -478,7 +478,7 @@ function topicGrid() {
   const counts = {};
   for (const r of state.rows) if (r[2] !== '命令' && !r[5]) counts[rowTopic(r)] = (counts[rowTopic(r)] || 0) + 1;
   return `<div class="lw-topics">${Object.keys(TOPICS)
-    .map(id => `<a class="lw-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}">${topicTile(id)}<span class="q-fit-wrap">${esc(topicName(id, en))}</span><small>${counts[id] ? W(`${counts[id]} 部`, `${counts[id]}`) : ''}</small></a>`)
+    .map(id => `<a class="lw-topic" href="#tab=laws&amp;topic=${id}" style="--t:${TOPICS[id].color}">${topicTile(id)}<span class="q-fit-wrap">${esc(topicName(id, en))}</span><small>${counts[id] ? W(`${counts[id]}\u00a0部`, `${counts[id]}`) : ''}</small></a>`)
     .join('')}</div>`;
 }
 
@@ -527,7 +527,7 @@ function asksHtml() {
   const chats = loadChats().slice(0, 3).map(c => ({ q: c.t, k: 'a', u: c.u }));
   const mine = [...finds, ...chats.filter(c => !finds.some(f => f.q === c.q))].sort((a, b) => b.u - a.u).slice(0, 3);
   const starters = STARTERS.filter(([zh, e]) => !mine.some(x => x.q === W(zh, e))).slice(0, 3 - mine.length);
-  const row = (href, q, mark, sub) => `<a class="nv-ask" href="${href}">${mark}<span class="nv-ask-text"><b>${esc(q)}</b><small>${esc(sub)}</small></span>${CHEVRON}</a>`;
+  const row = (href, q, mark, sub) => `<a class="nv-ask" href="${href}">${mark}<span class="nv-ask-text"><b class="q-fit-wrap">${esc(q)}</b><small>${esc(sub)}</small></span>${CHEVRON}</a>`;
   return [
     ...mine.map(x => row(`#${x.k === 'a' ? 'tab=ask&amp;q=' : 'tab=laws&amp;q='}${encodeURIComponent(x.q)}`, x.q, `<i class="nv-ask-mark">${ICON_CLOCK}</i>`, x.k === 'a' ? W('最近問過', 'Asked lately') : W('最近找過', 'Searched lately'))),
     ...starters.map(([zh, e, topic]) => row(`#tab=ask&amp;q=${encodeURIComponent(W(zh, e))}`, W(zh, e), topicTile(topic, 'sm'), `${topicName(topic, en)} · ${W('試試這樣問', 'Try asking')}`))
@@ -642,7 +642,7 @@ function kindTiles() {
   if (!kindCount.local) citiesData().then(c => ((kindCount.local = Object.values(c.cities).reduce((t, x) => t + x.n, 0)), state.tab === 'laws' && !state.law && !state.kind && !state.query && drawResults())).catch(() => {});
   if (!kindCount.agency) agenciesData().then(a => ((kindCount.agency = a.agencies.reduce((t, x) => t + x.n, 0)), state.tab === 'laws' && !state.law && !state.kind && !state.query && drawResults())).catch(() => {});
   return `<div class="lw-topics lw-kinds">${['law', 'order', 'agency', 'local']
-    .map(k => `<a class="lw-topic lw-kind" href="#tab=laws&amp;kind=${k}" style="--t:${KIND_COLOR[k]}"><span class="lw-tile" style="--t:${KIND_COLOR[k]}">${KIND_ICON()[k]}</span><span class="q-fit-wrap">${esc(en ? KINDS[k].en : KINDS[k].zh)}</span><small>${n[k] ? W(`${n[k].toLocaleString()} 部`, n[k].toLocaleString()) : '\u00a0'}</small></a>`)
+    .map(k => `<a class="lw-topic lw-kind" href="#tab=laws&amp;kind=${k}" style="--t:${KIND_COLOR[k]}"><span class="lw-tile" style="--t:${KIND_COLOR[k]}">${KIND_ICON()[k]}</span><span class="q-fit-wrap">${esc(en ? KINDS[k].en : KINDS[k].zh)}</span><small>${n[k] ? W(`${n[k].toLocaleString()}\u00a0部`, n[k].toLocaleString()) : '\u00a0'}</small></a>`)
     .join('')}</div>`;
 }
 

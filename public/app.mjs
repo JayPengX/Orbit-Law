@@ -900,7 +900,7 @@ async function findAll(q, out) {
   top.forEach((g, i) => {
     for (const a of g.arts.slice(0, i ? 2 : 4)) {
       const subs = (delegs[i]?.to?.[a.key] || []).slice(0, 2);
-      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b class="q-fit-wrap">${esc(g.row[1])}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, words)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法', 'Rule')}：${esc(sn)}</span>`).join('')}</span>` : ''}</a>`);
+      cards.push(`<a class="lw-find-card" href="#law=${esc(g.row[0])}&amp;a=${esc(a.key)}" style="--t:${TOPICS[rowTopic(g.row)]?.color || 'var(--q-indigo)'}"><span class="lw-find-law">${topicTile(rowTopic(g.row), 'sm')}<b class="q-fit-wrap">${esc(nameOf(g.row[0], g.row[1]))}</b><em>${esc(artLabel(a.key, en))}</em></span><p>${snippet(a.text, words)}</p>${subs.length ? `<span class="lw-find-subs">${subs.map(([sp, sn]) => `<span data-sub="${esc(sp)}">${W('子法：', 'Rule: ')}${zhIn(sn)}</span>`).join('')}</span>` : ''}</a>`);
     }
   });
   const shown = new Set(top.map(g => g.law));
@@ -1796,6 +1796,8 @@ async function openRuleText(path, label) {
 
 // A 質詢 clip played in the app (the 立法院's own stream), with what was said.
 const fmtSec = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+// A clip's length as IVOD gives it (00:21:00) in words: 21 分鐘.
+const clipLen = t => { const m = String(t || '').match(/^(\d+):(\d+):(\d+)$/); if (!m) return String(t || ''); const n = Math.max(1, Math.round(+m[1] * 60 + +m[2] + +m[3] / 60)); return W(`${n} 分鐘`, `${n} min`); };
 async function openClip(id, label = '') {
   const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video q-skel"></div>` });
   sheet({ title: label.slice(0, 40) || W('質詢影片', 'Speech video'), closeLabel: W('關閉', 'Close'), body });
@@ -1805,7 +1807,7 @@ async function openClip(id, label = '') {
     if (!d?.video_url) throw new Error('none');
     const lines = d.transcript?.whisperx || [];
     const yt = `https://www.youtube.com/@LegislativeYuan/search?query=${encodeURIComponent([d['委員名稱'], d['日期']].filter(Boolean).join(' '))}`;
-    body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc(d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '')} · ${esc(shortDay(d['日期'] || ''))} · ${esc(d['影片長度'] || '')}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4><ol class="lw-transcript">${lines.map((l, i) => `<li data-i="${i}" data-t="${l.start}"><time>${fmtSec(l.start)}</time><span>${esc(l.text)}</span></li>`).join('')}</ol>` : ''}`;
+    body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc([d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '', shortDay(d['日期'] || ''), clipLen(d['影片長度'])].filter(Boolean).join(' · '))}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4><ol class="lw-transcript">${lines.map((l, i) => `<li data-i="${i}" data-t="${l.start}"><time>${fmtSec(l.start)}</time><span>${esc(l.text)}</span></li>`).join('')}</ol>` : ''}`;
     const v = body.querySelector('video');
     await playHls(v, d.video_url);
     const items = [...body.querySelectorAll('.lw-transcript li')];

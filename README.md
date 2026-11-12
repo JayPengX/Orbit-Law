@@ -16,42 +16,38 @@
 Taiwan's law from three linked sides: the laws to read, the courts' rulings on them, and the bills in 立法院 that will change them, down to all 22 city and county councils and every township council (鄉鎮市民代表會). Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
-  <img src="docs/screenshots/law-1.webp" width="30%" alt="Ask in plain words, every point cited">
-  <img src="docs/screenshots/law-2.webp" width="30%" alt="All 22 city and county councils">
-  <img src="docs/screenshots/law-3.webp" width="30%" alt="Down to every township council">
+  <img src="docs/screenshots/law-1.webp" width="30%" alt="Laws, rulings and bills, all in one app">
+  <img src="docs/screenshots/law-2.webp" width="30%" alt="54,000 laws and rules, national to local">
+  <img src="docs/screenshots/law-3.webp" width="30%" alt="Every article linked to its rulings and bills">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.webp" width="30%" alt="A township's votes, questions and recordings">
-  <img src="docs/screenshots/law-5.webp" width="30%" alt="Every council's sittings, day by day">
-  <img src="docs/screenshots/law-6.webp" width="30%" alt="Every article, every link">
+  <img src="docs/screenshots/law-4.webp" width="30%" alt="47,000 rulings, every constitutional one">
+  <img src="docs/screenshots/law-5.webp" width="30%" alt="Ask in plain words, every point cited">
+  <img src="docs/screenshots/law-6.webp" width="30%" alt="Nearly 8,000 bills, each one's stage">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-7.webp" width="30%" alt="What a bill changes">
-  <img src="docs/screenshots/law-8.webp" width="30%" alt="How every party voted">
-  <img src="docs/screenshots/law-9.webp" width="30%" alt="Court rulings, searchable">
+  <img src="docs/screenshots/law-7.webp" width="30%" alt="Every council, down to the townships">
 </p>
 
 <details>
 <summary>中文畫面</summary>
 
 <p align="center">
-  <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="用白話問法律，每句都附條文">
-  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="22 個縣市議會都在這">
-  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="連鄉鎮市民代表會都有">
+  <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="法律、判決、法案，一個 App 全包">
+  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="5.4 萬部法規，中央到地方">
+  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="每一條都連到判決、修法和引用">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="代表會的決議、質詢與錄音">
-  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="每個議會哪天開會，錄影都在">
-  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="每一條條文都能點">
+  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="4.7 萬則判決，大法官解釋全收">
+  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="白話問，答案附上條文">
+  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="立法院近 8 千案，走到哪一步">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-7.zh.webp" width="30%" alt="法案改了什麼">
-  <img src="docs/screenshots/law-8.zh.webp" width="30%" alt="每個政黨怎麼投票">
-  <img src="docs/screenshots/law-9.zh.webp" width="30%" alt="判決隨手查">
+  <img src="docs/screenshots/law-7.zh.webp" width="30%" alt="22 縣市議會和代表會，影音都在">
 </p>
 
 </details>

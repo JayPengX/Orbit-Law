@@ -2445,8 +2445,10 @@ button.lw-notice {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* A card's party and district: on two lines where a phone's half is too narrow (無黨籍 · 國民黨團 · 第1選區). */
-.lw-people .lw-person-text small {
+/* A card's party and district: shrunk to fit one line first (iPad's six
+   across wrapped 「第1選區」 to leave 「區」 alone), on two lines only where
+   even that is too narrow (無黨籍 · 國民黨團 · 第1選區 on a phone). */
+.lw-people .lw-person-text small.q-wrapped {
   display: -webkit-box;
   white-space: normal;
   -webkit-line-clamp: 2;

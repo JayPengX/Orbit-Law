@@ -3686,7 +3686,7 @@ async function peopleList(out) {
   // By 縣市: each card says its party and 選區; by party: its 選區.
   const seat = a => (/第(\d+)選舉區/.test(a) ? W(`第${seatNo(a)}選區`, `District ${seatNo(a)}`) : /山地原住民/.test(a) ? W('山地', 'Highland') : /平地原住民/.test(a) ? W('平地', 'Lowland') : '');
   const sub = (x, full) => (full ? `${partyShort(x.party)} · ${shortArea(x.area)}` : byArea ? [partyShort(x.party), bloc(x) !== x.party ? W(`${partyShort(bloc(x))}團`, `${partyShort(bloc(x))} caucus`) : '', seat(x.area)].filter(Boolean).join(' · ') : shortArea(x.area));
-  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${Number(x.counts.bills).toLocaleString("en-US")}`, `${Number(x.counts.bills).toLocaleString("en-US")} bills`)}</span></a>`;
+  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small class="q-fit-wrap">${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${Number(x.counts.bills).toLocaleString("en-US")}`, `${Number(x.counts.bills).toLocaleString("en-US")} bills`)}</span></a>`;
   const groups = new Map();
   for (const x of now) {
     const g = byArea ? seatGroup(x.area) : [0, x.party];

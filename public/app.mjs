@@ -273,11 +273,15 @@ const headNode = (title, over) => h('div', { html: pageHead(title, over) }).firs
 
 function go(hash, { replace = false } = {}) {
   const url = hash ? `#${hash}` : location.pathname + location.search;
-  if (replace) history.replaceState(null, '', url);
-  else history.pushState(null, '', url);
+  if (replace) history.replaceState(history.state, '', url);
+  else history.pushState({ lwIn: true }, '', url);
   route();
 }
 addEventListener('popstate', route);
+// The page Law opened on (a deep link from another app, a share, Safari's history) is marked,
+// so ← there goes to 法規 rather than back out of the app to whatever came before it.
+if (!history.state?.lwIn) history.replaceState({ ...(history.state || {}), lwStart: true }, '', location.href);
+const goBack = () => (history.state?.lwStart ? go('tab=laws') : history.back());
 // A swipe in from the left edge goes back wherever the page has a way back (a law, a kind, a
 // topic, a bill's page): the kit's edgeBack, read with a fallback for an older kit on the phone.
 const backOf = () => document.getElementById(`panel-${state.tab}`)?.querySelector('.lw-back:not([hidden])');
@@ -287,7 +291,7 @@ async function route() {
   // 問 Orbit's question (the Pass sheet, kit ask-orbit.mjs: #ask=<words>): asked on 問法律, as #tab=ask&q= is.
   if (/(?:^#|&)ask=/.test(location.hash)) {
     const asked = await import('#kit/ask-orbit.mjs').then(m => m.takeAsk?.() || '').catch(() => '');
-    history.replaceState(null, '', asked ? `#tab=ask&q=${encodeURIComponent(asked)}` : '#tab=ask');
+    history.replaceState(history.state, '', asked ? `#tab=ask&q=${encodeURIComponent(asked)}` : '#tab=ask');
   }
   const p = new URLSearchParams(location.hash.slice(1));
   document.documentElement.toggleAttribute('data-lw-law', p.has('law'));
@@ -317,7 +321,7 @@ async function route() {
     showTab('ask');
     drawAsk();
     if (p.get('q')) {
-      history.replaceState(null, '', '#tab=ask');
+      history.replaceState(history.state, '', '#tab=ask');
       ask(p.get('q'));
     }
     // 拍合約幫你看 over 問法律 (#tab=ask&contract=1).
@@ -595,7 +599,7 @@ function drawLaws() {
     ...Object.keys(TOPICS).map(id => h('button', { type: 'button', class: 'q-chip lw-tchip', style: `--t:${TOPICS[id].color}`, 'aria-pressed': String(state.topic === id), html: `<i></i>${esc(topicName(id, en))}`, onclick: e => (lawChipTap(e), go(`tab=laws&topic=${id}`, { replace: true })) }))
   ]);
   // A topic or a quick question came from a tap: a way back (a Home Screen app has no back gesture).
-  const back = state.topic || (state.linkedQuery && state.query) ? h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 ? history.back() : go('tab=laws')) }) : null;
+  const back = state.topic || (state.linkedQuery && state.query) ? h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: goBack }) : null;
   panel.replaceChildren(...[back, headNode(state.topic ? topicName(state.topic, en) : W('法規', 'Laws')), box, state.topic ? chips : null, resultsBox].filter(Boolean));
   wireTitles(panel);
   box.hidden = false;
@@ -643,7 +647,7 @@ async function drawKind(panel) {
   const k = state.kind;
   const run = ++kindRun;
   const K = KINDS[k];
-  const back = h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 ? history.back() : go('tab=laws')) });
+  const back = h('button', { class: 'lw-back lw-back-row', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: goBack });
   const lede = h('p', { class: 'lw-kind-lede', text: W(K.hint || '', K.hintEn || '') });
   const groups = h('div', { class: 'q-chips lw-chips lw-kind-groups' });
   const subs = h('div', { class: 'q-chips q-texttabs lw-kind-subs' });
@@ -1005,7 +1009,7 @@ async function drawLaw() {
   const followed = Boolean(state.mine.laws[law.p]);
   const name = (state.showEn && row[6] && (law.e || row[6])) || law.n;
   const head = h('div', { class: 'lw-bar' }, [
-    h('button', { class: 'lw-back', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: () => (history.length > 1 && location.hash ? history.back() : go('tab=laws')) }),
+    h('button', { class: 'lw-back', type: 'button', 'aria-label': W('返回', 'Back'), html: ICON.back, onclick: goBack }),
     h('div', { class: 'lw-title' }, [h('h2', { text: state.showEn ? name : shortName(name) })]),
     h('div', { class: 'lw-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('找條文', 'Find'), html: ICON.find, onclick: () => toggleFind() }),
@@ -2206,7 +2210,7 @@ async function contractSheet() {
   if (contractOpen) return;
   contractOpen = true;
   const body = h('div', { class: 'lw-contract' });
-  sheet({ title: W('拍合約幫你看', 'Check a contract'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], onClose: () => ((contractOpen = false), location.hash.includes('contract=') && history.replaceState(null, '', '#tab=ask')) });
+  sheet({ title: W('拍合約幫你看', 'Check a contract'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], onClose: () => ((contractOpen = false), location.hash.includes('contract=') && history.replaceState(history.state, '', '#tab=ask')) });
   const ai = await import('#kit/ai.mjs').catch(() => null);
   const lang = en ? 'en' : 'zh';
   const note = text => h('p', { class: 'lw-hint-sm', text });
@@ -3064,7 +3068,7 @@ async function openNotice(id) {
   const topic = topicOf(n.t, '');
   const [kind, tone] = NOTICE_KIND[n.kind] || NOTICE_KIND.amend;
   const body = h('div', { class: 'lw-bud-page lw-notice-page' });
-  const close = () => location.hash.includes('notice=') && history.replaceState(null, '', '#tab=bills&f=notice');
+  const close = () => location.hash.includes('notice=') && history.replaceState(history.state, '', '#tab=bills&f=notice');
   sheet({ title: W('預告', 'Draft'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
   const draw = (d = null) => {
     const tiles = [
@@ -3147,7 +3151,7 @@ async function openItem(k, { round } = {}) {
   const news = h('div', { class: 'lw-item-who lw-item-news' });
   billNews(k, news);
   const progWait = h('div', { class: 'lw-item-prog', html: progress(it, en, { labels: true }) + '<div class="lw-now"><span class="q-skel" style="display:block;height:120px"></span></div>' });
-  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, progWait, who, arts, rul, news, why, changes, votes, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(null, '', '#tab=bills') });
+  const s = sheet({ title: W('法案', 'Bill'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [h('h2', { class: `lw-item-name lw-big-name${nameSize(it.n)}`, text: it.n }), top, progWait, who, arts, rul, news, why, changes, votes, openLawBtn].filter(Boolean), onClose: () => location.hash.startsWith('#item=') && history.replaceState(history.state, '', '#tab=bills') });
   let bills;
   try {
     bills = await data(`bills/item/${encodeURIComponent(k.replace(':', '-'))}.json`);
@@ -3740,7 +3744,7 @@ async function openPerson(id) {
     );
   }).catch(() => {});
   const bills = h('div', { class: 'lw-person-sec', html: x.bills?.length ? `<h4>${W(`提案（${row.counts.bills}）`, `Bills (${row.counts.bills})`)}</h4><div class="lw-list in-sheet wrap">${x.bills.slice(0, 15).map(b => `<a class="lw-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(b[0])}/details" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(b[2])}</span><small>${esc([shortDay(b[1]), b[3]].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>` : '' });
-  sheet({ title: W('立委', 'Legislator'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, tiles, clips, votes, bills], onClose: () => location.hash.startsWith('#who=') && history.replaceState(null, '', '#tab=bills') });
+  sheet({ title: W('立委', 'Legislator'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, tiles, clips, votes, bills], onClose: () => location.hash.startsWith('#who=') && history.replaceState(history.state, '', '#tab=bills') });
 }
 
 // 預算: the term's budgets (yearly 總預算, 追加, 特別), each by its stage, and
@@ -3862,7 +3866,7 @@ async function openBudget(k) {
   if (!x) return;
   const m = x.money;
   const body = h('div', { class: 'lw-bud-page' });
-  const close = () => location.hash.includes('budget=') && history.replaceState(null, '', '#tab=bills&f=budget');
+  const close = () => location.hash.includes('budget=') && history.replaceState(history.state, '', '#tab=bills&f=budget');
   sheet({ title: W('預算', 'Budget'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body], onClose: close });
   const head = `<h2 class="lw-item-name lw-big-name">${esc(budgetName(x))}</h2><div class="lw-meta"><span class="lw-bill-stage ${budgetTone(x.stage, x.k)}">${esc(budgetStep(x.stage))}</span>${x.last ? `<span class="lw-tag">${esc(ymd(x.last))}</span>` : ''}</div><div class="lw-bud-road">${roadHtml(x, true)}<span class="lw-bud-road-note">${roadLine(x, true).map(dueSpan).join('')}</span></div>`;
   const steps = x.flow?.length ? `<section class="lw-person-sec"><h4>${W('進度', 'Steps')}</h4><ol class="lw-timeline">${x.flow.map(f => `<li class="done"><b>${esc(budgetStep(f[1]))}</b><span>${esc(ymd(f[0]))}</span></li>`).join('')}</ol></section>` : '';
@@ -4088,7 +4092,7 @@ async function openMeet(id, d = '') {
   if (m.why) body.push(h('details', { class: 'lw-fold' }, [h('summary', { text: W('會議事由', 'What’s on it, as listed') }), h('div', { class: 'lw-meet-why', html: proseHtml(m.why, state.names) })]));
   const links = [x.ppg && `<a class="q-btn block" href="${esc(x.ppg)}" target="_blank" rel="noopener">${W('立法院議事網', 'Legislative Yuan page')}</a>`, ...(['ahead', 'later', 'off'].includes(st) ? [] : m.videos).slice(0, 2).map((v, i) => `<a class="q-btn block" href="${esc(v)}" target="_blank" rel="noopener">${W(`會議影片 ${m.videos.length > 1 ? i + 1 : ''}（IVOD）`, `Meeting video ${m.videos.length > 1 ? i + 1 : ''} (IVOD)`)}</a>`)].filter(Boolean).join('');
   if (links) body.push(h('div', { class: 'lw-meet-links', html: links }));
-  sheet({ title: roomShort(m), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body, onClose: () => location.hash.startsWith('#meet=') && history.replaceState(null, '', '#tab=bills&f=agenda') });
+  sheet({ title: roomShort(m), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body, onClose: () => location.hash.startsWith('#meet=') && history.replaceState(history.state, '', '#tab=bills&f=agenda') });
 }
 
 // ---- Icons (the app's own, line-drawn) ------------------------------------------------

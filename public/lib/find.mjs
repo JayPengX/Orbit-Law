@@ -273,9 +273,12 @@ export function phraseHits(list, q, n = 4) {
   if ([...k].length < 3) return [];
   const out = [];
   const all = sayings(list);
-  for (const exact of [true, false])
-    for (const { g, says } of all)
-      if (says.some(s => (exact ? s === k : [...s].length >= 4 && k.includes(s))))
+  // Said exactly; then a saying inside the words; then the same words in another order
+  // (押金不退 for 退押金: every character of a saying of 3+, the words at most two longer, only when nothing closer was found).
+  const near = s => [...s].length >= 3 && [...k].length <= [...s].length + 2 && [...s].every(c => k.includes(c));
+  for (const pass of [0, 1, 2])
+    for (const { g, says } of pass === 2 && out.length ? [] : all)
+      if (says.some(s => (pass === 0 ? s === k : pass === 1 ? [...s].length >= 4 && k.includes(s) : near(s))))
         for (const a of g.arts || []) if (out.length < n && !out.some(o => o.p === g.p && o.k === a)) out.push({ p: g.p, k: a });
   return out;
 }

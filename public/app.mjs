@@ -1602,7 +1602,7 @@ const citeChip = (p, k, n) => {
 function rulingsSheet(label, rulings, consIds = []) {
   const cons = consIds.map(id => state.consRows?.byId.get(id)).filter(Boolean);
   const top = rulings.filter(r => courtOf(r[0])), low = rulings.filter(r => !courtOf(r[0]));
-  const rows = l => list(l.map(r => rulingRow(r, { subHtml: [courtLabel(r[0]) && esc(courtLabel(r[0])), zhIn(caseNo(r[0])), esc(ymd(r[1]))].filter(Boolean).join(' · ') })));
+  const rows = l => list(l.map(r => rulingRow(r, { subHtml: [courtLabel(r[0]) && esc(courtLabel(r[0])), zhIn(caseNo(r[0])), esc(shortDay(r[1]))].filter(Boolean).join(' · ') })));
   const html = (cons.length ? `<p class="lw-list-cap">${W('憲法法庭', 'Constitutional Court')}</p>${list(cons.map(r => rulingRow(r)))}` : '') + (top.length ? `${cons.length || low.length ? `<p class="lw-list-cap">${W('最高法院・最高行政法院', 'Top courts')}</p>` : ''}${rows(top)}` : '') + (low.length ? `<p class="lw-list-cap">${W('高等法院・地方法院', 'High and district courts')}</p>${rows(low)}` : '');
   sheet({ title: label, closeLabel: W('關閉', 'Close'), body: h('div', { class: 'lw-rulings in-sheet', html }) });
 }
@@ -2532,7 +2532,7 @@ function rulingRow(r, { sub = '', subHtml = '' } = {}) {
   const [zh, eng, tone] = cons ? ['', '', ''] : caseKind(id);
   // (A court's case number has no English: marked as Chinese inside an English line.)
   const no = cons ? esc(consLabel(id, en)) : zhIn(kind === 'low' ? `${courtLabel(id)} ${id.split(',').slice(1, 4).join('')}` : caseNo(id));
-  const line = subHtml || (sub ? esc(sub) : [no, esc(kind === 'low' ? shortDay(d) : ymd(d))].filter(Boolean).join(' · '));
+  const line = subHtml || (sub ? esc(sub) : [no, esc(shortDay(d))].filter(Boolean).join(' · '));
   return `<a class="lw-row lw-rrow" href="${esc(rulingHref(id))}">${courtTile(kind)}<span class="lw-row-text"><span class="lw-row-name${fit(name, 13)}">${esc(name)}</span><small>${zh ? `${esc(en ? eng : zh)} · ${line}` : line}</small></span></a>`;
 }
 const COURT_SHORT = { TPS: 'Supreme Court', TPA: 'Admin. Court', JCC: 'Const. Court' };

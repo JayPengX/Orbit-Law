@@ -41,6 +41,17 @@ permissions:
   actions: write
 
 jobs:
+  # The rulings store waits for 司法院's hours from a run that lands before them (rulings.yml's
+  # own schedules are often dropped). Never from a dispatch: rulings.yml dispatches this one.
+  rulings-tonight:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run rulings.yml --ref main --repo "$GITHUB_REPOSITORY"
+
   # One data build at a time, without cancelling any (a cancelled run mails its
   # pusher): a run waits for the earlier ones still going, and steps aside,
   # quietly, when a newer run of this workflow will build instead.

@@ -193,8 +193,8 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
   read from its own text.
 - **裁判, the courts** (`lib/rulings.mjs`): every court's judgments citing a law,
   3 years back. `scripts/backfill-rulings.mjs` (workflow `rulings.yml`, nightly
-  00:00–06:00 Taiwan time, when 司法院 opens: asked every hour because GitHub starts schedules hours
-  late, a run outside the window ends at once in its `when` job; it saves the store to the cache,
+  00:00–06:00 Taiwan time, when 司法院 opens: asked every hour and by each scheduled or pushed `data.yml` run because GitHub starts
+  schedules hours late or drops them: a run up to five hours early waits in its `when` job, a later one ends at once; it saves the store to the cache,
   asks `data.yml` for a build (which deploys) and starts itself again while months remain) reads
   司法院's monthly archives and JDoc into `.rulings-store/` (cache only, never
   carried through a deploy). `scripts/build-rulings.mjs` (in `data.yml`) makes what the

@@ -1876,7 +1876,7 @@ async function openBillById(id) {
   try {
     const b = (await fetch(`https://v2.ly.govapi.tw/bill/${encodeURIComponent(id)}`).then(r => r.json()))?.data;
     if (!b) throw new Error('none');
-    const flow = (b['議案流程'] || []).map(f => `<li class="done"><b>${esc(String(f['狀態'] || '').replace(/\s*[（(].*$/, ''))}</b><span>${esc(ymd([].concat(f['日期'] || [])[0] || ''))}</span></li>`).join('');
+    const flow = (b['議案流程'] || []).map(f => `<li class="done"><b>${esc(String(f['狀態'] || '').replace(/\s*[（(].*$/, ''))}</b><span>${esc(shortDay(ymd([].concat(f['日期'] || [])[0] || '')))}</span></li>`).join('');
     const who = [...(b['提案人'] || [])];
     body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4>${proseHtml(b['案由'], state.names)}` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary>${proseHtml(b['說明'], state.names)}</details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
     compareBill({ id }, body.querySelector('.lw-diffs'), { first: 3 });
@@ -3111,7 +3111,7 @@ async function openNotice(id) {
       `<div class="lw-item-head" style="--t:${TOPICS[topic].color}">${topicTile(topic, 'lg')}<span class="lw-meta"><span class="lw-tag ${tone}">${esc(kind)}</span>${(d?.cat || n.cat) ? countTag(d?.cat || n.cat) : ''}</span></div>` +
       `<h2 class="lw-item-name lw-big-name${fit(noticeParts(n)[0])}">${esc(noticeParts(n)[0])}</h2>${noticeParts(n)[1] ? `<p class="lw-notice-arts big">${esc(noticeParts(n)[1])}</p>` : ''}` +
       `<div class="lw-stats${tiles.length === 3 ? ' three' : tiles.length === 2 ? ' two' : ''}">${tiles.map(([b, l, t]) => `<span class="lw-stat ${t}"><b>${esc(b)}</b><span>${esc(l)}</span></span>`).join('')}</div>` +
-      `<div class="lw-notice-who">${who ? `<p><b>${W('提出', 'From')}</b><span>${esc(who)}</span></p>` : ''}${d?.basis ? `<p><b>${W('依據', 'Under')}</b><span>${esc(d.basis)}</span></p>` : ''}<p><b>${W('公告', 'Posted')}</b><span>${esc(ymd(n.from))}</span></p></div>` +
+      `<div class="lw-notice-who">${who ? `<p><b>${W('提出', 'From')}</b><span>${esc(who)}</span></p>` : ''}${d?.basis ? `<p><b>${W('依據', 'Under')}</b><span>${esc(d.basis)}</span></p>` : ''}<p><b>${W('公告', 'Posted')}</b><span>${esc(shortDay(ymd(n.from)))}</span></p></div>` +
       (why ? `<section class="lw-person-sec"><h4>${W('為什麼要改', 'Why')}</h4>${n.s && d?.about ? `<p class="lw-notice-lead">${esc(n.s.replace(/…$/, ''))}${/…$/.test(n.s) ? '…' : '。'}</p>` : ''}<button type="button" class="lw-why-row lw-notice-about">${proseHtml(why, state.names)}</button></section>` : '') +
       (rows.length ? `<section class="lw-person-sec"><h4>${W(`改了什麼（${rows.length} 條）`, `What changes (${rows.length})`)}</h4><p class="lw-hint-sm">${W('綠色是新增的字、紅色刪掉的字，對照現行條文。', 'Green is added, red is removed, against the text in force.')}</p><div class="lw-nrows">${rows.slice(0, shown).map(rowHtml).join('')}</div>${rows.length > shown ? `<button type="button" class="lw-more" data-nmore>${W(`再顯示 ${rows.length - shown} 條`, `${rows.length - shown} more`)}</button>` : ''}</section>` : d ? `<p class="lw-hint-sm">${W('草案條文只有掃描檔，請看原始 PDF。', 'The draft’s text is only a scan: see the PDF.')}</p>` : '<span class="q-skel lw-bud-skel"></span>') +
       (laws ? `<section class="lw-person-sec"><h4>${W('相關法規', 'The law')}</h4><div class="lw-cites">${laws}</div></section>` : '') +
@@ -3207,7 +3207,7 @@ async function openItem(k, { round } = {}) {
       const next = nextSitting(a.meets, { ids: bills.map(b => b.id), law: it.law, name: it.n });
       if (next) prog.querySelector('.lw-now').insertAdjacentHTML('afterbegin', `<p><b>${W('排議程', 'On agenda')}</b><span><a href="#meet=${esc(encodeURIComponent(next.m.id))}&amp;d=${esc(next.d)}">${esc(`${meetDay(next.d)} ${hm(next.from)} ${roomShort(next.m)}${kindLabel(next.m.kind) !== roomShort(next.m) ? ` ${kindLabel(next.m.kind)}` : ''}`)}</a></span></p>`);
     }).catch(() => {});
-  const line = h('details', { class: 'lw-fold' }, [h('summary', { text: W('審議過程', 'Steps so far') }), h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}"${s.url.startsWith('#') ? '' : ' target="_blank" rel="noopener"'}>${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? ymd(s.date) : '')}</span></li>`).join('') })]);
+  const line = h('details', { class: 'lw-fold' }, [h('summary', { text: W('審議過程', 'Steps so far') }), h('ol', { class: 'lw-timeline', html: steps.map(s => `<li class="${s.done ? 'done' : ''}${s.stage === it.stage ? ' now' : ''}"><b>${s.url ? `<a href="${esc(s.url)}"${s.url.startsWith('#') ? '' : ' target="_blank" rel="noopener"'}>${esc(s.by ? `${s.by}${s.name}` : s.name)}</a>` : esc(s.name)}</b><span>${esc(s.date ? shortDay(ymd(s.date)) : '')}</span></li>`).join('') })]);
   const versions = [...bills].sort((a, b) => (a.u < b.u ? 1 : -1));
   const vlist = h('details', { class: 'lw-fold' }, [
     h('summary', { text: W(`${bills.length} 個版本`, `${bills.length} versions`) }),
@@ -3216,7 +3216,7 @@ async function openItem(k, { round } = {}) {
       { class: 'lw-versions' },
       versions.map(b =>
         h('details', { class: 'lw-version', ontoggle: e => e.currentTarget.open && compareBill(b, e.currentTarget.querySelector('.lw-compare')) }, [
-          h('summary', {}, [h('span', { text: b.t }), h('small', { text: [b.by, b.st, b.u && ymd(b.u)].filter(Boolean).join(' · ') })]),
+          h('summary', {}, [h('span', { text: b.t }), h('small', { text: [b.by, b.st, b.u && shortDay(ymd(b.u))].filter(Boolean).join(' · ') })]),
           h('div', { class: 'lw-compare lw-diffs', text: W('讀取對照表…', 'Loading…') })
         ])
       )

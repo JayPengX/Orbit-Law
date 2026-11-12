@@ -1796,8 +1796,13 @@ async function openRuleText(path, label) {
 
 // A 質詢 clip played in the app (the 立法院's own stream), with what was said.
 const fmtSec = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-// A clip's length as IVOD gives it (00:21:00) in words: 21 分鐘.
-const clipLen = t => { const m = String(t || '').match(/^(\d+):(\d+):(\d+)$/); if (!m) return String(t || ''); const n = Math.max(1, Math.round(+m[1] * 60 + +m[2] + +m[3] / 60)); return W(`${n} 分鐘`, `${n} min`); };
+// A recording's length as its site gives it (00:21:00, 01:40:54) in words: 21 分鐘, 1 小時 41 分.
+const clipLen = t => {
+  const m = String(t || '').trim().match(/^(?:(\d+):)?(\d+):(\d+)$/);
+  if (!m) return String(t || '');
+  const n = Math.max(1, Math.round(+(m[1] || 0) * 60 + +m[2] + +m[3] / 60));
+  return n < 60 ? W(`${n} 分鐘`, `${n} min`) : W(`${Math.floor(n / 60)} 小時${n % 60 ? ` ${n % 60} 分` : ''}`, `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`);
+};
 async function openClip(id, label = '') {
   const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video q-skel"></div>` });
   sheet({ title: label.slice(0, 40) || W('質詢影片', 'Speech video'), closeLabel: W('關閉', 'Close'), body });
@@ -4180,7 +4185,7 @@ const sittingRow = (x, vid) => {
 };
 const PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" fill="currentColor"/></svg>';
 // A council's recordings: a row each, its picture, what it was and when.
-const vidRow = v => `<button type="button" class="lw-row lw-vid" data-ccvid="${esc(v.id)}">${v.img ? `<img class="lw-vid-img" src="${esc(v.img)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</span><small>${esc([shortDay(v.d), v.t, v.len, v.what && v.what !== v.n ? v.what : ''].filter(Boolean).join(' · '))}</small></span></button>`;
+const vidRow = v => `<button type="button" class="lw-row lw-vid" data-ccvid="${esc(v.id)}">${v.img ? `<img class="lw-vid-img" src="${esc(v.img)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc(v.n || W('議場錄影', 'Chamber recording'))}</span><small>${esc([shortDay(v.d), v.t, clipLen(v.len), v.what && v.what !== v.n ? v.what : ''].filter(Boolean).join(' · '))}</small></span></button>`;
 // Which of a council's live channels stream now: each asked once a minute at most (HiNet answers 404 when off air).
 const liveSeen = new Map();
 function liveNow(url) {
@@ -4557,7 +4562,9 @@ async function openCouncilBill(id) {
         return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2>${fieldsHtml([[W('類別', 'Type'), b['類別']], [W('日期', 'Date'), shortDay(b['日期'])], [W('提案人', 'Filed by'), b['主提案人'] ?? b['提案人']], [W('連署人', 'Co-signers'), b['連署人']]])}<p class="lw-hint-sm">${esc(PDF_TEXT.has(own[1]) ? W('這件的說明和議決還沒讀進來（每天讀一批議會的附件），先看原始資料。', 'Its reasons and outcome aren’t read in yet; see the original for now.') : W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
       }
       b = { ...b, 提案人: b['主提案人'] ?? b['提案人'] ?? '' };
-    } else b = (await ccJson(ccBill(id))).data;
+    } else b = (await ccJson(ccBill(id)))?.data;
+    // (An id the API no longer has answers with no data: said so, not an empty sheet.)
+    if (!b) throw new Error('gone');
   } catch {
     return void (box.innerHTML = emptyNote(W('這件提案讀不到，請稍後再試', 'Couldn’t load this bill')));
   }

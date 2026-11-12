@@ -3672,7 +3672,7 @@ async function peopleList(out) {
   // By 縣市: each card says its party and 選區; by party: its 選區.
   const seat = a => (/第(\d+)選舉區/.test(a) ? W(`第${seatNo(a)}選區`, `District ${seatNo(a)}`) : /山地原住民/.test(a) ? W('山地', 'Highland') : /平地原住民/.test(a) ? W('平地', 'Lowland') : '');
   const sub = (x, full) => (full ? `${partyShort(x.party)} · ${shortArea(x.area)}` : byArea ? [partyShort(x.party), bloc(x) !== x.party ? W(`${partyShort(bloc(x))}團`, `${partyShort(bloc(x))} caucus`) : '', seat(x.area)].filter(Boolean).join(' · ') : shortArea(x.area));
-  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${x.counts.bills}`, `${x.counts.bills} bills`)}</span></a>`;
+  const card = (x, full) => `<a class="lw-person" href="#who=${esc(x.id)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc(sub(x, full === true))}</small></span><span class="lw-person-n">${W(`提案 ${Number(x.counts.bills).toLocaleString("en-US")}`, `${Number(x.counts.bills).toLocaleString("en-US")} bills`)}</span></a>`;
   const groups = new Map();
   for (const x of now) {
     const g = byArea ? seatGroup(x.area) : [0, x.party];
@@ -3730,7 +3730,7 @@ async function openPerson(id) {
     const yt = c => `https://www.youtube.com/@LegislativeYuan/search?query=${encodeURIComponent(`${c[1]} ${roc(c[0])}`)}`;
     const clipRow = c => `<div class="lw-clip"><a class="lw-clip-main" href="${esc(ivodUrl(c[2]))}" target="_blank" rel="noopener"><span class="lw-clip-play">${ICON_PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(c[1] || W('院會', 'Plenary'))}</span><small>${esc(`${shortDay(c[0])}${c[4] ? ` · ${Math.max(1, Math.round(c[4] / 60))} ${W('分鐘', 'min')}` : ''}`)}</small></span></a><a class="lw-clip-yt" href="${esc(yt(c))}" target="_blank" rel="noopener" aria-label="YouTube">${ICON_YT}</a></div>`;
     let n = 5;
-    const draw = () => (clips.innerHTML = `<h4>${W(`質詢影片（${x.clips.length}）`, `Speeches (${x.clips.length})`)}</h4><div class="lw-clips">${x.clips.slice(0, n).map(clipRow).join('')}</div>${x.clips.length > n ? `<button type="button" class="lw-more">${W('再顯示 20 段', 'Show 20 more')}</button>` : ''}<p class="lw-hint-sm">${W('影片在立法院議事轉播（IVOD）；▶ YouTube 找同一場會議。', 'Videos play on the Legislative Yuan’s IVOD; the YouTube button finds the same meeting.')}</p>`);
+    const draw = () => (clips.innerHTML = `<h4>${W(`質詢影片（${x.clips.length.toLocaleString('en-US')}）`, `Speeches (${x.clips.length.toLocaleString('en-US')})`)}</h4><div class="lw-clips">${x.clips.slice(0, n).map(clipRow).join('')}</div>${x.clips.length > n ? `<button type="button" class="lw-more">${W('再顯示 20 段', 'Show 20 more')}</button>` : ''}<p class="lw-hint-sm">${W('影片在立法院議事轉播（IVOD）；▶ YouTube 找同一場會議。', 'Videos play on the Legislative Yuan’s IVOD; the YouTube button finds the same meeting.')}</p>`);
     draw();
     clips.addEventListener('click', e => e.target.closest('.lw-more') && ((n += 20), draw()));
   }
@@ -3746,12 +3746,12 @@ async function openPerson(id) {
     const whole = mine.filter(([j]) => /全案/.test(d.votes[j][2]));
     const all = h('button', { type: 'button', class: 'lw-more', text: W(`看全部 ${mine.length} 筆表決`, `All ${mine.length} votes`), onclick: () => all.replaceWith(voteList(mine.map(([j]) => [j, d.votes[j]]), marks)) });
     votes.replaceChildren(
-      h('h4', { text: W(`表決紀錄（${mine.length}）`, `Votes (${mine.length})`) }),
+      h('h4', { text: W(`表決紀錄（${mine.length.toLocaleString('en-US')}）`, `Votes (${mine.length.toLocaleString('en-US')})`) }),
       ...(al && al.cast >= 10 ? [h('p', { class: 'lw-person-line', html: alignLine(al) })] : []),
       ...(whole.length ? [h('p', { class: 'lw-vg-h', text: W(`法案全案表決 ${whole.length}`, `Final votes on bills: ${whole.length}`) }), voteList(whole.map(([j]) => [j, d.votes[j]]), marks, 5, true), all] : [voteList(mine.map(([j]) => [j, d.votes[j]]), marks)])
     );
   }).catch(() => {});
-  const bills = h('div', { class: 'lw-person-sec', html: x.bills?.length ? `<h4>${W(`提案（${row.counts.bills}）`, `Bills (${row.counts.bills})`)}</h4><div class="lw-list in-sheet wrap">${x.bills.slice(0, 15).map(b => `<a class="lw-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(b[0])}/details" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(b[2])}</span><small>${esc([shortDay(b[1]), b[3]].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>` : '' });
+  const bills = h('div', { class: 'lw-person-sec', html: x.bills?.length ? `<h4>${W(`提案（${Number(row.counts.bills).toLocaleString('en-US')}）`, `Bills (${Number(row.counts.bills).toLocaleString('en-US')})`)}</h4><div class="lw-list in-sheet wrap">${x.bills.slice(0, 15).map(b => `<a class="lw-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(b[0])}/details" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(b[2])}</span><small>${esc([shortDay(b[1]), b[3]].filter(Boolean).join(' · '))}</small></span></a>`).join('')}</div>` : '' });
   sheet({ title: W('立委', 'Legislator'), lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [head, tiles, clips, votes, bills], onClose: () => location.hash.startsWith('#who=') && history.replaceState(history.state, '', '#tab=bills') });
 }
 

@@ -2821,7 +2821,7 @@ async function openCons(id) {
   const paras = ps => proseHtml(ps.join('\n'), state.names);
   const verdict = consVerdict(it.main.join(''));
   body.innerHTML =
-    `<header class="lw-page-head"><h3 class="lw-big-name q-fit-wrap${nameSize(it.n || '')}">${esc(it.n || consLabel(id, en))}</h3><small>${esc([courtName(kind), it.label, it.d && ymd(it.d)].filter(Boolean).join(' · '))}</small></header>` +
+    `<header class="lw-page-head"><h3 class="lw-big-name q-fit-wrap${nameSize(it.n || '')}">${esc(it.n || consLabel(id, en))}</h3><small>${esc([courtName(kind), it.label, it.d && shortDay(it.d)].filter(Boolean).join(' · '))}</small></header>` +
     rulingAiBtn(id, it.label || consLabel(id, en)) +
     (it.issue ? `<div class="lw-block cons"><h4><i>${MENU_ICON.ask}</i>${id[0] === 's' ? W('爭點', 'The question') : W('案由', 'The case')}</h4><p>${plainHtml(it.issue)}</p></div>` : '') +
     `<div class="lw-jd-hero ${verdict.tone}"><span>${id[0] === 's' ? W('解釋文', 'Holding') : W('主文', 'Holding')}</span>${verdict.label ? `<strong>${esc(verdict.label)}</strong>` : ''}<div class="lw-cons-main">${paras(it.main)}</div></div>` +
@@ -4048,7 +4048,11 @@ async function agendaList(out) {
   if (!days.includes(agendaDay)) agendaDay = days.find(d => d >= day) || days.at(-1);
   const rest = all.filter(x => x.d === agendaDay && !live.includes(x));
   const now = agendaDay === day && live.length;
-  out.innerHTML = now ? section(W('現在開會中', 'Meeting now'), `<div class="lw-meets">${live.map(row).join('')}</div>`) + (rest.length ? section(W('稍後', 'Later'), `<div class="lw-meets">${rest.map(row).join('')}</div>`) : '') : `<div class="lw-meets">${rest.map(row).join('')}</div>`;
+  // (While some meet, the day's others: those still to come 稍後, those already over 稍早, never over ones under 稍後.)
+  const later = rest.filter(x => !['done', 'past', 'off'].includes(liveState(x, a.live)));
+  const earlier = rest.filter(x => !later.includes(x));
+  const meetsOf = (title, xs) => (xs.length ? section(title, `<div class="lw-meets">${xs.map(row).join('')}</div>`) : '');
+  out.innerHTML = now ? meetsOf(W('現在開會中', 'Meeting now'), live) + meetsOf(W('稍後', 'Later'), later) + meetsOf(W('稍早', 'Earlier'), earlier) : `<div class="lw-meets">${rest.map(row).join('')}</div>`;
   out.prepend(dayBar(agendaRec, { days, current: agendaDay, today: day, follow: true, onPick: pickAgendaDay }));
 }
 function pickAgendaDay(d) {

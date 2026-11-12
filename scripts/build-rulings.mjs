@@ -49,7 +49,8 @@ await writeFile(out + 'all.json', JSON.stringify({ built: new Date().toISOString
 const laws = byLaw(top);
 for (const [p, arts] of Object.entries(laws)) await writeFile(`${out}${p}.json`, JSON.stringify(arts));
 await writeFile(out + 'laws.json', JSON.stringify(lawCounts(top)));
-await writeFile(out + 'latest.json', JSON.stringify({ rulings: latestRulings(top.filter(r => courtOf(r[0]) !== 'JCC')) }));
+// (Each court's own newest: 最高法院 writes ten times what 最高行政法院 does, and its ten newest left 總覽's 最高行政法院 empty.)
+await writeFile(out + 'latest.json', JSON.stringify({ rulings: ['TPS', 'TPA'].flatMap(c => latestRulings(top.filter(r => courtOf(r[0]) === c), 6)) }));
 const perMonth = byMonth(top);
 await mkdir(out + 'm', { recursive: true });
 for (const [m, list] of Object.entries(perMonth)) await writeFile(`${out}m/${m}.json`, JSON.stringify(list));

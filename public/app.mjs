@@ -552,6 +552,9 @@ function pulseHtml() {
 }
 function drawHome() {
   const panel = $('panel-home');
+  // (No index on a first open offline: this, and nothing a later read draws over it; it used to be redrawn as the
+  // normal 首頁 the moment the bills arrived, whose searches then found nothing.)
+  if (state.noIndex) return void paint(panel, emptyNote(W('法規資料讀不到', 'The laws couldn’t be loaded'), W('請連上網路再打開一次。', 'Connect and open again.'), ''));
   const card = findCard();
   let rest = panel.querySelector(':scope > .nv-rest');
   if (!rest || card.parentNode !== panel) panel.replaceChildren(card, (rest = h('div', { class: 'nv-rest' })));
@@ -4952,7 +4955,8 @@ async function start() {
     // The rules this device follows, bookmarked or read (行政規則, 地方法規): their rows by name, for 我的 and 繼續閱讀.
     for (const [p, r] of Object.entries(state.mine.rules || {})) if (isRule(p) && Array.isArray(r)) state.byCode.set(p, [p, r[0], r[2], r[1], '', 0, 0, 0]);
   } catch {
-    $('panel-home').innerHTML = emptyNote(W('法規資料讀不到', 'The laws couldn’t be loaded'), W('請連上網路再打開一次。', 'Connect and open again.'), '');
+    state.noIndex = true;
+    drawHome();
   }
   const redraw = () => {
     if (state.tab === 'home') drawHome();

@@ -122,6 +122,8 @@ document.documentElement.lang = en ? 'en' : 'zh-Hant';
 // ---- Orbit Pass: the Home Screen gate, the sign-in, the account button -----------------
 
 const q = orbitSession('law', { lang: en ? 'en' : 'zh' });
+// One language (Jay 11-13): in English, what has no English of its own (a regulation's name, a ruling's, a bill's) put into English by plain translation (kit).
+if (en) kit.translateMarked?.(document.body);
 // 為你推薦 learns from what's opened and passed over (the kit's feedback.mjs, the
 // family's one engine, kept on the Pass; loaded on the side: an older kit ranks without it).
 let feedback = null;
@@ -1063,6 +1065,8 @@ async function drawLaw() {
   // A rule the site gives only as an attachment (詳如附件): said, and its page a tap away.
   const only = rule && law.only ? h('div', { class: 'lw-only', html: `<p>${W('這個規定的全文在附件裡，原網站才看得到。', 'This rule’s text is in an attachment on its own site.')}</p>${/^https:\/\//.test(law.url) ? `<a class="q-more q-more-go lw-out" href="${esc(law.url)}" target="_blank" rel="noopener" data-out><span>${W('到原網站看附件', 'Open the attachment on its site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` }) : null;
   const body = h('div', { class: `lw-law${state.showEn ? ' en' : ''}`, html: lawHtml(shown, { names: state.names, self: selfOf(law), en: state.showEn, fresh: rule ? freshMarks({ items: change ? [change] : [] }, law, en) : freshMarks(state.changes, law, en), pending: live ? Object.fromEntries(Object.entries(live.arts || {}).map(([k, n]) => [k, W(`${n} 個修正提案`, n > 1 ? `${n} proposals` : '1 proposal')])) : {}, pendingItem: live?.k.replace(':', '-'), marks: state.mine.marks.filter(m => m.p === law.p).map(m => m.k) }) });
+  // (A law's own articles never machine-translated (kit translateMarked): the MOJ's English or the Chinese as enacted.)
+  body.dataset.keep = '';
   const find = h('div', { class: 'lw-find', hidden: true }, [search({ placeholder: W('在這部法規裡找字', 'Find in this law'), onInput: v => filterLaw(v) }), h('small', { class: 'lw-find-n' })]);
   // ⚖ 判決 N beside each article a court ruled on (purple when 憲法法庭 did).
   for (const k of new Set([...Object.keys(state.lawRulings), ...Object.keys(state.lawCons).filter(Boolean)])) {

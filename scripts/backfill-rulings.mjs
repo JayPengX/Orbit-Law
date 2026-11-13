@@ -48,12 +48,17 @@ const orders = existsSync(new URL('../public/data/orders.json', import.meta.url)
 const names = nameMap([...index.laws, ...orders.laws]);
 const { JDOC_USER: user, JDOC_PASS: password } = process.env;
 const notes = [];
+// 司法院's two doors turned GitHub's runners away (every read since 10-22 'fetch failed'): with the build's
+// key, each call goes through the proxy's /law-judicial, read from Taiwan; without it, straight.
+const KEY = process.env.LAW_BUILD_KEY || '';
+const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-judicial';
+const jfetch = (url, init = {}) => (KEY ? fetch(`${DOOR}?u=${encodeURIComponent(url)}`, { ...init, headers: { ...(init.headers || {}), 'X-Build-Key': KEY } }) : fetch(url, init));
 
 // JDoc: the top courts' judgments of the last week (the archives lag a month).
 if (user && password && open()) {
   const API = 'https://data.judicial.gov.tw/jdg/api/';
   const post = async (path, body) => {
-    const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60_000) });
+    const r = await jfetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60_000) });
     if (!r.ok) throw new Error(`JDoc ${path} ${r.status}`);
     return r.json();
   };
@@ -87,10 +92,10 @@ if (open()) {
   const OPEN = 'https://opendata.judicial.gov.tw/';
   const work = join(tmpdir(), `rulings-${process.pid}`);
   try {
-    const list = await (await fetch(`${OPEN}data/api/rest/categories/051/resources`, { signal: AbortSignal.timeout(60_000) })).json();
+    const list = await (await jfetch(`${OPEN}data/api/rest/categories/051/resources`, { signal: AbortSignal.timeout(60_000) })).json();
     let auth = {};
     if (user && password) {
-      const t = await fetch(`${OPEN}api/MemberTokens`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberAccount: user, pwd: password }), signal: AbortSignal.timeout(60_000) })
+      const t = await jfetch(`${OPEN}api/MemberTokens`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberAccount: user, pwd: password }), signal: AbortSignal.timeout(60_000) })
         .then(r => r.json())
         .catch(e => ({ message: e.message }));
       if (t.token) auth = { Authorization: `Bearer ${t.token}` };
@@ -107,7 +112,7 @@ if (open()) {
       await rm(work, { recursive: true, force: true });
       await mkdir(join(work, 'x'), { recursive: true });
       const rar = join(work, 'month.rar');
-      const r = await fetch(`${OPEN}api/FilesetLists/${m.id}/file`, { headers: auth, signal: AbortSignal.timeout(40 * 6e4) });
+      const r = await jfetch(`${OPEN}api/FilesetLists/${m.id}/file`, { headers: auth, signal: AbortSignal.timeout(40 * 6e4) });
       if (!r.ok) {
         notes.push(`${m.month} download ${r.status}: ${(await r.text()).slice(0, 160)}`);
         failed = true;
@@ -145,7 +150,7 @@ if (open()) {
     // Rulings 司法院 has since taken down.
     const del = list.find(d => /Delete-Infor/i.test(d.title || ''))?.filesets?.[0]?.fileSetId;
     if (del) {
-      const r = await fetch(`${OPEN}api/FilesetLists/${del}/file`, { headers: auth, signal: AbortSignal.timeout(120_000) }).catch(() => null);
+      const r = await jfetch(`${OPEN}api/FilesetLists/${del}/file`, { headers: auth, signal: AbortSignal.timeout(120_000) }).catch(() => null);
       if (r?.ok) done.gone = [...deletedIds(await r.text())];
     }
   } catch (e) {

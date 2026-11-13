@@ -78,6 +78,8 @@ jobs:
         env:
           JDOC_USER: ${{ secrets.JDOC_USER }}
           JDOC_PASS: ${{ secrets.JDOC_PASS }}
+          # (Read from Taiwan through the proxy's /law-judicial: 司法院 turns GitHub's runners away.)
+          LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
       - uses: actions/cache/save@v4
         if: always() && hashFiles('.rulings-store/done.json') != ''
         with:

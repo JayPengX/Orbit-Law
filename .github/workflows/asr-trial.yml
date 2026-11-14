@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -q faster-whisper==1.1.1
+      - run: pip install -q faster-whisper==1.1.1 requests
       - run: curl -sSL -o day.m4a "https://drive.usercontent.google.com/download?id=${{ inputs.drive }}&export=download&confirm=t" && ls -la day.m4a
       - run: nproc && python scripts/asr.py day.m4a asr-${{ matrix.model }}.json ${{ matrix.model }}
       - uses: actions/upload-artifact@v4

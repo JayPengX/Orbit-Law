@@ -108,3 +108,9 @@ test('a turn the recognizer was mostly unsure of is marked unclear', () => {
   assert.deepEqual(p.turns.filter(t => t.unclear).map(t => t.w), ['張美珠']);
 });
 
+
+test('「請各位代表參閱」「請翻開第五頁」 call no one: the chair keeps the floor', () => {
+  const w = [[0, 4, '請各位代表參閱書面資料第五頁。'], [6, 9, '請翻開代表提案第三案。'], [11, 15, '提案人陳代表，案由道路拓寬。']];
+  const turns = heardTurns(w, { members, chair: '林啟賢' });
+  assert.ok(turns.every(t => t.r !== '代表'), JSON.stringify(turns));
+});

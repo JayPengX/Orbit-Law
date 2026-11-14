@@ -31,7 +31,7 @@ const PACE = Number(process.env.TOWN_HEAR_PACE || 0.6);
 // (A trial: only these recordings (Drive ids or addresses, comma between), each heard as a recording with no transcript.)
 const ONLY = (process.env.TOWN_HEAR_ONLY || '').split(',').map(x => x.trim()).filter(Boolean);
 // (The papers made from what was heard: a new number when the code that makes them changes.)
-const MADE = 2;
+const MADE = 3;
 const json = async f => JSON.parse(await readFile(f, 'utf8'));
 const townDir = `${dataDir}/council/town`;
 const roster = await json(new URL('./town-roster.json', import.meta.url)).catch(() => ({}));

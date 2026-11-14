@@ -59,8 +59,10 @@ export function fixTerms(chars, vocab = {}) {
 }
 
 const OFFICIAL = '課長|所長|主任秘書|主任|主秘|秘書|市長|鎮長|鄉長|隊長|館長|主計|技士|校長|局長|委員';
+// (「請各位代表參閱」「請翻開第五頁」 call no one.)
+const NO_ONE = '(?!(?:我們)?(?:的)?(?:各位|全體|所有|大家|在座|翻|參|看|起立|坐))';
 // The chair's call of the next speaker: 「來，我們請張美珠代表」「再請邵所長來答覆」「請民政課長說明」.
-const CALL = new RegExp(`(?:好|來|那|OK)?[，, ]*(?:謝謝[^，,。！？]{0,8}?[，, ]*)?(?:來[，, ]*)?(?:我們)?(?:再)?請(?:我們)?(?:的)?([^，,。！？請\s]{0,8}?)(代表|副主席|${OFFICIAL})`, 'g');
+const CALL = new RegExp(`(?:好|來|那|OK)?[，, ]*(?:謝謝[^，,。！？]{0,8}?[，, ]*)?(?:來[，, ]*)?(?:我們)?(?:再)?請${NO_ONE}(?:我們)?(?:的)?([^，,。！？請\s]{0,8}?)(代表|副主席|${OFFICIAL})`, 'g');
 // (A member asking for an answer is not the chair calling: 「可以再請所長說明嗎」.)
 const ASKING = /(?:可以|能否|能不能|想|要|是否|希望|麻煩|有沒有)[^，,。]{0,2}$/;
 // (「請市長管理所我們邵所長」: the office misheard as a title; the last title of the call is the one.)
@@ -215,7 +217,7 @@ export function heardTurns(words, { members = [], chair = '', pitchOf = null, vo
 // when they first take the floor (their greeting: 「主席、市長、…各位代表同仁、後方來賓」) or when the chair calls a
 // different member by name; the chair calling the same member back for another round, or a word between, doesn't
 // end it. → [{ w, from, to }]
-const CALLS_MEMBER = /請[^，,。！？請\s]{0,8}?(?:代表|副主席)/;
+const CALLS_MEMBER = new RegExp(`請${NO_ONE}[^，,。！？請\\s]{0,8}?(?:代表|副主席)`);
 const GREETING = /各位代表|代表同仁|代表會同仁|來賓|大家好|大家早|各位先進/;
 export function machineAsks(turns) {
   const out = [];

@@ -238,7 +238,7 @@ jobs:
           for p in council council/town council/text agency local ai/weekly.json; do
             if [ ! -e "public/data/$p" ] && [ -e ".prev-data/$p" ]; then mkdir -p "$(dirname "public/data/$p")" && cp -r ".prev-data/$p" "public/data/$p" && echo "kept: $p"; fi
           done
-      # 代表會 recordings heard by speech recognition (town-hear.yml, four runners, each its own copy: all four
+      # 代表會 recordings heard by speech recognition (town-hear.yml, eight runners, each its own copy: all eight
       # gathered into one folder): each 總質詢's turns set on its recording, every other recording made a paper.
       - uses: actions/cache/restore@v4
         with:
@@ -265,6 +265,26 @@ jobs:
           path: .town-heard
           key: town-heard-s3-none
           restore-keys: town-heard-s3-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s4-none
+          restore-keys: town-heard-s4-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s5-none
+          restore-keys: town-heard-s5-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s6-none
+          restore-keys: town-heard-s6-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s7-none
+          restore-keys: town-heard-s7-
       - name: Set what was heard in the 代表會 recordings on the papers
         run: node scripts/town-hear.mjs apply public/data .town-heard
         continue-on-error: true

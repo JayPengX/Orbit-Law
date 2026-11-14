@@ -1,6 +1,6 @@
 # 代表會 recordings heard by speech recognition (scripts/asr.py: faster-whisper, open source, on this runner; no AI
 # service, nothing paid: a public repo's minutes are free): each 總質詢 transcript's turns placed on its recording, and
-# every other 代表會 recording made into text, newest session of each town first (scripts/town-hear.mjs hear). Four
+# every other 代表會 recording made into text, newest session of each town first (scripts/town-hear.mjs hear). Eight
 # runners, each its own share of the recordings and its own copy of what it heard in the Actions cache
 # (town-heard-s<n>-*); data.yml sets it all on the papers (town-hear.mjs apply). Nightly, five hours' listening at most.
 name: Hear the 代表會 recordings
@@ -31,12 +31,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     env:
       TOWN_HEAR_MINUTES: ${{ inputs.minutes || '300' }}
       TOWN_HEAR_MODEL: ${{ inputs.model || 'medium' }}
       TOWN_HEAR_ONLY: ${{ inputs.only || '' }}
-      TOWN_HEAR_SHARD: ${{ matrix.shard }}/4
+      TOWN_HEAR_SHARD: ${{ matrix.shard }}/8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,13 +53,52 @@ jobs:
           path: public/data
           key: law-data-none
           restore-keys: law-data-
+      # (What every runner has heard so far, all of it: a recording one heard is never heard again by another.)
       - uses: actions/cache/restore@v4
         with:
           path: .town-heard
           key: town-heard-none
-          restore-keys: |
-            town-heard-s${{ matrix.shard }}-
-            town-heard-
+          restore-keys: town-heard-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s0-none
+          restore-keys: town-heard-s0-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s1-none
+          restore-keys: town-heard-s1-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s2-none
+          restore-keys: town-heard-s2-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s3-none
+          restore-keys: town-heard-s3-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s4-none
+          restore-keys: town-heard-s4-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s5-none
+          restore-keys: town-heard-s5-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s6-none
+          restore-keys: town-heard-s6-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-s7-none
+          restore-keys: town-heard-s7-
       - uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface

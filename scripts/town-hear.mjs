@@ -26,8 +26,8 @@ const [mode, dataDir, storeDir] = process.argv.slice(2);
 const MODEL = process.env.TOWN_HEAR_MODEL || 'medium';
 const ends = Date.now() + Number(process.env.TOWN_HEAR_MINUTES || 300) * 60_000;
 const [shard, shards] = (process.env.TOWN_HEAR_SHARD || '0/1').split('/').map(Number);
-// (How long hearing takes, a share of the recording's length: medium on GitHub's runner, 13.5 min for 51.)
-const PACE = Number(process.env.TOWN_HEAR_PACE || 0.3);
+// (How long hearing takes, a share of the recording's length: medium on GitHub's runner, 0.3 to 0.55 of it.)
+const PACE = Number(process.env.TOWN_HEAR_PACE || 0.6);
 // (A trial: only these recordings (Drive ids or addresses, comma between), each heard as a recording with no transcript.)
 const ONLY = (process.env.TOWN_HEAR_ONLY || '').split(',').map(x => x.trim()).filter(Boolean);
 // (The papers made from what was heard: a new number when the code that makes them changes.)

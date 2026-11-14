@@ -1537,7 +1537,7 @@ function explain(law, ks) {
 const RULING_JID = /^[A-Z]{3,5},\d{2,3},[^,\s]{1,12},\d{1,6},\d{8},\d{1,3}$/u;
 const rulingAiId = id => (isCons(id) || RULING_JID.test(id) ? id : '');
 function rulingAiBtn(id, title) {
-  return `<button type="button" class="lw-ai-btn lw-ruling-ai" data-ruling-ai="${esc(id)}" data-title="${esc(title)}">${ICON_SPARK}<span>${W('AI 白話解釋這個判決', 'Explain this ruling in plain words')}</span></button>`;
+  return `<button type="button" class="q-ai-tap block lw-ai-btn lw-ruling-ai" data-ruling-ai="${esc(id)}" data-title="${esc(title)}"><span class="q-ai-mark" aria-hidden="true">${ICON_SPARK}</span><span>${W('AI 白話解釋這個判決', 'Explain this ruling in plain words')}</span></button>`;
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ruling-ai]');
@@ -1589,7 +1589,8 @@ function explainRuling(id, title) {
 // An AI explanation on a tap: the button, then the answer in its place.
 function aiBox(label, run, note = W('AI 依條文回答，不是法律意見', 'AI, from the text only. Not legal advice')) {
   const el = h('div', { class: 'lw-ai' });
-  const btn = h('button', { type: 'button', class: 'lw-ai-btn', html: `${ICON_SPARK}<span>${esc(label)}</span>` });
+  // (The kit's quiet AI button, aiTap's look: never the old purple gradient, Jay 11-14.)
+  const btn = h('button', { type: 'button', class: 'q-ai-tap lw-ai-btn', html: `<span class="q-ai-mark" aria-hidden="true">${ICON_SPARK}</span><span>${esc(label)}</span>` });
   btn.addEventListener('click', async () => {
     el.innerHTML = `<div class="lw-msg ai"><div class="lw-typing"><i></i><i></i><i></i></div></div>`;
     const r = await run();

@@ -1812,25 +1812,7 @@ a.q-more.lw-out {
 .lw-ai {
   margin: 0 0 8px;
 }
-.lw-ai-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: #fff;
-  --q-ai: currentColor;
-  --q-ai-2: currentColor;
-  font: 600 14px/1 var(--q-font);
-  cursor: pointer;
-}
-.lw-ai-btn svg {
-  width: 15px;
-  height: 15px;
-}
+/* (Its look is the kit's .q-ai-tap: quiet, never a gradient; Jay 11-14.) */
 .lw-ai .lw-msg.ai {
   background: var(--q-sheet-cell, var(--q-surface));
 }
@@ -4230,20 +4212,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 /* A ruling's AI: the button across the page under its name, and in its
    sheet each reason's paragraph chip opening the ruling's own words. */
 .lw-ai-btn.lw-ruling-ai {
-  display: flex;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 44px;
   margin: 12px 0 4px;
-  padding: 0 16px;
-  border-radius: var(--q-r-cell, 12px);
-  font-size: 15px;
-  line-height: 1.25;
-  text-align: center;
-}
-.lw-ai-btn.lw-ruling-ai span {
-  min-width: 0;
 }
 .lw-who p {
   margin: 0;

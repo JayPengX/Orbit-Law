@@ -1,0 +1,34 @@
+# A trial, by hand: one 代表會 recording heard by faster-whisper at a few model sizes, each word's time kept as an
+# artifact, to see which lines the transcript up best and how long it takes (scripts/asr.py).
+name: Speech recognition trial
+on:
+  workflow_dispatch:
+    inputs:
+      drive:
+        description: 'A recording on Google Drive (its id)'
+        default: '1C05IIv4lza6DS1Qt8wegx9Wp03sWYsUw'
+      models:
+        description: 'Model sizes, as a JSON list'
+        default: '["small","medium","large-v3-turbo"]'
+permissions:
+  contents: read
+jobs:
+  hear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(inputs.models) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q faster-whisper==1.1.1
+      - run: curl -sSL -o day.m4a "https://drive.usercontent.google.com/download?id=${{ inputs.drive }}&export=download&confirm=t" && ls -la day.m4a
+      - run: nproc && python scripts/asr.py day.m4a asr-${{ matrix.model }}.json ${{ matrix.model }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asr-${{ matrix.model }}
+          path: asr-${{ matrix.model }}.json

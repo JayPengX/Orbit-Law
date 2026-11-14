@@ -528,7 +528,7 @@ export function speechesOf(rows = [], n = 6) {
 const ROWS = { 案: '案由', 由: '案由', 說: '說明', 明: '說明', 辦: '辦法', 法: '辦法', 決: '議決', 議: '議決', 案由: '案由', 說明: '說明', 辦法: '辦法', 大會決議: '議決', 大會議決: '議決', 決議: '議決', 審查意見: '審查意見' };
 const ROW_ORDER = ['案由', '說明', '辦法', '審查意見', '議決'];
 const rowOf = l => {
-  const m = l.match(/^\s{0,3}(案\s*由|說\s*明|辦\s*法|大\s*會\s*(?:決\s*議|議\s*決)|審查意見|決\s{2,}議|[案由說明辦法決議])(?=\s|$)/);
+  const m = l.match(/^\s{0,3}(案\s*由|說\s*明|辦\s*法|大\s*會\s*(?:決\s*議|議\s*決)|審查意見|決\s*議|[案由說明辦法決議])(?=\s|$)/);
   return m ? { row: ROWS[m[1].replace(/\s+/g, '')], t: l.slice(m[0].length) } : { row: '', t: l };
 };
 export const cjkTight = s => s.replace(/(?<=[㐀-鿿\d])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=\d)/g, '');
@@ -616,7 +616,23 @@ export function billPdfParts(text, { centred = false } = {}) {
     out['議決會議'] = f[4];
     out['議決日期'] = `${+f[1] + 1911}-${f[2].padStart(2, '0')}-${f[3].padStart(2, '0')}`;
   }
-  // 新竹縣's in its 決議 row: 【本案于第 20 屆第 8 次定期會第 23 次會議議決(115 年 11 月 6 日)】
+  return sittingOf(out);
+}
+// A part read by the older reader with the decision glued to its end (辦法: 如案由及說明。\n照案通過。決議\n【本案…】,
+// 新竹縣's 決議 set without a gap): the decision taken back out into 議決. Parts read rightly come back as they were.
+export function fixDecision(parts) {
+  if (!parts || parts['議決']) return parts;
+  for (const k of ['辦法', '說明', '案由']) {
+    // (Only with its sitting after it: a 說明 ending 「敬請大會決議」 is not a decision.)
+    const m = String(parts[k] || '').match(/(?:^|\n)([^\n]*?)\s*決\s*議\s*\n\s*(【[^】]*議決[^】]*】)\s*$/);
+    if (!m) continue;
+    const rest = String(parts[k]).slice(0, m.index).trim();
+    return sittingOf({ ...parts, [k]: rest, 議決: [m[1].trim(), m[2] || ''].filter(Boolean).join('\n') });
+  }
+  return parts;
+}
+// 新竹縣's sitting in its 決議 row: 【本案于第 20 屆第 8 次定期會第 23 次會議議決(115 年 11 月 6 日)】
+function sittingOf(out) {
   if (out['議決']) {
     const m = out['議決'].match(/【[^】]*?(第\s*\d+\s*屆\s*第\s*\d+\s*次\s*(?:定期|臨時)會[^】(（]*)[(（]\s*(\d{2,3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[)）]\s*】/);
     if (m) {

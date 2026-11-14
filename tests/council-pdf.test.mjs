@@ -110,3 +110,15 @@ test('council text: a bill’s list day is the day it was decided (新竹縣 pos
   decidedDays(list, known, '日期', '代碼');
   assert.equal(list[0]['日期'], '2026-11-06');
 });
+
+test('新竹縣\'s 決議 set without a gap is still the decision; one read by the older reader is taken back out', async () => {
+  const { billPdfParts, fixDecision } = await import('../public/lib/council.mjs');
+  const text = `                新竹縣議會提案\n中華民國 115 年 10 月 11 日   編 號   長照類乙 34 號\n          連署人：甲、乙\n提案人：丙\n\n 案   建請縣府調高老人年金領取資格。\n 由\n\n 說   一. 今年物價漲幅已達標。\n 明\n\n 辦法   如案由及說明。\n\n\n      照案通過。\n 決議\n       【本案于第 20 屆第 8 次定期會第 23 次會議議決(115 年 11 月 6 日)】\n`;
+  const p = billPdfParts(text);
+  assert.equal(p['議決'], '照案通過。');
+  assert.equal(p['辦法'], '如案由及說明。');
+  assert.equal(p['議決日期'], '2026-11-06');
+  const old = fixDecision({ 辦法: '如案由及說明。\n照案通過。決議\n【本案于第20屆第8次定期會第23次會議議決(115年11月6日)】' });
+  assert.deepEqual([old['辦法'], old['議決'], old['議決會議'], old['議決日期']], ['如案由及說明。', '照案通過。', '第20屆第8次定期會第23次會議', '2026-11-06']);
+  assert.equal(fixDecision({ 說明: '一、本案敬請大會決議' })['議決'], undefined, 'asking for a decision is not one');
+});

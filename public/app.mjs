@@ -45,7 +45,7 @@ import { ruleDoc } from './lib/rule-doc.mjs';
 import { weekOf } from './lib/weekly.mjs';
 import { basisOf as basisIn } from './lib/deleg.mjs';
 import { readJudgment, outcome, partiesLine } from './lib/judgment.mjs';
-import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings, ccTermSittings, councilDays } from './lib/council.mjs';
+import { compactCouncilBill, newestBills, outcomeOf, OUTCOME, councilState, ccSearch, ccBill, theirBills, ccSpeech, speechesOf, zhName, textBucket, sessionBillsFile, ccSittings, compactSitting, saneSittings, ccTermSittings, councilDays, fixDecision } from './lib/council.mjs';
 // Councils whose bills' PDFs the build reads into their parts (scripts/build-council-text.mjs).
 const PDF_TEXT = new Set(['hsq', 'hsz']);
 import { videosOf, ytSite } from './lib/council-video.mjs';
@@ -4581,10 +4581,11 @@ async function openCouncilBill(id) {
       if (!b) throw new Error('gone');
       // Its PDF read at build into its parts (新竹縣, 新竹市): shown as the API's bills are, the PDF a link below.
       const t = PDF_TEXT.has(own[1]) ? (await data(`council/text/${own[1]}/${textBucket(id)}.json`).catch(() => null))?.[id] : null;
-      if (t?.pdf) b = { ...b, ...t, 案號: t['案號'] || b['案號'] };
-      // 新竹's sites list the bill only; 花蓮's carries its decision, drawn as the API's are.
-      if (!b['議決'] && !c.own?.out) {
-        return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2>${fieldsHtml([[W('類別', 'Type'), b['類別']], [W('日期', 'Date'), shortDay(b['日期'])], [W('提案人', 'Filed by'), b['主提案人'] ?? b['提案人']], [W('連署人', 'Co-signers'), b['連署人']]])}<p class="lw-hint-sm">${esc(PDF_TEXT.has(own[1]) ? W('這件的說明和議決還沒讀進來（每天讀一批議會的附件），先看原始資料。', 'Its reasons and outcome aren’t read in yet; see the original for now.') : W(`${c.own?.site || '議會網站'}只列提案，沒有議決結果；說明和辦法在議會的附件裡。`, 'The council’s site lists the bill only; its reasons and outcome are in its attachment.'))}</p><a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>`);
+      if (t?.pdf) b = { ...b, ...fixDecision({ ...t }), 案號: t['案號'] || b['案號'] };
+      // 新竹's sites list the bill only (its parts are in the PDF, read at build); 花蓮's carries its decision,
+      // drawn as the API's are. One whose PDF isn't read yet (posted since the last build): what there is, in place.
+      if (!b['議決'] && !b['說明'] && !b['辦法'] && !c.own?.out) {
+        return void (box.innerHTML = `<h2 class="lw-item-name">${esc(b['案由'])}</h2>${fieldsHtml([[W('類別', 'Type'), b['類別']], [W('日期', 'Date'), shortDay(b['日期'])], [W('提案人', 'Filed by'), b['主提案人'] ?? b['提案人']], [W('連署人', 'Co-signers'), b['連署人']]])}<p class="lw-hint-sm">${W('說明和議決還沒讀到，晚點再看。', 'Its reasons and outcome aren’t in yet.')}</p>`);
       }
       b = { ...b, 提案人: b['主提案人'] ?? b['提案人'] ?? '' };
     } else b = (await ccJson(ccBill(id)))?.data;
@@ -4599,11 +4600,13 @@ async function openCouncilBill(id) {
 // 決議案 read from its PDF); the PDF or the council's page below.
 function councilBillHtml(b) {
   // A part said only by pointing at the others (辦法: 如案由及說明) adds nothing.
-  const part = (title, text, after = '') => (String(text || '').trim() && !/^(案由|議決|說明|辦法|審查意見|如(案由|說明|案由及說明|案由、說明)。?)$/.test(String(text).trim()) ? `<div class="lw-item-why"><h4>${esc(title)}</h4>${proseHtml(String(text))}${after}</div>` : '');
+  // (Points numbered 一. 二. as some councils type them: as 一、 二、, each its own point.)
+  const points = t => String(t).replace(/(^|[。；\n])\s*([一二三四五六七八九十]{1,3})[.．]\s*/g, (all, at, n) => `${at}${at === '' ? '' : '\n'}${n}、`);
+  const part = (title, text, after = '') => (String(text || '').trim() && !/^(案由|議決|說明|辦法|審查意見|如(案由|說明|案由及說明|案由、說明)。?)$/.test(String(text).trim()) ? `<div class="lw-item-why"><h4>${esc(title)}</h4>${proseHtml(points(text))}${after}</div>` : '');
   const decided = b['議決會議'] || b['議決日期'] ? `<p class="lw-clip-meta">${esc([b['議決會議'], b['議決日期'] && shortDay(b['議決日期'])].filter(Boolean).join(' · '))}</p>` : '';
   const out = outcomeOf(b['議決'], b['審查意見']);
   const fields = fieldsHtml([[W('案號', 'No.'), b['案號']], [W('類別', 'Type'), b['類別']], [W('會期', 'Session'), b['會期名稱']], [W('提案人', 'Filed by'), b['提案人']], [W('連署人', 'Co-signers'), b['連署人']], [W('附署人', 'Co-signers'), b['附署人']], [W('提案單位', 'From'), b['提案人'] ? '' : b['提案單位']]]);
-  return `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2>${out ? `<div class="lw-meta">${outcomeTag(out)}</div>` : ''}${fields}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'], decided)}${b.pdf ? `<a class="q-more q-more-go lw-out" href="${esc(b.pdf)}" target="_blank" rel="noopener" data-out><span>${W(b.pdfName || '原始提案 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : b['來源網址'] ? `<a class="q-btn block" href="${esc(b['來源網址'])}" target="_blank" rel="noopener">${W('看議會的原始資料', 'The council’s own record')}</a>` : ''}`;
+  return `<h2 class="lw-item-name">${esc(b['案由'] || '')}</h2>${out ? `<div class="lw-meta">${outcomeTag(out)}</div>` : ''}${fields}${part(W('說明', 'Why'), b['說明'])}${part(W('辦法', 'What it asks'), b['辦法'])}${part(W('審查意見', 'Committee view'), b['審查意見'])}${part(W('議決', 'Decision'), b['議決'], decided)}${b.pdf ? `<a class="q-more q-more-go lw-out" href="${esc(b.pdf)}" target="_blank" rel="noopener" data-out><span>${W(b.pdfName || '原始提案 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : b['來源網址'] ? `<a class="q-more q-more-go lw-out" href="${esc(b['來源網址'])}" target="_blank" rel="noopener" data-out><span>${W('議會網站上的這一案', 'On the council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}`;
 }
 
 // A councillor: their party and district, and the bills they filed this term (read live).

@@ -15,6 +15,9 @@ const UA = { 'User-Agent': 'Orbit-Law nightly (+https://orbit.jaypengx.com/law/)
 const until = Date.now() + Number(args.minutes || 12) * 60_000;
 const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 const RETRY_DAYS = 7;
+// The PDF reader's version: a bill read by an older one without its 議決 is read again (2: 新竹縣's 決議 set
+// without a gap, 11-14).
+const PARSE_V = 2;
 
 const SITES = {
   // 新竹縣: the proposal's page names its PDF (upload/web_program_proposal/…).
@@ -51,10 +54,14 @@ await Promise.all(Object.keys(SITES).map(async code => {
   }
   const buckets = await Promise.all(Array.from({ length: TEXT_BUCKETS }, (_, n) => prevJson(`council/text/${code}/${n}.json`).then(b => b || {})));
   const known = id => buckets[textBucket(id)][id];
-  // The newest first; one whose PDF wasn't there is asked again after a week.
+  // The newest first; one whose PDF wasn't there is asked again next build while it's new (a council posts
+  // the PDF days after the bill), else after a week; one read without its 議決 by an older reader, again.
+  const ago = n => new Date(Date.parse(day) - n * 86_400e3).toISOString().slice(0, 10);
   const todo = list.rows.filter(r => {
     const k = known(r['代碼']);
-    return !k || (!k.pdf && k.t && k.t < new Date(Date.parse(day) - RETRY_DAYS * 86_400e3).toISOString().slice(0, 10));
+    if (!k) return true;
+    if (k.pdf) return !k['議決'] && (k.v || 0) < PARSE_V;
+    return k.t && (r['日期'] >= ago(14) || k.t < ago(RETRY_DAYS));
   });
   let got = 0, none = 0, bad = 0;
   for (const row of todo) {
@@ -69,7 +76,7 @@ await Promise.all(Object.keys(SITES).map(async code => {
       }
       const parts = billPdfParts(await pdfText(pdf));
       delete parts['日期'];
-      buckets[textBucket(id)][id] = { ...parts, pdf };
+      buckets[textBucket(id)][id] = { ...parts, pdf, v: PARSE_V };
       got++;
     } catch (e) {
       bad++;

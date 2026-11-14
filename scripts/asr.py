@@ -25,7 +25,7 @@ words = []
 for s in segs:
     for w in s.words or []:
         text = tw(w.word)
-        words.append([round(w.start, 2), round(w.end, 2), text, py(text)])
+        words.append([round(w.start, 2), round(w.end, 2), text, py(text), round(w.probability, 2)])
 json.dump({'model': model, 'dur': info.duration, 'load_s': round(loaded, 1), 'run_s': round(time.time() - t0 - loaded, 1), 'words': words,
            'vocab_py': {t: py(t) for t in vocab.get('terms', [])}}, open(out, 'w'), ensure_ascii=False)
 print(model, 'audio', round(info.duration), 's', 'run', round(time.time() - t0 - loaded), 's', len(words), 'words')

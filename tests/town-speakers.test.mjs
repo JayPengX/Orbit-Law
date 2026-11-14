@@ -95,3 +95,16 @@ test('a recording heard made into a paper: turns, blocks, each turn’s time; th
   assert.equal(recKey({ drive: '1KMmP8scLCErpjxOg93hB40lexfhIGdFX' }), '1KMmP8scLCErpjxOg93hB40lexfhIGdFX');
   assert.match(recKey({ src: 'https://webws.miaoli.gov.tw/a b.mp3' }), /^[0-9a-f]{20}$/);
 });
+
+test('a turn the recognizer was mostly unsure of is marked unclear', () => {
+  const sure = words.map(w => [...w, null, 0.9]);
+  const unsure = words.map((w, i) => (i === 2 ? [w[0], w[1], w[2], null, 0.2] : [...w, null, 0.9]));
+  // (Each piece one word here: the turn needs 5 words to judge; split the member's turn into its characters.)
+  const split = unsure.flatMap(w => (w[4] < 0.5 ? [...w[2]].map((c, j) => [w[0] + j * 0.2, w[0] + j * 0.2 + 0.2, c, null, 0.2]) : [w]));
+  const k = { id: 'abc', built: 'x' };
+  const m = members.map(({ n }) => ({ n }));
+  assert.equal(machinePaper(k, { words: sure, vocab: {}, f0: [] }, { members: m }).turns.some(t => t.unclear), false);
+  const p = machinePaper(k, { words: split, vocab: {}, f0: [] }, { members: m });
+  assert.deepEqual(p.turns.filter(t => t.unclear).map(t => t.w), ['張美珠']);
+});
+

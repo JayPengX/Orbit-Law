@@ -31,7 +31,7 @@ const PACE = Number(process.env.TOWN_HEAR_PACE || 0.3);
 // (A trial: only these recordings (Drive ids or addresses, comma between), each heard as a recording with no transcript.)
 const ONLY = (process.env.TOWN_HEAR_ONLY || '').split(',').map(x => x.trim()).filter(Boolean);
 // (The papers made from what was heard: a new number when the code that makes them changes.)
-const MADE = 1;
+const MADE = 2;
 const json = async f => JSON.parse(await readFile(f, 'utf8'));
 const townDir = `${dataDir}/council/town`;
 const roster = await json(new URL('./town-roster.json', import.meta.url)).catch(() => ({}));
@@ -171,7 +171,14 @@ export function machinePaper(k, heard, { members = [], chair = '' } = {}) {
   const f0 = heard.f0 || [];
   const turns = heardTurns(heard.words, { members: members.map(m => ({ n: m.n, py: py[m.n] || [] })), chair, vocab: py, pitchOf: f0.length ? (a, b) => pitchOn(f0, a, b) : null }).filter(t => t.t.trim());
   const asks = machineAsks(turns).map(a => ({ ...a, gist: topicWords(turns.slice(a.from, a.to + 1).filter(t => t.r === '代表' || t.r === '副主席').map(t => t.t)).join('、') }));
-  return { k: '錄音逐字', d: k.d || '', part: k.part || '', machine: 1, made: MADE, built: k.built, model: k.model, turns: turns.map(({ w, r, t }) => ({ w, r, t })), asks, au: { id: k.id, at: turns.map(t => t.at), by: 'asr' } };
+  // (A turn the recognizer was unsure of, most of its words below even odds: 台語 heard as 國語, a far mic. Marked,
+  // so the phone says its words may be wrong.)
+  const at = turns.map(t => t.at);
+  const sure = (a, b) => {
+    const ps = heard.words.filter(w => w[0] >= a && w[0] < b && typeof w[4] === 'number').map(w => w[4]);
+    return ps.length >= 5 ? ps.filter(p => p < 0.5).length / ps.length : 0;
+  };
+  return { k: '錄音逐字', d: k.d || '', part: k.part || '', machine: 1, made: MADE, built: k.built, model: k.model, turns: turns.map(({ w, r, t }, i) => ({ w, r, t, ...(sure(at[i], at[i + 1] ?? Infinity) > 0.5 ? { unclear: 1 } : {}) })), asks, au: { id: k.id, at, by: 'asr' } };
 }
 
 async function apply() {
@@ -226,7 +233,9 @@ async function apply() {
   console.log(`town-hear: ${n} days' times set from what was heard, ${m} recordings written out`);
 }
 
-if (mode === 'hear') await hear();
+const main = process.argv[1]?.endsWith('town-hear.mjs');
+if (!main);
+else if (mode === 'hear') await hear();
 else if (mode === 'apply') await apply();
 else if (mode === 'list') for (const x of work(await towns())) console.log(x.machine ? 'machine' : 'transcript', x.tc, x.s.n, x.d || x.rec.d || x.rec.n || '', recId(x.rec));
 else if (mode) console.log('town-hear.mjs hear|apply <data dir> <store dir>');

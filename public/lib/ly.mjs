@@ -468,3 +468,50 @@ export function recordVotes(text, roster = []) {
     };
   });
 }
+
+// Chinese numerals as the 議事錄 writes them (一 … 九十九) → a number; 0 when not one.
+export function cnNumber(s) {
+  const d = '零一二三四五六七八九';
+  const t = String(s || '');
+  if (!/^[一二三四五六七八九十]+$/.test(t)) return 0;
+  const at = t.indexOf('十');
+  if (at < 0) return t.length === 1 ? d.indexOf(t) : 0;
+  return (at ? d.indexOf(t.slice(0, at)) : 1) * 10 + (t.length > at + 1 ? d.indexOf(t.slice(at + 1)) : 0);
+}
+
+// The 議事錄's 討論事項, so a vote read from it ("討論事項第四案全案付表決…") can say
+// what it was on: the text (pdftotext -layout) → Map(number → the laws its bills
+// change, or a new law's own name, each once, joined by 、). Only the first run of 一、二、三、… counts; the
+// 協商 tables later in the minutes number their own items again from 一.
+export function recordItems(text) {
+  const s = String(text || '')
+    .normalize('NFKC')
+    .split('\n')
+    .filter(l => !/^\s*\d{1,4}\s*$/.test(l) && !/立法院第\s*\d+\s*屆第\s*\d+\s*會期.*議事錄/.test(l))
+    .join('\n');
+  const out = new Map();
+  const start = s.search(/討論事項\s*\n\s*一、/);
+  if (start < 0) return out;
+  const end = [s.indexOf('本次會議各項記名表決結果名單', start), s.indexOf('散會', start)].filter(i => i > 0).reduce((a, b) => Math.min(a, b), s.length);
+  const sec = s.slice(start, end);
+  const heads = [];
+  let stop = sec.length;
+  for (const m of sec.matchAll(/^\s*([一二三四五六七八九十]+)、/gm)) {
+    if (cnNumber(m[1]) !== heads.length + 1) {
+      stop = m.index;
+      break;
+    }
+    heads.push({ n: heads.length + 1, at: m.index + m[0].length });
+  }
+  heads.forEach((h, i) => {
+    // An item ends at the next, or at its own 決議 (what follows it is the sitting's other business).
+    let body = sec.slice(h.at, heads[i + 1] ? heads[i + 1].at : stop).replace(/\s+/g, '');
+    if (!heads[i + 1]) body = body.split(/決議[:：]/)[0];
+    // A change to a law by the law's name (國民年金法第十五條條文修正草案 → 國民年金法); a new law whole.
+    const laws = [...new Set([...body.matchAll(/「([^」]{2,80})」/g)].map(m => m[1].replace(/(部分條文|增訂|刪除|第[一二三四五六七八九十百零〇]+條).*$/, '')))];
+    if (laws.length) out.set(h.n, laws.join('、'));
+  });
+  return out;
+}
+// Which 討論事項 a vote's title is on ("討論事項第四案…" → 4), else 0.
+export const recordItemOf = title => cnNumber(String(title || '').match(/討論事項第([一二三四五六七八九十]+)案/)?.[1]);

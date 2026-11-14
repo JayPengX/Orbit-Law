@@ -3820,6 +3820,12 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-vote-result span { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .lw-vote-topic { margin: 0; font: 400 15px/1.55 var(--q-font); }
 .lw-vote-bill { display: grid; gap: 3px; }
+/* What the vote was on leads the sheet, above the question. */
+.lw-vote-on.lead { margin: 0 0 12px; }
+.lw-vote-on.lead .lw-vote-bill b { font: 600 17px/1.4 var(--q-font); }
+.lw-vote-topic.lead { margin: 0 0 10px; font: 600 17px/1.45 var(--q-font); }
+.lw-vote-on.lead + .lw-vote-subject,
+.lw-vote-topic.lead + .lw-vote-subject { font: 600 15px/1.5 var(--q-font); color: var(--q-label-2); }
 .lw-vote-bill span { color: var(--q-label-2); font: 400 14px/1.45 var(--q-font); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .lw-pbars { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .lw-pbar { display: contents; }
@@ -5237,4 +5243,27 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 }
 .lw-contract-entry {
   margin-bottom: 12px;
+}
+
+/* A long 案由: its first lines, the rest a tap away (展開全文 / 收合). */
+.lw-why-fold.folded {
+  max-height: calc(var(--fold-lines, 5) * 1.7em + 4px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+  mask-image: linear-gradient(#000 60%, transparent);
+}
+.lw-fold-more { margin-top: 4px; }
+/* A web address in a source's text: its site, small and tappable. */
+.lw-url {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 3px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: var(--q-fill-3);
+  color: var(--q-accent);
+  font: 500 13px/20px var(--q-font);
+  text-decoration: none;
+  vertical-align: 1px;
+  white-space: nowrap;
 }

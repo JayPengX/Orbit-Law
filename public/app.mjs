@@ -1873,6 +1873,21 @@ function playHls(el, url, opts = {}) {
   return keepPlaying(el, url, { ...opts, onState }).catch(e => (note.remove(), Promise.reject(e)));
 }
 
+// A 案由 without its opening 本院委員徐欣瑩等20人， (the line above says who).
+const whyLead = t => String(t || '').replace(/^\s*本院[^，,。]{0,80}?(等\s*\d+\s*人|黨團)\s*[，,]\s*/, '');
+// A long text folded to its first lines, 展開全文 / 收合 under it (only when it is longer).
+function foldLong(el, lines = 5) {
+  if (!el) return;
+  el.style.setProperty('--fold-lines', lines);
+  el.classList.add('folded');
+  requestAnimationFrame(() => {
+    if (el.scrollHeight <= el.clientHeight + 4) return el.classList.remove('folded');
+    const t = kitUI.moreToggle ? kitUI.moreToggle({ more: W('展開全文', 'Read all'), less: W('收合', 'Show less'), cls: 'lw-fold-more', onToggle: open => el.classList.toggle('folded', !open) }) : null;
+    if (t) el.after(t);
+    else el.classList.remove('folded');
+  });
+}
+
 // A bill by its 立法院 number, read in the app: who, why, its steps and 對照表.
 async function openBillById(id) {
   const body = h('div', { class: 'lw-page', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel"></p>` });
@@ -1882,7 +1897,8 @@ async function openBillById(id) {
     if (!b) throw new Error('none');
     const flow = (b['議案流程'] || []).map(f => `<li class="done"><b>${esc(String(f['狀態'] || '').replace(/\s*[（(].*$/, ''))}</b><span>${esc(shortDay(ymd([].concat(f['日期'] || [])[0] || '')))}</span></li>`).join('');
     const who = [...(b['提案人'] || [])];
-    body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4>${proseHtml(b['案由'], state.names)}` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary>${proseHtml(b['說明'], state.names)}</details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
+    body.innerHTML = `<header class="lw-page-head"><h3>${esc(String(b['議案名稱'] || '').replace(/，請審議案。?$/, ''))}</h3><small>${esc([b['提案單位/提案委員'], b['提案日期'] && shortDay(b['提案日期']), b['議案狀態']].filter(Boolean).join(' · '))}</small></header>${who.length ? `<div class="lw-names">${who.map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div>` : ''}${b['案由'] ? `<h4>${W('案由', 'Why')}</h4><div class="lw-why-fold">${proseHtml(whyLead(b['案由']), state.names)}</div>` : ''}${b['說明'] ? `<details class="lw-fold"><summary>${W('說明', 'Explanation')}</summary>${proseHtml(b['說明'], state.names)}</details>` : ''}${flow ? `<h4>${W('審議過程', 'Steps so far')}</h4><ol class="lw-timeline">${flow}</ol>` : ''}<h4>${W('條文對照', 'What it changes')}</h4><div class="lw-diffs"></div>${b['連署人']?.length ? `<details class="lw-fold"><summary>${W(`連署 ${b['連署人'].length} 人`, `${b['連署人'].length} co-signers`)}</summary><div class="lw-names">${b['連署人'].map(n => `<span class="lw-name">${esc(n)}</span>`).join('')}</div></details>` : ''}`;
+    foldLong(body.querySelector('.lw-why-fold'));
     compareBill({ id }, body.querySelector('.lw-diffs'), { first: 3 });
   } catch {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這個法案', 'Couldn’t load this bill')}</p>`;
@@ -3542,8 +3558,8 @@ function voteItems(v, agenda = '') {
   }
   return out;
 }
-// One vote, explained: what the question was in plain words, the bill it was
-// on and what that bill does, the result, each party as a bar, how the
+// One vote, explained: the bill it was on first (what that bill does, a tap
+// away), what the question was in plain words, the result, each party as a bar, how the
 // legislators you follow voted, then every name.
 async function voteSheet(i) {
   const [d, ppl] = await Promise.all([votesData(), peopleData().catch(() => ({ people: [] }))]);
@@ -3576,7 +3592,7 @@ async function voteSheet(i) {
   const all = Math.max(1, y + n + a);
   const pass = y > n;
   const result = `<div class="lw-vote-result ${pass ? 'y' : 'n'}"><b>${pass ? W('通過', 'Passed') : W('未通過', 'Failed')}</b><span>${W(`贊成 ${y}・反對 ${n}${a ? `・棄權 ${a}` : ''}`, `${y} yes · ${n} no${a ? ` · ${a} abstain` : ''}`)}</span></div><span class="lw-vote-bar"><i class="y" style="width:${(y / all) * 100}%"></i><i class="n" style="width:${(n / all) * 100}%"></i><i class="a" style="width:${(a / all) * 100}%"></i></span>`;
-  const body = h('div', { class: 'lw-vote-sheet', html: `<p class="lw-vote-subject">${esc(voteName(v))}</p>${w.zh ? `<p class="lw-vote-plain">${esc(en ? w.en : w.zh)}</p>` : ''}${result}${on ? `<h4>${W('表決的法案', 'The bill')}</h4><div class="lw-cites lw-vote-on">${on}</div>` : bk ? `<h4>${W('表決的預算', 'The budget')}</h4><div class="lw-cites lw-vote-on"><a class="lw-notice lw-vote-bill" href="#tab=bills&f=budget&budget=${esc(encodeURIComponent(bk))}"><b>${esc(topic || bk)}</b><small>${W('看這份預算：錢花在哪、刪了多少', 'See where the money goes and what was cut')}</small></a></div>` : topic ? `<h4>${W('議案', 'On the agenda')}</h4><p class="lw-vote-topic">${esc(topic)}</p>` : ''}${followed}<h4>${W('各黨怎麼投', 'By party')}</h4><div class="lw-pbars">${split}</div>${names}<p class="lw-vote-raw">${W('議事錄原文：', 'As recorded: ')}${esc(v[2])}</p>${rec ? `<p class="lw-hint-sm">${W('這次表決讀自院會的議事錄；公報刊出後會換成公報的紀錄。', 'Read from the sitting’s minutes; the Gazette’s record replaces it once printed.')}</p>` : ''}${url ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener"><span>${rec ? W('院會議事錄', 'The sitting’s minutes') : W('立法院公報', 'In the Gazette')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
+  const body = h('div', { class: 'lw-vote-sheet', html: `${on ? `<div class="lw-cites lw-vote-on lead">${on}</div>` : bk ? `<div class="lw-cites lw-vote-on lead"><a class="lw-notice lw-vote-bill" href="#tab=bills&f=budget&budget=${esc(encodeURIComponent(bk))}"><b>${esc(topic || bk)}</b><small>${W('看這份預算：錢花在哪、刪了多少', 'See where the money goes and what was cut')}</small></a></div>` : topic ? `<p class="lw-vote-topic lead">${esc(topic)}</p>` : ''}<p class="lw-vote-subject">${esc(voteName(v))}</p>${w.zh ? `<p class="lw-vote-plain">${esc(en ? w.en : w.zh)}</p>` : ''}${result}${followed}<h4>${W('各黨怎麼投', 'By party')}</h4><div class="lw-pbars">${split}</div>${names}<p class="lw-vote-raw">${W('議事錄原文：', 'As recorded: ')}${esc(v[2])}</p>${rec ? `<p class="lw-hint-sm">${W('這次表決讀自院會的議事錄；公報刊出後會換成公報的紀錄。', 'Read from the sitting’s minutes; the Gazette’s record replaces it once printed.')}</p>` : ''}${url ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener"><span>${rec ? W('院會議事錄', 'The sitting’s minutes') : W('立法院公報', 'In the Gazette')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   const s = sheet({ title: W(`表決 · ${shortDay(v[1])}`, `Vote · ${shortDay(v[1])}`), closeLabel: W('關閉', 'Close'), body });
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-who]');

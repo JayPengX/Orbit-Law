@@ -160,3 +160,22 @@ test('ly: votes by name from a sitting’s 議事錄, before the 公報', async 
   assert.deepEqual(v.no, ['莊瑞雄']);
   assert.equal(recordPdf(11, 6, 5), 'https://ppg.ly.gov.tw/ppg/SittingYuanInfo/download/agendarec1/02/pdf/11/06/05LCEWC03_110605.pdf');
 });
+
+test('a vote read from the 議事錄 says what it was on: its 討論事項\'s laws, by number', async () => {
+  const { recordItems, recordItemOf, cnNumber } = await import('../public/lib/ly.mjs');
+  const text = `報告事項\n討論事項\n  一、(一)本院委員甲等17人擬具「國民年金法第十五條條文修正草案」、\n委員乙等18人擬具「國民年金法部分條文修正草\n                64\n        立法院第 11 屆第 6 會期第 6 次會議議事錄\n案」,請審議案。\n  決議:協商後再行處理。\n二、本院委員丙等20人擬具「失智症基本法草案」,請審議案。\n  決議:照案通過。\n臨時提案\n一、報告事項等\n本次會議各項記名表決結果名單`;
+  const items = recordItems(text);
+  assert.equal(items.get(1), '國民年金法');
+  assert.equal(items.get(2), '失智症基本法草案', 'a new law whole; the later 一、 (協商) is not item 1 again');
+  assert.equal(items.size, 2);
+  assert.equal(recordItemOf('討論事項第二案全案付表決予以通過'), 2);
+  assert.equal(recordItemOf('民進黨黨團針對議事日程草案之提議不予通過'), 0);
+  assert.deepEqual([cnNumber('四'), cnNumber('十'), cnNumber('十二'), cnNumber('二十三'), cnNumber('x')], [4, 10, 12, 23, 0]);
+});
+
+test('a web address in a source\'s text is a short tappable link by its site', async () => {
+  const { plainHtml } = await import('../public/lib/view.mjs');
+  assert.equal(plainHtml('風險。（https://www.mohw.gov.tw/cp-1.html?a=1&b=2）又'), '風險。<a class="lw-url" href="https://www.mohw.gov.tw/cp-1.html?a=1&amp;b=2" target="_blank" rel="noopener" data-out>mohw.gov.tw</a>又');
+  assert.equal(plainHtml('見 http://x.gov.tw 與'), '見 <a class="lw-url" href="http://x.gov.tw" target="_blank" rel="noopener" data-out>x.gov.tw</a> 與');
+  assert.equal(plainHtml('沒有網址'), '沒有網址');
+});

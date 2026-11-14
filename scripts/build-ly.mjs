@@ -10,7 +10,7 @@ import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { nameMap } from '../public/lib/refs.mjs';
 import { hash } from '../public/lib/bills.mjs';
 import { compactMeet, twNow } from '../public/lib/agenda.mjs';
-import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups, recordPdf, recordVotes } from '../public/lib/ly.mjs';
+import { voteDate, nameKey, nameIndex, compactVote, byNewest, lawsIn, voteCounts, billRow, clipRow, newestFirst, budgetGroups, recordPdf, recordVotes, recordItems, recordItemOf } from '../public/lib/ly.mjs';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
 
@@ -156,13 +156,17 @@ if (voteData && meets) await step('votes from 議事錄', async () => {
       continue;
     }
     const found = recordVotes(text, roster);
+    // What each vote was on: its 討論事項's laws (the title says only 討論事項第四案).
+    const items = recordItems(text);
     for (const v of found) {
       const at = names => names.map(x => idx.get(nameKey(x))).filter(i => i >= 0);
       const ok = v.yes.length === v.count[1] && v.no.length === v.count[2] && v.abstain.length === v.count[3];
       if (!ok) notes.push(`議事錄 ${m['會議代碼']} (${v.k}): names ${v.yes.length}/${v.no.length}/${v.abstain.length}, counts ${v.count.slice(1).join('/')}`);
       // Its own id stands for its agenda item, so the list draws each vote apart.
       const id = `rec-${n0}-${s0}-${k0}-${v.k}`;
-      voteData.votes.push([id, days[0], v.title, id, at(v.yes), at(v.no), at(v.abstain), lawsIn(v.title, names)]);
+      const on = items.get(recordItemOf(v.title)) || '';
+      if (on) voteData.agendas[id] = on.slice(0, 120);
+      voteData.votes.push([id, days[0], v.title, id, at(v.yes), at(v.no), at(v.abstain), lawsIn(`${v.title} ${on}`, names)]);
     }
     if (found.length) voteData.recs[`rec-${n0}-${s0}-${k0}`] = url;
     await sleep(1500);

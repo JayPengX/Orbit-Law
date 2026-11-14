@@ -38,7 +38,17 @@ export function articleHtml([, k, text], ctx = {}) {
 }
 
 // A plain run: text, with any 大法官解釋 or 憲法法庭判決 a link to it in 裁判.
-export const plainHtml = s => (/釋字|憲判/.test(s) ? consLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-cons" href="#r=${esc(x.id)}">${esc(x.t)}</a>`)).join('') : esc(s));
+// A web address in a source's text (a bill's 案由 citing 衛福部's page) as a
+// short tappable link by its site (mohw.gov.tw ›), its brackets dropped;
+// on escaped text, so the address's &amp; stays one in the href.
+const URL_IN = /(?:[（(]\s*)?(https?:\/\/[A-Za-z0-9.-]+(?:[/?#][^\s（）()<>"'，。、；「」]*)?)(?:\s*[）)])?/g;
+export const urlLinks = html =>
+  String(html).replace(URL_IN, (all, u) => {
+    const site = u.replace(/^https?:\/\/(www\.)?/, '').split(/[/?#]/)[0];
+    return `<a class="lw-url" href="${u}" target="_blank" rel="noopener" data-out>${site}</a>`;
+  });
+const plainBase = s => (/釋字|憲判/.test(s) ? consLinks(s).map(x => (typeof x === 'string' ? esc(x) : `<a class="lw-cons" href="#r=${esc(x.id)}">${esc(x.t)}</a>`)).join('') : esc(s));
+export const plainHtml = s => (/https?:\/\//.test(s) ? urlLinks(plainBase(s)) : plainBase(s));
 
 // Text that isn't an article (a ruling's holding and reasons, a rule): every
 // article it names by its law (刑法第二百十八條, 道路交通管理處罰條例第五十五條及

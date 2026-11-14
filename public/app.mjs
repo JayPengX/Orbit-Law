@@ -2168,7 +2168,8 @@ function drawAsk() {
   if (!panel.firstChild) {
     const input = h('textarea', { class: 'lw-ask-q', rows: '1', maxlength: String(MAX_CHAT_Q), enterkeyhint: 'send', placeholder: W('用白話問法律問題…', 'Ask a legal question…') });
     input.addEventListener('input', () => ((input.style.height = 'auto'), (input.style.height = `${Math.min(120, input.scrollHeight)}px`)));
-    const form = h('form', { class: 'lw-composer' }, [h('div', { class: 'lw-pin', hidden: true }), input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('送出', 'Send'), html: ICON_SEND })]);
+    // (data-ai-tap: shown locked with no Orbit AI on the account; a tap says why, kit orbit.mjs aiLock.)
+    const form = h('form', { class: 'lw-composer', 'data-ai-tap': '' }, [h('div', { class: 'lw-pin', hidden: true }), input, h('button', { class: 'lw-send', type: 'submit', 'aria-label': W('送出', 'Send'), html: ICON_SEND })]);
     form.addEventListener('submit', e => {
       e.preventDefault();
       const v = input.value.trim();
@@ -2280,8 +2281,8 @@ async function contractSheet() {
     h('div', { class: 'lw-contract-wait', role: 'status' }, [ai.aiThinking ? ai.aiThinking(text) : h('p', { class: 'lw-hint-sm', text }), ...Array.from({ length: rows }, (_, i) => h('span', { class: 'q-skel lw-contract-skel', style: `--w:${[100, 86, 94][i % 3]}%` }))]);
 
   function start() {
-    const shoot = h('button', { type: 'button', class: 'q-btn primary lw-contract-pick', html: `${ICON_CAMERA}<span>${W('拍照', 'Take photos')}</span>`, onclick: () => pick(true) });
-    const choose = h('button', { type: 'button', class: 'q-btn lw-contract-pick', html: `${ICON_CONTRACT}<span>${W('選照片或 PDF', 'Photos or a PDF')}</span>`, onclick: () => pick(false) });
+    const shoot = h('button', { type: 'button', class: 'q-btn primary lw-contract-pick', 'data-ai-tap': '', html: `${ICON_CAMERA}<span>${W('拍照', 'Take photos')}</span>`, onclick: () => pick(true) });
+    const choose = h('button', { type: 'button', class: 'q-btn lw-contract-pick', 'data-ai-tap': '', html: `${ICON_CONTRACT}<span>${W('選照片或 PDF', 'Photos or a PDF')}</span>`, onclick: () => pick(false) });
     const bar = ai.aiBar
       ? ai.aiBar({ placeholder: W('或貼上合約全文', 'Or paste the contract'), label: W('合約全文', 'The contract'), max: CONTRACT_MAX.chars, onSend: t => pasted(t) })
       : h('textarea', { class: 'lw-contract-paste' });

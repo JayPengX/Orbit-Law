@@ -250,3 +250,80 @@ export function topicWords(turns, max = 3) {
   }
   return out;
 }
+
+// The day's transcript laid over what speech recognition heard in the recording (scripts/asr.py on the build's
+// machine): words heard [[start, end, text]], each turn's start where its own words were heard. Anchors are runs of
+// K characters found exactly once in both, kept in order (the longest chain); a turn starts at the anchor inside its
+// first words, else measured from the nearest anchor before it at the speaking rate between anchors.
+//   alignHeard(turns: [string], words: [[s, e, w]]) → { at: [seconds], near: [chars from an anchor] } | null
+const CH = /[㐀-鿿A-Za-z0-9]/;
+export function alignHeard(turns, words, K = 4) {
+  const T = [];
+  const turnAtChar = [];
+  turns.forEach((t, i) => {
+    turnAtChar.push(T.length);
+    for (const c of String(t || '')) if (CH.test(c)) T.push(c);
+  });
+  const A = [];
+  const time = [];
+  for (const [s, e, w] of words || []) {
+    const cs = [...String(w || '')].filter(c => CH.test(c));
+    cs.forEach((c, j) => (A.push(c), time.push(s + ((e - s) * j) / Math.max(1, cs.length))));
+  }
+  if (T.length < K || A.length < K) return null;
+  const grams = (S, from = 0) => {
+    const m = new Map();
+    for (let i = 0; i + K <= S.length; i++) {
+      const g = S.slice(i, i + K).join('');
+      m.set(g, m.has(g) ? -1 : i);
+    }
+    return m;
+  };
+  const gT = grams(T);
+  const gA = grams(A);
+  const pairs = [];
+  for (const [g, i] of gT) if (i >= 0 && gA.get(g) >= 0) pairs.push([i, gA.get(g)]);
+  pairs.sort((x, y) => x[0] - y[0]);
+  // (The longest chain rising in both: patience sorting on the heard side.)
+  const tails = [];
+  const prev = new Array(pairs.length).fill(-1);
+  for (let k = 0; k < pairs.length; k++) {
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (pairs[tails[mid]][1] < pairs[k][1]) lo = mid + 1;
+      else hi = mid;
+    }
+    prev[k] = lo ? tails[lo - 1] : -1;
+    tails[lo] = k;
+  }
+  const chain = [];
+  for (let k = tails.length ? tails[tails.length - 1] : -1; k >= 0; k = prev[k]) chain.push(pairs[k]);
+  chain.reverse();
+  if (chain.length < 3) return null;
+  const at = [];
+  const near = [];
+  let j = 0;
+  for (const c of turnAtChar) {
+    while (j + 1 < chain.length && chain[j + 1][0] <= c) j++;
+    const before = chain[j][0] <= c ? chain[j] : null;
+    const after = chain.find(x => x[0] >= c);
+    // (An anchor within the turn's first 12 characters: its time, less the few characters ahead of it.)
+    const rate = (a, b) => (a && b && b[0] > a[0] ? Math.max(0.05, Math.min(0.6, (time[b[1]] - time[a[1]]) / (b[0] - a[0]))) : 0.22);
+    if (after && after[0] - c <= 12) {
+      at.push(Math.max(0, +(time[after[1]] - (after[0] - c) * 0.22).toFixed(1)));
+      near.push(after[0] - c);
+    } else if (before) {
+      const nxt = chain[chain.indexOf(before) + 1];
+      at.push(+(time[before[1]] + (c - before[0]) * rate(before, nxt)).toFixed(1));
+      near.push(c - before[0]);
+    } else {
+      at.push(Math.max(0, +(time[after[1]] - (after[0] - c) * 0.22).toFixed(1)));
+      near.push(after[0] - c);
+    }
+  }
+  // (Never backwards: a turn starts no earlier than the one before it.)
+  for (let i = 1; i < at.length; i++) if (at[i] < at[i - 1]) at[i] = at[i - 1];
+  return { at, near };
+}

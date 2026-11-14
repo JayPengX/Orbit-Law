@@ -1,0 +1,66 @@
+# 代表會 recordings heard by speech recognition (scripts/asr.py: faster-whisper, open source, on this runner; no AI
+# service, nothing paid: a public repo's minutes are free), each 總質詢 transcript's turns placed on its recording
+# (scripts/town-hear.mjs hear). What was heard is kept in the Actions cache (town-heard-*); data.yml sets it on the
+# papers (town-hear.mjs apply). Nightly, five hours' listening at most, newest days first.
+name: Hear the 代表會 recordings
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'How long to listen (minutes)'
+        default: '300'
+      model:
+        description: 'faster-whisper model'
+        default: 'medium'
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: town-hear
+  cancel-in-progress: false
+jobs:
+  hear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      TOWN_HEAR_MINUTES: ${{ inputs.minutes || '300' }}
+      TOWN_HEAR_MODEL: ${{ inputs.model || 'medium' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q faster-whisper==1.1.1 requests "av<14" opencc-python-reimplemented
+      # The law data the last build kept (data.yml), read only: which days have a transcript and a recording.
+      - uses: actions/cache/restore@v4
+        with:
+          path: public/data
+          key: law-data-none
+          restore-keys: law-data-
+      - uses: actions/cache/restore@v4
+        with:
+          path: .town-heard
+          key: town-heard-none
+          restore-keys: town-heard-
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ env.TOWN_HEAR_MODEL }}
+      - run: node scripts/town-hear.mjs hear public/data .town-heard
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .town-heard
+          key: town-heard-${{ github.run_id }}
+      - name: Drop older copies of what was heard
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=town-heard-&sort=created_at&direction=desc&per_page=100" --jq '.actions_caches[2:][] | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$id" >/dev/null && echo "dropped $id"; done

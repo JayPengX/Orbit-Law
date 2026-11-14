@@ -147,7 +147,7 @@ recording** (`lib/town-audio.mjs`, by code, no AI): the build fetches each 總�
 (`alignTurns`: each turn its characters' share of the day's speaking time, a change of speaker at a pause, a
 second pass with each speaker's own pitch; a wait marked 〜 in the transcript splits a turn), into the paper's
 `au: { id, at }` (each turn's start; within about 3 s on 竹北's 9/30 and 10/1, checked against who's speaking by
-pitch). The phone plays a turn from its start and follows the recording (`turnAt`). A 代表's sheet
+pitch). The phone plays a turn from its start and follows the recording (`turnAt`). **Heard by speech recognition**, over the code's guess: `town-hear.yml` nightly (`scripts/asr.py`, faster-whisper on GitHub's runner: open source, free, no AI service) hears each 總質詢 day once, `alignHeard` places each turn where its own words were heard (anchors: runs of 4 characters heard once, in order), kept in the Actions cache (`town-heard-*`, with the words heard) and set by data.yml (`town-hear.mjs apply`) as `au.by: 'asr'`; 竹北 9/30: 96 of 112 turns open on their own words within 5 s (the code's guess: 59); small, medium and large-v3-turbo place the turns within 2 s of each other (medium and turbo: 109 of 112), medium hears 51 min in 13.5. Drive recordings play through the proxy's `/law-audio` (Drive calls an .m4a MP3, which Safari won't play). A 代表's sheet
 (`townMember`) lists their 總質詢 in the three newest sessions, each opening its day at their turn.
 
 ## 彰化's 代表會 on the county's platform

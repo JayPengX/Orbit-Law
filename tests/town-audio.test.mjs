@@ -79,3 +79,23 @@ test('topicWords: the places and things a member named, not the words around the
   assert.deepEqual(topicWords(['我想要問免費市民公車的部分，能夠換成電動公車嗎？']), ['免費市民公車', '換成電動公車']);
   assert.deepEqual(topicWords(['謝謝主席，大家好。']), []);
 });
+
+test('alignHeard: each turn where its own words were heard, words missed or misheard between', async () => {
+  const { alignHeard } = await import('../public/lib/town-audio.mjs');
+  const turns = ['主席宣布開會，請張代表發言。', '謝謝主席，我想請問仁義市場的問題，攤商什麼時候回來？', '好，所長回答：市場已經整修完成，下個月開放。', '謝謝所長。'];
+  const words = [];
+  let t = 30;
+  turns.forEach((s, i) => {
+    // (Heard with a slip: one character wrong in the second turn, the last turn not heard at all.)
+    if (i === 3) return;
+    for (const c of s.replace(/[，。：？]/g, '')) words.push([t, t + 0.2, i === 1 && c === '仁' ? '人' : c]), (t += 0.25);
+    t += 4;
+  });
+  const got = alignHeard(turns, words);
+  assert.equal(got.at.length, 4);
+  assert.equal(got.at[0], 30);
+  assert.ok(Math.abs(got.at[1] - (30 + 12 * 0.25 + 4)) < 0.6, String(got.at[1]));
+  assert.ok(Math.abs(got.at[2] - (37 + 24 * 0.25 + 4)) < 0.6, String(got.at[2]));
+  assert.ok(got.at[3] >= got.at[2]);
+  assert.equal(alignHeard(turns, []), null);
+});

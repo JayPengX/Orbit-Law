@@ -125,6 +125,7 @@ export function askError(code, en = false) {
     offline: ['沒有網路連線', 'No connection'],
     pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     level: ['這組 Orbit Pass 沒有 Orbit AI', 'This Orbit Pass doesn’t include Orbit AI'],
+    used: ['你的 Orbit AI 次數用完了', 'Your Orbit AI is used up for now'],
     bill: ['這個版本沒有對照表可以解釋', 'This version has no table to explain'],
     diff: ['這次修法的舊條文讀不到', 'The old text isn’t available'],
     ruling: ['這個裁判的全文現在讀不到', 'This ruling’s text isn’t available right now'],

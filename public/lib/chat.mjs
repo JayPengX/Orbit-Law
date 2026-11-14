@@ -215,6 +215,7 @@ export function chatError(code, en = false) {
     soon: ['問法律即將開放，先用條文旁的「白話解釋」', 'Ask is coming soon; meanwhile use Explain on any article'],
     pass: ['請先登入 Orbit Pass', 'Sign in to Orbit Pass first'],
     level: ['這組 Orbit Pass 沒有 Orbit AI', 'This Orbit Pass doesn’t include Orbit AI'],
+    used: ['你的 Orbit AI 次數用完了', 'Your Orbit AI is used up for now'],
     cap: ['今天的提問次數用完了，明天再來', 'You’ve used today’s questions; try tomorrow'],
     busy: ['問得太快了，稍等一下再試', 'Too many at once; try again in a moment'],
     paused: ['AI 暫停中，晚點再試', 'AI is paused for now; try again later'],

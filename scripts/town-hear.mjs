@@ -114,7 +114,7 @@ async function hear() {
     const id = recId(x.rec);
     const kept = await json(`${keyOf(x)}.json`).catch(() => null);
     if (kept && kept.id === id && kept.model === MODEL && (x.machine || kept.n === x.turns.length)) continue;
-    if (Date.now() > ends - 120_000) break;
+    if (Date.now() > ends - 600_000) break;
     const name = `${x.tc} ${x.s.n} ${x.d || x.rec.d || x.rec.n || ''}`;
     const url = x.rec.drive ? `https://drive.usercontent.google.com/download?id=${encodeURIComponent(x.rec.drive)}&export=download&confirm=t` : x.rec.src;
     const t0 = Date.now();

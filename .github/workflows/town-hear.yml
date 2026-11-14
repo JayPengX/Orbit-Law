@@ -72,6 +72,7 @@ jobs:
         with:
           name: town-heard-trial
           path: .town-heard
+          include-hidden-files: true
           retention-days: 5
       - uses: actions/cache/save@v4
         if: always() && env.TOWN_HEAR_ONLY == ''

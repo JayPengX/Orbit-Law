@@ -255,7 +255,7 @@ const tabs = tabBar({
     { id: 'mine', label: W('我的', 'Mine'), icon: 'star' }
   ],
   // 問法律: a place of its own, the round button beside the bar (lit while it's open).
-  action: { id: 'ask', icon: ICON_SPARK, label: W('問法律', 'Ask the law'), onTap: () => (state.tab === 'ask' ? scrollTo({ top: 0, behavior: 'smooth' }) : go('tab=ask')) },
+  action: { id: 'ask', ai: true, icon: ICON_SPARK, label: W('問法律', 'Ask the law'), onTap: () => (state.tab === 'ask' ? scrollTo({ top: 0, behavior: 'smooth' }) : go('tab=ask')) },
   // The app keeps the address itself (#law=…, #item=…).
   hash: () => null,
   onSelect: (id, { again } = {}) => {
@@ -518,7 +518,7 @@ function findCard() {
   const ways = h('div', { class: 'nv-find-ways' }, [
     h('button', { class: 'nv-way q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 's') : go('tab=laws')) }, [h('i', { html: ICON_SEARCH }), W('搜尋法規', 'Search laws')]),
     h('button', { class: 'nv-way is-ask q-press', type: 'button', onclick: () => (input.value.trim() ? findGo(input.value, 'a') : go('tab=ask')) }, [h('i', { html: ICON_SPARK }), W('問法律', 'Ask the law')]),
-    h('button', { class: 'nv-way is-contract q-press', type: 'button', onclick: () => go('tab=ask&contract=1') }, [h('i', { html: ICON_SPARK }), W('拍合約幫你看', 'Check a contract')])
+    h('button', { class: 'nv-way is-contract q-press', type: 'button', 'data-ai-tap': '', onclick: () => go('tab=ask&contract=1') }, [h('i', { html: ICON_SPARK }), W('拍合約幫你看', 'Check a contract')])
   ]);
   const head = h('div', { class: 'nv-find-head' }, [h('b', { class: 'nv-find-title', text: W('有法律問題？用白話問', 'A legal question? Just ask') }), h('small', { class: 'nv-find-sub', text: W('答案都附上條文，也能直接查法規、判決', 'Answers cite the law. Or look it up yourself.') })]);
   nvAsks = h('div', { class: 'nv-asks' });
@@ -1479,7 +1479,8 @@ function articleMenu(k) {
   const marked = isMarked(state.mine, law.p, k);
   const label = `${en ? lawAt(law) : law.n}${artOf(k, law)}`;
   const rows = [
-    ...(isRule(law.p) ? [] : [[W('白話解釋', 'Explain in plain words'), () => explain(law, k), 'spark'], [W('問法律：帶著這一條問', 'Ask about this article'), () => askWith(law, [k]), 'ask']]),
+    // (Orbit AI's two: not offered with none on the account, kit aiLock.)
+    ...(isRule(law.p) || kit.aiLock?.() === 'level' ? [] : [[W('白話解釋', 'Explain in plain words'), () => explain(law, k), 'spark'], [W('問法律：帶著這一條問', 'Ask about this article'), () => askWith(law, [k]), 'ask']]),
     [marked ? W('取消書籤', 'Remove bookmark') : W('加入書籤', 'Bookmark'), () => (toggleMark(state.mine, law.p, k), save(), document.getElementById(`a-${k}`)?.classList.toggle('marked', !marked)), 'mark'],
     [W('複製條文', 'Copy text'), () => copyArticle(k), 'copy'],
     ...(state.lawRulings[k]?.length || state.lawCons[k]?.length ? [[W(`這一條的判決（${(state.lawRulings[k]?.length || 0) + (state.lawCons[k]?.length || 0)}）`, `Rulings on it (${(state.lawRulings[k]?.length || 0) + (state.lawCons[k]?.length || 0)})`), () => openRulings(k), 'court']] : []),
@@ -2248,7 +2249,7 @@ function drawChat() {
     // as its own row with what it means under it, then the note (Jay 2026-10-27: grey slabs and a loose row read "so ugly").
     const cityName = city ? (en ? cityEn(city) : city) : readCity() === '' ? W('不查', 'None') : W('未設定', 'Not set');
     out.innerHTML = `<div class="lw-ask-empty"><span class="lw-orb">${ICON_SPARK}</span><strong>${W('說你遇到的事，問什麼都行', 'Tell what happened, or ask anything')}</strong><p>${W('會引用條文、判決、立法院和議會的資料回答', 'Answered from the laws, rulings, the legislature and councils, cited')}</p></div>` +
-      `<div class="lw-list lw-ask-list lw-contract-entry"><a class="lw-row" href="#tab=ask&amp;contract=1"><span class="lw-orb sm">${ICON_SPARK}</span><span class="lw-row-text"><span class="lw-row-name">${W('拍合約幫你看', 'Check a contract')}</span><small>${W('租約、打工契約、切結書：逐條對照法律', 'A lease, a job, a pledge: each clause against the law')}</small></span>${CHEVRON}</a></div>` +
+      `<div class="lw-list lw-ask-list lw-contract-entry" data-ai-tap><a class="lw-row" href="#tab=ask&amp;contract=1"><span class="lw-orb sm">${ICON_SPARK}</span><span class="lw-row-text"><span class="lw-row-name">${W('拍合約幫你看', 'Check a contract')}</span><small>${W('租約、打工契約、切結書：逐條對照法律', 'A lease, a job, a pledge: each clause against the law')}</small></span>${CHEVRON}</a></div>` +
       `<p class="lw-list-cap lw-ask-cap">${W('從這裡問起', 'Start here')}</p><div class="lw-list lw-ask-list lw-ideas">${ideasHtml()}</div>` +
       againHtml() +
       `<div class="lw-list lw-ask-list lw-city-list"><button type="button" class="lw-row lw-city">${topicTile('home', 'sm')}<span class="lw-row-text"><span class="lw-row-name">${W('地方法規', 'Local rules')}</span></span><b class="lw-row-val${city ? '' : ' off'}">${esc(cityName)}</b>${CHEVRON}</button></div>` +

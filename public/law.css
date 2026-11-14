@@ -5488,3 +5488,10 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* A 代表會 on a computer (or anything as wide): its parts two by two (會期
+   beside 影音, the members beside the news), the name and the way out across. */
+@container q-sheet (min-width: 760px) {
+  .lw-town-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; align-items: start; }
+  .lw-town-body > * { grid-column: 1 / -1; }
+  .lw-town-body > .lw-sec { grid-column: auto; }
+}

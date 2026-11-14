@@ -4911,8 +4911,10 @@ async function openTown(tc) {
   const areas = new Map();
   for (const [n, party, area] of t.reps) areas.set(area, [...(areas.get(area) || []), [n, party]]);
   const html = `<h2 class="lw-item-name">${esc(`${t.city}${t.town}民代表會`)}</h2><p class="lw-person-line">${esc(W(`${t.reps.length} 位代表，2022 年選出，任期到 2026 年 12 月。`, `${t.reps.length} members, elected in 2022, serving to December 2026.`))}</p>${[...areas].map(([area, xs]) => `<div class="lw-item-who"><h4>${esc(area.replace(/^.+?(第\d+選舉區)$/, '$1').replace(/選舉區$/, W('選區', ' district')))}</h4><div class="lw-parties">${xs.map(([n, party]) => `<span class="lw-party" style="--p:${partyColor(party)}">${esc(n)}<small>${esc(partyShort(party))}</small></span>`).join('')}</div></div>`).join('')}<p class="lw-hint-sm">${W('代表會的提案和議事錄沒有開放資料，請看鄉鎮市公所或代表會網站。', 'Township councils publish no bills or minutes as open data.')}</p>`;
-  const body = h('div', { html });
-  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  // (A computer: a wide sheet, its parts two by two, Jay 11-14 "you don't have
+  // to limit the sheet to this phone like size"; a phone: one after another.)
+  const body = h('div', { html, class: 'lw-town-body' });
+  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet q-sheet-wide', body: [body] });
   townVideos(body, t, vids, body.querySelector('.lw-person-line'));
   return s;
 }
@@ -4991,8 +4993,10 @@ async function townSheet(t, own, vids = []) {
   }${people.length ? section(W(`代表 ${people.length}`, `Members ${people.length}`), `<div class="lw-people q-rows-full q-rows-keep">${people.map(person).join('')}</div>`) : ''}${
     news.length ? section(W('代表會消息', 'News'), `<div class="lw-list in-sheet wrap">${news.map(x => `<button type="button" class="lw-row" data-townp="${esc(x.url)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.t)}</span></span>${CHEVRON}</button>`).join('')}</div>`) : ''
   }<a class="q-more q-more-go lw-out" href="${esc(own.site)}" target="_blank" rel="noopener" data-out><span>${W('代表會網站', 'The council’s site')}</span><span class="q-more-chev" aria-hidden="true">›</span></a><p class="lw-hint-sm">${/zhubei\.gov\.tw/.test(own.site) ? W('議事錄、日程表和錄音都讀自代表會網站；文件是 PDF，網站只在台灣打得開。', 'Read from the council’s own site; its papers are PDFs, and the site opens only in Taiwan.') : /ctrl\.chcg\.gov\.tw/.test(own.site) ? W('議事錄、日程表和錄音都讀自代表會在彰化縣政府的網站；文件是 PDF。', 'Read from the council’s pages on the county’s site; its papers are PDFs.') : W('議事錄、日程表和錄音都讀自鄉鎮市公所網站的代表會專區；文件是 PDF。', 'Read from the council’s pages on its town office’s site; its papers are PDFs.')}</p>`;
-  const body = h('div', { html });
-  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  // (A computer: a wide sheet, its parts two by two, Jay 11-14 "you don't have
+  // to limit the sheet to this phone like size"; a phone: one after another.)
+  const body = h('div', { html, class: 'lw-town-body' });
+  const s = sheet({ title: W('代表會', 'Township council'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet q-sheet-wide', body: [body] });
   // (Its own site's sessions first: their days, papers and recordings; the YouTube channel's after.)
   townVideos(body, t, vids, body.querySelector('[data-townlist]')?.closest('.lw-sec') || body.querySelector('.lw-town-now')?.closest('.lw-list') || body.querySelector('.lw-person-line'));
   body.addEventListener('click', e => {

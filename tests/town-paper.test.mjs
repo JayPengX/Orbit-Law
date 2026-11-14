@@ -25,8 +25,15 @@ test('partItems: heads cut where the table’s columns run together; headings an
   const [mz, cz] = paperParts(report);
   assert.deepEqual(partItems(report, mz), [
     { k: 'h', t: '一、自治業務' },
-    { k: 'p', t: '(一) 辦理里、鄰長辦理里、鄰長(含眷屬)共290位加健保全民健保手續及繳費。' },
+    { k: 'p', t: '(一) 辦理里、鄰長(含眷屬)共290位加健保全民健保手續及繳費。' },
     { k: 'p', t: '調解業務受理民眾聲請調解調解委員會共受理222件，其中調解成事件立151件。', n: '二、' }
   ]);
-  assert.deepEqual(partItems(report, cz).slice(0, 2), [{ k: 'h', t: '一、財務管理財務管理業務' }, { k: 'p', t: '1.編製各項財務報表。' }]);
+  assert.deepEqual(partItems(report, cz).slice(0, 2), [{ k: 'h', t: '一、財務管理業務' }, { k: 'p', t: '1.編製各項財務報表。' }]);
+});
+
+test('a cell the table repeats, said once', () => {
+  const text = '一、財務管理財務管理業務1.編製各項財務報表。\n(一) 辦理里、鄰長辦理里、鄰長(含眷屬)共290位加健保。\n';
+  const items = partItems(text, { unit: '', from: 0, to: text.length });
+  assert.equal(items[0].t, '一、財務管理業務');
+  assert.ok(items.some(i => i.t.includes('辦理里、鄰長(含眷屬)') && !i.t.includes('鄰長辦理')), JSON.stringify(items));
 });

@@ -26,11 +26,13 @@ export function paperParts(text) {
 
 // A part's lines as items: a numbered line (一、 (一) 1.) a head with what follows it on the line, the table's column
 // line (工作項目計畫要點辦理情形備註) and the part's own heading left out, the rest paragraphs.
+const ECHO = /([㐀-鿿][㐀-鿿、]{2,11})\1/g;
 const NUMBERED = /^\s*([壹貳參肆伍陸柒捌玖拾]+、|[一二三四五六七八九十]+、|[（(][一二三四五六七八九十]+[)）])\s*/;
 export function partItems(text, part) {
   const out = [];
   for (const raw of String(text || '').slice(part.from, part.to).split('\n')) {
-    const line = raw.replace(/\s{2,}/g, ' ').trim();
+    // (A table's two columns read as one line repeat a cell: 「財務管理財務管理業務」, 「辦理里、鄰長辦理里、鄰長(含眷屬)」.)
+    const line = raw.replace(/\s{2,}/g, ' ').trim().replace(ECHO, '$1');
     if (!line || /^工作項目|^計畫要點|辦理情形備註$/.test(line) || (part.unit && UNIT.test(line) && line.length <= 80)) continue;
     const m = line.match(NUMBERED);
     if (!m || !/^[壹貳參肆伍陸柒捌玖拾一二三四五六七八九十]/.test(m[1])) {

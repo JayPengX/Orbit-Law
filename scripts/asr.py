@@ -23,6 +23,9 @@ loaded = time.time() - t0
 segs, info = m.transcribe(audio, language='zh', word_timestamps=True, vad_filter=True, initial_prompt=prompt, beam_size=5, condition_on_previous_text=False)
 words = []
 for s in segs:
+    # (Whisper's made-up lines over music, applause or a hall's noise: little sure it's speech, or the same words looping.)
+    if (s.no_speech_prob > 0.6 and s.avg_logprob < -1.0) or s.compression_ratio > 2.4:
+        continue
     for w in s.words or []:
         text = tw(w.word)
         words.append([round(w.start, 2), round(w.end, 2), text, py(text), round(w.probability, 2)])

@@ -37,6 +37,7 @@ jobs:
       TOWN_HEAR_MODEL: ${{ inputs.model || 'medium' }}
       TOWN_HEAR_ONLY: ${{ inputs.only || '' }}
       TOWN_HEAR_SHARD: ${{ matrix.shard }}/8
+      LAW_BUILD_KEY: ${{ secrets.LAW_BUILD_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

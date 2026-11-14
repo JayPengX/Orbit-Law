@@ -108,6 +108,25 @@ function work(all) {
 
 const keyOf = x => (x.machine ? `${storeDir}/${x.tc}/m-${recKey(x.rec)}` : `${storeDir}/${x.tc}/${x.file}-${x.d}`);
 
+// A town's own site that serves only Taiwan (頭城's, 竹東's, 嘉義縣's towns': 'fetch failed' from GitHub's runners)
+// is read through Orbit's door from Taiwan with the build's key; once a host refuses, its next recordings go there first.
+const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
+const KEY = process.env.LAW_BUILD_KEY || '';
+const viaDoor = new Set();
+async function fetchRec(url) {
+  const host = new URL(url).hostname;
+  const door = () => fetch(`${DOOR}?v=1&file=1&u=${encodeURIComponent(url)}`, { headers: { 'X-Build-Key': KEY }, signal: AbortSignal.timeout(900_000) });
+  const canDoor = KEY && /(^|\.)gov\.tw$/i.test(host);
+  if (canDoor && viaDoor.has(host)) return door();
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(600_000) });
+  } catch (e) {
+    if (!canDoor) throw e;
+    viaDoor.add(host);
+    return door();
+  }
+}
+
 async function hear() {
   let n = 0;
   for (const x of work(await towns())) {
@@ -119,7 +138,7 @@ async function hear() {
     const url = x.rec.drive ? `https://drive.usercontent.google.com/download?id=${encodeURIComponent(x.rec.drive)}&export=download&confirm=t` : x.rec.src;
     const t0 = Date.now();
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(600_000) });
+      const r = await fetchRec(url);
       if (!r.ok || !/audio|octet|video/.test(r.headers.get('content-type') || '')) throw new Error(`recording ${r.status} ${r.headers.get('content-type')}`);
       await writeFile('.hear.audio', Buffer.from(await r.arrayBuffer()));
       // (Decoded once, 8 kHz: its length, and the voice's pitch.)

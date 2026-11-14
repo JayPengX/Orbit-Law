@@ -66,8 +66,8 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
   in), and `bills/item/<term>-<law>.json` that item's versions. A version's
   對照表 is fetched from the API only when opened in the app.
 - **地方議會 and 代表會** (立法's 議會 door; `lib/council.mjs`, `council-video.mjs`,
-  `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs`, `player.mjs`, `minutes.mjs`;
-  `scripts/build-council.mjs`, `build-council-text.mjs`, `build-town.mjs`): the 22 councils from
+  `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs`, `town-audio.mjs`, `town-speakers.mjs`, `player.mjs`, `minutes.mjs`;
+  `scripts/build-council.mjs`, `build-council-text.mjs`, `build-town.mjs`, `town-hear.mjs`): the 22 councils from
   歐噴's 地方議會開放 API (all.cc.govapi.tw), filled from each council's own site where the API
   is thin; their video from HiNet, their own IVODs or YouTube, played in the app; 代表會 from
   their 公所's sites (twgov, CCMS, Drive folders, WordPress, Joomla and more), their papers read

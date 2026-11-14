@@ -4827,7 +4827,7 @@ async function townMember(own, sessions, x, party) {
 
 // Who asked on a day of 總質詢, in a line: 何宜芯、張美珠 等 7 位.
 const askersLine = p => {
-  const ws = [...new Set((p.asks || []).map(a => a.w))];
+  const ws = [...new Set((p.asks || []).map(a => a.w).filter(Boolean))];
   return ws.length > 2 ? W(`${ws.slice(0, 2).join('、')} 等 ${ws.length} 位`, `${ws.slice(0, 2).join(', ')} and ${ws.length - 2} more`) : ws.join(W('、', ', '));
 };
 // What a sitting did, from its minutes' items, in a few words: 市長施政報告; 8 個課室工作報告; 116 年度總預算 一讀; 審議提案.
@@ -4916,19 +4916,23 @@ function townSession(own, s, party = new Map()) {
       return `${lead}<h4>${head}</h4><div class="lw-list in-sheet">${rows.join('')}</div>`;
     }).join('');
   // (A sitting's video on YouTube, 羅東's, or the site's own MP4, 澎湖's: its picture, played in the app.)
-  const vidRow = (d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}">${d.yt || d.pic ? `<img class="lw-vid-img" src="${esc(d.pic || `https://i.ytimg.com/vi/${d.yt}/mqdefault.jpg`)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img lw-aud">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc([d.d && dayLabel(d.d), partOf(d)].filter(Boolean).join(' · '))}</span><small>${esc([d.ext && W('延長會', 'Extension'), d.what || (townVideo(d) ? W('會議影音', 'Sitting video') : W('會議錄音', 'Sitting audio'))].filter(Boolean).join(' · '))}</small></span></button>`;
+  const vidRow = (d, i) => `<button type="button" class="lw-row lw-vid" data-townday="${i}">${heardOf(papers, d) ? heardRow(d, heardOf(papers, d)) : `${d.yt || d.pic ? `<img class="lw-vid-img" src="${esc(d.pic || `https://i.ytimg.com/vi/${d.yt}/mqdefault.jpg`)}" alt="" loading="lazy" decoding="async">` : `<span class="lw-vid-img lw-aud">${PLAY}</span>`}<span class="lw-row-text"><span class="lw-row-name">${esc([d.d && dayLabel(d.d), partOf(d)].filter(Boolean).join(' · '))}</span><small>${esc([d.ext && W('延長會', 'Extension'), d.what || (townVideo(d) ? W('會議影音', 'Sitting video') : W('會議錄音', 'Sitting audio'))].filter(Boolean).join(' · '))}</small></span>`}</button>`;
+  // (A recording made into text: what was said that day, who asked.)
+  const heardRow = (d, q) => `<span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc([d.d && dayLabel(d.d), partOf(d), d.what].filter(Boolean).join(' · ') || W('會議錄音', 'Sitting audio'))}</span><small>${esc([W('錄音逐字稿', 'Transcript'), askersLine(q)].filter(Boolean).join(' · '))}</small></span>${CHEVRON}`;
   // A recorded day (audio) a row: what the sitting did that day, read from its minutes or its transcript, opening the
   // day: its recording with what was said or done.
   const audioDays = [...new Set((s.days || []).filter(d => d.d && !townVideo(d) && (d.drive || d.src)).map(d => d.d))];
   const dayRow = d => {
     const ds = s.days.filter(x => x.d === d);
-    const talk = Object.values(papers).find(p => p.k === '總質詢' && p.d === d && p.asks?.length);
+    const talk = Object.values(papers).find(p => p.k === '總質詢' && p.d === d && p.asks?.length) || (ds.length === 1 && heardOf(papers, ds[0]));
     const did = dayWhat(Object.values(papers).flatMap(p => (p.k === '會議紀錄' ? (p.sits || []).filter(x => x.d === d).flatMap(x => x.done.map(y => y.what)) : [])));
-    const what = talk ? W(`總質詢 ${talk.nth || ''}`.trim(), 'Questions to the mayor') : did.length ? did.slice(0, 2).join('、') + (did.length > 2 ? W(' 等', ' and more') : '') : W('會議錄音', 'Sitting audio');
+    const what = talk?.machine ? (did.length ? did.slice(0, 2).join('、') : W('錄音逐字稿', 'Transcript')) : talk ? W(`總質詢 ${talk.nth || ''}`.trim(), 'Questions to the mayor') : did.length ? did.slice(0, 2).join('、') + (did.length > 2 ? W(' 等', ' and more') : '') : W('會議錄音', 'Sitting audio');
     const small = [dayLabel(d), ds.some(x => x.ext) && W('延長會', 'Extension'), ds.length > 1 && W(`${ds.length} 段`, `${ds.length} parts`), talk && askersLine(talk)].filter(Boolean).join(' · ');
     return `<button type="button" class="lw-row lw-vid" data-townd="${esc(d)}"><span class="lw-vid-img lw-aud">${PLAY}</span><span class="lw-row-text"><span class="lw-row-name">${esc(what)}</span><small>${esc(small)}</small></span>${CHEVRON}</button>`;
   };
-  const daysHtml = () => audioDays.map(dayRow).join('') + (s.days || []).map((d, i) => (audioDays.includes(d.d) ? '' : vidRow(d, i))).join('');
+  // (A day recorded in parts, made into text: a row each part.)
+  const parted = d => s.days.filter(x => x.d === d && !townVideo(x) && (x.drive || x.src)).length > 1 && s.days.some(x => x.d === d && heardOf(papers, x));
+  const daysHtml = () => audioDays.map(d => (parted(d) ? s.days.map((x, i) => (x.d === d ? vidRow(x, i) : '')).join('') : dayRow(d))).join('') + (s.days || []).map((d, i) => (audioDays.includes(d.d) ? '' : vidRow(d, i))).join('');
   const days = daysHtml();
   const seen = s.days?.some(townVideo);
   // (Recordings a site keeps as a Drive folder: the folder, opened in Drive.)
@@ -4941,14 +4945,14 @@ function townSession(own, s, party = new Map()) {
   body.append(box);
   sheet({ title: s.n, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   // The papers read in: drawn in place once here (the PDFs' rows until then).
-  if (s.read && own.tc)
+  if ((s.read || s.heard) && own.tc)
     data(`council/town/${own.tc}/${paperFile(s)}.json`)
       .then(r => {
         papers = r.papers || {};
         const html = drawPapers();
         if (html) box.innerHTML = section(W('議事錄', 'Papers'), html);
         const list = body.querySelector('[data-towndays]');
-        if (list && audioDays.length) list.innerHTML = daysHtml() + folders;
+        if (list) list.innerHTML = daysHtml() + folders;
       })
       .catch(() => {});
   body.addEventListener('click', e => {
@@ -4957,6 +4961,7 @@ function townSession(own, s, party = new Map()) {
     const b = e.target.closest('[data-townday]');
     const d = b && s.days[+b.dataset.townday];
     if (d?.yt) return openCouncilVideo(d.yt, -1, { id: d.yt, yt: d.yt, n: [s.n, d.what].filter(Boolean).join(' '), d: d.d }, { town: true, n: own.n, video: {} });
+    if (d && heardOf(papers, d)) return townDay(own, s, d.d, { papers, party, rec: d });
     if (b) return townAudio(own, s, d);
     const r = e.target.closest('[data-townres]');
     if (r) {
@@ -5095,21 +5100,23 @@ const COUNTERS = new Set(['代表', '副主席']);
 // What a member's questions are about: the things they named (仁義市場 · 圍籬), else their first question's words.
 const ADDRESS = /主席|市長|主秘|秘書|課室主管|各位|大家好|大家早|謝謝|來賓|同仁/;
 const askTopic = (p, a) => {
-  const own = p.turns.slice(a.from, a.to + 1).filter(t => t.w === a.w).map(t => t.t);
+  const own = p.turns.slice(a.from, a.to + 1).filter(t => t.w === a.w && (!p.machine || t.r === '代表' || t.r === '副主席')).map(t => t.t);
   const words = topicWords(own).join(' · ');
   if (words) return words;
   // (Nothing named: their first words past the greetings.)
   const first = own.join('，').split(/[，。？！]/).map(x => turnTopic(x).trim()).find(x => x.length >= 6 && !ADDRESS.test(x));
   return first || turnTopic(a.gist) || a.gist || '';
 };
-function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {}) {
+function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec: one = null } = {}) {
   const recs = (s.days || []).filter(x => x.d === d && (x.drive || x.src));
-  const talk = Object.entries(papers).find(([, p]) => p.k === '總質詢' && p.d === d && p.turns?.length);
+  const rec = one || recs[0];
+  // (No transcript that day: the recording made into text, when it has been.)
+  const talk = (!one && d && Object.entries(papers).find(([, p]) => p.k === '總質詢' && p.d === d && p.turns?.length)) || Object.entries(papers).find(([, p]) => p.machine && rec && p.au?.id === (rec.drive || rec.src));
   const [url, p] = talk || [];
-  const rec = recs.length === 1 ? recs[0] : recs[0];
+  const machine = !!p?.machine;
   const at = p?.au?.at?.length && p.au.at.length === p.turns.length && rec && p.au.id === (rec.drive || rec.src) ? p.au.at : null;
   const who = new Map((own.people || []).map(x => [x.n, x]));
-  const face = w => personPhoto({ n: w, party: party.get(w) || '', photo: who.get(w)?.img });
+  const face = w => personPhoto({ n: w || W('代', 'M'), party: party.get(w) || '', photo: who.get(w)?.img });
   const term = W(`第${own.term}屆${s.n}`, `Term ${own.term} ${s.n}`);
   const sits = Object.entries(papers).flatMap(([u, q]) => (q.k === '會議紀錄' ? (q.sits || []).filter(x => x.d === d).map(x => ({ x, url: u, name: x.n || W('會議紀錄', 'Minutes') })) : []));
   const blocks = p ? askBlocks(p) : [];
@@ -5119,9 +5126,9 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
   const turnHtml = i => {
     const x = p.turns[i];
     const t = at ? ` data-at="${at[i]}"` : '';
-    if (x.r === '主席' && x.t.length <= 40) return `<p class="lw-turn lw-turn-call" data-k="${i}"${t}><b>${esc(x.w)}</b>${esc(x.t)}</p>`;
+    if (x.r === '主席' && x.t.length <= 40) return `<p class="lw-turn lw-turn-call" data-k="${i}"${t}><b>${esc(x.w || x.r)}</b>${esc(x.t)}</p>`;
     const long = x.t.length > 150;
-    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${esc(x.w)}<small>${esc(x.r)}</small>${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${proseHtml(x.t)}${long ? (kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
+    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${x.w ? `${esc(x.w)}<small>${esc(x.r)}</small>` : `<small>${esc(x.r || W('不確定是誰', 'Not sure who'))}</small>`}${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${proseHtml(x.t)}${long ? (kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
   };
   const blockHead = (b, k) => {
     const t0 = at ? at[b.from] : null;
@@ -5131,14 +5138,15 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
     if (b.n < 0) return `<span class="lw-ask-ic">${MENU_ICON.gov}</span><span class="lw-row-text"><span class="lw-row-name">${W('開議', 'Opening')}</span><small>${esc(W(`${b.to - b.from + 1} 段發言`, `${b.to - b.from + 1} turns`))}</small></span>${side}`;
     const x = who.get(b.w);
     const line = [partyShort(party.get(b.w) || ''), x?.title && x.title !== '代表' ? x.title : x?.area?.replace(/選區$/, W('區', ' district'))].filter(Boolean).join(' · ');
-    return `${face(b.w)}<span class="lw-row-text"><span class="lw-row-name">${esc(b.w)}${line ? `<small>${esc(line)}</small>` : ''}</span><span class="lw-ask-gist">${esc(askTopic(p, b))}</span></span>${side}`;
+    return `${face(b.w)}<span class="lw-row-text"><span class="lw-row-name">${esc(b.w || W('一位代表', 'A member'))}${line ? `<small>${esc(line)}</small>` : ''}</span><span class="lw-ask-gist">${esc(askTopic(p, b))}</span></span>${side}`;
   };
   const blockHtml = (b, k) => `<section class="lw-ask" data-block="${k}" data-w="${esc(b.w || '')}"><button type="button" class="lw-ask-head" aria-expanded="false">${blockHead(b, k)}</button><div class="lw-ask-body" hidden></div></section>`;
   // Who asked: a chip each (with how many times), filtering the blocks.
-  const askers = [...new Set(blocks.filter(b => b.n >= 0).map(b => b.w))];
+  const askers = [...new Set(blocks.filter(b => b.n >= 0 && b.w).map(b => b.w))];
+  const asked = blocks.filter(b => b.n >= 0).length;
   const chips = askers.length > 1 ? `<div class="q-chips lw-chips lw-ask-who">${[['', W('全部', 'All')], ...askers.map(w => [w, w])].map(([w, l], i) => `<button type="button" class="q-chip" data-askw="${esc(w)}" aria-pressed="${!i}">${esc(l)}${w ? `<small>${blocks.filter(b => b.w === w).length}</small>` : ''}</button>`).join('')}</div>` : '';
-  const what = p ? [p.nth ? W(`總質詢 ${p.nth}`, `Questions, ${p.nth}`) : W('總質詢', 'Questions')] : dayWhat(sits.flatMap(({ x }) => x.done.map(y => y.what))).slice(0, 2);
-  const head = `<h2 class="lw-item-name">${esc([dayLabel(d), what.join('、') || (rec ? W('會議錄音', 'Sitting audio') : '')].filter(Boolean).join(' '))}</h2><p class="lw-clip-meta">${esc([own.n, term, rec?.ext ? W('延長會', 'Extension') : '', p ? W(`${askers.length} 位代表質詢`, `${askers.length} members asked`) : ''].filter(Boolean).join(' · '))}</p>`;
+  const what = machine ? [partOf(rec), dayWhat(sits.flatMap(({ x }) => x.done.map(y => y.what))).slice(0, 2).join('、') || W('錄音逐字稿', 'Transcript')].filter(Boolean) : p ? [p.nth ? W(`總質詢 ${p.nth}`, `Questions, ${p.nth}`) : W('總質詢', 'Questions')] : dayWhat(sits.flatMap(({ x }) => x.done.map(y => y.what))).slice(0, 2);
+  const head = `<h2 class="lw-item-name">${esc([dayLabel(d), what.join('、') || (rec ? W('會議錄音', 'Sitting audio') : '')].filter(Boolean).join(' '))}</h2><p class="lw-clip-meta">${esc([own.n, term, rec?.ext ? W('延長會', 'Extension') : '', machine ? (asked ? W(`${asked} 段質詢`, `${asked} rounds of questions`) : '') : p ? W(`${askers.length} 位代表質詢`, `${askers.length} members asked`) : ''].filter(Boolean).join(' · '))}</p>${machine ? `<p class="lw-hint-sm">${W('錄音由電腦轉成文字，可能有錯字。誰在發言是依會議程序與代表名冊推斷，不確定的就不標名字。', 'Made into text from the recording by computer; words may be wrong. Who spoke is read from the meeting’s order and the members’ list; where unsure, no name is given.')}</p>` : ''}`;
   const sitsHtml = !p && sits.length ? `<div class="lw-list in-sheet wrap">${sits.map(sitRow).join('')}</div>` : '';
   // The day's papers: the mayor's report (and the chair's speech) on the day it was given, each office's 工作報告 on
   // the day it reported.
@@ -5155,7 +5163,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
         .join('')
     : '';
   const none = !p && !sits.length ? `<p class="lw-none">${W('這一天的議事錄還沒放上來，先聽錄音。', 'This day’s papers aren’t up yet; the recording is.')}</p>` : '';
-  const body = h('div', { class: 'lw-cbill-body lw-day', html: `${head}${chips}${blocks.length ? `<div class="lw-asks">${blocks.map(blockHtml).join('')}</div>` : ''}${dayPapers ? `<div class="lw-asks">${dayPapers}</div>` : ''}${sitsHtml}${none}${url ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始逐字稿 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
+  const body = h('div', { class: 'lw-cbill-body lw-day', html: `${head}${chips}${blocks.length ? `<div class="lw-asks">${blocks.map(blockHtml).join('')}</div>` : ''}${dayPapers ? `<div class="lw-asks">${dayPapers}</div>` : ''}${sitsHtml}${none}${url && !machine ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始逐字稿 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   // The player, in the sheet's foot: play, back 15 s, where it is, who's speaking.
   const src = rec ? rec.src || driveAudio(rec.drive) : '';
   const foot = src
@@ -5164,7 +5172,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
         html: `<button type="button" class="lw-follow-back" aria-label="${W('倒退 15 秒', 'Back 15 seconds')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" fill="currentColor"/><text x="12" y="16.2" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor">15</text></svg></button><button type="button" class="lw-follow-play" aria-label="${W('播放', 'Play')}">${ICON_PLAY}</button><div class="lw-follow-mid"><span class="lw-follow-who">${esc(at ? W('從頭播放，或點一段發言', 'Play, or tap a turn') : W('這一天的會議錄音', 'This day’s recording'))}</span><input type="range" class="lw-follow-bar" min="0" max="1" step="1" value="0" aria-label="${W('播放位置', 'Position')}"></div><span class="lw-follow-time">0:00</span><audio preload="none" src="${esc(src)}"></audio>`
       })
     : null;
-  const sh = sheet({ title: p ? W('總質詢', 'Questions') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], foot });
+  const sh = sheet({ title: machine ? W('錄音逐字稿', 'Transcript') : p ? W('總質詢', 'Questions') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], foot });
   wireParts(body, own, s, papers);
   const a = foot?.querySelector('audio');
   const bar = foot?.querySelector('.lw-follow-bar');
@@ -5192,7 +5200,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
               const points = r.points.map(pt => `<li>${esc(pt.text)} ${pt.cites.map(chip).join('')}</li>`).join('');
               return { ...r, html: r.covered ? `${r.answer ? `<p class="lw-lead">${esc(r.answer)}</p>` : ''}${points ? `<ul class="lw-points">${points}</ul>` : ''}${r.promised ? `<div class="lw-block blue"><h4><i>${MENU_ICON.gov}</i>${W('公所答應的事', 'What the office promised')}</h4><p>${esc(r.promised)}</p></div>` : ''}` : `<p>${esc(r.answer || W('這段質詢讀不出重點。', 'Nothing clear to sum up.'))}</p>` };
             },
-            W('AI 只依這段逐字稿整理', 'AI, from this transcript only')
+            machine ? W('AI 只依這段錄音逐字稿整理，逐字稿可能有錯字', 'AI, from this machine transcript only; it may have errors') : W('AI 只依這段逐字稿整理', 'AI, from this transcript only')
           )
         );
     }
@@ -5217,7 +5225,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
     const el = turnEl(i);
     el?.classList.add('lw-now');
     const x = p.turns[i];
-    if (whoEl) whoEl.textContent = `${x.w}${x.r ? ` · ${x.r}` : ''}`;
+    if (whoEl) whoEl.textContent = [x.w, x.r].filter(Boolean).join(' · ') || W('不確定是誰', 'Not sure who');
     if (scroll && el && Date.now() - touched > 4000) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   const seek = t => {
@@ -5318,6 +5326,10 @@ const partOf = d => (!d.n ? '' : /^\d+$/.test(d.n) ? W(`第 ${d.n} 段`, `part $
 
 // A day's recording a video: on YouTube, or the site's own MP4 (澎湖's).
 const townVideo = d => !!(d.yt || /\.mp4$/i.test(d.src || ''));
+
+// A recording made into text by the build (scripts/town-hear.mjs: speech recognition, who spoke read from the
+// meeting's order): its paper, found by the recording.
+const heardOf = (papers, d) => (d && (d.drive || d.src) ? Object.values(papers).find(p => p.machine && p.au?.id === (d.drive || d.src) && p.turns?.length) : null);
 
 // A sitting's recording: a Google Drive file (its own player when Drive won't hand it over), or the site's own MP3
 // (or MP4, played as a video).

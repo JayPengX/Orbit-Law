@@ -6,6 +6,7 @@
 //   silences(pcm)                  → [[start, end], …] the quiet stretches, in seconds
 //   speech(sil, dur)               → [[start, end], …] the stretches with sound
 //   voices(spans, pcm)             → the spans with each one's pitch
+//   pitchTrack(pcm), pitchOn(track, a, b) → the pitch every 0.1 s; its median over a stretch
 //   alignTurns(turns, spans)       → each turn's start, in seconds (turns: [{ n: characters, w: who }])
 //   alignDay(turns, pcm)           → the same for a day's turns ({ t, w }) and its decoded recording
 //   turnAt(at, t)                  → the turn playing at second t
@@ -54,34 +55,50 @@ export function speech(sil, dur) {
 // Each stretch's voice: the median pitch (Hz) of its voiced moments, 0 where there are too few. `pcm` is the
 // recording as 16-bit mono samples at `sr` (8000 is plenty); pitch is found by autocorrelation, 70 to 400 Hz, in
 // 50 ms frames. A man chairing between two women's turns is the clearest mark a change of turn leaves.
-export function voices(spans, pcm, sr = 8000) {
+// The pitch (Hz) of the 50 ms at `at` seconds, by autocorrelation (70 to 400 Hz); 0 where quiet or unvoiced.
+function f0At(pcm, sr, at) {
   const W = Math.round(sr / 20);
   const lo = Math.floor(sr / 400);
   const hi = Math.ceil(sr / 70);
-  const f0 = at => {
-    const s = Math.round(at * sr);
-    if (s + W + hi >= pcm.length) return 0;
-    let r0 = 0;
-    for (let i = 0; i < W; i++) r0 += pcm[s + i] * pcm[s + i];
-    if (r0 < W * 300 * 300) return 0;
-    let best = 0;
-    let lag = 0;
-    for (let l = lo; l <= hi; l++) {
-      let r = 0;
-      for (let i = 0; i < W; i++) r += pcm[s + i] * pcm[s + i + l];
-      if (r > best) (best = r), (lag = l);
-    }
-    return best / r0 > 0.5 ? sr / lag : 0;
-  };
+  const s = Math.round(at * sr);
+  if (s + W + hi >= pcm.length) return 0;
+  let r0 = 0;
+  for (let i = 0; i < W; i++) r0 += pcm[s + i] * pcm[s + i];
+  if (r0 < W * 300 * 300) return 0;
+  let best = 0;
+  let lag = 0;
+  for (let l = lo; l <= hi; l++) {
+    let r = 0;
+    for (let i = 0; i < W; i++) r += pcm[s + i] * pcm[s + i + l];
+    if (r > best) (best = r), (lag = l);
+  }
+  return best / r0 > 0.5 ? sr / lag : 0;
+}
+
+export function voices(spans, pcm, sr = 8000) {
   return spans.map(([a, b]) => {
     const fs = [];
     for (let t = a; t < b; t += 0.1) {
-      const f = f0(t);
+      const f = f0At(pcm, sr, t);
       if (f) fs.push(f);
     }
     fs.sort((x, y) => x - y);
     return [a, b, fs.length >= 6 ? Math.round(fs[fs.length >> 1]) : 0];
   });
+}
+
+// A whole recording's pitch, one number (Hz, 0 unvoiced) every `step` seconds: kept with what was heard, so who
+// speaks can be worked out again later without the recording (lib/town-speakers.mjs pitchOf).
+export function pitchTrack(pcm, sr = 8000, step = 0.1) {
+  const out = [];
+  for (let t = 0; t * sr < pcm.length; t += step) out.push(Math.round(f0At(pcm, sr, t)));
+  return out;
+}
+
+// The voice's median pitch between a and b seconds on a pitchTrack, 0 when fewer than 6 voiced moments.
+export function pitchOn(track, a, b, step = 0.1) {
+  const fs = track.slice(Math.max(0, Math.floor(a / step)), Math.ceil(b / step)).filter(Boolean).sort((x, y) => x - y);
+  return fs.length >= 6 ? fs[fs.length >> 1] : 0;
 }
 
 // Each turn's start on the recording (turns: [{ n: its characters, w: who said it }], spans: [[start, end, pitch?]]).

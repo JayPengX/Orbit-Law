@@ -1,7 +1,8 @@
 # 代表會 recordings heard by speech recognition (scripts/asr.py: faster-whisper, open source, on this runner; no AI
-# service, nothing paid: a public repo's minutes are free), each 總質詢 transcript's turns placed on its recording
-# (scripts/town-hear.mjs hear). What was heard is kept in the Actions cache (town-heard-*); data.yml sets it on the
-# papers (town-hear.mjs apply). Nightly, five hours' listening at most, newest days first.
+# service, nothing paid: a public repo's minutes are free): each 總質詢 transcript's turns placed on its recording, and
+# every other 代表會 recording made into text, newest session of each town first (scripts/town-hear.mjs hear). Four
+# runners, each its own share of the recordings and its own copy of what it heard in the Actions cache
+# (town-heard-s<n>-*); data.yml sets it all on the papers (town-hear.mjs apply). Nightly, five hours' listening at most.
 name: Hear the 代表會 recordings
 on:
   schedule:
@@ -14,19 +15,28 @@ on:
       model:
         description: 'faster-whisper model'
         default: 'medium'
+      only:
+        description: 'A trial: only these recordings (Drive ids, comma between), heard as having no transcript'
+        default: ''
 permissions:
   contents: read
   actions: write
 concurrency:
-  group: town-hear
+  group: town-hear${{ inputs.only && '-trial' || '' }}
   cancel-in-progress: false
 jobs:
   hear:
     runs-on: ubuntu-latest
     timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     env:
       TOWN_HEAR_MINUTES: ${{ inputs.minutes || '300' }}
       TOWN_HEAR_MODEL: ${{ inputs.model || 'medium' }}
+      TOWN_HEAR_ONLY: ${{ inputs.only || '' }}
+      TOWN_HEAR_SHARD: ${{ matrix.shard }}/4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,8 +45,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -q faster-whisper==1.1.1 requests "av<14" opencc-python-reimplemented
-      # The law data the last build kept (data.yml), read only: which days have a transcript and a recording.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - run: pip install -q faster-whisper==1.1.1 requests "av<14" opencc-python-reimplemented pypinyin==0.53.0
+      # The law data the last build kept (data.yml), read only: the towns, their sessions, recordings and papers.
       - uses: actions/cache/restore@v4
         with:
           path: public/data
@@ -46,21 +57,32 @@ jobs:
         with:
           path: .town-heard
           key: town-heard-none
-          restore-keys: town-heard-
+          restore-keys: |
+            town-heard-s${{ matrix.shard }}-
+            town-heard-
       - uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
           key: hf-${{ env.TOWN_HEAR_MODEL }}
-      - run: node scripts/town-hear.mjs hear public/data .town-heard
+      # (A trial is heard by the first runner alone, and only shown, not kept.)
+      - if: env.TOWN_HEAR_ONLY == '' || matrix.shard == 0
+        run: node scripts/town-hear.mjs hear public/data .town-heard
+      - uses: actions/upload-artifact@v4
+        if: env.TOWN_HEAR_ONLY != '' && matrix.shard == 0
+        with:
+          name: town-heard-trial
+          path: .town-heard
+          retention-days: 5
       - uses: actions/cache/save@v4
-        if: always()
+        if: always() && env.TOWN_HEAR_ONLY == ''
         with:
           path: .town-heard
-          key: town-heard-${{ github.run_id }}
+          key: town-heard-s${{ matrix.shard }}-${{ github.run_id }}
       - name: Drop older copies of what was heard
+        if: env.TOWN_HEAR_ONLY == ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=town-heard-&sort=created_at&direction=desc&per_page=100" --jq '.actions_caches[2:][] | .id' |
+          gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=town-heard-s${{ matrix.shard }}-&sort=created_at&direction=desc&per_page=100" --jq '.actions_caches[2:][] | .id' |
             while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$id" >/dev/null && echo "dropped $id"; done

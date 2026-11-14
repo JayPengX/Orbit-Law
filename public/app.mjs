@@ -5157,7 +5157,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
   const none = !p && !sits.length ? `<p class="lw-none">${W('這一天的議事錄還沒放上來，先聽錄音。', 'This day’s papers aren’t up yet; the recording is.')}</p>` : '';
   const body = h('div', { class: 'lw-cbill-body lw-day', html: `${head}${chips}${blocks.length ? `<div class="lw-asks">${blocks.map(blockHtml).join('')}</div>` : ''}${dayPapers ? `<div class="lw-asks">${dayPapers}</div>` : ''}${sitsHtml}${none}${url ? `<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始逐字稿 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   // The player, in the sheet's foot: play, back 15 s, where it is, who's speaking.
-  const src = rec ? rec.src || driveFile(rec.drive) : '';
+  const src = rec ? rec.src || driveAudio(rec.drive) : '';
   const foot = src
     ? h('div', {
         class: 'q-sheet-foot lw-follow',
@@ -5239,11 +5239,19 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
       if (!bar.matches(':active')) bar.value = Math.floor(a.currentTime);
       if (at) mark(turnAt(at, a.currentTime + 0.3), !a.paused);
     });
-    // Drive hands over a file past its scan size as a page: its own player then (no following).
+    // A recording that won't load: Drive's own address, then Drive's page (no following there).
     a.addEventListener(
       'error',
-      () => {
+      function fallback() {
         if (!rec.drive || !a.isConnected) return;
+        // (Our pass-through down: Drive's own address once (it plays on Chrome), then Drive's page.)
+        if (a.src.includes('/law-audio?')) {
+          const t = a.currentTime || pending;
+          a.addEventListener('error', fallback, { once: true });
+          a.src = driveFile(rec.drive);
+          if (t) pending = t;
+          return a.play()?.catch(() => {});
+        }
         foot.innerHTML = `<a class="q-more q-more-go lw-out" href="${esc(drivePage(rec.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟播放', 'Play in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
       },
       { once: true }
@@ -5302,6 +5310,9 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null } = {
   return sh;
 }
 
+// A recording on Google Drive, through the proxy's /law-audio: Drive calls an .m4a MP3, which Safari won't play.
+const driveAudio = id => `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-audio?drive=${encodeURIComponent(id)}`;
+
 // A recording's part: 第 2 段, or the name the site gave it.
 const partOf = d => (!d.n ? '' : /^\d+$/.test(d.n) ? W(`第 ${d.n} 段`, `part ${d.n}`) : d.n);
 
@@ -5313,7 +5324,7 @@ const townVideo = d => !!(d.yt || /\.mp4$/i.test(d.src || ''));
 function townAudio(own, s, d) {
   if (!d) return;
   const vid = townVideo(d);
-  const body = h('div', { class: 'lw-clip-sheet', html: `${vid ? `<video class="lw-video-file" controls autoplay playsinline preload="metadata" src="${esc(d.src)}"${d.pic ? ` poster="${esc(d.pic)}"` : ''}></video>` : `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(d.src || driveFile(d.drive))}"></audio>`}<h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, d.d && dayLabel(d.d), partOf(d), d.what].filter(Boolean).join(' · '))}</p>${d.drive ? `<a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
+  const body = h('div', { class: 'lw-clip-sheet', html: `${vid ? `<video class="lw-video-file" controls autoplay playsinline preload="metadata" src="${esc(d.src)}"${d.pic ? ` poster="${esc(d.pic)}"` : ''}></video>` : `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(d.src || driveAudio(d.drive))}"></audio>`}<h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, d.d && dayLabel(d.d), partOf(d), d.what].filter(Boolean).join(' · '))}</p>${d.drive ? `<a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   sheet({ title: vid ? W('會議影音', 'Sitting video') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
   // The file itself, streamed by the phone (Drive answers ranges, open to any page); started within the tap.
   // A file Drive won't hand over directly (past its scan size, it answers a page) falls back to Drive's own player.

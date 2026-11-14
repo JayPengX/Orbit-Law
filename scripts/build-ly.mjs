@@ -162,11 +162,14 @@ if (voteData && meets) await step('votes from 議事錄', async () => {
       const at = names => names.map(x => idx.get(nameKey(x))).filter(i => i >= 0);
       const ok = v.yes.length === v.count[1] && v.no.length === v.count[2] && v.abstain.length === v.count[3];
       if (!ok) notes.push(`議事錄 ${m['會議代碼']} (${v.k}): names ${v.yes.length}/${v.no.length}/${v.abstain.length}, counts ${v.count.slice(1).join('/')}`);
-      // Its own id stands for its agenda item, so the list draws each vote apart.
+      // Its own id stands for its agenda item where its 討論事項 isn't known, so the list draws each vote apart.
       const id = `rec-${n0}-${s0}-${k0}-${v.k}`;
-      const on = items.get(recordItemOf(v.title)) || '';
-      if (on) voteData.agendas[id] = on.slice(0, 120);
-      voteData.votes.push([id, days[0], v.title, id, at(v.yes), at(v.no), at(v.abstain), lawsIn(`${v.title} ${on}`, names)]);
+      // (Votes on one 討論事項 share it, so the list draws them as one bill's votes, as the 公報's are.)
+      const item = recordItemOf(v.title);
+      const on = items.get(item) || '';
+      const agenda = on ? `rec-${n0}-${s0}-${k0}-i${item}` : id;
+      if (on) voteData.agendas[agenda] = on.slice(0, 120);
+      voteData.votes.push([id, days[0], v.title, agenda, at(v.yes), at(v.no), at(v.abstain), lawsIn(`${v.title} ${on}`, names)]);
     }
     if (found.length) voteData.recs[`rec-${n0}-${s0}-${k0}`] = url;
     await sleep(1500);

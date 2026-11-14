@@ -97,7 +97,7 @@ const zhIn = t => (en && /[\u4e00-\u9fff]/.test(t) ? `<span lang="zh-Hant">${esc
 // wider page a tab's sections side by side, each laid out as on a phone.
 // cols() takes the sections in the phone's order, each with the column it
 // sits in when there are two (and three, where the tab lays out three).
-let screen = kit.screenFit?.() || { wide: false, w3: false };
+let screen = kit.screenFit() || { wide: false, w3: false };
 const nCols = (most = 2) => Math.min(most, screen.w3 ? 3 : screen.wide ? 2 : 1);
 function cols(parts, most = 2) {
   const shown = parts.filter(p => p[0]);
@@ -108,7 +108,7 @@ function cols(parts, most = 2) {
   return `<div class="q-cols${n === 3 ? ' q-cols-3' : ''} lw-cols">${out.map(c => `<div class="lw-col">${c.join('')}</div>`).join('')}</div>`;
 }
 // The screen turned or resized past a column: the tab laid out again.
-kit.onScreen?.(now => {
+kit.onScreen(now => {
   const was = [nCols(2), nCols(3)].join();
   screen = now;
   if ([nCols(2), nCols(3)].join() === was) return;
@@ -127,7 +127,7 @@ const q = orbitSession('law', { lang: en ? 'en' : 'zh' });
 // One language (Jay 11-13): in English, what has no English of its own (a regulation's name, a ruling's, a bill's) put into English by plain translation (kit).
 if (en) kit.translateMarked?.(document.body);
 // 為你推薦 learns from what's opened and passed over (the kit's feedback.mjs, the
-// family's one engine, kept on the Pass; loaded on the side: an older kit ranks without it).
+// family's one engine, kept on the Pass; loaded on the side).
 let feedback = null;
 import('#kit/feedback.mjs')
   .then(m => {
@@ -136,7 +136,7 @@ import('#kit/feedback.mjs')
   })
   .catch(() => {});
 // Each question answered, one more toward the 十個問題 milestone.
-const asked = () => kit.milestone?.(q, 'law');
+const asked = () => kit.milestone(q, 'law');
 // The app starts at once, beside boot.js's first look at version.json (a
 // round trip every opening: on a phone's slow link it held every screen,
 // kept copies too). A newer deploy found while the loading screen is still
@@ -1723,7 +1723,7 @@ async function openPage(u, label = '', { head = '', into = null } = {}) {
 // moreHtml), shown only when there is more than those lines. A tap on a closed point
 // opens it too; 收起 closes it.
 const jdMore = open =>
-  kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), open, cls: 'lw-jd-more', attr: 'hidden' }) ??
+  kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), open, cls: 'lw-jd-more', attr: 'hidden' }) ??
   `<button type="button" class="q-more lw-jd-more" aria-expanded="${open}" hidden><span>${open ? W('收起', 'Less') : W('看全文', 'Read all')}</span></button>`;
 function fitJdPoints(root) {
   const fit = () => {
@@ -1902,9 +1902,7 @@ function foldLong(el, lines = 5) {
   el.classList.add('folded');
   requestAnimationFrame(() => {
     if (el.scrollHeight <= el.clientHeight + 4) return el.classList.remove('folded');
-    const t = kitUI.moreToggle ? kitUI.moreToggle({ more: W('展開全文', 'Read all'), less: W('收合', 'Show less'), cls: 'lw-fold-more', onToggle: open => el.classList.toggle('folded', !open) }) : null;
-    if (t) el.after(t);
-    else el.classList.remove('folded');
+    el.after(kitUI.moreToggle({ more: W('展開全文', 'Read all'), less: W('收合', 'Show less'), cls: 'lw-fold-more', onToggle: open => el.classList.toggle('folded', !open) }));
   });
 }
 
@@ -2205,7 +2203,7 @@ function drawAsk() {
       const tw = e.target.closest('.lw-msg [data-town]');
       if (tw) openTown(tw.dataset.town);
       const co = e.target.closest('.lw-msg [data-ccopen]');
-      if (co) (kit.writeStore?.(COUNCIL_KEY, co.dataset.ccopen), go('tab=bills&f=council'));
+      if (co) (kit.writeStore(COUNCIL_KEY, co.dataset.ccopen), go('tab=bills&f=council'));
     });
   }
   drawPin();
@@ -3204,7 +3202,6 @@ async function openNotice(id) {
 // builders/news-laws.js, /data/news/laws.json), newest first, each opening
 // its story in News. Nothing when there's none, or the file can't be read.
 function billNews(k, box) {
-  if (!kit.packJson) return;
   kit
     .packJson('news/laws.json', { ttl: 600_000, timeout: 15_000 })
     .then(raw => {
@@ -4099,7 +4096,7 @@ async function openBudget(k) {
 // meetings read again from the 立法院 API (its 發言名單 fills in on the day),
 // and what IVOD streams now (the proxy's /law-live: each meeting's channel, read at most a minute ago).
 let lyAgenda;
-const LIVE_URL = `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-live`;
+const LIVE_URL = `${kit.API}/law-live`;
 // (The rooms carry `fresh`: read in the last half hour; the proxy answers its last good read when IVOD fails.)
 const liveData = () => fetch(LIVE_URL, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
 const agendaData = () =>
@@ -4347,7 +4344,7 @@ const ownBills = c => data(c.own.file).then(r => r.rows || []);
 const ownFind = (rows, words) => rows.filter(b => words.some(w => String(b['案由']).includes(w) || String(b['提案人']).includes(w)));
 // The council shown: the one picked on this phone, else the reader's city's, else 臺北市's.
 function councilOf(list) {
-  const picked = kit.readStore?.(COUNCIL_KEY);
+  const picked = kit.readStore(COUNCIL_KEY);
   const city = myCities()[0];
   return list.find(c => c.c === picked) || list.find(c => c.city === city) || list.find(c => c.c === 'tpe') || list[0];
 }
@@ -4578,7 +4575,7 @@ async function councilList(out) {
 // The reader's township in a county's list: the one picked here, else the town of a place the family apps share.
 const TOWN_KEY = 'orbit-law.town.v1';
 function townOfMine(r) {
-  const picked = kit.readStore?.(TOWN_KEY)?.[r.city];
+  const picked = kit.readStore(TOWN_KEY)?.[r.city];
   const by = tc => r.towns.find(t => t.tc === tc);
   if (picked && by(picked)) return by(picked);
   const norm = s => String(s || '').replace(/台/g, '臺');
@@ -4589,8 +4586,8 @@ function townOfMine(r) {
   return null;
 }
 function pickTown(city, tc) {
-  const all = kit.readStore?.(TOWN_KEY) || {};
-  kit.writeStore?.(TOWN_KEY, { ...all, [city]: tc });
+  const all = kit.readStore(TOWN_KEY) || {};
+  kit.writeStore(TOWN_KEY, { ...all, [city]: tc });
   haptic();
   drawBillList();
 }
@@ -4647,7 +4644,7 @@ async function councilAgenda(c, out) {
     };
     const bar = d => dayBar(councilAgendaRec, { flat: true, days, current: d, today: day, follow: true, onPick: d2 => (show(d2), bar(d2)) });
     // (A fresh draw, or the term's days come in: the chosen day back to the strip's middle.)
-    kitUI.dayRecenter?.(councilAgendaRec);
+    kitUI.dayRecenter(councilAgendaRec);
     box.replaceChildren(bar(councilAgendaDay), list);
     show(councilAgendaDay);
     // A swipe across the day's sittings: the day either side, as 立法's 議程 (Jay 2026-11-11).
@@ -4702,13 +4699,13 @@ async function allCouncilAgenda() {
       : `<p class="lw-none">${W('這天沒有議會開會', 'No council sits this day')}</p>`;
   };
   const bar = d => dayBar(allAgendaRec, { flat: true, days, current: d, today: day, follow: true, onPick: d2 => (show(d2), bar(d2)) });
-  kitUI.dayRecenter?.(allAgendaRec);
+  kitUI.dayRecenter(allAgendaRec);
   box.replaceChildren(bar(allAgendaDay), list);
   show(allAgendaDay);
   list.addEventListener('click', async e => {
     const open = e.target.closest('[data-ccopen]');
     if (open) {
-      kit.writeStore?.(COUNCIL_KEY, open.dataset.ccopen);
+      kit.writeStore(COUNCIL_KEY, open.dataset.ccopen);
       (councilMore = 0), (councilFound = null), haptic(), s.close();
       return drawBillList();
     }
@@ -4793,7 +4790,7 @@ async function councilPicker() {
   body.addEventListener('click', e => {
     const b = e.target.closest('[data-cc]');
     if (!b) return;
-    kit.writeStore?.(COUNCIL_KEY, b.dataset.cc);
+    kit.writeStore(COUNCIL_KEY, b.dataset.cc);
     (councilMore = 0), (councilFound = null), haptic(), s.close();
     drawBillList();
   });
@@ -5280,7 +5277,7 @@ const partsHtml = (url, p, only = null, open = false) => {
 const partBody = (p, x) => {
   const items = partItems(p.text, x);
   const long = x.to - x.from > 700;
-  return `<div class="lw-paper-text lw-part-text${long ? ' clip' : ''}">${items.map(i => (i.k === 'h' ? `<h5>${esc(i.t)}</h5>` : `<p>${i.n ? `<b>${esc(i.n)}</b>` : ''}${esc(i.t)}</p>`)).join('')}</div>${long ? kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-part-more' }) ?? `<button type="button" class="q-more lw-part-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>` : ''}`;
+  return `<div class="lw-paper-text lw-part-text${long ? ' clip' : ''}">${items.map(i => (i.k === 'h' ? `<h5>${esc(i.t)}</h5>` : `<p>${i.n ? `<b>${esc(i.n)}</b>` : ''}${esc(i.t)}</p>`)).join('')}</div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-part-more' }) ?? `<button type="button" class="q-more lw-part-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>` : ''}`;
 };
 // The taps on parts drawn by partsHtml anywhere in `root`: a card opened (its items and its 重點摘要), 看全文.
 function wireParts(root, own, s, papers) {
@@ -5365,7 +5362,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
     const t = at ? ` data-at="${at[i]}"` : '';
     if (x.r === '主席' && x.t.length <= 40) return `<p class="lw-turn lw-turn-call" data-k="${i}"${t}><b>${esc(x.w || x.r)}</b>${esc(x.t)}</p>`;
     const long = x.t.length > 150;
-    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${x.w ? `${esc(x.w)}<small>${esc(x.r)}</small>` : `<small>${esc(x.r || W('不確定是誰', 'Not sure who'))}</small>`}${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${x.unclear ? `<p class="lw-hint-sm">${W('這段聽不清楚（可能是台語），文字多半不對，請聽錄音。', 'Hard to make out (maybe Taiwanese); the words are likely wrong. Listen to the recording.')}</p>` : ''}${proseHtml(x.t)}${long ? (kitUI.moreHtml?.({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
+    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${x.w ? `${esc(x.w)}<small>${esc(x.r)}</small>` : `<small>${esc(x.r || W('不確定是誰', 'Not sure who'))}</small>`}${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${x.unclear ? `<p class="lw-hint-sm">${W('這段聽不清楚（可能是台語），文字多半不對，請聽錄音。', 'Hard to make out (maybe Taiwanese); the words are likely wrong. Listen to the recording.')}</p>` : ''}${proseHtml(x.t)}${long ? (kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
   };
   const blockHead = (b, k) => {
     const t0 = at ? at[b.from] : null;
@@ -5556,7 +5553,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
 }
 
 // A recording on Google Drive, through the proxy's /law-audio: Drive calls an .m4a MP3, which Safari won't play.
-const driveAudio = id => `${kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev'}/law-audio?drive=${encodeURIComponent(id)}`;
+const driveAudio = id => `${kit.API}/law-audio?drive=${encodeURIComponent(id)}`;
 
 // A recording's part: 第 2 段, or the name the site gave it.
 const partOf = d => (!d.n ? '' : /^\d+$/.test(d.n) ? W(`第 ${d.n} 段`, `part ${d.n}`) : d.n);

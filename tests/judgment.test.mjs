@@ -78,5 +78,5 @@ test('judgment sheet: points are never cut short; a long one opens with 看全�
   assert.match(point, /proseHtml\(x\.text/);
   assert.match(point, /jdMore\(/);
   assert.match(fn, /fitJdPoints\(body\)/);
-  assert.match(src, /moreHtml\?\.\(\{ more: W\('看全文'/);
+  assert.match(src, /moreHtml\(\{ more: W\('看全文'/);
 });

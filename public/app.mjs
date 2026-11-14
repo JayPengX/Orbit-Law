@@ -584,9 +584,12 @@ function drawHome() {
     [section(W('剛修正的法律', 'Just amended'), list(amended.map(c => lawItem(state.byCode.get(c.p), changeText(c, true), freshTag(c)))), { more: W('更多', 'More'), moreHref: '#tab=laws' }), 1],
     [section(W('為你推薦', 'For you'), covers(picks)), 1],
     [section(W('最新裁判', 'Latest rulings'), rail([...state.consTop, ...state.latestRulings.slice(0, 6)].map(rulingCard)), { more: W('裁判', 'Rulings'), moreHref: '#tab=rulings' }), 1],
-    [laterHtml('home-news'), 0]
+    [laterHtml('home-news'), 0],
+    // (Only when someone is followed: 立委, 議員 or 代表.)
+    [Object.keys(state.mine.people || {}).length || Object.keys(state.mine.cc || {}).length ? laterHtml('home-reps') : '', 1]
   ]));
   fillHome();
+  drawHomeReps();
 }
 
 // ---- 法規: search, topics, the common laws -----------------------------------------------
@@ -2913,6 +2916,7 @@ const DOOR_ICON = {
 };
 const doorOf = f => (BILL_FILTERS.some(([id]) => id === f) ? 'bills' : f);
 let billFilter = 'moving';
+let lyDoor = 'moving';
 let billQuery = '';
 let billStep = -1;
 let billMore = {};
@@ -2923,10 +2927,13 @@ function drawBills() {
   const f = new URLSearchParams(location.hash.slice(1)).get('f');
   if (f && (BILL_FILTERS.some(([id]) => id === f) || BILL_DOORS.some(([id]) => id === f))) ((billFilter = f === 'bills' ? 'moving' : f), (billStep = -1));
   if (!panel.firstChild) {
-    const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id === 'bills' ? 'moving' : id)) })));
+    // 立法院 | 地方 (Jay 11-14: the local side had been one door of seven): 地方 is the county council and the town's 代表會.
+    const scope = kitUI.segmented([{ id: 'ly', label: W('立法院', 'Legislature') }, { id: 'local', label: W('地方', 'Local') }], { big: true, value: billFilter === 'council' ? 'local' : 'ly', label: W('立法院或地方', 'Legislature or local'), onChange: id => keepPlace(scope, () => setBillFilter(id === 'local' ? 'council' : lyDoor)) });
+    scope.classList.add('lw-scope');
+    const doors = h('div', { class: 'lw-bill-doors', role: 'tablist' }, BILL_DOORS.filter(([id]) => id !== 'council').map(([id, label, tone]) => h('button', { type: 'button', class: `lw-bdoor ${tone}`, role: 'tab', 'data-door': id, html: `<span class="lw-door-ic">${DOOR_ICON[id]}</span><small>${esc(label)}</small>`, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id === 'bills' ? 'moving' : id)) })));
     const chips = h('div', { class: 'q-chips lw-chips', id: 'bill-stages', role: 'tablist' }, BILL_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'q-chip', role: 'tab', 'data-f': id, text: label, onclick: e => keepPlace(e.currentTarget, () => setBillFilter(id)) })));
     // The stage chips sit above 這週 so a tap never moves them.
-    panel.append(headNode(W('立法', 'Bills')), doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-list' }));
+    panel.append(headNode(W('立法', 'Bills')), scope, doors, billBox, h('div', { id: 'bill-funnel' }), chips, h('div', { id: 'bill-digest' }), h('div', { id: 'bill-list' }));
     // 議程's days: a swipe across the list for the day either side; on any other door the list never follows a
     // finger that leads nowhere (議會's own 議程 swipes its days: councilAgenda).
     const agendaNext = dir => billFilter === 'agenda' && billStep < 0 && dayStep(agendaDays, agendaDay, dir);
@@ -2971,6 +2978,20 @@ function drawBills() {
       if (cb) return openCouncilBill(cb.dataset.cbill);
       const cp = e.target.closest('[data-ccp]');
       if (cp) return openCouncilor(cp.dataset.ccp);
+      const mine = e.target.closest('[data-mytown]');
+      if (mine) return repsData().then(r => pickTown(r.places.find(p => p.towns.some(t => t.tc === mine.dataset.mytown))?.city, mine.dataset.mytown));
+      const fk = e.target.closest('[data-localtracks] [data-mcc]');
+      if (fk) return openFollowed(fk.dataset.mcc);
+      const fv = e.target.closest('[data-localtracks] [data-mccvid]');
+      if (fv) {
+        const [key, id] = fv.dataset.mccvid.split('|');
+        return councilorFeed(keyCode(key), keyName(key)).then(r => {
+          const clip = r?.feed.find(x => x.v?.id === id)?.v;
+          if (clip) ((shownCouncil = r.c), openCouncilVideo(id, -1, clip));
+        });
+      }
+      const tp = e.target.closest('.lw-person[data-tc]');
+      if (tp) return openTownMember(tp.dataset.tc, tp.dataset.n, tp.dataset.townp);
       const town = e.target.closest('[data-town]');
       if (town) return openTown(town.dataset.town);
     });
@@ -3011,6 +3032,12 @@ function drawBillList() {
   document.querySelectorAll('.lw-chips [data-f]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.f === billFilter && billStep < 0)));
   const door = doorOf(billFilter);
   document.querySelectorAll('.lw-bill-doors [data-door]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.door === door)));
+  // (立法院's door last open, for the switch back from 地方.)
+  if (door !== 'council') lyDoor = billFilter;
+  const scope = document.querySelector('#panel-bills .lw-scope');
+  scope?.set?.(door === 'council' ? 'local' : 'ly');
+  const doors = document.querySelector('#panel-bills .lw-bill-doors');
+  if (doors) doors.hidden = door === 'council';
   const input = billBox.querySelector('input');
   if (input) input.placeholder = BILL_DOORS.find(([id]) => id === door)[3];
   const stages = $('bill-stages');
@@ -3372,6 +3399,7 @@ function drawMine() {
   });
   const news = changedLaws.filter(c => state.byCode.has(c.p) && !inWeek.has(c.p)).map(c => lawItem(state.byCode.get(c.p), changeText(c, true), newTag));
   const movedOld = moved.filter(it => !inWeek.has(it.k));
+  const peopleSide = (movedOld.length + items.length) * 3 < laws.length + marks.length + Math.min(6, m.recent.length) + week.length ? 0 : 1;
   // (Wide: bills on the left, laws and legislators on the right.)
   const html = cols([
     // (On a wide page beside the bills, at the top of the laws' side.)
@@ -3381,8 +3409,9 @@ function drawMine() {
     [section(W('追蹤的法規', 'Laws'), list(laws.map(r => lawItem(r)))), 1],
     [section(W('書籤', 'Bookmarks'), list(marks.map(x => lawItem(x.row, artLabel(x.k, en), '', `#law=${x.p}&a=${x.k}`)))), 1],
     [section(W('最近看過', 'Recently opened'), list(m.recent.map(p => state.byCode.get(p)).filter(Boolean).slice(0, 6).map(r => lawItem(r)))), 1],
-    [Object.keys(m.people || {}).length ? laterHtml('mine-people') : '', 1],
-    [Object.keys(m.cc || {}).length ? laterHtml('mine-cc') : '', 1]
+    // (The people followed go under the bills when the bills' side is the shorter, so neither side stands half empty.)
+    [Object.keys(m.people || {}).length ? laterHtml('mine-people') : '', peopleSide],
+    [Object.keys(m.cc || {}).length ? laterHtml('mine-cc') : '', peopleSide]
   ]);
   // Only recent laws so far: say what ☆ adds, under them.
   const nothingFollowed = !items.length && !laws.length && !marks.length && !news.length && !Object.keys(m.people || {}).length && !Object.keys(m.cc || {}).length;
@@ -3430,30 +3459,95 @@ async function councilorFeed(code, name) {
   p.catch(() => ccFeeds.delete(k));
   return p;
 }
+// A followed 代表's doings: what they asked at 總質詢 in their town's newest sessions read (lib/town-site.mjs), newest first.
+async function townFeed(tc, name) {
+  const k = `${tc}:${name}`;
+  if (ccFeeds.has(k) && Date.now() - ccFeeds.get(k).at < 10 * 60_000) return ccFeeds.get(k).p;
+  const p = (async () => {
+    const r = await repsData();
+    const place = r.places.find(x => x.towns.some(t => t.tc === tc));
+    const t = place?.towns.find(x => x.tc === tc);
+    const rep = t?.reps.find(([n]) => n === name);
+    if (!rep) return null;
+    const own = TOWN_SITES[tc] ? await data(`council/town/${tc}.json`).catch(() => null) : null;
+    const pic = own?.people?.find(x => x.n === name);
+    const x = { n: name, party: rep[1], area: rep[2], photo: pic?.img, url: pic?.url, title: pic?.title };
+    const read = (own?.sessions || []).filter(s => s.asks && s.read).slice(0, 3);
+    const files = await Promise.all(read.map(s => data(`council/town/${tc}/${paperFile(s)}.json`).catch(() => null)));
+    const feed = [];
+    read.forEach((s, i) => {
+      for (const pp of Object.values(files[i]?.papers || {})) if (pp.k === '總質詢' && pp.d) (pp.asks || []).forEach(a => a.w === name && feed.push({ k: 'ask', d: pp.d, t: askTopic(pp, a) }));
+    });
+    feed.sort((a, b) => (a.d < b.d ? 1 : -1));
+    return { c: { c: tc, n: `${t.town}民代表會`, town: true, city: place.city }, x, feed, own };
+  })();
+  ccFeeds.set(k, { at: Date.now(), p });
+  p.catch(() => ccFeeds.delete(k));
+  return p;
+}
+const isTownKey = k => /^\d{8}:/.test(k);
+const keyCode = k => k.slice(0, k.indexOf(':'));
+const keyName = k => k.slice(k.indexOf(':') + 1);
 async function trackedCC(m) {
   const keys = Object.keys(m.cc || {});
-  const got = (await Promise.all(keys.map(k => councilorFeed(k.slice(0, 3), k.slice(4)).catch(() => null)))).map((r, i) => r && { ...r, key: keys[i] }).filter(Boolean);
+  const got = (await Promise.all(keys.map(k => (isTownKey(k) ? townFeed : councilorFeed)(keyCode(k), keyName(k)).catch(() => null)))).map((r, i) => r && { ...r, key: keys[i] }).filter(Boolean);
   state.ccNew = Object.fromEntries(got.map(r => [r.key, r.feed.filter(e => e.d && e.d > m.cc[r.key]).length]));
   state.ccLast = Object.fromEntries(got.map(r => [r.key, state.ccNew[r.key] ? r.feed[0].d : '']));
   badge();
   return got;
 }
-async function drawTrackedCC(m) {
-  const got = await trackedCC(m).catch(() => []);
-  if (!got.length || !$('mine-cc')) return;
-  const cards = got.map(({ c, x, feed, key }) => {
+// A followed councillor's or 代表's card: their face and seat, then their newest bill, question or recording.
+function ccCards(got, m) {
+  return got.map(({ c, x, feed, key }) => {
     const seen = m.cc[key];
-    const fresh = state.ccNew[key];
+    const fresh = state.ccNew?.[key];
     const row = e => {
       const when = e.d ? `<small class="lw-track-d${e.d > seen ? ' new' : ''}">${esc(shortDay(e.d))}</small>` : '<span></span>';
       if (e.k === 'bill') return `<button type="button" class="lw-track-row" data-cbill="${esc(e.id)}"><span class="lw-track-k indigo">${W('提案', 'Bill')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</button>`;
       if (e.k === 'clip') return `<button type="button" class="lw-track-row" data-mccvid="${esc(key)}|${esc(e.v.id)}"><span class="lw-track-k orange">${W('質詢', 'Spoke')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</button>`;
+      if (e.k === 'ask') return `<button type="button" class="lw-track-row" data-mcc="${esc(key)}"><span class="lw-track-k orange">${W('質詢', 'Asked')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</button>`;
       return `<${e.url ? `a href="${esc(e.url)}" target="_blank" rel="noopener"` : 'div'} class="lw-track-row"><span class="lw-track-k orange">${W('發言', 'Spoke')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</${e.url ? 'a' : 'div'}>`;
     };
-    const top = ['bill', 'clip', 'talk'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1));
-    return `<div class="lw-track" style="--p:${partyColor(x.party)}"><button type="button" class="lw-track-head" data-mcc="${esc(key)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${c.n} · ${partyShort(x.party)} · ${x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))}`)}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</button>${top.length ? `<div class="lw-track-rows">${top.map(row).join('')}</div>` : `<p class="lw-track-none">${W('這屆還沒有提案或發言紀錄', 'No bills or speeches yet this term')}</p>`}</div>`;
+    const top = c.town ? feed.slice(0, 3) : ['bill', 'clip', 'talk'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1));
+    const seat = c.town ? [c.n, partyShort(x.party), x.title && x.title !== '代表' ? x.title : String(x.area || '').replace(/^.*?第0?(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))] : [c.n, partyShort(x.party), x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))];
+    const none = c.town ? (TOWN_SITES[c.c] ? W('最近的會期還沒有他的質詢紀錄', 'No questions in the latest sessions yet') : W('這個代表會沒有公開議事資料', 'This council publishes no records')) : W('這屆還沒有提案或發言紀錄', 'No bills or speeches yet this term');
+    return `<div class="lw-track" style="--p:${partyColor(x.party)}"><button type="button" class="lw-track-head" data-mcc="${esc(key)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(seat.filter(Boolean).join(' · '))}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</button>${top.length ? `<div class="lw-track-rows">${top.map(row).join('')}</div>` : `<p class="lw-track-none">${none}</p>`}</div>`;
   });
-  fillLater('mine-cc', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的議員', 'Councillors')}</h2></div><div class="lw-tracks">${cards.join('')}</div></section>`);
+}
+async function drawTrackedCC(m) {
+  const got = await trackedCC(m).catch(() => []);
+  if (!got.length || !$('mine-cc')) return;
+  const title = got.some(r => r.c.town) ? (got.some(r => !r.c.town) ? W('追蹤的議員和代表', 'Councillors and township reps') : W('追蹤的代表', 'Township reps')) : W('追蹤的議員', 'Councillors');
+  fillLater('mine-cc', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${title}</h2></div><div class="lw-tracks">${ccCards(got, m).join('')}</div></section>`);
+}
+// 地方: the people followed in the council shown and its towns, their cards first on the page.
+async function drawLocalFollows(c) {
+  const got = (await trackedCC(state.mine).catch(() => [])).filter(r => r.c.c === c.c || (r.c.town && r.c.city === c.city));
+  if (!got.length || !document.getElementById('local-follows')) return;
+  fillLater('local-follows', section(W('你追蹤的', 'Following'), `<div class="lw-tracks" data-localtracks>${ccCards(got, state.mine).join('')}</div>`));
+}
+// A followed person's sheet: a councillor's, or a 代表's.
+const openFollowed = key => (isTownKey(key) ? openTownMember(keyCode(key), keyName(key)) : openCouncilor(keyName(key), keyCode(key)));
+
+// 首頁's 你追蹤的民代: each followed 立委, 議員 and 代表 in a row, what they did last and when (新 since last opened);
+// a row opens them over 首頁.
+async function drawHomeReps() {
+  const m = state.mine;
+  if (!$('home-reps')) return;
+  const [ly, cc] = await Promise.all([Object.keys(m.people || {}).length ? trackedFeeds(m).catch(() => null) : null, Object.keys(m.cc || {}).length ? trackedCC(m).catch(() => []) : []]);
+  const what = e => (e.k === 'bill' ? W('提案', 'Bill') : e.k === 'vote' ? W('表決', 'Vote') : e.k === 'ask' ? W('質詢', 'Asked') : W('質詢', 'Spoke'));
+  const text = e => (e.k === 'vote' ? `${{ y: W('贊成', 'yes'), n: W('反對', 'no'), a: W('棄權', 'abstained') }[e.m] || ''} ${voteLabel(ly?.votes, e.j)}` : e.t || '');
+  const rows = [
+    ...(ly?.xs || []).map((x, i) => ({ x, e: ly.feeds[i][0], fresh: state.peopleNew?.[x.id], href: `#who=${x.id}`, seat: shortArea(x.area) })),
+    ...cc.map(r => ({ x: r.x, e: r.feed[0], fresh: state.ccNew?.[r.key], key: r.key, seat: r.c.n }))
+  ].sort((a, b) => (b.fresh || 0) - (a.fresh || 0) || ((a.e?.d || '') < (b.e?.d || '') ? 1 : -1));
+  if (!rows.length || !$('home-reps')) return;
+  const row = r => `<${r.href ? `a href="${esc(r.href)}"` : `button type="button" data-hrep="${esc(r.key)}"`} class="lw-row lw-rep-row" style="--p:${partyColor(r.x.party)}">${personPhoto(r.x)}<span class="lw-row-text"><span class="lw-row-name">${esc(r.x.n)}</span><small>${esc([r.seat, r.e ? `${what(r.e)} ${r.e.d ? shortDay(r.e.d) : ''}` : ''].filter(Boolean).join(' · '))}</small>${r.e ? `<small class="lw-rep-what">${esc(text(r.e))}</small>` : ''}</span>${r.fresh ? countTag(W(`新 ${r.fresh}`, `${r.fresh} new`), 'green') : CHEVRON}</${r.href ? 'a' : 'button'}>`;
+  fillLater('home-reps', section(W('你追蹤的民代', 'Your representatives'), `<div class="lw-list">${rows.slice(0, 6).map(row).join('')}</div>`, { more: W('我的', 'Mine'), moreHref: '#tab=mine' }));
+  $('home-reps').onclick = e => {
+    const b = e.target.closest('[data-hrep]');
+    if (b) openFollowed(b.dataset.hrep);
+  };
 }
 
 // The followed legislators' doings (their files and the votes), and how many
@@ -3479,6 +3573,12 @@ async function drawTracked(m) {
   if (!t.xs.length || !$('mine-people')) return;
   fillLater('mine-people', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Legislators')}</h2></div><div class="lw-tracks">${trackCards(t, m).join('')}</div></section>`);
 }
+// A vote in a few words: the law it was on, else its agenda item's.
+const voteLabel = (votes, j) => {
+  const v = votes?.votes?.[j];
+  if (!v) return '';
+  return v[7]?.length && state.byCode.has(v[7][0]) ? (en ? nameOf(v[7][0]) : shortName(nameOf(v[7][0]))) : String(votes.agendas?.[v[3]] || '').split('─')[0].replace(/(增訂|修正|刪除|部分條文|第[一二三四五六七八九十百]).*$/, '') || v[2];
+};
 // A followed legislator's card: their face and seat, then their newest bill, vote and 質詢 (新 since last opened).
 // 我的 and 立法's 立委 both draw them.
 function trackCards({ xs, feeds, votes }, m) {
@@ -3491,8 +3591,7 @@ function trackCards({ xs, feeds, votes }, m) {
       const when = `<small class="lw-track-d${isNew ? ' new' : ''}">${esc(shortDay(e.d))}</small>`;
       if (e.k === 'bill') return `<a class="lw-track-row" href="https://ppg.ly.gov.tw/ppg/bills/${esc(e.id)}/details"><span class="lw-track-k indigo">${W('提案', 'Bill')}</span><span class="lw-row-name">${esc(e.t)}</span>${when}</a>`;
       if (e.k === 'clip') return `<a class="lw-track-row" href="${esc(ivodUrl(e.id))}"><span class="lw-track-k orange">${W('質詢', 'Spoke')}</span><span class="lw-row-name">${esc(e.t || W('院會', 'Plenary'))}${e.sec ? ` · ${Math.max(1, Math.round(e.sec / 60))} ${W('分鐘', 'min')}` : ''}</span>${when}</a>`;
-      const v = votes.votes[e.j];
-      return `<button type="button" class="lw-track-row" data-vote="${e.j}"><span class="lw-track-k ${{ y: 'green', n: 'red', a: 'gray' }[e.m]}">${{ y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain') }[e.m]}</span><span class="lw-row-name">${esc(v[7]?.length && state.byCode.has(v[7][0]) ? (en ? nameOf(v[7][0]) : shortName(nameOf(v[7][0]))) : String(votes.agendas?.[v[3]] || '').split('─')[0].replace(/(增訂|修正|刪除|部分條文|第[一二三四五六七八九十百]).*$/, '') || v[2])}</span>${when}</button>`;
+      return `<button type="button" class="lw-track-row" data-vote="${e.j}"><span class="lw-track-k ${{ y: 'green', n: 'red', a: 'gray' }[e.m]}">${{ y: W('贊成', 'Yes'), n: W('反對', 'No'), a: W('棄權', 'Abstain') }[e.m]}</span><span class="lw-row-name">${esc(voteLabel(votes, e.j))}</span>${when}</button>`;
     };
     return `<div class="lw-track" style="--p:${partyColor(x.party)}"><a class="lw-track-head" href="#who=${esc(x.id)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</a>${feed.length ? `<div class="lw-track-rows">${['bill', 'vote', 'clip'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1)).map(row).join('')}</div>` : `<p class="lw-track-none">${W('這屆還沒有提案、質詢或表決紀錄', 'No bills, speeches or votes yet this term')}</p>`}</div>`;
   });
@@ -3502,13 +3601,13 @@ $('panel-mine').addEventListener('click', async e => {
   if (b) voteSheet(Number(b.dataset.vote));
   // A followed councillor: their sheet, a bill, a recording.
   const p = e.target.closest('#mine-cc [data-mcc]');
-  if (p) return openCouncilor(p.dataset.mcc.slice(4), p.dataset.mcc.slice(0, 3)).then(() => drawMine());
+  if (p) return Promise.resolve(openFollowed(p.dataset.mcc)).then(() => drawMine());
   const cb = e.target.closest('#mine-cc [data-cbill]');
   if (cb) return openCouncilBill(cb.dataset.cbill);
   const v = e.target.closest('#mine-cc [data-mccvid]');
   if (v) {
     const [key, id] = v.dataset.mccvid.split('|');
-    const r = await councilorFeed(key.slice(0, 3), key.slice(4)).catch(() => null);
+    const r = await councilorFeed(keyCode(key), keyName(key)).catch(() => null);
     const clip = r?.feed.find(x => x.v?.id === id)?.v;
     if (clip) ((shownCouncil = r.c), openCouncilVideo(id, -1, clip));
   }
@@ -4415,31 +4514,98 @@ async function councilList(out) {
   // The term's every session, each opened whole (its sittings, recordings and every bill), not only the newest.
   const ss = (c.sessions || []).filter(x => x.from && x.from <= day);
   const sessRow = x => `<button type="button" class="lw-row" data-ccsess="${esc(x.id)}"><span class="lw-row-text"><span class="lw-row-name">${esc(x.n.replace(/^第\d+屆/, ''))}</span><small>${esc([spanOf(x.from, x.to), x.bills ? W(`提案 ${x.bills.toLocaleString()} 件`, `${x.bills} bills`) : ''].filter(Boolean).join(' · '))}</small></span>${CHEVRON}</button>`;
-  const sessions = ss.length ? section(W(`本屆會期 ${ss.length}`, `Sessions this term ${ss.length}`), `<div class="lw-list" data-ccsesslist>${ss.slice(0, 5).map(sessRow).join('')}</div>${ss.length > 5 ? `<button type="button" class="lw-more" data-ccsessall>${W(`再顯示 ${ss.length - 5} 個會期`, `Show ${ss.length - 5} more`)}</button>` : ''}`) : '';
+  const sessN = nCols(3) > 2 ? 6 : nCols(2) > 1 ? 4 : 5;
+  const sessions = ss.length ? section(W(`本屆會期 ${ss.length}`, `Sessions this term ${ss.length}`), `<div class="lw-list" data-ccsesslist>${ss.slice(0, sessN).map(sessRow).join('')}</div>${ss.length > sessN ? `<button type="button" class="lw-more" data-ccsessall>${W(`再顯示 ${ss.length - sessN} 個會期`, `Show ${ss.length - sessN} more`)}</button>` : ''}`) : '';
   const liveBox = c.video?.live?.length ? '<div class="lw-list lw-cc-livebox" data-cclive-box hidden></div>' : '';
   const shown = c.bills.filter(b => b.t.length >= 8 && (b.t.match(/「/g) || []).length === (b.t.match(/」/g) || []).length);
-  const n = 8 + councilMore;
+  // (Rows come in pairs on a wide page: an even count, so the list's two columns end level.)
+  const n = (nCols(3) > 2 ? 9 : nCols(2) > 1 ? 10 : 8) + councilMore;
   const bills = c.gap
     ? section(W('提案', 'Bills'), `<p class="lw-council-gap">${esc(W(...c.gap))}</p>`) + (c.records?.length ? section(W('議事錄', 'Minutes'), `<div class="lw-list">${c.records.map(r => `<a class="lw-row" href="${esc(r.url)}" target="_blank" rel="noopener"><span class="lw-row-text"><span class="lw-row-name">${esc(r.what || W('會議紀錄', 'Minutes'))}</span><small>${esc(shortDay(r.d))}</small></span>${CHEVRON}</a>`).join('')}</div>`) : '')
     : section(W('最新提案', 'Newest bills'), `<div class="lw-list wrap">${shown.slice(0, n).map(b => cbillRow(c, b)).join('')}</div>${shown.length > n ? `<button type="button" class="lw-more" data-ccmore>${W('再顯示 20 件', 'Show 20 more')}</button>` : ''}`) + (c.own && !c.own.add ? `<p class="lw-hint-sm">${esc(c.own.out ? W(`開放資料的提案不完整，這裡讀自${c.own.site}。`, 'Read from the council’s own site, which holds more than the open data.') : W(`議會沒有把提案放上開放資料，這裡讀自${c.own.site}，沒有議決結果。`, 'Read from the council’s own site (no open data), without the outcomes.'))}</p>` : '');
   // Each one's bill count only where the bills name the councillors (宜蘭's open data holds only the 縣府's).
   const counted = !c.gap && c.people.filter(p => p.bills).length * 2 >= c.people.length;
-  const person = x => `<button type="button" class="lw-person" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(zhName(x.n) || x.n)}</b><small>${esc([partyShort(x.party), x.title || x.area.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`))].filter(Boolean).join(' · '))}</small></span>${counted ? `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>` : ''}</button>`;
+  const area = a => a.replace(/^第(\d+)選舉區$/, (_, d) => W(`第${+d}區`, `D${+d}`));
+  const followedCC = x => Boolean(state.mine.cc?.[`${c.c}:${x.n}`]);
+  const person = x => `<button type="button" class="lw-person${followedCC(x) ? ' on' : ''}" data-ccp="${esc(x.n)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(zhName(x.n) || x.n)}</b><small>${esc([partyShort(x.party), x.title || area(x.area)].filter(Boolean).join(' · '))}</small></span>${counted ? `<span class="lw-person-n">${W(`提案 ${x.bills}`, `${x.bills} bills`)}</span>` : ''}${followedCC(x) ? `<i class="lw-person-star" aria-label="${W('追蹤中', 'Following')}">${ICON.star}</i>` : ''}</button>`;
   const byArea = new Map();
   for (const x of [...c.people].sort((a, b) => (Number(a.area.match(/\d+/)?.[0]) || 99) - (Number(b.area.match(/\d+/)?.[0]) || 99))) byArea.set(x.area, [...(byArea.get(x.area) || []), x]);
-  const people = section(W(`議員 ${c.people.length}`, `Members ${c.people.length}`), `<div class="lw-people q-rows-full q-rows-keep">${[...byArea.values()].flat().map(person).join('')}</div>`);
-  // A county's 鄉鎮市民代表會 (and a city's 山地原住民區民代表會), from the reps list.
-  let towns = '';
+  // (A wide page: one flow of cards, each 選區's name over its first, as 立委 by 縣市; a phone: the grid.)
+  const flow = nCols(2) > 1;
+  const people = section(
+    W(`議員 ${c.people.length}`, `Members ${c.people.length}`),
+    flow
+      ? `<div class="lw-seats">${[...byArea].map(([a, xs]) => xs.map((x, i) => `<div class="lw-seat${i ? '' : ' first'}">${i ? '' : `<h3 class="lw-seat-head">${esc(area(a) || W('其他', 'Other'))}<span class="lw-count">${xs.length}</span></h3>`}${person(x)}</div>`).join('')).join('')}</div>`
+      : `<div class="lw-people q-rows-full q-rows-keep">${[...byArea.values()].flat().map(person).join('')}</div>`
+  );
+  // The county's 代表會: the reader's own town's in full (its state, its members to follow, its sessions a tap away),
+  // every other town a row after it.
+  let towns = '', myTown = '';
   try {
     const r = (await repsData()).places.find(p => p.city === c.city || p.cc === c.c);
-    if (r?.towns.length) towns = section(W(`${r.towns.some(t => !t.hill) ? '鄉鎮市民代表會' : '原住民區民代表會'} ${r.towns.length}`, `Township councils ${r.towns.length}`), `<div class="lw-list">${r.towns.map(t => `<button type="button" class="lw-row" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${esc(W(`${t.reps.length} 位代表${TOWN_SITES[t.tc] ? ' · 議事錄、錄音' : ''}${TOWN_YOUTUBE[t.tc] ? ' · 影音' : ''}`, `${t.reps.length} members${TOWN_SITES[t.tc] ? ' · minutes, audio' : ''}${TOWN_YOUTUBE[t.tc] ? ' · video' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div><p class="lw-hint-sm">${W('代表會沒有公開提案資料；這裡是現任代表（2022 年選出）。', 'Township councils publish no bills as data; these are the members elected in 2022.')}</p>`);
+    if (r?.towns.length) {
+      const t = townOfMine(r);
+      const own = t && TOWN_SITES[t.tc] ? await data(`council/town/${t.tc}.json`).catch(() => null) : null;
+      if (t) myTown = townCardHtml({ ...t, city: r.city }, own, day);
+      const others = r.towns.filter(x => x !== t);
+      const kind = r.towns.some(x => !x.hill) ? W('鄉鎮市民代表會', 'Township councils') : W('原住民區民代表會', 'District councils');
+      towns = section(
+        t ? W(`${r.city}其他代表會 ${others.length}`, `Other township councils ${others.length}`) : W(`${kind} ${r.towns.length}`, `${kind} ${r.towns.length}`),
+        `${t ? '' : `<p class="lw-hint-sm lw-town-ask">${W('選你住的鄉鎮市，它的代表會就放在這頁最前面。', 'Pick your township: its council comes first on this page.')}</p>`}<div class="lw-list lw-towns">${others.map(x => `<button type="button" class="lw-row" data-town="${esc(x.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${x.town}民代表會`)}</span><small>${esc(W(`${x.reps.length} 位代表${TOWN_SITES[x.tc] ? ' · 議事錄、錄音' : ''}${TOWN_YOUTUBE[x.tc] ? ' · 影音' : ''}`, `${x.reps.length} members${TOWN_SITES[x.tc] ? ' · minutes, audio' : ''}${TOWN_YOUTUBE[x.tc] ? ' · video' : ''}`))}</small></span><span class="lw-town-mine" data-mytown="${esc(x.tc)}" role="button" aria-label="${W('設成我的鄉鎮市', 'Make this my township')}">${W('我住這', 'Mine')}</span></button>`).join('')}</div>`
+      );
+    }
   } catch {}
   if (billFilter !== 'council' || billQuery.trim()) return;
   const agenda = section(W('議程', 'Agenda'), `<div data-ccagenda><span class="q-skel" style="display:block;height:120px"></span></div><button type="button" class="q-more q-more-go" data-ccall><span>${W('各議會的議程', 'Every council’s agenda')}</span><span class="q-more-chev" aria-hidden="true">›</span></button>`);
-  const html = `<div class="lw-council">${pick}${liveBox}${facts}${cols([[agenda + video + sessions + bills, 0], [people + towns, 1]])}</div>`;
+  // Followed here: this council's and its towns' people a card each (their newest bill, question, recording).
+  const follows = Object.keys(state.mine.cc || {}).some(k => k.startsWith(`${c.c}:`) || /^\d{8}:/.test(k)) ? laterHtml('local-follows') : '';
+  // A wide page: the council's 議程 and video beside the town's 代表會; then its councillors,
+  // bills and sessions, each across the page, the county's other towns last. With no town picked yet, the towns sit
+  // beside the 議程 to pick from. A phone: one column in the same order.
+  const html = `<div class="lw-council">${pick}${liveBox}${facts}${follows}${cols([[agenda, 0], [myTown, 1], [video, 0], ...(myTown ? [] : [[towns, 1]])])}${people}${bills}${sessions}${myTown ? towns : ''}</div>`;
   paint(out, html);
   councilAgenda(c, out);
   councilLive(c, out);
+  if (follows) drawLocalFollows(c);
+}
+// The reader's township in a county's list: the one picked here, else the town of a place the family apps share.
+const TOWN_KEY = 'orbit-law.town.v1';
+function townOfMine(r) {
+  const picked = kit.readStore?.(TOWN_KEY)?.[r.city];
+  const by = tc => r.towns.find(t => t.tc === tc);
+  if (picked && by(picked)) return by(picked);
+  const norm = s => String(s || '').replace(/台/g, '臺');
+  for (const p of ['home', 'work', 'school'].map(placeOf)) if (p && norm(p.county) === r.city && p.town) {
+    const t = r.towns.find(x => x.town === norm(p.town) || x.town.startsWith(norm(p.town).replace(/[鄉鎮市區]$/, '')));
+    if (t) return t;
+  }
+  return null;
+}
+function pickTown(city, tc) {
+  const all = kit.readStore?.(TOWN_KEY) || {};
+  kit.writeStore?.(TOWN_KEY, { ...all, [city]: tc });
+  haptic();
+  drawBillList();
+}
+// A town's 代表會 on 地方: its name and state, its members (☆ to follow, in their sheet), its sessions and papers a tap away.
+function townCardHtml(t, own, day) {
+  const party = new Map(t.reps.map(([n, p]) => [n, p]));
+  const sessions = own?.sessions || [];
+  const now = sessions.find(s => sessionState(s, day) === 'on') || [...sessions].reverse().find(s => sessionState(s, day) === 'ahead');
+  const last = sessions[0];
+  const ppl = (own?.people?.length ? own.people : t.reps.map(([n, , a]) => ({ n, title: '代表', area: a.replace(/^.*?第0?(\d+)選舉區$/, (_, d) => W(`第${+d}選區`, `D${+d}`)) }))).map(p => ({ ...p, party: party.get(p.n) || '', photo: p.img }));
+  const lead = ['主席', '副主席'];
+  ppl.sort((a, b) => (lead.indexOf(a.title) + 1 || 9) - (lead.indexOf(b.title) + 1 || 9));
+  const on = x => Boolean(state.mine.cc?.[`${t.tc}:${x.n}`]);
+  const person = x => `<button type="button" class="lw-person${on(x) ? ' on' : ''}" data-townp="${esc(x.url || '')}" data-n="${esc(x.n)}" data-tc="${esc(t.tc)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc([partyShort(x.party), x.title && x.title !== '代表' ? x.title : String(x.area || '').replace(/選區$/, W('區', ''))].filter(Boolean).join(' · '))}</small></span>${on(x) ? `<i class="lw-person-star" aria-label="${W('追蹤中', 'Following')}">${ICON.star}</i>` : ''}</button>`;
+  const state_ = now
+    ? `${sessionState(now, day) === 'on' ? `<span class="lw-live">${W('開會中', 'In session')}</span>` : `<span class="lw-town-soon">${W('下次開會', 'Next')}</span>`} ${esc(now.n)} · ${esc(spanOf(now.from, now.to))}`
+    : last ? esc(W(`上次 ${last.n}（${spanOf(last.from, last.to)}）`, `Last: ${last.n} (${spanOf(last.from, last.to)})`)) : esc(W(`${ppl.length} 位代表，2022 年選出`, `${ppl.length} members, elected 2022`));
+  const has = [sessions.length && W(`${sessions.length} 個會期`, `${sessions.length} sessions`), TOWN_SITES[t.tc] && W('議事錄、錄音', 'minutes, audio'), TOWN_YOUTUBE[t.tc] && W('影音', 'video')].filter(Boolean).join(' · ');
+  return section(
+    W('你的代表會', 'Your township council'),
+    `<div class="lw-town-card"><button type="button" class="lw-row lw-town-open" data-town="${esc(t.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${t.town}民代表會`)}</span><small>${state_}</small></span><b class="lw-row-val">${esc(has || W('代表', 'Members'))}</b>${CHEVRON}</button><div class="lw-people lw-town-people">${ppl.map(person).join('')}</div></div>`
+  );
 }
 
 // A council's 議程 as 立法's: its days on the family's day strip (the term's, read live from the API, with the
@@ -4679,7 +4845,7 @@ async function openCouncilor(name, code = '') {
   // Followed (☆, into 我的) as their council and name: what they file and say, new since last opened.
   const key = `${c.c}:${x.n}`;
   if (state.mine.cc?.[key]) (markSeen(state.mine, 'cc', key), save(), state.ccNew && (state.ccNew[key] = 0), state.ccLast && (state.ccLast[key] = ''), badge());
-  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.cc?.[key] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.cc ||= {}), toggleFollow(state.mine, 'cc', key) && toast(W('已追蹤，動態會出現在「我的」', 'Following: their news shows in Mine')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.cc[key])), haptic()) });
+  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.cc?.[key] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.cc ||= {}), toggleFollow(state.mine, 'cc', key) && toast(W('已追蹤，動態會出現在「我的」', 'Following: their news shows in Mine')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.cc[key])), haptic(), billFilter === 'council' && drawBillList()) });
   const counted = c.people.filter(p => p.bills).length * 2 >= c.people.length;
   const billsHead = () => `<h4>${counted ? W(`本屆提案（${x.bills}）`, `Bills this term (${x.bills})`) : W('本屆提案', 'Bills this term')}</h4>`;
   const skel = '<span class="q-skel" style="display:block;height:120px"></span>';
@@ -4841,13 +5007,29 @@ async function townSheet(t, own, vids = []) {
 
 // A 代表: their card (photo, party, district), what they asked at 總質詢 in the newest sessions (each opening that day
 // at their turn, its recording with it), then their page on the council's site (pictures whole).
+// A 代表 tapped anywhere (地方, 我的): their town's site read where there is one, else the elected list.
+async function openTownMember(tc, name, url = '') {
+  const r = await repsData().catch(() => null);
+  const t = r?.places.flatMap(p => p.towns).find(x => x.tc === tc);
+  const rep = t?.reps.find(([n]) => n === name);
+  if (!rep) return;
+  const own = TOWN_SITES[tc] ? await data(`council/town/${tc}.json`).catch(() => null) : null;
+  const party = new Map(t.reps.map(([n, p]) => [n, p]));
+  const pic = own?.people?.find(x => x.n === name && (!url || (x.url || '') === url)) || own?.people?.find(x => x.n === name);
+  const area = String(rep[2] || '').replace(/^.*?第0?(\d+)選舉區$/, (_, d) => W(`第${+d}選區`, `District ${+d}`));
+  return townMember(own || { tc }, own?.sessions || [], { ...pic, n: name, party: rep[1], area: pic?.area || area, photo: pic?.img }, party);
+}
 async function townMember(own, sessions, x, party) {
   if (!x) return;
+  // Followed (☆, into 我的 and 地方) as their town's code and name: what they ask at 總質詢, new since last opened.
+  const key = `${own.tc}:${x.n}`;
+  if (state.mine.cc?.[key]) (markSeen(state.mine, 'cc', key), save(), state.ccNew && (state.ccNew[key] = 0), state.ccLast && (state.ccLast[key] = ''), badge());
+  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.cc?.[key] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.cc ||= {}), toggleFollow(state.mine, 'cc', key) && toast(W('已追蹤，動態會出現在「我的」', 'Following: their news shows in Mine')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.cc[key])), haptic(), billFilter === 'council' && drawBillList()) });
   const head = `<div class="lw-person-head">${personPhoto(x, 'lg')}<div><h2>${esc(x.n)}</h2><div class="lw-meta">${x.party ? `<span class="lw-party" style="--p:${partyColor(x.party)}">${esc(partyShort(x.party))}</span>` : ''}${x.area ? `<span class="lw-tag">${esc(x.area)}</span>` : ''}${x.title && x.title !== '代表' ? countTag(x.title, 'indigo') : ''}</div></div></div>`;
   const asks = h('div', { class: 'lw-member-asks', html: `<p class="lw-page-wait q-skel"></p><p class="lw-page-wait q-skel short"></p>` });
   const body = h('div', { class: 'lw-cbill-body', html: head });
   body.append(asks);
-  sheet({ title: x.n, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
+  sheet({ title: x.n, lead: follow, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
   // Their questions in the three newest sessions with 總質詢 read.
   const read = sessions.filter(s => s.asks && s.read).slice(0, 3);
   const files = await Promise.all(read.map(s => data(`council/town/${own.tc}/${paperFile(s)}.json`).catch(() => null)));

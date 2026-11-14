@@ -33,6 +33,8 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
 - 11-10 命令, 行政規則 and 地方法規 are laws too: each opens in the one reader with everything a law has; a swipe from the left edge goes back.
 - 11-11 問法律 runs on Claude Sonnet (GPT's Sol behind it) and answers about anything in Law, from the smallest regulation to a 代表會; it says what a delegated rule sets (起徵點), never 「由財政部定之」.
 - 11-11 A council bill's card carries its decision date.
+- 11-14 Local is its own side of 立法 (Jay chose 立法院 | 地方 over a sixth tab): 地方 opens on the reader's county and town; 議員 and 代表 are followed like 立委, in 我的, on 地方 and on 首頁.
+- 11-14 On a computer every 立法 page fills the width (Jay: "big gap"): no row of one card, no column half empty.
 
 ## How it works
 
@@ -65,7 +67,7 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
   `bills/items.json` has one item per law per term (every version folded
   in), and `bills/item/<term>-<law>.json` that item's versions. A version's
   對照表 is fetched from the API only when opened in the app.
-- **地方議會 and 代表會** (立法's 議會 door; `lib/council.mjs`, `council-video.mjs`,
+- **地方議會 and 代表會** (立法's 地方 side, beside 立法院: the county council, the reader's own town's 代表會 from their places or 我住這, the people followed there; 議員 and 代表 are followed as `mine.cc` `<council or town code>:<name>`; `lib/council.mjs`, `council-video.mjs`,
   `town-site.mjs`, `town-chcg.mjs`, `town-video.mjs`, `town-audio.mjs`, `town-speakers.mjs`, `player.mjs`, `minutes.mjs`;
   `scripts/build-council.mjs`, `build-council-text.mjs`, `build-town.mjs`, `town-hear.mjs`): the 22 councils from
   歐噴's 地方議會開放 API (all.cc.govapi.tw), filled from each council's own site where the API

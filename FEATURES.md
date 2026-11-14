@@ -14,6 +14,9 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - A law's 沿革 — `public/app.mjs`: `沿革`
 - Structured text in rulings and bills — `public/lib/view.mjs`: `proseHtml`
 - 立委 by county or party, independents' alignment — `public/app.mjs`: `peopleBy`, `alignment`
+- 立法院 | 地方: the county council and the reader's own town's 代表會 on one page — `public/app.mjs`: `lw-scope`, `townOfMine`, `townCardHtml`
+- Following 議員 and 代表 (☆ in their sheet), their newest doings in 我的, 地方 and 首頁 — `public/app.mjs`: `townFeed`, `ccCards`, `drawLocalFollows`, `drawHomeReps`
+- On a computer: 立委 in one packed flow by 縣市; 議程's days side by side with their bills — `public/app.mjs`: `lw-seats`, `lw-agenda-cols`
 - 議程 and 直播中 from IVOD — `public/app.mjs`, `public/lib/agenda.mjs`: `law-live`, `直播中`, `meetState`
 - 地方法規 for the reader's city — `public/lib/chat.mjs`: `地方法規`
 - 看法案: a bill's 新聞, Orbit News' stories about changing it, each opening in News — `public/app.mjs`: `billNews`, `news/laws.json`

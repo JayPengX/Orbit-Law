@@ -3202,10 +3202,17 @@ details.lw-bud-row[open] > summary {
 .lw-reg-head b { color: var(--q-accent); font: 600 14px/20px var(--q-font); }
 .lw-reg-head span { color: var(--q-label-2); font: 14px/20px var(--q-font); }
 
-/* 立法: seven doors across the top (the open one filled). */
+/* 立法: 立法院 | 地方, then 立法院's six doors (the open one filled). */
+.lw-scope {
+  max-width: 360px;
+  margin: 0 0 10px;
+}
+.lw-bill-doors[hidden] {
+  display: none;
+}
 .lw-bill-doors {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 5px;
   margin: 4px 0 12px;
 }
@@ -5419,4 +5426,65 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 /* 預算's kinds: rows that never end short (the kit's fullRows); cards without money are short, five to a computer's row. */
 .lw-grid.lw-grid-short {
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+/* 地方 (立法 › 地方): a followed person's card carries a small ★. */
+.lw-person {
+  position: relative;
+}
+.lw-person-star {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  color: var(--q-orange);
+}
+.lw-person-star svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+/* The reader's 代表會: its name and state over its members. */
+.lw-town-card {
+  display: grid;
+  gap: 8px;
+}
+.lw-town-open {
+  border-radius: var(--q-r-card);
+  background: var(--q-surface);
+}
+.lw-town-people {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+/* The county's other towns, each with 我住這 to make it the reader's. */
+.lw-town-mine {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--q-fill, color-mix(in srgb, var(--q-label) 10%, transparent));
+  color: var(--q-label-2);
+  font: 500 13px/18px var(--q-font);
+  white-space: nowrap;
+}
+.lw-town-ask {
+  margin: 0 0 8px;
+}
+:root.q-wide #panel-bills > .lw-bill-doors[hidden] + .q-search {
+  grid-column: 1 / -1;
+}
+:root:not(.q-wide) .lw-town-open .lw-row-val {
+  display: none;
+}
+/* 首頁's 你追蹤的民代: a face, who, and what they did last. */
+.lw-rep-row {
+  gap: 12px;
+}
+.lw-rep-row .lw-row-text > small.lw-rep-what {
+  color: var(--q-label);
+}
+.lw-rep-row .lw-row-text > small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

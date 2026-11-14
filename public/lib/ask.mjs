@@ -107,6 +107,15 @@ export async function askTown({ tc, file, url, n, lang = 'zh' }, fetcher = globa
   return { answer: str(j.answer), points, promised: str(j.promised), quotes, covered: Boolean(j.covered) && points.length > 0, left: j.left };
 }
 
+// One part of a 代表會's paper summed up (施政報告, an office's 工作報告): /law-ask mode 'paper', its range of the text.
+export async function askPaper({ tc, file, url, from, to, lang = 'zh' }, fetcher = globalThis.fetch) {
+  const j = await post({ mode: 'paper', tc: String(tc), file: String(file), url: String(url), from: Number(from), to: Number(to), lang }, fetcher);
+  if (j.error) return j;
+  const str = x => (typeof x === 'string' ? x.trim() : '');
+  const points = (Array.isArray(j.points) ? j.points : []).map(str).filter(Boolean);
+  return { answer: str(j.answer), points, covered: Boolean(j.covered) && (points.length > 0 || !!str(j.answer)), left: j.left };
+}
+
 // Each failure in plain words.
 export function askError(code, en = false) {
   const t = {

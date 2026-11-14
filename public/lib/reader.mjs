@@ -124,9 +124,14 @@ export function blocksOf(part, base = '') {
   });
   // Pictures, and the page a picture links to.
   const img = (tag, href) => {
-    const src = absolute(tag.match(/\bsrc\s*=\s*["']([^"']+)/i)?.[1] || '', base);
+    let src = absolute(tag.match(/\bsrc\s*=\s*["']([^"']+)/i)?.[1] || '', base);
     if (!/^https?:/.test(src) || /icon|logo|blank|spacer|share|facebook|twitter|plurk|line\.png|fb\.png|print|btn|button|arrow|small\.png|medium\.png|big\.png|\.gif(\?|$)/i.test(src)) return '';
-    return `\u0001${token({ k: 'img', src, alt: text(tag.match(/\balt\s*=\s*["']([^"']*)/i)?.[1] || ''), href })}\u0001`;
+    // A thumbnail linking to its picture: the picture itself, whole (a CMS's small_ copy is cut to a box: 竹北's
+    // members' pages showed a campaign banner cropped mid-word, Jay 2026-11-14).
+    let small = '';
+    if (/\.(jpe?g|png|webp)(\?|$)/i.test(href) && href !== src) (small = src), (src = href), (href = '');
+    else if (/\/small_[^/]+$/.test(src)) (small = src), (src = src.replace(/\/small_([^/]+)$/, '/$1'));
+    return `\u0001${token({ k: 'img', src, ...(small ? { small } : {}), alt: text(tag.match(/\balt\s*=\s*["']([^"']*)/i)?.[1] || ''), href })}\u0001`;
   };
   h = h.replace(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>\s*(<img\b[^>]*>)\s*<\/a\s*>/gi, (m, href, tag) => img(tag, absolute(href, base)));
   h = h.replace(/<img\b[^>]*>/gi, tag => img(tag, ''));
@@ -169,7 +174,10 @@ export function blocksOf(part, base = '') {
   const seen = new Map();
   for (const b of out) if (b.t) seen.set(b.t, (seen.get(b.t) || 0) + 1);
   const menu = (b, i) => b.k === 'link' && b.t.length <= 10 && [out[i - 1], out[i + 1]].some(x => x?.k === 'link' && x.t.length <= 10);
-  return out.filter((b, i) => !(b.t && seen.get(b.t) > 2 && b.t.length < 12) && !menu(b, i) && !(b.t && /^(:::|.{0,8}(按鈕|功能)區)$/.test(b.t)));
+  // A picture's caption that's only its file's name says nothing; a line repeating a picture's caption is said once.
+  for (const b of out) if (b.k === 'img' && /^[\w\s.-]+\.(jpe?g|png|webp|gif)$/i.test(b.alt || '')) b.alt = '';
+  const echo = (b, i) => b.k === 'p' && [out[i - 1], out[i + 1]].some(x => x?.k === 'img' && x.alt && x.alt.replace(/\s/g, '') === b.t.replace(/\s/g, ''));
+  return out.filter((b, i) => !(b.t && seen.get(b.t) > 2 && b.t.length < 12) && !menu(b, i) && !echo(b, i) && !(b.t && /^(:::|.{0,8}(按鈕|功能)區)$/.test(b.t)));
 }
 
 // A ruling's text: the court's own line breaks kept, its padding spaces not.

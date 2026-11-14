@@ -125,8 +125,7 @@ a session's days before it meets (`sessionNews`), so 下次開會 and 開會中 
 door's `file=1`, poppler's pdftotext, 70 a build, kept once read) into
 `council/town/<tc>/<paperFile>.json`: 決議案 a row each (`resolutions`, drawn by
 `councilBillHtml` as a council's bill), 總質詢 as who said what (`transcript`) and each
-member's questions (`questions`, `townTranscript`; 重點摘要 on a tap: the proxy's `/law-ask`
-mode `town`, `askTown`, each point citing turns, a tap scrolling to the turn), 書面質詢 (a day's
+member's questions (`questions`), 書面質詢 (a day's
 paper that's forms: `written`, who asked which office what, and the 公所's reply from its 函), 會議紀錄, 致詞 and 施政報告 as text
 (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs. **會議紀錄變表格**
 (`lib/minutes.mjs` `minutesOf`): a 會議紀錄 is read by code into rows, each sitting (day,
@@ -135,6 +134,21 @@ a scan is read by OCR on the build's machine (`ocrText`: Tesseract, Traditional 
 `TOWN_OCR_MINUTES` a run, `ocr` its day), then split the same way or kept as text. No AI:
 11-14 the AI door (`law-minutes`, whole scans to Gemini, 438 papers in 4 nights) cost about
 NT$420 a day; the rows it made before (`ai`) stay.
+
+**A day of a 代表會** (`townDay`): the session sheet lists each recorded day by what its sitting did (`dayWhat`,
+from the minutes; 總質詢 days by who asked), and a day opens its recording in the sheet's foot with what was said
+or reported: 總質詢 as blocks, a member's questions on a topic with the answers (`askBlocks`, chips by who asked;
+重點摘要 on a tap: `/law-ask` mode `town`, `askTown`, each point citing turns), the mayor's 施政報告 and 致詞 on the
+day given, each office's 工作報告 on the day it reported (`lib/town-paper.mjs` `paperParts`: an office a card,
+重點摘要 on a tap: mode `paper`, `askPaper`, that part's characters only, kept a year). **總質詢 on its
+recording** (`lib/town-audio.mjs`, by code, no AI): the build fetches each 總質詢 day's recording once
+(`alignRecording`: Drive or the site's file, ffmpeg to 8 kHz mono), finds its pauses from the room's own levels
+(`silences`) and each stretch's voice (`voices`, pitch by autocorrelation), and lays the turns over the speech
+(`alignTurns`: each turn its characters' share of the day's speaking time, a change of speaker at a pause, a
+second pass with each speaker's own pitch; a wait marked 〜 in the transcript splits a turn), into the paper's
+`au: { id, at }` (each turn's start; within about 3 s on 竹北's 9/30 and 10/1, checked against who's speaking by
+pitch). The phone plays a turn from its start and follows the recording (`turnAt`). A 代表's sheet
+(`townMember`) lists their 總質詢 in the three newest sessions, each opening its day at their turn.
 
 ## 彰化's 代表會 on the county's platform
 

@@ -7,12 +7,16 @@
 // from the last deploy, so a night reads only what's new). Never fails the deploy: a site that can't be
 // read keeps the last copy.
 //   node scripts/build-town.mjs [--prev https://orbit.jaypengx.com/law/data/]
-import { mkdir, writeFile, mkdtemp, rm, readdir } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
+import { mkdir, writeFile, readFile, mkdtemp, rm, readdir } from 'node:fs/promises';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf } from '../public/lib/minutes.mjs';
+import { alignDay } from '../public/lib/town-audio.mjs';
 import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, shortDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
@@ -238,6 +242,24 @@ async function townPapers(tc, sessions) {
       }
     }
   }
+  // 總質詢 laid over its day's recording (lib/town-audio.mjs, by code): each day once, a few a build; one that failed,
+  // again after a week.
+  let aligns = Number(process.env.TOWN_AUDIO || 6);
+  for (const { s, papers } of files) {
+    for (const p of Object.values(papers)) {
+      if (p.k !== '總質詢' || !p.turns?.length || !p.d || p.au || (p.auTry && p.auTry > addDays(day, -7))) continue;
+      const recs = (s.days || []).filter(d => d.d === p.d && (d.drive || /\.(mp3|m4a|wav)$/i.test(d.src || '')));
+      if (recs.length !== 1) continue;
+      if (aligns-- <= 0 || late()) break;
+      try {
+        p.au = await alignRecording(recs[0], p.turns);
+        delete p.auTry;
+      } catch (e) {
+        console.log(`town ${tc} ${s.n} ${p.d} audio: ${e.message}`);
+        p.auTry = day;
+      }
+    }
+  }
   for (const { s, name, papers } of files) {
     // What the session's row says of them.
     const all = Object.values(papers);
@@ -250,6 +272,26 @@ async function townPapers(tc, sessions) {
   }
   if (tmp) await rm(tmp, { recursive: true, force: true });
   tmp = undefined;
+}
+
+// A day's recording, fetched whole (Drive serves anyone), decoded by ffmpeg to 8 kHz mono, and the day's turns laid
+// over it: { id: the recording it was laid on (Drive's id or the file), at: each turn's start in seconds }.
+async function alignRecording(d, turns) {
+  const started = Date.now();
+  tmp ||= await mkdtemp(`${tmpdir()}/town-`);
+  const file = `${tmp}/a`;
+  const r = await fetch(d.drive ? `https://drive.usercontent.google.com/download?id=${d.drive}&export=download` : d.src, { signal: AbortSignal.timeout(300_000) });
+  if (!r.ok || /html|json/i.test(r.headers.get('Content-Type') || '')) throw new Error(`${r.status} ${r.headers.get('Content-Type') || ''}`.trim());
+  await pipeline(Readable.fromWeb(r.body), createWriteStream(file));
+  const run = spawnSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', file, '-ac', '1', '-ar', '8000', '-f', 's16le', `${file}.pcm`], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8', timeout: 300_000 });
+  if (run.status !== 0) throw new Error(`ffmpeg: ${(run.stderr || run.error?.message || '').slice(0, 200)}`);
+  const b = await readFile(`${file}.pcm`);
+  await rm(`${file}.pcm`, { force: true });
+  await rm(file, { force: true });
+  const at = alignDay(turns, new Int16Array(b.buffer, b.byteOffset, b.length >> 1));
+  if (at.length !== turns.length) throw new Error('could not be laid');
+  console.log(`audio ${d.d}: ${turns.length} turns over ${Math.round(b.length / 16000 / 60)} min, ${Math.round((Date.now() - started) / 1000)}s`);
+  return { id: d.drive || d.src, at };
 }
 
 async function town(tc, site) {

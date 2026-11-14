@@ -131,9 +131,10 @@ paper that's forms: `written`, who asked which office what, and the 公所's rep
 (`paperText`, `paperHtml`); 附錄 and the 議事日程表 stay PDFs. **會議紀錄變表格**
 (`lib/minutes.mjs` `minutesOf`): a 會議紀錄 is read by code into rows, each sitting (day,
 hours, chair, who came) and each proposal (number, kind, proposer, 案由, result, vote);
-what code can't split (`messy`, or a scan) goes once to the AI door (Orbit-Core
-`/ai/build`, `law-minutes`, `TOWN_AI` a night) with `digest` (only the lines carrying a
-proposal or a decision), its rows checked against the paper.
+a scan is read by OCR on the build's machine (`ocrText`: Tesseract, Traditional Chinese,
+`TOWN_OCR_MINUTES` a run, `ocr` its day), then split the same way or kept as text. No AI:
+11-14 the AI door (`law-minutes`, whole scans to Gemini, 438 papers in 4 nights) cost about
+NT$420 a day; the rows it made before (`ai`) stay.
 
 ## 彰化's 代表會 on the county's platform
 

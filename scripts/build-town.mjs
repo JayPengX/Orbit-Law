@@ -7,12 +7,12 @@
 // from the last deploy, so a night reads only what's new). Never fails the deploy: a site that can't be
 // read keeps the last copy.
 //   node scripts/build-town.mjs [--prev https://orbit.jaypengx.com/law/data/]
-import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, writeFile, mkdtemp, rm, readdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
 import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
-import { minutesOf, digest } from '../public/lib/minutes.mjs';
+import { minutesOf } from '../public/lib/minutes.mjs';
 import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, shortDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
 
 const DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/law-page';
@@ -125,29 +125,35 @@ async function pdfText(url) {
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
-// 會議紀錄變表格 (lib/minutes.mjs): a paper of minutes code couldn't split into rows, or a scan with no text,
-// read once by the AI door (Orbit-Core /ai/build, feature law-minutes; its day's cap there), a few a night.
-const AI_DOOR = 'https://orbit-workers-proxy.pengzjay.workers.dev/ai/build';
-let aiBudget = Number(process.env.TOWN_AI ?? 30);
-async function minutesByAi(town, session, p, url) {
-  if (!KEY || aiBudget <= 0 || late()) return undefined;
-  aiBudget--;
+// A scan's words by OCR (Jay 11-14: "replace AI if some of the work could be"; a whole scanned PDF sent to
+// Gemini had cost about NT$420 a day): each page at 200 dpi through Tesseract's Traditional Chinese, on the
+// build's own machine, free. OCR_PAGES at most a paper, the run's OCR_MINUTES at most; none without Tesseract.
+const OCR_PAGES = 60;
+const ocrEnds = Date.now() + Number(process.env.TOWN_OCR_MINUTES ?? 4) * 60e3;
+let ocrOk = null;
+const canOcr = () => (ocrOk ??= (() => {
   try {
-    const input = { town, session };
-    if (p.text) input.text = digest(p.text);
-    else {
-      const bytes = await pdfBytes(url);
-      if (bytes.length > 6_500_000) return null;
-      input.pdf = { mime_type: 'application/pdf', data: bytes.toString('base64') };
+    return /chi_tra/.test(execFileSync('tesseract', ['--list-langs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+  } catch {
+    return false;
+  }
+})());
+async function ocrText(url) {
+  const bytes = await pdfBytes(url);
+  tmp ||= await mkdtemp(`${tmpdir()}/town-`);
+  const dir = await mkdtemp(`${tmp}/ocr-`);
+  try {
+    await writeFile(`${dir}/p.pdf`, bytes);
+    execFileSync('pdftoppm', ['-r', '200', '-gray', '-l', String(OCR_PAGES), `${dir}/p.pdf`, `${dir}/page`], { stdio: 'ignore', timeout: 120_000 });
+    const pages = (await readdir(dir)).filter(f => f.startsWith('page')).sort();
+    const out = [];
+    for (const f of pages) {
+      if (Date.now() > ocrEnds) break;
+      out.push(execFileSync('tesseract', [`${dir}/${f}`, 'stdout', '-l', 'chi_tra', '--psm', '6'], { encoding: 'utf8', maxBuffer: 16 << 20, stdio: ['ignore', 'pipe', 'ignore'], timeout: 60_000 }));
     }
-    const r = await fetch(AI_DOOR, { method: 'POST', headers: { 'X-Build-Key': KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'law-minutes', input }), signal: AbortSignal.timeout(150_000) });
-    const b = await r.json().catch(() => ({}));
-    if (r.status === 429) aiBudget = 0;
-    if (!r.ok || !Array.isArray(b.out?.items)) throw new Error(`${r.status} ${b.error || ''} ${b.why || ''}`.trim());
-    return b.out.items;
-  } catch (e) {
-    console.log(`town ${town} ${session} minutes AI: ${e.message}`);
-    return null;
+    return out.length === pages.length ? out.join('\n') : null;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -199,7 +205,7 @@ async function townPapers(tc, sessions) {
         }
         // (A 總質詢 paper read before 書面質詢 were: read again.)
         const stale = was?.k === '總質詢' && !was.turns?.length && !was.wq;
-        if (!was || (was.none && !was.ai) || stale) jobs.push({ s, i, f, papers, again: !!was && !stale });
+        if (!was || (was.none && !was.ai && !was.ocr) || stale) jobs.push({ s, i, f, papers, again: !!was && !stale });
       }
     }
   }
@@ -215,16 +221,21 @@ async function townPapers(tc, sessions) {
       papers[f.url] = { k: i.k, none: day };
     }
   }
-  // Minutes code couldn't split, and scans: the AI door, newest session first, each once (a failure again after a week).
+  // Scans of minutes (no text): read by OCR, newest session first, each once; then split into rows by code where it
+  // can (lib/minutes.mjs), else kept as text. Minutes the AI read before keep its rows; nothing goes to the AI now.
   for (const { s, papers } of files) {
     for (const [url, p] of Object.entries(papers)) {
-      if (p.k !== '會議紀錄' || p.ai || !(p.messy || p.none) || (p.aiTry && p.aiTry > addDays(day, -7))) continue;
-      const items = await minutesByAi(TOWN_SITES[tc]?.n || '', s.n, p, url);
-      if (items) {
-        Object.assign(p, { items, ai: day });
-        delete p.messy;
-        delete p.aiTry;
-      } else if (items === null) p.aiTry = day;
+      if (p.k !== '會議紀錄' || p.ai || p.ocr || !p.none || !canOcr() || late() || Date.now() > ocrEnds) continue;
+      try {
+        const text = await ocrText(url);
+        if (text == null) continue;
+        const kept = paperText(text);
+        for (const k of Object.keys(p)) if (k !== 'k') delete p[k];
+        Object.assign(p, kept.replace(/\s/g, '').length > 40 ? { ...readPaper('會議紀錄', text), ocr: day } : { none: day, ocr: day });
+      } catch (e) {
+        console.log(`town ${tc} ${s.n} OCR: ${e.message}`);
+        p.ocr = day;
+      }
     }
   }
   for (const { s, name, papers } of files) {

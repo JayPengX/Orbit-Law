@@ -155,7 +155,7 @@ jobs:
       # keep their last copies (scripts/build-town.mjs ENDS).
       - name: Build the township councils from their own sites
         if: env.CRAWL == '1'
-        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && node scripts/build-town.mjs
+        run: (command -v pdftotext || sudo apt-get install -y poppler-utils || true) && (command -v tesseract || sudo apt-get install -y -q tesseract-ocr tesseract-ocr-chi-tra >/dev/null || true) && node scripts/build-town.mjs
         timeout-minutes: 20
         continue-on-error: true
         env:

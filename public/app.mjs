@@ -4902,7 +4902,7 @@ function townSession(own, s, party = new Map()) {
     if (t) {
       const p = papers[t.dataset.towntext];
       if (!p?.text) return;
-      const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(`${s.n} ${t.dataset.name}`)}</h2><p class="lw-clip-meta">${esc(`${own.n} · ${term}`)}</p>${paperHtml(p.text)}<a class="q-more q-more-go lw-out" href="${esc(t.dataset.towntext)}" target="_blank" rel="noopener" data-out><span>${W('原始 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+      const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(`${s.n} ${t.dataset.name}`)}</h2><p class="lw-clip-meta">${esc(`${own.n} · ${term}`)}</p>${p.ocr ? `<p class="lw-hint-sm">${W('由掃描檔辨識文字，可能有錯字，以原始 PDF 為準。', 'Read from a scan by machine; it may have errors. The PDF is the record.')}</p>` : ''}${paperHtml(p.text)}<a class="q-more q-more-go lw-out" href="${esc(t.dataset.towntext)}" target="_blank" rel="noopener" data-out><span>${W('原始 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
       sheet({ title: t.dataset.name, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
     }
   });

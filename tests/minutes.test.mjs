@@ -1,5 +1,5 @@
 // 會議紀錄變表格 (lib/minutes.mjs): a 代表會's minutes, read by code into sittings and proposals, from four
-// councils' real minutes (tests/fixtures/minutes/); what code can't split goes to the AI door with a digest.
+// councils' real minutes (tests/fixtures/minutes/); what code can't split stays text (the AI door's digest kept for the rows it made before).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

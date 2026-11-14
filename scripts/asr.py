@@ -4,6 +4,10 @@
 #   python scripts/asr.py <audio> <out.json> [model] [prompt]
 import json, sys, time
 from faster_whisper import WhisperModel
+from opencc import OpenCC
+
+# (Heard in simplified characters at times: turned into Taiwan's, as the transcript is.)
+tw = OpenCC('s2tw').convert
 
 audio, out = sys.argv[1], sys.argv[2]
 model = sys.argv[3] if len(sys.argv) > 3 else 'small'
@@ -15,6 +19,6 @@ segs, info = m.transcribe(audio, language='zh', word_timestamps=True, vad_filter
 words = []
 for s in segs:
     for w in s.words or []:
-        words.append([round(w.start, 2), round(w.end, 2), w.word])
+        words.append([round(w.start, 2), round(w.end, 2), tw(w.word)])
 json.dump({'model': model, 'dur': info.duration, 'load_s': round(loaded, 1), 'run_s': round(time.time() - t0 - loaded, 1), 'words': words}, open(out, 'w'), ensure_ascii=False)
 print(model, 'audio', round(info.duration), 's', 'run', round(time.time() - t0 - loaded), 's', len(words), 'words')

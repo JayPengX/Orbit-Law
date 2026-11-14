@@ -290,3 +290,12 @@ html[data-look='native'].q-wide .nv-asks {
 html[data-look='native'][data-look='native'] #panel-home .q-section-head > :is(a, button) {
   color: var(--q-label-2);
 }
+
+/* No Orbit AI on the account: the search way takes the card's width, and the
+   questions' list is gone with its rows (no hairline or padding left behind). */
+html[data-ai-lock='level'][data-look='native'] .nv-find-ways {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-ai-lock='level'][data-look='native'] .nv-asks:not(:has(.nv-ask:not([data-ai-tap]))) {
+  display: none;
+}

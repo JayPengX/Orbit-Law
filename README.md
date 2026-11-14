@@ -19,18 +19,14 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 
 <p align="center">
   <img src="docs/screenshots/law-1.webp" width="30%" alt="Laws, rulings and bills, all in one app">
-  <img src="docs/screenshots/law-2.webp" width="30%" alt="54,000 laws and rules, national to local">
-  <img src="docs/screenshots/law-3.webp" width="30%" alt="Every law linked to its bills and rulings">
+  <img src="docs/screenshots/law-2.webp" width="30%" alt="Every law linked to its bills and rulings">
+  <img src="docs/screenshots/law-3.webp" width="30%" alt="47,000 rulings, from the top court down">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.webp" width="30%" alt="47,000 rulings, from the top court down">
-  <img src="docs/screenshots/law-5.webp" width="30%" alt="Ask in plain words, every point cited">
-  <img src="docs/screenshots/law-6.webp" width="30%" alt="Nearly 8,000 bills, each one's stage">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/law-7.webp" width="30%" alt="Every council, down to the townships">
+  <img src="docs/screenshots/law-4.webp" width="30%" alt="Ask in plain words, every point cited">
+  <img src="docs/screenshots/law-5.webp" width="30%" alt="Nearly 8,000 bills, each one's stage">
+  <img src="docs/screenshots/law-6.webp" width="30%" alt="Every council, down to the townships">
 </p>
 
 <details>
@@ -38,18 +34,14 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 
 <p align="center">
   <img src="docs/screenshots/law-1.zh.webp" width="30%" alt="法律、判決、法案，一個 App 全包">
-  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="5.4 萬部法規，中央到地方">
-  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="每部法律，連到修法、判決和釋憲">
+  <img src="docs/screenshots/law-2.zh.webp" width="30%" alt="每部法律，連到修法、判決和釋憲">
+  <img src="docs/screenshots/law-3.zh.webp" width="30%" alt="4.7 萬則判決，憲法法庭到各級法院">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="4.7 萬則判決，憲法法庭到各級法院">
-  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="白話問，答案附上條文">
-  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="立法院近 8 千案，走到哪一步">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/law-7.zh.webp" width="30%" alt="22 縣市議會和代表會，影音都在">
+  <img src="docs/screenshots/law-4.zh.webp" width="30%" alt="白話問，答案附上條文">
+  <img src="docs/screenshots/law-5.zh.webp" width="30%" alt="立法院近 8 千案，走到哪一步">
+  <img src="docs/screenshots/law-6.zh.webp" width="30%" alt="22 縣市議會和代表會，影音都在">
 </p>
 
 </details>

@@ -5378,3 +5378,45 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-part-text p b { margin-right: 4px; font-weight: 600; }
 .lw-member-asks .lw-sec { margin-top: 8px; }
 .lw-member-site { margin: 24px 0 8px; font: var(--q-t-title3, 600 20px/25px var(--q-font)); }
+
+/* 議程 on a wide page: the day's meetings, their business in full (three lines). */
+.lw-meet-what.long {
+  -webkit-line-clamp: 3;
+}
+
+/* 立委 by 縣市 on a wide page: one flow of cards, a place's name over its first (app.mjs peopleList). */
+.lw-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* (Cards line up along a row's foot: a row with a place's name is that much taller, the others stay tight.) */
+.lw-seat {
+  display: grid;
+  min-width: 0;
+}
+.lw-seat-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 2px 6px;
+  overflow: hidden;
+  font: 600 17px/22px var(--q-font);
+  white-space: nowrap;
+}
+.lw-seat-head .lw-count {
+  color: var(--q-label-3);
+  font-size: 13px;
+}
+/* (A place's first card: a hairline before it marks where the place begins.) */
+.lw-seat.first:not(:first-child) .lw-person {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--q-label) 22%, transparent);
+}
+
+/* 預算's kinds: rows that never end short (the kit's fullRows); cards without money are short, five to a computer's row. */
+.lw-grid.lw-grid-short {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}

@@ -3476,10 +3476,13 @@ async function drawTracked(m) {
   } catch {
     return;
   }
-  const { xs, feeds, votes } = t;
-  const el = $('mine-people');
-  if (!xs.length || !el) return;
-  const cards = xs.map((x, i) => {
+  if (!t.xs.length || !$('mine-people')) return;
+  fillLater('mine-people', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Legislators')}</h2></div><div class="lw-tracks">${trackCards(t, m).join('')}</div></section>`);
+}
+// A followed legislator's card: their face and seat, then their newest bill, vote and 質詢 (新 since last opened).
+// 我的 and 立法's 立委 both draw them.
+function trackCards({ xs, feeds, votes }, m) {
+  return xs.map((x, i) => {
     const feed = feeds[i];
     const seen = m.people[x.id];
     const fresh = state.peopleNew[x.id];
@@ -3493,7 +3496,6 @@ async function drawTracked(m) {
     };
     return `<div class="lw-track" style="--p:${partyColor(x.party)}"><a class="lw-track-head" href="#who=${esc(x.id)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span>${fresh ? countTag(W(`新 ${fresh}`, `${fresh} new`), 'green') : ''}</a>${feed.length ? `<div class="lw-track-rows">${['bill', 'vote', 'clip'].map(k => feed.find(e => e.k === k)).filter(Boolean).sort((a, b) => (a.d < b.d ? 1 : -1)).map(row).join('')}</div>` : `<p class="lw-track-none">${W('這屆還沒有提案、質詢或表決紀錄', 'No bills, speeches or votes yet this term')}</p>`}</div>`;
   });
-  fillLater('mine-people', `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Legislators')}</h2></div><div class="lw-tracks">${cards.join('')}</div></section>`);
 }
 $('panel-mine').addEventListener('click', async e => {
   const b = e.target.closest('#mine-people [data-vote]');
@@ -3735,12 +3737,34 @@ async function peopleList(out) {
   for (const o of order) if (byArea) o.xs.sort((a, b) => (o.g[0] === 40 ? partyRank(a.party) - partyRank(b.party) : seatNo(a.area) - seatNo(b.area)));
   const head = o => (byArea ? `<h2>${esc(W(o.g[1], o.g[2]))}</h2>` : `<h2><span class="lw-party" style="--p:${partyColor(o.g[1])}">${esc(partyShort(o.g[1]))}</span></h2>`);
   const toggle = `<div class="q-chips lw-chips lw-people-by" role="tablist">${[['area', W('依縣市', 'By place')], ['party', W('依政黨', 'By party')]].map(([id, label]) => `<button type="button" class="q-chip" role="tab" data-by="${id}" aria-selected="${id === peopleBy}" aria-pressed="${id === peopleBy}">${label}</button>`).join('')}</div>`;
+  // 追蹤的立委: a card each with their newest bill, vote and 質詢 (as in 我的), drawn plain at once and filled when read.
+  const plainTrack = x => `<div class="lw-track" style="--p:${partyColor(x.party)}"><a class="lw-track-head" href="#who=${esc(x.id)}">${personPhoto(x)}<span class="lw-person-text"><b>${esc(x.n)}</b><small>${esc(`${partyShort(x.party)} · ${shortArea(x.area)}`)}</small></span></a><div class="lw-track-rows"><span class="lw-track-row q-skel"></span><span class="lw-track-row q-skel"></span></div></div>`;
+  // By 縣市 on a wide page: every card in one flow, each place's name over its first card, so a place of one or two
+  // never takes a row of its own and no row ends short but the last.
+  const flow = byArea && nCols(2) > 1 && !q;
+  const groupsHtml = flow
+    ? `<div class="lw-seats">${order.map(o => o.xs.map((x, i) => `<div class="lw-seat${i ? '' : ' first'}">${i ? '' : `<h2 class="lw-seat-head">${esc(W(o.g[1], o.g[2]))}<span class="lw-count">${o.xs.length}</span></h2>`}${card(x)}</div>`).join('')).join('')}</div>`
+    : order.map(o => `<section class="q-section lw-sec"><div class="q-section-head">${head(o)}<span class="lw-count">${o.xs.length}</span></div><div class="lw-people q-rows-full q-rows-keep">${o.xs.map(card).join('')}</div></section>`).join('');
   const list =
-    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-people q-rows-full q-rows-keep">${followed.map(x => card(x, true)).join('')}</div></section>` : '') +
-    order.map(o => `<section class="q-section lw-sec"><div class="q-section-head">${head(o)}<span class="lw-count">${o.xs.length}</span></div><div class="lw-people q-rows-full q-rows-keep">${o.xs.map(card).join('')}</div></section>`).join('') +
+    (followed.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('追蹤的立委', 'Following')}</h2></div><div class="lw-tracks" data-ppltracks>${followed.map(plainTrack).join('')}</div></section>` : '') +
+    groupsHtml +
     (left.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${W('已離職', 'Left office')}</h2><span class="lw-count">${left.length}</span></div><div class="lw-people q-rows-full q-rows-keep">${left.map(x => card(x, true)).join('')}</div></section>` : '');
   out.innerHTML = list ? (now.length > 1 ? toggle : '') + list : emptyNote(W('沒有符合的立委', 'No one matches'));
   out.querySelectorAll('[data-by]').forEach(b => b.addEventListener('click', () => peopleBy !== b.dataset.by && ((peopleBy = b.dataset.by), haptic(), peopleList(out))));
+  const tracks = out.querySelector('[data-ppltracks]');
+  if (tracks) {
+    tracks.addEventListener('click', e => {
+      const b = e.target.closest('[data-vote]');
+      if (b) voteSheet(Number(b.dataset.vote));
+    });
+    trackedFeeds(state.mine)
+      .then(t => {
+        const keep = new Set(followed.map(x => x.id));
+        const i = t.xs.map((x, n) => (keep.has(x.id) ? n : -1)).filter(n => n >= 0);
+        if (document.contains(tracks) && i.length) tracks.innerHTML = trackCards({ xs: i.map(n => t.xs[n]), feeds: i.map(n => t.feeds[n]), votes: t.votes }, state.mine).join('');
+      })
+      .catch(() => tracks.querySelectorAll('.lw-track-rows').forEach(r => r.remove()));
+  }
 }
 // The parties in seat order (most seats first), for 不分區.
 const PARTY_RANK = ['中國國民黨', '民主進步黨', '台灣民眾黨'];
@@ -3911,7 +3935,7 @@ async function budgetList(out) {
     hero +
     BUDGET_KINDS.map(([kind, title]) => {
       const xs = shown.filter(x => budgetKind(x.k) === kind && x !== cur).sort((a, c) => (kind === 'year' ? Number(c.k) - Number(a.k) : (c.first || '0').localeCompare(a.first || '0')));
-      return xs.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(title)}</h2><span class="lw-count">${xs.length}</span></div><div class="lw-grid">${xs.map(card).join('')}</div></section>` : '';
+      return xs.length ? `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(title)}</h2><span class="lw-count">${xs.length}</span></div><div class="lw-grid q-rows-full q-rows-keep${xs.some(x => x.money) ? '' : ' lw-grid-short'}">${xs.map(card).join('')}</div></section>` : '';
     }).join('');
 }
 
@@ -4011,14 +4035,14 @@ const meetDay = d => {
 // What a meeting is about, in a line: its 事由's first item, numbering and 繼續 off.
 // A meeting's business in two short lines: its first item, the filler words
 // (行政院函送, 擬具) out, cut at a clause so a narrow screen never clamps it.
-const meetWhat = m => {
+const meetWhat = (m, most = 26) => {
   let t = String(m.why || m.title).split(/\n|。(?=[二三四五六七八九十]+、)/)[0].replace(/^[一二三四五六七八九十]+、/, '').replace(/行政院函(送|請)?|(本院)?委員[^，、]{2,12}?等\d+人擬具|擬具|請審議案|請同意案|[。]$/g, '');
   // A briefing or a hearing: its title in 「」 says it best.
-  const quoted = t.length > 26 && t.match(/[「《]([^」》]{4,})[」》]/);
+  const quoted = t.length > most && t.match(/[「《]([^」》]{4,})[」》]/);
   if (quoted) t = `${/^邀請/.test(t) ? W('專題報告：', 'Briefing: ') : ''}${quoted[1].replace(/[《》]/g, '')}`;
-  if (t.length > 26) {
-    const cut = Math.max(...['，', '、', '；', '：', '—'].map(c => t.lastIndexOf(c, 26)));
-    t = cut > 8 ? t.slice(0, cut) : `${t.slice(0, 25)}…`;
+  if (t.length > most) {
+    const cut = Math.max(...['，', '、', '；', '：', '—'].map(c => t.lastIndexOf(c, most)));
+    t = cut > 8 ? t.slice(0, cut) : `${t.slice(0, most - 1)}…`;
   }
   return t.replace(/^(繼續)?審查(審議)?/, W('審查', 'Review: '));
 };
@@ -4038,10 +4062,11 @@ const offTag = (x, live) => {
   const t = String((live && liveOf(live, x.m, x)?.status) || '');
   return lyDayOff(x.d) && !/取消|延期|改期/.test(t) ? W('颱風停會', 'Typhoon: no sitting') : /延期|改期/.test(t) ? W('延期', 'Postponed') : W('取消', 'Called off');
 };
-const meetRow = (x, live = null) => {
+// (`long`: a wide page's day column, room for the business in full: about three lines.)
+const meetRow = (x, live = null, long = false) => {
   const st = liveState(x, live);
   const items = meetItems(x.m).length;
-  return `<a class="lw-meet${st === 'live' ? ' live' : st === 'done' ? ' done' : st === 'off' ? ' off' : ''}" href="#meet=${esc(encodeURIComponent(x.m.id))}&amp;d=${esc(x.d)}"><span class="lw-meet-time"><b>${esc(hm(x.from) || '–')}</b><small>${esc(hm(x.to))}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(roomShort(x.m))}</b>${roomShort(x.m) !== kindLabel(x.m.kind) && !['live', 'break', 'done', 'off'].includes(st) ? kindTag(x.m.kind) : ''}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : st === 'break' ? countTag(W('休息中', 'On a break'), 'orange') : st === 'done' ? countTag(W('已散會', 'Risen'), '') : st === 'off' ? countTag(offTag(x, live), 'red') : ''}</span><span class="lw-meet-what">${esc(meetWhat(x.m))}</span>${items ? `<small>${esc(W(`${items} 個法案`, `${items} bill${items === 1 ? '' : 's'}`))}</small>` : ''}</span></a>`;
+  return `<a class="lw-meet${st === 'live' ? ' live' : st === 'done' ? ' done' : st === 'off' ? ' off' : ''}" href="#meet=${esc(encodeURIComponent(x.m.id))}&amp;d=${esc(x.d)}"><span class="lw-meet-time"><b>${esc(hm(x.from) || '–')}</b><small>${esc(hm(x.to))}</small></span><span class="lw-meet-text"><span class="lw-meet-top"><b class="q-fit">${esc(roomShort(x.m))}</b>${roomShort(x.m) !== kindLabel(x.m.kind) && !['live', 'break', 'done', 'off'].includes(st) ? kindTag(x.m.kind) : ''}${st === 'live' ? `<span class="lw-live">${W('直播中', 'Live')}</span>` : st === 'break' ? countTag(W('休息中', 'On a break'), 'orange') : st === 'done' ? countTag(W('已散會', 'Risen'), '') : st === 'off' ? countTag(offTag(x, live), 'red') : ''}</span><span class="lw-meet-what${long ? ' long' : ''}">${esc(meetWhat(x.m, long ? 90 : 26))}</span>${items ? `<small>${esc(W(`${items} 個法案`, `${items} bill${items === 1 ? '' : 's'}`))}</small>` : ''}</span></a>`;
 };
 
 // 議程: a day's sittings at a time on the family's strip of days (the days
@@ -4087,8 +4112,27 @@ async function agendaList(out) {
   // (While some meet, the day's others: those still to come 稍後, those already over 稍早, never over ones under 稍後.)
   const later = rest.filter(x => !['done', 'past', 'off'].includes(liveState(x, a.live)));
   const earlier = rest.filter(x => !later.includes(x));
-  const meetsOf = (title, xs) => (xs.length ? section(title, `<div class="lw-meets">${xs.map(row).join('')}</div>`) : '');
-  out.innerHTML = now ? meetsOf(W('現在開會中', 'Meeting now'), live) + meetsOf(W('稍後', 'Later'), later) + meetsOf(W('稍早', 'Earlier'), earlier) : `<div class="lw-meets">${rest.map(row).join('')}</div>`;
+  // A wide page: the days side by side, the picked one first and the next ones beside it (else the last ones before),
+  // each meeting's business in full; a day's head picks it. A day of three meetings never leaves the page empty.
+  const n = nCols(3);
+  const dayRow = x => meetRow(x, a.live, n > 1);
+  const meetsOf = (title, xs) => (xs.length ? section(title, `<div class="lw-meets">${xs.map(dayRow).join('')}</div>`) : '');
+  const dayHtml = now ? meetsOf(W('現在開會中', 'Meeting now'), live) + meetsOf(W('稍後', 'Later'), later) + meetsOf(W('稍早', 'Earlier'), earlier) : `<div class="lw-meets">${rest.map(dayRow).join('')}</div>`;
+  if (n > 1) {
+    const after = days.filter(d => d > agendaDay);
+    const around = (after.length >= n - 1 ? after : [...after, ...days.filter(d => d < agendaDay).reverse()]).slice(0, n - 1);
+    const dayCol = d => `<section class="q-section lw-sec"><div class="q-section-head"><h2>${esc(meetDay(d))}</h2><button type="button" data-agday="${esc(d)}">${W('看這天', 'Open')}</button></div><div class="lw-meets">${all.filter(x => x.d === d).map(dayRow).join('')}</div></section>`;
+    // Under them, the bills these days take up (a meeting's sheet lists its own), soonest first.
+    const seen = new Set();
+    const bills = [agendaDay, ...around]
+      .sort()
+      .flatMap(d => all.filter(x => x.d === d).flatMap(x => meetItems(x.m).map(it => [it, d])))
+      .filter(([it]) => !seen.has(it.k) && seen.add(it.k))
+      .slice(0, 12);
+    const billsHtml = bills.length ? section(W('這幾天要審的法案', 'Bills up these days'), `<div class="lw-grid q-rows-full">${bills.map(([it, d]) => billCard(it, { topic: itemTopic(it), en, wide: true, on: d })).join('')}</div>`) : '';
+    out.innerHTML = `<div class="q-cols${n === 3 ? ' q-cols-3' : ''} lw-cols lw-agenda-cols"><div class="lw-col">${now ? dayHtml : section(meetDay(agendaDay), dayHtml)}</div>${around.map(d => `<div class="lw-col">${dayCol(d)}</div>`).join('')}</div>${billsHtml}`;
+    out.querySelectorAll('[data-agday]').forEach(b => b.addEventListener('click', () => (pickAgendaDay(b.dataset.agday), haptic())));
+  } else out.innerHTML = dayHtml;
   out.prepend(dayBar(agendaRec, { days, current: agendaDay, today: day, follow: true, onPick: pickAgendaDay }));
 }
 function pickAgendaDay(d) {

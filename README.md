@@ -48,7 +48,7 @@ Taiwan's law from three linked sides: the laws to read, the courts' rulings on t
 
 ## Features
 
-- **Also AI:** 拍合約幫你看 checks a contract clause by clause, every flag cited; 會議紀錄變表格 reads a council's minutes into rows; 這一週 sums up the bills and laws you follow that moved. Explanations of thousands of everyday articles are made ahead, so they open without a wait.
+- **Also AI:** 拍合約幫你看 checks a contract clause by clause, every flag cited; 會議紀錄變表格 reads a council's minutes into rows; 這一週 sums up the bills and laws you follow that moved. Explanations of everyday articles are made when you tap for them.
 - **法規 Laws:** every law and regulation from 全國法規資料庫, in Chinese and English, with every reference a link (第X條之Y, ranges, 前條, 前項, another law's name; about 99% of 28k references land on a real article).
 - **修法追蹤:** what each amendment added, amended and removed, article by article.
 - **裁判 Rulings:** every 大法官解釋 and 憲判字, the top courts' judgments by article and month, and the other courts' judgments by law, cause and court, three years back; a judgment opens with its outcome first, and AI explains any top ruling in plain words, each point citing its own paragraphs.

@@ -3020,10 +3020,16 @@ function setBillFilter(id) {
     const input = billBox.querySelector('input');
     if (input) input.value = '';
   }
+  // (From the side of the door or stage tapped: what's under the doors glides in, Jay 11-14 "more animated and smooth".)
+  const was = billFilter;
+  const doorAt = f => BILL_DOORS.findIndex(([x]) => x === doorOf(f));
+  const stageAt = f => BILL_FILTERS.findIndex(([x]) => x === f);
+  const dir = Math.sign(doorOf(id) !== doorOf(was) ? doorAt(id) - doorAt(was) : stageAt(id) - stageAt(was));
   billFilter = id;
   billStep = -1;
   billMore = {};
   drawBillList();
+  if (id !== was) for (const part of ['bill-funnel', 'bill-stages', 'bill-digest', 'bill-list']) if ($(part) && !$(part).hidden) kitUI.glideIn?.($(part), dir);
 }
 
 function drawBillList() {

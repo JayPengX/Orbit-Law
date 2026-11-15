@@ -125,6 +125,9 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
   let lastT = -1;
   let movedAt = Date.now();
   let started = false;
+  let startT = 0;
+  let shown10 = false;
+  let stalls = 0;
   let resumeAt = at > 0 ? at : 0;
   let waitTimer = 0;
   let state = 'ok';
@@ -177,7 +180,9 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
     if (native && !live && resumeAt > 0 && Math.abs(v.currentTime - resumeAt) > 2) v.currentTime = resumeAt;
   });
   v.addEventListener('error', () => !stopped && v.getAttribute('src') !== null && reload(v.error?.code === 3 ? SKIP_BAD : 0));
-  v.addEventListener('playing', () => started || ((started = true), log('first', { host, ms: Date.now() - t0 })));
+  v.addEventListener('playing', () => started || ((started = true), (startT = v.currentTime || 0), log('first', { host, ms: Date.now() - t0 })));
+  // (A stall after the first picture, in 除錯紀錄 too: where and how long in.)
+  for (const ev of ['stalled', 'waiting']) v.addEventListener(ev, () => started && stalls++ < 5 && log(ev, { host, ms: Date.now() - t0, t: Math.round(v.currentTime || 0) }));
   // (Before the first picture, anything coming is life: the wait counted from there.)
   for (const ev of ['progress', 'loadedmetadata', 'loadeddata', 'canplay']) v.addEventListener(ev, () => started || (movedAt = Date.now()));
   v.addEventListener('emptied', () => (started = false));
@@ -197,6 +202,8 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       movedAt = now;
       nudged = false;
       if (state === 'retry' && started) say('ok');
+      // (In 除錯紀錄: it really moved, ten seconds in.)
+      if (started && !shown10 && t - startT >= 10) (shown10 = true), log('moving', { host, ms: Date.now() - t0, t: Math.round(t) });
       // Twenty seconds moving: a fresh start for the tries.
       if (++moving >= 20) tries = 0;
       return warm(t);
@@ -238,7 +245,8 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       warmed.add(u);
       busy++;
       fetch(u, { headers: { Range: 'bytes=0-0' }, cache: 'no-store' })
-        .then(r => r.body?.cancel?.())
+        // (Its one byte read, not the body cancelled: Safari's cancel threw "The operation was aborted" unhandled, 11-15.)
+        .then(r => r.arrayBuffer())
         .catch(() => warmed.delete(u))
         .finally(() => busy--);
     }

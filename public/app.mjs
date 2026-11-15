@@ -1031,8 +1031,9 @@ async function drawLaw() {
     h('div', { class: 'lw-tools' }, [
       h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('找條文', 'Find'), html: ICON.find, onclick: () => toggleFind() }),
       h('button', { type: 'button', class: `lw-tool${followed ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'laws', law.p) ? (toast(W('已追蹤：修法時會標出來', 'Following: amendments will show')), lawActed(law.p)) : null, save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.laws[law.p])), haptic()) }),
-      h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('更多', 'More'), html: ICON.more, onclick: () => lawMenu(law, row) })
-    ])
+      // (Only with something in it: a 行政規則 with no 目錄, 沿革 or English had an empty sheet, Jay 11-15.)
+      lawMenuRows(law, row).length ? h('button', { type: 'button', class: 'lw-tool', 'aria-label': W('更多', 'More'), html: ICON.more, onclick: () => lawMenu(law, row) }) : null
+    ].filter(Boolean))
   ]);
 
   // The overview: what this is at a glance, then what's moving on it.
@@ -1394,7 +1395,7 @@ function sideContents(law) {
   return nav;
 }
 
-function lawMenu(law, row) {
+function lawMenuRows(law, row) {
   const rows = [];
   if (contents(law).length) rows.push([W('目錄', 'Contents'), () => showContents(law)]);
   if (row[6] || state.showEn) rows.push([state.showEn ? '中文條文' : 'English text', () => ((state.showEn = !state.showEn), drawLaw())]);
@@ -1402,6 +1403,11 @@ function lawMenu(law, row) {
   if (law.eff) rows.push([W('施行日期', 'In force'), () => textSheet(W('施行日期', 'In force'), law.eff, law)]);
   for (const it of state.itemsByLaw.get(law.p) || []) rows.push([`${W(`立法院第 ${it.term} 屆`, `Legislative Yuan, term ${it.term}`)} · ${stageShort(it, en)}`, () => go(`item=${it.k.replace(':', '-')}`)]);
   for (const r of relatedLaws(state.rows, row)) rows.push([nameOf(r[0], r[1]), () => go(`law=${r[0]}`), W('相關法規', 'Related law')]);
+  return rows;
+}
+function lawMenu(law, row) {
+  const rows = lawMenuRows(law, row);
+  if (!rows.length) return;
   const s = sheet({ title: nameOf(law.p, law.n), closeLabel: W('關閉', 'Close'), body: h('div', { class: 'q-list' }, rows.map(([label, fn, sub]) => h('button', { class: 'q-cell chevron', type: 'button', onclick: () => (s.close(), fn()) }, [h('span', { class: 'q-cell-text' }, [h('span', { text: label }), sub ? h('small', { text: sub }) : null].filter(Boolean))]))) });
 }
 // 沿革 as a timeline, newest first: the day, what each order did (the
@@ -1893,7 +1899,8 @@ function playHls(el, url, opts = {}) {
     note.remove();
     el.replaceWith(box);
   };
-  return keepPlaying(el, url, { ...opts, onState }).catch(e => (note.remove(), Promise.reject(e)));
+  // (How it went in the 除錯紀錄: the first picture's wait, each retry, a failure, by host.)
+  return keepPlaying(el, url, { ...opts, onState, log: (k, d) => kit.rec('video', { k, ...d }) }).catch(e => (kit.rec('video', { k: 'none', error: String(e?.message || e).slice(0, 60) }), note.remove(), Promise.reject(e)));
 }
 
 // A 案由 without its opening 本院委員徐欣瑩等20人， (the line above says who).
@@ -2959,8 +2966,6 @@ function drawBills() {
       if (cb) return openCouncilBill(cb.dataset.cbill);
       const cp = e.target.closest('[data-ccp]');
       if (cp) return openCouncilor(cp.dataset.ccp);
-      const mine = e.target.closest('[data-mytown]');
-      if (mine) return repsData().then(r => pickTown(r.places.find(p => p.towns.some(t => t.tc === mine.dataset.mytown))?.city, mine.dataset.mytown));
       const fk = e.target.closest('[data-localtracks] [data-mcc]');
       if (fk) return openFollowed(fk.dataset.mcc);
       const fv = e.target.closest('[data-localtracks] [data-mccvid]');
@@ -4537,7 +4542,7 @@ async function councilList(out) {
       const kind = r.towns.some(x => !x.hill) ? W('鄉鎮市民代表會', 'Township councils') : W('原住民區民代表會', 'District councils');
       towns = section(
         t ? W(`${r.city}其他代表會 ${others.length}`, `Other township councils ${others.length}`) : W(`${kind} ${r.towns.length}`, `${kind} ${r.towns.length}`),
-        `${t ? '' : `<p class="lw-hint-sm lw-town-ask">${W('選你住的鄉鎮市，它的代表會就放在這頁最前面。', 'Pick your township: its council comes first on this page.')}</p>`}<div class="lw-list lw-towns">${others.map(x => `<button type="button" class="lw-row" data-town="${esc(x.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${x.town}民代表會`)}</span><small>${esc(W(`${x.reps.length} 位代表${TOWN_SITES[x.tc] ? ' · 議事錄、錄音' : ''}${TOWN_YOUTUBE[x.tc] ? ' · 影音' : ''}`, `${x.reps.length} members${TOWN_SITES[x.tc] ? ' · minutes, audio' : ''}${TOWN_YOUTUBE[x.tc] ? ' · video' : ''}`))}</small></span><span class="lw-town-mine" data-mytown="${esc(x.tc)}" role="button" aria-label="${W('設成我的鄉鎮市', 'Make this my township')}">${W('我住這', 'Mine')}</span></button>`).join('')}</div>`
+        `<div class="lw-list lw-towns">${others.map(x => `<button type="button" class="lw-row" data-town="${esc(x.tc)}"><span class="lw-row-text"><span class="lw-row-name">${esc(`${x.town}民代表會`)}</span><small>${esc(W(`${x.reps.length} 位代表${TOWN_SITES[x.tc] ? ' · 議事錄、錄音' : ''}${TOWN_YOUTUBE[x.tc] ? ' · 影音' : ''}`, `${x.reps.length} members${TOWN_SITES[x.tc] ? ' · minutes, audio' : ''}${TOWN_YOUTUBE[x.tc] ? ' · video' : ''}`))}</small></span>${CHEVRON}</button>`).join('')}</div>`
       );
     }
   } catch {}
@@ -4554,24 +4559,15 @@ async function councilList(out) {
   councilLive(c, out);
   if (follows) drawLocalFollows(c);
 }
-// The reader's township in a county's list: the one picked here, else the town of a place the family apps share.
-const TOWN_KEY = 'orbit-law.town.v1';
+// The reader's township in a county's list: the town of a place the family apps share (home, work, school), never
+// one picked here (Jay 11-15: 我住這 gone, "it's suppose to just list, not about living where").
 function townOfMine(r) {
-  const picked = kit.readStore(TOWN_KEY)?.[r.city];
-  const by = tc => r.towns.find(t => t.tc === tc);
-  if (picked && by(picked)) return by(picked);
   const norm = s => String(s || '').replace(/台/g, '臺');
   for (const p of ['home', 'work', 'school'].map(placeOf)) if (p && norm(p.county) === r.city && p.town) {
     const t = r.towns.find(x => x.town === norm(p.town) || x.town.startsWith(norm(p.town).replace(/[鄉鎮市區]$/, '')));
     if (t) return t;
   }
   return null;
-}
-function pickTown(city, tc) {
-  const all = kit.readStore(TOWN_KEY) || {};
-  kit.writeStore(TOWN_KEY, { ...all, [city]: tc });
-  haptic();
-  drawBillList();
 }
 // A town's 代表會 on 地方: its name and state, its members (☆ to follow, in their sheet), its sessions and papers a tap away.
 function townCardHtml(t, own, day) {
@@ -5210,15 +5206,19 @@ function townSession(own, s, party = new Map()) {
       return sheet({ title: W('書面質詢', 'Written question'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
     }
     const t = e.target.closest('[data-towntext]');
-    if (t) {
-      const p = papers[t.dataset.towntext];
-      if (!p?.text) return;
-      const parted = p.k === '施政報告' || p.k === '致詞';
-      const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(`${s.n} ${t.dataset.name}`)}</h2><p class="lw-clip-meta">${esc(`${own.n} · ${term}`)}</p>${p.ocr ? `<p class="lw-hint-sm">${W('由掃描檔辨識文字，可能有錯字，以原始 PDF 為準。', 'Read from a scan by machine; it may have errors. The PDF is the record.')}</p>` : ''}${parted ? `<div class="lw-asks">${partsHtml(t.dataset.towntext, p, null, true)}</div>` : paperHtml(p.text)}<a class="q-more q-more-go lw-out" href="${esc(t.dataset.towntext)}" target="_blank" rel="noopener" data-out><span>${W('原始 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
-      sheet({ title: t.dataset.name, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
-      if (parted) wireParts(body, own, s, papers);
-    }
+    if (t) openPaper(own, s, papers, t.dataset.towntext, t.dataset.name, term);
   });
+}
+
+// A paper of a session (議事錄, 會議紀錄, 致詞, 施政報告) in its own sheet, formatted; the PDF itself when its text
+// isn't read (yet).
+function openPaper(own, s, papers, url, name, term) {
+  const p = papers[url];
+  if (!p?.text) return void kit.openLink(url);
+  const parted = p.k === '施政報告' || p.k === '致詞';
+  const body = h('div', { class: 'lw-cbill-body', html: `<h2 class="lw-item-name">${esc(`${s.n} ${name}`)}</h2><p class="lw-clip-meta">${esc([own.n, term].filter(Boolean).join(' · '))}</p>${p.ocr ? `<p class="lw-hint-sm">${W('由掃描檔辨識文字，可能有錯字，以原始 PDF 為準。', 'Read from a scan by machine; it may have errors. The PDF is the record.')}</p>` : ''}${parted ? `<div class="lw-asks">${partsHtml(url, p, null, true)}</div>` : paperHtml(p.text)}<a class="q-more q-more-go lw-out" href="${esc(url)}" target="_blank" rel="noopener" data-out><span>${W('原始 PDF', 'The original PDF')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` });
+  sheet({ title: name, closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body] });
+  if (parted) wireParts(body, own, s, papers);
 }
 
 // A 書面質詢's line: its ask's first sentence, without 有關 and the polite asks around it.
@@ -5339,12 +5339,15 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
   const focusAt = focus == null ? -1 : blocks.findIndex(b => b.n === focus);
   // A turn: who and what they said, its place on the recording; a long one folded to four lines. The chair calling
   // the next speaker is one quiet line.
+  // (A speaker with a party: their name in its colour, the chair's too, Jay 11-15.)
+  const named = x => (x.w && party.get(x.w) ? ` lw-turn-party" style="--pn:${partyColor(party.get(x.w))}` : '');
   const turnHtml = i => {
     const x = p.turns[i];
     const t = at ? ` data-at="${at[i]}"` : '';
-    if (x.r === '主席' && x.t.length <= 40) return `<p class="lw-turn lw-turn-call" data-k="${i}"${t}><b>${esc(x.w || x.r)}</b>${esc(x.t)}</p>`;
+    if (x.r === '主席' && x.t.length <= 40) return `<p class="lw-turn lw-turn-call${named(x)}" data-k="${i}"${t}><b>${esc(x.w || x.r)}</b>${esc(x.t)}</p>`;
     const long = x.t.length > 150;
-    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) ? ` style="--p:${partyColor(party.get(x.w) || '')}"` : ''}><b>${x.w ? `${esc(x.w)}<small>${esc(x.r)}</small>` : `<small>${esc(x.r || W('不確定是誰', 'Not sure who'))}</small>`}${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${x.unclear ? `<p class="lw-hint-sm">${W('這段聽不清楚（可能是台語），文字多半不對，請聽錄音。', 'Hard to make out (maybe Taiwanese); the words are likely wrong. Listen to the recording.')}</p>` : ''}${proseHtml(x.t)}${long ? (kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
+    const pc = x.w && party.get(x.w) ? partyColor(party.get(x.w)) : '';
+    return `<div class="lw-turn${COUNTERS.has(x.r) ? ' lw-turn-ask' : ''}${pc ? ' lw-turn-party' : ''}${long ? ' clip' : ''}" data-k="${i}"${t}${COUNTERS.has(x.r) || pc ? ` style="${COUNTERS.has(x.r) ? `--p:${partyColor(party.get(x.w) || '')};` : ''}${pc ? `--pn:${pc}` : ''}"` : ''}><b>${x.w ? `${esc(x.w)}<small>${esc(x.r)}</small>` : `<small>${esc(x.r || W('不確定是誰', 'Not sure who'))}</small>`}${at ? `<span class="lw-at">${PLAY}${clock(at[i])}</span>` : ''}</b>${x.unclear ? `<p class="lw-hint-sm">${W('這段聽不清楚（可能是台語），文字多半不對，請聽錄音。', 'Hard to make out (maybe Taiwanese); the words are likely wrong. Listen to the recording.')}</p>` : ''}${proseHtml(x.t)}${long ? (kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) ?? `<button type="button" class="q-more lw-turn-more" aria-expanded="false"><span>${W('看全文', 'Read all')}</span></button>`) : ''}</div>`;
   };
   const blockHead = (b, k) => {
     const t0 = at ? at[b.from] : null;
@@ -5385,10 +5388,11 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
   const foot = src
     ? h('div', {
         class: 'q-sheet-foot lw-follow',
-        html: `<button type="button" class="lw-follow-back" aria-label="${W('倒退 15 秒', 'Back 15 seconds')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" fill="currentColor"/><text x="12" y="16.2" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor">15</text></svg></button><button type="button" class="lw-follow-play" aria-label="${W('播放', 'Play')}">${ICON_PLAY}</button><div class="lw-follow-mid"><span class="lw-follow-who">${esc(at ? W('從頭播放，或點一段發言', 'Play, or tap a turn') : W('這一天的會議錄音', 'This day’s recording'))}</span><input type="range" class="lw-follow-bar" min="0" max="1" step="1" value="0" aria-label="${W('播放位置', 'Position')}"></div><span class="lw-follow-time">0:00</span><audio preload="none" src="${esc(src)}"></audio>`
+        html: `<button type="button" class="lw-follow-back" aria-label="${W('倒退 15 秒', 'Back 15 seconds')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" fill="currentColor"/><text x="12" y="16.2" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor">15</text></svg></button><button type="button" class="lw-follow-play" aria-label="${W('播放', 'Play')}">${ICON_PLAY}</button><div class="lw-follow-mid"><span class="lw-follow-who">${esc(at ? W('從頭播放，或點一段發言', 'Play, or tap a turn') : W('這一天的會議錄音', 'This day’s recording'))}</span><input type="range" class="lw-follow-bar" min="0" max="1" step="1" value="0" aria-label="${W('播放位置', 'Position')}"></div><span class="lw-follow-time">0:00</span><audio preload="metadata" src="${esc(src)}"></audio>`
       })
     : null;
-  const sh = sheet({ title: machine ? W('錄音逐字稿', 'Transcript') : p ? W('總質詢', 'Questions') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', detent: 'large', body: [body], foot });
+  // (Large only for a transcript to read; a day with a row or two is as tall as it is, Jay 11-15: "super empty".)
+  const sh = sheet({ title: machine ? W('錄音逐字稿', 'Transcript') : p ? W('總質詢', 'Questions') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', ...(blocks.length || dayPapers ? { detent: 'large' } : {}), body: [body], foot });
   wireParts(body, own, s, papers);
   const a = foot?.querySelector('audio');
   const bar = foot?.querySelector('.lw-follow-bar');
@@ -5429,9 +5433,11 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
     const k = blocks.findIndex(b => i >= b.from && i <= b.to);
     return openBlock(k)?.querySelector(`.lw-turn[data-k="${i}"]`);
   };
-  // Following the recording: the turn being said marked, kept in view unless the reader scrolled in the last few seconds.
+  // Following the recording: the turn being said marked and kept in view, until the reader scrolls (Jay 11-15:
+  // "this page is jumping my scroll (fighting my scroll)": it took the page back four seconds after each scroll);
+  // a turn or its time tapped, or play, follows again.
   let now = -1;
-  let touched = 0;
+  let follow = true;
   let pending = null;
   const mark = (i, scroll) => {
     if (i === now) return;
@@ -5442,18 +5448,24 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
     el?.classList.add('lw-now');
     const x = p.turns[i];
     if (whoEl) whoEl.textContent = [x.w, x.r].filter(Boolean).join(' · ') || W('不確定是誰', 'Not sure who');
-    if (scroll && el && Date.now() - touched > 4000) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (scroll && el && follow) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   const seek = t => {
     if (!a) return;
+    follow = true;
     if (a.readyState >= 1) a.currentTime = t;
     else pending = t;
     a.play()?.catch(() => {});
   };
   if (a) {
     const icon = () => (playEl.innerHTML = a.paused ? ICON_PLAY : ICON_PAUSE);
-    a.addEventListener('play', icon);
-    a.addEventListener('pause', icon);
+    // Loading shown on the play button from the tap until sound comes (Jay 11-15: "it often feel stuck for no reason").
+    const busy = on => playEl.classList.toggle('lw-loading', on);
+    a.addEventListener('play', () => (icon(), busy(a.readyState < 3)));
+    a.addEventListener('pause', () => (icon(), busy(false)));
+    for (const ev of ['waiting', 'stalled', 'seeking']) a.addEventListener(ev, () => !a.paused && busy(true));
+    for (const ev of ['playing', 'canplaythrough', 'seeked']) a.addEventListener(ev, () => busy(a.paused ? false : a.readyState < 3));
+    a.addEventListener('error', () => busy(false));
     a.addEventListener('loadedmetadata', () => {
       bar.max = Math.floor(a.duration || 0);
       if (pending != null) (a.currentTime = pending), (pending = null);
@@ -5472,6 +5484,13 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
         if (a.src.includes('/law-audio?')) {
           const t = a.currentTime || pending;
           a.addEventListener('error', fallback, { once: true });
+          // (Asked once more first: Drive now and then turns one request away.)
+          if (!a.dataset.again) {
+            a.dataset.again = '1';
+            if (t) pending = t;
+            a.load();
+            return a.play()?.catch(() => {});
+          }
           a.src = driveFile(rec.drive);
           if (t) pending = t;
           return a.play()?.catch(() => {});
@@ -5480,13 +5499,16 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
       },
       { once: true }
     );
-    playEl.addEventListener('click', () => (a.paused ? a.play()?.catch(() => {}) : a.pause()));
+    playEl.addEventListener('click', () => (a.paused ? ((follow = true), a.play()?.catch(() => {})) : a.pause()));
     foot.querySelector('.lw-follow-back').addEventListener('click', () => seek(Math.max(0, a.currentTime - 15)));
     bar.addEventListener('input', () => seek(+bar.value));
-    for (const ev of ['touchmove', 'wheel']) sh.el.addEventListener(ev, () => (touched = Date.now()), { passive: true });
+    for (const ev of ['touchmove', 'wheel']) sh.el.addEventListener(ev, e => !foot.contains(e.target) && (follow = false), { passive: true });
     sh.el.addEventListener('close', () => a.pause());
   }
   body.addEventListener('click', e => {
+    // (A sitting's row: its minutes, Jay 11-15: "can't even click on it".)
+    const st = e.target.closest('[data-towntext]');
+    if (st) return openPaper(own, s, papers, st.dataset.towntext, st.dataset.name, term);
     const c = e.target.closest('[data-tk]');
     if (c) {
       const t = turnEl(+c.dataset.tk);

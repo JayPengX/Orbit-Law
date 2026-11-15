@@ -14,7 +14,11 @@
 
 export const HLS_JS = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js';
 export const STUCK_MS = 8_000;
-export const FIRST_MS = 20_000;
+// Before the first picture: loaded again only after this long with nothing at all coming. A long recording's first
+// answer can take that long (Jay 11-15: "it successfully load the player but just can't start playing but shorter
+// video load instantly"): 新竹縣's HiNet and 臺北市's own server (both Wowza) cut a recording into HLS the first
+// time it's asked for, longer for a longer one; loaded again at 20 s, it started over every time and never played.
+export const FIRST_MS = 90_000;
 export const MAX_TRIES = 6;
 export const WARM_AHEAD = 40;
 export const WARM_AT_ONCE = 3;
@@ -87,6 +91,9 @@ const loadHlsJs = () =>
 // hls.js asked to be patient with a slow piece and to ask a failed one again (its defaults give up sooner).
 const HLS_CONFIG = {
   maxBufferLength: 60,
+  // (A long recording's playlist is made when first asked for: waited on, FIRST_MS.)
+  manifestLoadPolicy: { default: { maxTimeToFirstByteMs: 90_000, maxLoadTimeMs: 120_000, timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 }, errorRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
+  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 90_000, maxLoadTimeMs: 120_000, timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 }, errorRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
   fragLoadPolicy: {
     default: {
       maxTimeToFirstByteMs: 10_000,
@@ -102,7 +109,15 @@ const HLS_CONFIG = {
 // onState(s): 'retry' while it's being brought back, 'ok' once it moves again, 'failed' when it gave up.
 // Resolves once the source is set (Safari's at once, so play() can follow within the tap); rejects only if
 // nothing on this phone can play it.
-export async function keepPlaying(v, url, { live = false, at = 0, onState = () => {} } = {}) {
+export async function keepPlaying(v, url, { live = false, at = 0, onState = () => {}, log = () => {} } = {}) {
+  const t0 = Date.now();
+  const host = (() => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return '';
+    }
+  })();
   const native = isFile(url) || !!v.canPlayType?.('application/vnd.apple.mpegurl');
   let hls = null;
   let stopped = false;
@@ -113,7 +128,7 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
   let resumeAt = at > 0 ? at : 0;
   let waitTimer = 0;
   let state = 'ok';
-  const say = s => s !== state && ((state = s), onState(s));
+  const say = s => s !== state && ((state = s), log(s, { host, ms: Date.now() - t0, t: Math.round(v.currentTime || 0) }), onState(s));
 
   const attach = async () => {
     if (native) {
@@ -162,7 +177,9 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
     if (native && !live && resumeAt > 0 && Math.abs(v.currentTime - resumeAt) > 2) v.currentTime = resumeAt;
   });
   v.addEventListener('error', () => !stopped && v.getAttribute('src') !== null && reload(v.error?.code === 3 ? SKIP_BAD : 0));
-  v.addEventListener('playing', () => (started = true));
+  v.addEventListener('playing', () => started || ((started = true), log('first', { host, ms: Date.now() - t0 })));
+  // (Before the first picture, anything coming is life: the wait counted from there.)
+  for (const ev of ['progress', 'loadedmetadata', 'loadeddata', 'canplay']) v.addEventListener(ev, () => started || (movedAt = Date.now()));
   v.addEventListener('emptied', () => (started = false));
 
   // The watchdog: playing (not paused by the reader), yet the picture hasn't moved.
@@ -214,7 +231,8 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
     })();
   }
   function warm(t) {
-    if (!pieces || stopped || navigator.onLine === false) return;
+    // (Only once it plays: before, the player's own first pieces come first.)
+    if (!pieces || !started || stopped || navigator.onLine === false) return;
     for (const u of warmList(pieces, t, warmed)) {
       if (busy >= WARM_AT_ONCE) break;
       warmed.add(u);

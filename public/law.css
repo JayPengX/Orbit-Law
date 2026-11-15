@@ -5420,18 +5420,6 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 /* The county's other towns, each with 我住這 to make it the reader's. */
-.lw-town-mine {
-  flex: none;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--q-fill, color-mix(in srgb, var(--q-label) 10%, transparent));
-  color: var(--q-label-2);
-  font: 500 13px/18px var(--q-font);
-  white-space: nowrap;
-}
-.lw-town-ask {
-  margin: 0 0 8px;
-}
 :root.q-wide #panel-bills > .lw-bill-doors[hidden] + .q-search {
   grid-column: 1 / -1;
 }
@@ -5457,3 +5445,9 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
   .lw-town-body > * { grid-column: 1 / -1; }
   .lw-town-body > .lw-sec { grid-column: auto; }
 }
+/* The play button while the recording loads: a ring turning round the button (Jay 11-15). */
+.lw-follow-play { position: relative; }
+.lw-follow-play.lw-loading::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--q-label); animation: orbit-spin 0.8s linear infinite; }
+.lw-follow-play.lw-loading svg { opacity: 0.5; }
+/* A speaker with a party: the name in its colour (the chair's call line too). */
+.lw-turn-party > b { color: var(--pn); }

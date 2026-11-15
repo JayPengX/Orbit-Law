@@ -151,3 +151,23 @@ test('paused by a failed load while being brought back: still brought back (not 
   assert.ok(v.loads >= 3, `loaded ${v.loads} times`);
   assert.equal(states[0], 'retry');
 });
+
+test('a long recording whose stream is still being made (Jay 11-15): not loaded again inside a minute, nor while anything comes', async t => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.reject(new Error('offline in tests'));
+  try {
+    const v = fakeVideo();
+    const said = [];
+    await keepPlaying(v, BASE, { log: k => said.push(k) });
+    run(t, 60_000);
+    assert.equal(v.loads, 1, 'still waiting on the first answer');
+    v.fire('progress');
+    run(t, FIRST_MS - 5000);
+    assert.equal(v.loads, 1, 'something came: waited again from there');
+    v.fire('playing');
+    assert.deepEqual(said, ['first']);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

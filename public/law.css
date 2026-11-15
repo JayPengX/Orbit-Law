@@ -2477,6 +2477,8 @@ button.lw-notice {
 .lw-stats.four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+/* (The council's facts: the next section's own 24 is the gap, never 8 more: Jay 11-15, "weird gap".) */
+.lw-stats.lw-council-facts { margin-bottom: 0; }
 .lw-stats.four .lw-stat {
   padding: 10px 6px 10px 8px;
 }

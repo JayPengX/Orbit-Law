@@ -40,7 +40,6 @@ const DECIDE = /(照原案通過|照案通過|照審查意見通過|審查意見
 
 // A proposal's header and fields, from the text before and after its 案由.
 const LABELS = ['類\\s*別', '提\\s*案\\s*人', '提案單位', '動\\s*議\\s*人', '附\\s*議\\s*人', '連\\s*署\\s*人', '附\\s*署\\s*人', '案\\s*由', '理\\s*由', '說\\s*明', '辦\\s*法', '審查意見', '大會議決', '議\\s*決', '決\\s*議', '附\\s*件', '編\\s*號', '號\\s*別', '案\\s*號'];
-const LABEL = `(?:${LABELS.join('|')})`;
 // Where a 案由 ends: the next label, or a speaker's line (王秘書世集：).
 const WHAT_END = new RegExp(`(?:${LABELS.filter(l => !l.startsWith('案')).join('|')})\\s*[：:]|\\n\\s*[㐀-鿿]{2,8}\\s*[：:]`);
 const NO = new RegExp(`((?:鎮長|鄉長|市長|公所|代表會|代表|主席團)?(?:提案)?第\\s*${NUM}\\s*號(?:議案|提案|案)?|[甲乙丙]字第\\s*${NUM}\\s*號|臨時動議第?\\s*${NUM}\\s*(?:號|案)?)`, 'g');

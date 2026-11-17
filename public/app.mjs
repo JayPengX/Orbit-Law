@@ -1866,6 +1866,14 @@ async function openClip(id, label = '') {
       const who = speakerName(t.who);
       const chars = t.lines.reduce((a, l) => a + l.text.length, 0);
       // A call or a greeting (主席's 請…備詢, 委員好, a speaker nobody knows saying a word): one small line, not a turn.
+      // The 主席 calling up the official who answers next (Jay 11-17: the transcription heard 請卓院長備詢 as
+      // 請主席韓院長並詢, which makes no sense): said in our words from who spoke next, not the misheard ones.
+      // (Who answers: the first official to speak within the next few turns; the 委員 often goes on first.)
+      const official = x => { const n = speakerName(x.who); return n.role && n.role !== '委員' && !isMember(n.n); };
+      const next = turns.slice(k + 1, k + 5).find(x => x.who && official(x));
+      const nw = next ? speakerName(next.who) : null;
+      const calls = roleOf(who) === W('主席', 'Chair') && chars <= 30 && !!nw && /請|詢/.test(t.lines.map(l => l.text).join(''));
+      if (calls) return `<p class="lw-turn-call lw-clip-call" data-k="${k}" data-at="${t.start}"><b>${W('主席', 'Chair')}</b>${t.lines.map((l, j) => `<span class="lw-said-l" data-i="${l.i}" data-t="${l.start}">${j ? '' : esc(W(`請 ${nw.n} ${nw.role} 備詢`, `calls ${nw.n} (${nw.role}) to answer`))}</span>`).join('')}</p>`;
       if (chars <= 16 && (who.role !== '委員' || !t.who)) return `<p class="lw-turn-call lw-clip-call" data-k="${k}" data-at="${t.start}">${t.who ? `<b>${esc(who.n)}${roleOf(who) ? ` ${esc(roleOf(who))}` : ''}</b>` : ''}${t.lines.map(l => `<span class="lw-said-l" data-i="${l.i}" data-t="${l.start}">${esc(l.text)}</span>`).join(' ')}</p>`;
       const asks = who.role === '委員' || (!t.who && !turns.some(x => x.who));
       const long = t.lines.reduce((a, l) => a + l.text.length, 0) > 160;

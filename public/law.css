@@ -5491,6 +5491,8 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 /* A 質詢 clip's transcript as turns: the line playing marked, every line a tap to play from it. */
 .lw-said { margin: 0; }
 .lw-said span { cursor: pointer; border-radius: 4px; }
-.lw-said span.now { background: color-mix(in srgb, var(--q-accent) 22%, transparent); }
+.lw-said span.now,
+.lw-clip-call span.now { background: color-mix(in srgb, var(--q-accent) 22%, transparent); }
+.lw-clip-call span { cursor: pointer; border-radius: 4px; }
 .lw-clip-turns { margin-top: 6px; }
 .lw-turn-call .lw-nw { white-space: nowrap; }

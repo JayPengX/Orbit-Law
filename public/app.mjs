@@ -1859,12 +1859,18 @@ async function openClip(id, label = '') {
     const party = n => ppl?.people?.find(x => x.n === n)?.party || '';
     // (Who answered: the officials. A legislator is never one: the 委員 asking, and the 院長 or 副院長 chairing a 院會.)
     const answered = [...new Set(turns.map(t => speakerName(t.who)).filter(x => x.n && x.role && x.role !== '委員' && !ppl?.people?.some(p => p.n === x.n)).map(x => `${x.n} ${x.role}`))];
+    // (A legislator who speaks as 院長 or 副院長 is chairing the 院會: 主席, not one answering.)
+    const isMember = n => !!ppl?.people?.some(p => p.n === n);
+    const roleOf = who => (/院長$/.test(who.role) && isMember(who.n) ? W('主席', 'Chair') : who.role);
     const turnHtml = (t, k) => {
       const who = speakerName(t.who);
+      const chars = t.lines.reduce((a, l) => a + l.text.length, 0);
+      // A call or a greeting (主席's 請…備詢, 委員好, a speaker nobody knows saying a word): one small line, not a turn.
+      if (chars <= 16 && (who.role !== '委員' || !t.who)) return `<p class="lw-turn-call lw-clip-call" data-k="${k}" data-at="${t.start}">${t.who ? `<b>${esc(who.n)}${roleOf(who) ? ` ${esc(roleOf(who))}` : ''}</b>` : ''}${t.lines.map(l => `<span class="lw-said-l" data-i="${l.i}" data-t="${l.start}">${esc(l.text)}</span>`).join(' ')}</p>`;
       const asks = who.role === '委員' || (!t.who && !turns.some(x => x.who));
       const long = t.lines.reduce((a, l) => a + l.text.length, 0) > 160;
       const said = t.lines.map(l => `<span data-i="${l.i}" data-t="${l.start}">${esc(l.text)}</span>`).join(' ');
-      return `<div class="lw-turn${asks && t.who ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${k}" data-at="${t.start}"${asks && t.who ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${t.who ? `${esc(who.n)}${who.role ? `<small>${esc(who.role)}</small>` : ''}` : turns.some(x => x.who) ? `<small>${W('不確定是誰', 'Not sure who')}</small>` : ''}<span class="lw-at">${PLAY}${fmtSec(t.start)}</span></b><div class="lw-prose"><p class="lw-said">${said}</p></div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
+      return `<div class="lw-turn${asks && t.who ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${k}" data-at="${t.start}"${asks && t.who ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${t.who ? `${esc(who.n)}${roleOf(who) ? `<small>${esc(roleOf(who))}</small>` : ''}` : turns.some(x => x.who) ? `<small>${W('不確定是誰', 'Not sure who')}</small>` : ''}<span class="lw-at">${PLAY}${fmtSec(t.start)}</span></b><div class="lw-prose"><p class="lw-said">${said}</p></div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
     };
     const said = lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4>${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns lw-clip-turns">${turns.map(turnHtml).join('')}</div>` : '';
     body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc([d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '', shortDay(d['日期'] || ''), clipLen(d['影片長度'])].filter(Boolean).join(' · '))}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${said}`;
@@ -1891,6 +1897,8 @@ async function openClip(id, label = '') {
     });
     let at = -1;
     v.addEventListener('timeupdate', () => {
+      // (Nothing marked as playing until it has played: opened, the first line isn't lit at 0:00.)
+      if (!v.played?.length) return;
       let i = at;
       while (i + 1 < lines.length && lines[i + 1].start <= v.currentTime) i++;
       while (i > 0 && lines[i].start > v.currentTime) i--;

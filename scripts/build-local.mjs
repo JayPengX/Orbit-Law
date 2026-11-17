@@ -202,7 +202,9 @@ async function site(s) {
     const old = read[id] === undefined ? null : await OLD(id);
     if (old?.x) lastX.set(id, old.x);
     const row = (text, date) => rule(id, r.name, s.city, date || r.date, s.url(r.id), text);
-    if (read[id] !== undefined && !needsRead(r, { stamp: read[id] }, TODAY)) (st.cached++, raw.push(row(old?.t || '', old?.d)));
+    // (A text the last deploy had that can't be read back, though its stamp holds: read again, never
+    // published empty from then on. A rule with no text has no file: its stamp is enough.)
+    if (read[id] !== undefined && (old || !hadText.has(id)) && !needsRead(r, { stamp: read[id] }, TODAY)) (st.cached++, raw.push(row(old?.t || '', old?.d)));
     else todo.push({ r, id, old, row });
   });
   // Never read first, then the oldest; each in the order of the kinds.

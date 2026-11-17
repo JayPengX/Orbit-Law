@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetSteps } from '../public/lib/budget.mjs';
-import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName, gazetteTurns, alignTurns } from '../public/lib/ly.mjs';
+import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName, roleWords, gazetteTurns, alignTurns } from '../public/lib/ly.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 
 test('a vote day from loose 表決時間 text and the meeting days', () => {
@@ -285,4 +285,15 @@ test('the gazette’s turns take the AI’s times: each where the AI heard its o
   for (let i = 1; i < at.length; i++) assert.ok(at[i] >= at[i - 1]);
   // No AI lines: no times.
   assert.equal(alignTurns(turns, []), null);
+});
+
+test('a 質詢 speaker’s title in English: never left in Chinese where it has English (院長 the Premier at a 院會)', () => {
+  assert.equal(roleWords(speakerName('卓院長榮泰').role, true), 'Premier');
+  assert.equal(roleWords('副院長', true), 'Vice Premier');
+  assert.equal(roleWords('院長'), 'President');
+  assert.equal(roleWords(speakerName('何次長晉滄').role), 'Deputy Minister');
+  assert.equal(roleWords('副主任委員'), 'Deputy Minister');
+  assert.equal(roleWords('副署長'), 'Deputy Director-General');
+  assert.equal(roleWords(speakerName('徐委員欣瑩').role), 'Legislator');
+  assert.equal(roleWords(''), '');
 });

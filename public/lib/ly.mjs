@@ -572,6 +572,19 @@ export function speakerName(raw = '') {
   return after ? { n: after[1], role: after[2] } : { n: s, role: '' };
 }
 
+// A speakerName role in English, for the English Orbit (a title has English, so it never stays Chinese): 院長 is the
+// Premier at a 院會 (`plenary`), a President in a committee (中研院, 考試院…); 副 a Deputy (副院長 a Vice).
+// A title not listed stays as it is.
+const ROLE_EN = { 院長: 'President', 部長: 'Minister', 政務次長: 'Political Deputy Minister', 常務次長: 'Administrative Deputy Minister', 次長: 'Deputy Minister', 主任委員: 'Minister', 主委: 'Minister', 署長: 'Director-General', 局長: 'Director-General', 處長: 'Director', 司長: 'Director-General', 秘書長: 'Secretary-General', 總長: 'Chief', 主計長: 'Comptroller', 人事長: 'Minister', 審計長: 'Auditor-General', 總裁: 'Governor', 董事長: 'Chairperson', 總經理: 'President', 執行長: 'CEO', 主席: 'Chair', 召集委員: 'Convener', 委員: 'Legislator', 會長: 'President', 首長: 'Head', 檢察總長: 'Prosecutor-General', 發言人: 'Spokesperson' };
+export function roleWords(role = '', plenary = false) {
+  const vice = role.startsWith('副');
+  const base = vice ? role.slice(1) : role;
+  if (base === '院長') return `${vice ? 'Vice ' : ''}${plenary ? 'Premier' : 'President'}`;
+  const en = ROLE_EN[base];
+  if (!en) return role;
+  return vice && !/^Deputy /.test(en) ? `Deputy ${en}` : en;
+}
+
 // The 立法院公報's own record of a 質詢, typed by the Legislative Yuan's staff (Jay 2026-11-17: far more accurate than
 // the speech recognition): the API's parsed gazette text (gazette_agenda_doc/<id>/parsed: { blocks, persons }), a
 // 質詢 a section headed 段落：質詢：<name as the gazette writes it>：<H:M>. The section of `member` (徐欣瑩) that

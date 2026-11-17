@@ -35,6 +35,7 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
 - 11-11 A council bill's card carries its decision date.
 - 11-14 Local is its own side of 立法 (Jay chose 立法院 | 地方 over a sixth tab): 地方 opens on the reader's county and town; 議員 and 代表 are followed like 立委, in 我的, on 地方 and on 首頁.
 - 11-14 On a computer every 立法 page fills the width (Jay: "big gap"): no row of one card, no column half empty.
+- 11-17 A 質詢 clip's transcript reads as turns, each its speaker's, and follows the video (Jay: a line at a time was "tedious"); once the 立法院公報 is out, its own record is the transcript, the speech recognition's taken away (no switch between them); the video stays in view while it scrolls.
 
 ## How it works
 

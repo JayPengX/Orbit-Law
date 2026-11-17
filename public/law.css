@@ -2449,6 +2449,14 @@ button.lw-notice {
   color: var(--p);
   font: 700 18px/1 var(--q-font);
 }
+.lw-photo b {
+  font: inherit;
+}
+.lw-photo svg {
+  width: 58%;
+  height: 58%;
+  margin-top: 12%;
+}
 .lw-photo img {
   position: absolute;
   inset: 0;

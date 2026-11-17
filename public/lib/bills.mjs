@@ -212,7 +212,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
 // → 2, 9, 25-1); a 部分條文 title names none.
 export function articlesOfTitle(title) {
   const out = [];
-  for (const m of String(title).matchAll(/第([零〇一二三四五六七八九十百千]+)條(?:之([一二三四五六七八九十]+))?/g)) {
+  for (const m of String(title).matchAll(/第\s*([零〇一二三四五六七八九十百千\d]+)\s*條(?:之([一二三四五六七八九十\d]+))?/g)) {
     const n = cnNumber(m[1]);
     const k = m[2] ? `${n}-${cnNumber(m[2])}` : String(n);
     if (n > 0 && !out.includes(k)) out.push(k);

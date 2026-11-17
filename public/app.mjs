@@ -26,7 +26,7 @@ import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN, phras
 // A quick search's name in the reader's language.
 const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, rangeLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
-import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched } from './lib/bills.mjs';
+import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched, articlesOfTitle } from './lib/bills.mjs';
 import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { keptRules, loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askRuling, askTown, askPaper, askError, passFetch, MAX_Q } from './lib/ask.mjs';
@@ -1470,7 +1470,7 @@ async function diffSheet(law, change) {
             ? !was ? ['新增', 'New', 'green'] : !now || /^[（(]刪除[）)]$/.test(now.trim()) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo']
             : change.removed.includes(k) ? ['刪除', 'Removed', 'red'] : change.added.includes(k) ? ['新增', 'New', 'green'] : ['修正', 'Amended', 'indigo'];
           const text = d?.arts || kind[2] === 'green' ? diffBlocks(was || null, now || null) : diffBlocks(now, now, { keep: Infinity });
-          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(k ? artOf(k, law) : W('全文', 'Whole text'))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${text}</div></article>`;
+          return `<article class="lw-diff"><header><a class="lw-ref" href="#law=${esc(law.p)}&amp;a=${esc(k)}" data-law="${esc(law.p)}" data-from="${esc(k)}" data-to="${esc(k)}" data-para="0">${esc(k ? artOf(k, law) : W('全文', 'Whole text'))}</a>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext" lang="zh-Hant" data-keep>${text}</div></article>`;
         })
         .join('') + (d ? '' : `<p class="lw-none">${W('舊條文這次讀不到，先列出修正後的條文', 'The old text isn’t here; the articles as they are now')}</p>`)
     : `<p class="lw-none">${change.whole ? W('整部法律都是這次的條文，直接讀全文', 'The whole law is this version: read it in full') : W('這次修正沒有條文變動', 'No articles changed')}</p>`;
@@ -3333,19 +3333,22 @@ async function compareBill(b, out, { first = 60 } = {}) {
       const old = row['現行'] || '';
       const art = (now || old).match(/^\s*(第[一二三四五六七八九十百零〇\d]+條(之[一二三四五六七八九十\d]+)?)/)?.[1] || '';
       const kind = row['增訂'] || !old ? ['增訂', 'New', 'green'] : /^\s*(第\S+?條(之\S+?)?)?\s*[（(]?刪除[)）]?\s*$/.test(now) ? ['刪除', 'Removed', 'red'] : ['修正', 'Amended', 'indigo'];
-      return { now, old, art, kind };
+      // (In English the article by code, Article 10-1, never 第十條之一 machine-translated.)
+      const key = articlesOfTitle(art)[0] || '';
+      return { now, old, art: en && key ? partLabel(key, '條', true) : art, no: en && key ? key : art.replace(/^第|條/g, ''), kind };
     };
     const card = (row, i) => {
       const { now, old, art, kind } = look(row);
       const text = kind[0] === '修正' ? diffBlocks(old, now) : kind[0] === '增訂' ? diffBlocks(null, now) : diffBlocks(old, null);
-      return `<article class="lw-diff" data-i="${i}"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext">${text}</div>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary>${proseHtml(row['說明'], state.names)}</details>` : ''}</article>`;
+      // (The text as proposed stays as written, like a law's own articles: its 增刪 pieces machine-translated one by one read as nonsense.)
+      return `<article class="lw-diff" data-i="${i}"><header><b>${esc(art || W('條文', 'Article'))}</b>${countTag(W(kind[0], kind[1]), kind[2])}</header><div class="lw-dtext" lang="zh-Hant" data-keep>${text}</div>${row['說明'] ? `<details class="lw-why"><summary>${W('立法說明', 'Why')}</summary>${proseHtml(row['說明'], state.names)}</details>` : ''}</article>`;
     };
     const rest = rows.length > first ? `<button type="button" class="lw-more">${W(`看全部 ${Math.min(60, rows.length)} 條`, `All ${Math.min(60, rows.length)} articles`)}</button>` : '';
     // At a glance: how many articles it touches and how, each one a tap away.
     const looks = rows.slice(0, 60).map(look);
     const tally = [['修正', 'amended', 'indigo'], ['增訂', 'added', 'green'], ['刪除', 'removed', 'red']].map(([k, e, t]) => [looks.filter(l => l.kind[0] === k).length, k, e, t]).filter(([n]) => n);
     const allNew = tally.length === 1 && tally[0][1] === '增訂';
-    const sum = rows.length > 1 && allNew ? `<div class="lw-diff-sum"><p><b class="green">${W(`新法，共 ${rows.length} 條`, `A new law, ${rows.length} articles`)}</b></p></div>` : rows.length > 1 ? `<div class="lw-diff-sum"><p>${W(`改 ${rows.length} 條：`, `${rows.length} articles: `)}${tally.map(([n, k, e, t]) => `<b class="${t}">${en ? `${n} ${e}` : `${k} ${n}`}</b>`).join(' · ')}</p><div class="lw-diff-arts">${looks.map((l, i) => (l.art ? `<button type="button" class="lw-diff-art ${l.kind[2]}" data-go="${i}">${esc(l.art.replace(/^第|條/g, ''))}</button>` : '')).join('')}</div></div>` : '';
+    const sum = rows.length > 1 && allNew ? `<div class="lw-diff-sum"><p><b class="green">${W(`新法，共 ${rows.length} 條`, `A new law, ${rows.length} articles`)}</b></p></div>` : rows.length > 1 ? `<div class="lw-diff-sum"><p>${W(`改 ${rows.length} 條：`, `${rows.length} articles: `)}${tally.map(([n, k, e, t]) => `<b class="${t}">${en ? `${n} ${e}` : `${k} ${n}`}</b>`).join(' · ')}</p><div class="lw-diff-arts">${looks.map((l, i) => (l.art ? `<button type="button" class="lw-diff-art ${l.kind[2]}" data-go="${i}">${esc(l.no)}</button>` : '')).join('')}</div></div>` : '';
     out.innerHTML = rows.length ? sum + rows.slice(0, first).map(card).join('') + rest : `<p class="lw-none">${W('這個版本沒有對照表', 'No comparison table for this version')}</p>`;
     const more = () => {
       const btn = out.querySelector('.lw-more');
@@ -3868,7 +3871,9 @@ const alignLine = al => {
 const shortArea = a => String(a || '').replace('全國不分區及僑居國外國民', W('不分區', 'At-large')).replace(/選舉區$/, W('選區', ''));
 // A mirrored headshot (scripts/build-photos.mjs) at the size it's drawn; an unmirrored one from ly.gov.tw.
 const photoSrc = (photo, big) => (/^https?:/.test(photo) ? photo : `${photo}.${big ? 192 : 96}.webp`);
-const personPhoto = (x, cls = '') => `<span class="lw-photo ${cls}" style="--p:${partyColor(x.party)}">${esc(x.n.slice(0, 1))}${x.photo ? `<img src="${esc(photoSrc(x.photo, cls === 'lg'))}" alt="" width="${cls === 'lg' ? 72 : 44}" height="${cls === 'lg' ? 72 : 44}" ${cls === 'lg' ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" onerror="this.remove()">` : ''}</span>`;
+// (No picture: the name's first character, in English a figure: a lone 何 machine-translated came out a stray word.)
+const ICON_FIGURE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c.8-4 3.8-6 7.5-6s6.7 2 7.5 6z"/></svg>';
+const personPhoto = (x, cls = '') => `<span class="lw-photo ${cls}" style="--p:${partyColor(x.party)}">${en ? ICON_FIGURE : `<b translate="no">${esc(x.n.slice(0, 1))}</b>`}${x.photo ? `<img src="${esc(photoSrc(x.photo, cls === 'lg'))}" alt="" width="${cls === 'lg' ? 72 : 44}" height="${cls === 'lg' ? 72 : 44}" ${cls === 'lg' ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" onerror="this.remove()">` : ''}</span>`;
 
 // A legislator's page: their numbers, then 質詢 videos, votes and bills.
 async function openPerson(id) {

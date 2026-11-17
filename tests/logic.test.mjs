@@ -256,6 +256,8 @@ test('bills: the articles a title names, counted over the open round', () => {
   assert.deepEqual(articlesOfTitle('老人福利法第二條、第九條及第二十二條條文修正草案'), ['2', '9', '22']);
   assert.deepEqual(articlesOfTitle('老人福利法增訂第二十五條之一條文草案'), ['25-1']);
   assert.deepEqual(articlesOfTitle('民法部分條文修正草案'), []);
+  // (A 對照表's own heading: 第十條之一, 第一千零三十條, 第 10 條; English shows Article 10-1 from it.)
+  assert.deepEqual(['第十條之一', '第一千零三十條', '第 10 條'].map(t => articlesOfTitle(t)[0]), ['10-1', '1030', '10']);
   const a = compactBill(raw('1', { 議案名稱: '「甲法第二條條文修正草案」，請審議案。' }));
   const b = compactBill(raw('2', { 議案名稱: '「甲法第二條及第三條條文修正草案」，請審議案。' }));
   assert.deepEqual(foldBills([a, b])[0].arts, { 2: 2, 3: 1 });

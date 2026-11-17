@@ -1839,7 +1839,7 @@ function pinVideo(body) {
   if (!v?.matches('.lw-video, .lw-video-file')) return;
   const head = body.closest('dialog')?.querySelector('.q-sheet-head');
   if (head) body.style.setProperty('--lw-pin', `${head.offsetHeight}px`);
-  const band = h('div', { class: 'lw-pin' });
+  const band = h('div', { class: 'lw-vpin' });
   v.before(band);
   band.append(v);
 }

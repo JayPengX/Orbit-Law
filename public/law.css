@@ -1239,21 +1239,21 @@ html.q-kb #panel-ask::after {
 .lw-item-prog .lw-prog-names {
   font-size: 12px;
 }
-.lw-now {
+.lw-item-prog > .lw-now {
   display: grid;
   gap: 6px;
   margin-top: 14px;
   padding-top: 12px;
   border-top: 0.5px solid var(--q-sep);
 }
-.lw-now p {
+.lw-item-prog > .lw-now p {
   display: grid;
   grid-template-columns: 4.5em 1fr;
   gap: 8px;
   margin: 0;
   font: 400 14px/20px var(--q-font);
 }
-.lw-now b {
+.lw-item-prog > .lw-now b {
   color: var(--q-label-2);
   font-weight: 600;
 }
@@ -5476,10 +5476,10 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 /* A video at a sheet's top stays in view under its head while the rest scrolls (app.mjs pinVideo; Jay 11-17), in a
    band of the sheet's colour from edge to edge; on a screen too short to keep it and still read (a phone on its
    side), it scrolls with the rest. */
-.lw-pin { display: grid; gap: 10px; }
-.lw-pin > .lw-video-file { margin: 0; }
+.lw-vpin { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.lw-vpin > .lw-video-file { margin: 0; }
 @media (min-height: 560px) {
-  .lw-pin {
+  .lw-vpin {
     position: sticky;
     top: var(--lw-pin, 0px);
     z-index: 1;

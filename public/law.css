@@ -5496,9 +5496,7 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-clip-call span { cursor: pointer; border-radius: 4px; }
 .lw-clip-turns { margin-top: 6px; }
 .lw-turn-call .lw-nw { white-space: nowrap; }
-/* A clip's transcript from the 立法院公報 (its own record) or the AI's: which, above them. */
-.lw-said-head { display: grid; gap: 10px; }
-.lw-said-head h4 { margin: 6px 0 0; font: 600 16px/22px var(--q-font); }
+/* A clip's transcript: the 立法院公報's own record once it's out, else the AI's. */
 .lw-said-gz,
 .lw-said-ai { display: grid; gap: 10px; }
 .lw-said-gz[hidden],

@@ -1868,8 +1868,7 @@ async function gazetteFor(d) {
   }
   return null;
 }
-// Found: the gazette's turns shown, 公報 | AI 聽寫 above (the AI's lines keep their times, a tap plays from one;
-// the gazette's have none). Not found: the AI's transcript as it was.
+// Found: the gazette's turns in place of the AI's transcript, which is taken away. Not found: the AI's as it was.
 async function showGazette(body, d, ppl) {
   const g = await gazetteFor(d).catch(() => null);
   const box = body.querySelector('.lw-said-gz');
@@ -1893,13 +1892,9 @@ async function showGazette(body, d, ppl) {
     const more = e.target.closest('.lw-turn-more');
     if (more) foldTurn(more);
   });
-  const head = h('div', { class: 'lw-said-head' }, [h('h4', { text: ai ? W('逐字稿', 'Transcript') : W('逐字稿（立法院公報）', 'Transcript (the gazette)') })]);
-  if (ai) {
-    ai.querySelector(':scope > h4')?.remove();
-    ai.hidden = true;
-    head.append(kitUI.segmented([{ id: 'gz', label: W('立法院公報', 'Gazette') }, { id: 'ai', label: W('AI 聽寫・跟著影片', 'AI, with the video') }], { value: 'gz', label: W('逐字稿', 'Transcript'), onChange: v => ((box.hidden = v !== 'gz'), (ai.hidden = v === 'gz')) }));
-  }
-  box.before(head);
+  // (The real record there, the AI's is never needed: Jay 11-17, no switch between them.)
+  ai?.remove();
+  box.before(h('h4', { class: 'lw-said-h', text: W('逐字稿（立法院公報）', 'Transcript (the gazette)') }));
   box.hidden = false;
 }
 // A video at the top of a sheet stays in view under the sheet's head while what's under it scrolls (Jay 11-17:

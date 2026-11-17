@@ -1,9 +1,9 @@
 // 會議紀錄變表格 (lib/minutes.mjs): a 代表會's minutes, read by code into sittings and proposals, from four
-// councils' real minutes (tests/fixtures/minutes/); what code can't split stays text (the AI door's digest kept for the rows it made before).
+// councils' real minutes (tests/fixtures/minutes/); what code can't split stays text (the rows the AI made before 11-17 kept).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { minutesOf, proposalRows, sittingRows, resultOf, whoOf, digest, numOf, RESULTS } from '../public/lib/minutes.mjs';
+import { minutesOf, proposalRows, sittingRows, resultOf, whoOf, numOf, RESULTS } from '../public/lib/minutes.mjs';
 
 const fx = n => readFileSync(new URL(`./fixtures/minutes/${n}.txt`, import.meta.url), 'utf8');
 
@@ -59,12 +59,4 @@ test('results, people and numbers in the minutes’ words', () => {
   assert.equal(whoOf('本會全體代表'), '本會全體代表');
   assert.equal(numOf('十二'), 12);
   assert.equal(numOf('３'), 3);
-});
-
-test('a transcript code can’t settle goes to the AI as its proposal and decision lines only, never the speeches', () => {
-  const t = ['伸港鄉公所第1號提案', '類別：環保', '提案人：鄉長黄永欽', '案由：補助本所購置垃圾車2輛', '紀清潔隊長美月：', '主席、副主席，本案是彰化縣環保局核定補助5部天然災害清運車輛，請各位代表多多支持。', '柯主席嘉換：', '代表同仁對公所第1號提案是否有意見？如無意見，本案照原案通過。'].join('\n');
-  const d = digest(t);
-  assert.match(d, /案由：補助本所購置垃圾車2輛/);
-  assert.match(d, /照原案通過/);
-  assert.doesNotMatch(d, /多多支持/);
 });

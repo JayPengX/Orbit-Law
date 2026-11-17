@@ -2,8 +2,7 @@
 // from their PDF at build (scripts/build-town.mjs), into rows by code: each sitting (its day, hours, chair, who
 // came, what it did) and each proposal (its number, kind, who proposed it, 案由, the result and any vote). Fifteen
 // councils write them fifteen ways; what code can't split (a long transcript whose decisions are in the chair's
-// words) goes to the AI door once (Orbit-Core law-ai.js `law-minutes`), with `digest`: only the lines that carry
-// a proposal or a decision, never the speeches.
+// words) stays as text (`messy`): nothing goes to the AI since 11-17, the rows it made before are kept.
 export const RESULTS = ['通過', '修正通過', '保留', '不通過', '撤回', '退回', '擇日再議', '未議決'];
 
 const NUM = '[0-9０-９一二三四五六七八九十百]+';
@@ -181,7 +180,7 @@ export function sittingRows(text) {
 }
 
 // The rows of one paper of minutes: { sits, items } (either may be empty), and whether code read it well
-// enough (`good`), else the AI door gets its `digest`.
+// enough (`good`), else it's kept as text.
 export function minutesOf(text) {
   const sits = sittingRows(text);
   const items = proposalRows(text);
@@ -192,26 +191,3 @@ export function minutesOf(text) {
   return { sits, items, good };
 }
 
-// What the AI reads of a long transcript: the lines that carry a proposal (its number, fields and 案由) or a
-// decision (議決, a vote, the chair's 通過), and the sitting headers with their days; never the speeches.
-const KEEP = new RegExp(`${LABEL}\\s*[：:]|提案|臨時動議|第\\s*${NUM}\\s*號|表決|贊成|反對|通過|保留|撤回|退回|擇日|會議紀錄|會議記錄|議事錄|(?:時\\s*間|開會日期|日\\s*期)\\s*[：:]|月\\d{1,2}日\\s*[（(]星期`);
-export function digest(text, max = 38_000) {
-  const lines = String(text || '').split('\n');
-  const out = [];
-  let follow = 0;
-  for (const l of lines) {
-    const t = l.trim();
-    if (!t) continue;
-    if (KEEP.test(t)) {
-      out.push(t.length > 400 ? `${t.slice(0, 398)}…` : t);
-      // (A 案由 or 說明 runs on: its next lines too, until the next label.)
-      follow = /案\s*由\s*[：:]/.test(t) ? 3 : 0;
-    } else if (follow > 0 && !/^[㐀-鿿]{2,8}\s*[：:]/.test(t)) {
-      out.push(t);
-      follow--;
-    } else follow = 0;
-  }
-  let s = out.join('\n');
-  if (s.length > max) s = s.slice(0, max);
-  return s;
-}

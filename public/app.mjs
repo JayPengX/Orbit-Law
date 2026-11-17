@@ -5103,7 +5103,7 @@ function townSession(own, s, party = new Map()) {
             .replace(/<\/div><div class="lw-list in-sheet wrap"><button type="button" class="lw-row lw-vid" data-townd/g, '<button type="button" class="lw-row lw-vid" data-townd');
       }
       // 會議紀錄變表格: each sitting a row (what it did, its result), each proposal a row (lib/minutes.mjs, read
-      // at build; the AI only for minutes code couldn't split), then the minutes themselves.
+      // at build by code; rows the AI made before 11-17 kept as they are), then the minutes themselves.
       let lead = '';
       if (k === '會議紀錄') {
         const ps = files.map(({ i, f, j }) => ({ i, f, j, p: read(f, k) }));

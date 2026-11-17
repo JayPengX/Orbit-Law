@@ -417,7 +417,7 @@ function lyText(a) {
   return { t: W('今天沒有開會', 'No sitting today'), s: nextLine };
 }
 const lyRowInner = () => `${topicTile('gov', 'sm')}<span class="lw-row-text"><span class="lw-row-name${lyLine?.live ? ' nv-live' : ''}" id="home-ly-t">${esc(lyLine ? lyLine.t : W('立法院', 'Legislative Yuan'))}</span><small id="home-ly-s"${lyLine ? '' : ' class="q-skel"'}>${esc(lyLine ? `${W('立法院', 'Legislature')} · ${lyLine.s}` : '\u00a0')}</small></span>${CHEVRON}`;
-function fillHome() {
+const fillLy = () =>
   agendaData()
     .then(a => {
       lyLine = lyText(a);
@@ -429,6 +429,8 @@ function fillHome() {
       const row = $('home-ly');
       paint(row, lyRowInner());
     });
+function fillHome() {
+  fillLy();
   // 政府公告: the ministries' latest notices (they open in the reader).
   newsData()
     .then(d => {
@@ -4241,31 +4243,48 @@ async function openBudget(k) {
 // meetings read again from the 立法院 API (its 發言名單 fills in on the day),
 // and what IVOD streams now (the proxy's /law-live: each meeting's channel, read at most a minute ago).
 let lyAgenda;
+let lyAgendaDay = '';
 const LIVE_URL = `${kit.API}/law-live`;
 // (The rooms carry `fresh`: read in the last half hour; the proxy answers its last good read when IVOD fails.)
 const liveData = () => fetch(LIVE_URL, { signal: AbortSignal.timeout(6000) }).then(r => (r.ok ? r.json() : null)).then(l => (l && l.at && Date.now() - Date.parse(l.at) < 12 * 3600e3 ? Object.assign(l.rooms || [], { fresh: Date.now() - Date.parse(l.at) < 30 * 60e3 }) : null)).catch(() => null);
-const agendaData = () =>
-  (lyAgenda ||= (async () => {
-    const [a, live] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), liveData(), loadDayOff(LY_PLACE)]);
-    a.live = live;
+// What IVOD streams, read again once a minute has gone (the proxy's own read is
+// at most that old). (Read once a visit, a committee that began streaming after
+// the app was opened never showed live: 首頁 still said 9:00 開始 at 10:05, its
+// page 「IVOD 現在沒有播這場」 with no video, 11-18.)
+const LIVE_MS = 60_000;
+let lyLive = null;
+const liveRooms = () => (lyLive && Date.now() - lyLive.at < LIVE_MS ? lyLive : (lyLive = { at: Date.now(), p: liveData() })).p;
+// 測試工具 (testing.mjs): IVOD's word on the test 院會 (lyLive).
+const testLive = (live, day) => {
+  const t = globalThis.ORBIT_TEST?.flags;
+  const status = t?.lyLive && { live: '進行中', break: '休息', done: '散會(12:30)', off: '延期' }[t.lyLive];
+  if (!status) return live;
+  const title = W('（測試）立法院院會', '(Test) Floor sitting');
+  return Object.assign([...(live || []), { unit: '院會', time: `${day} 00:00`, place: '議場', title, status, ch: t.lyLive === 'live' ? (live || []).find(r => r.ch)?.ch || 1 : 0 }], { fresh: true });
+};
+const agendaData = () => {
+  const { day } = twNow();
+  // (A new day: its meetings read again from the API.)
+  if (lyAgendaDay !== day) (lyAgenda = null), (lyAgendaDay = day);
+  const meets = (lyAgenda ||= (async () => {
+    const [a] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), loadDayOff(LY_PLACE)]);
     try {
-      const r = await fetch(`https://v2.ly.govapi.tw/meets?${new URLSearchParams({ 日期: twNow().day, limit: '50' })}`, { signal: AbortSignal.timeout(8000) });
+      const r = await fetch(`https://v2.ly.govapi.tw/meets?${new URLSearchParams({ 日期: day, limit: '50' })}`, { signal: AbortSignal.timeout(8000) });
       const fresh = r.ok ? ((await r.json()).meets || []).map(compactMeet) : [];
       const ids = new Set(fresh.map(m => m.id));
       a.meets = [...a.meets.filter(m => !ids.has(m.id)), ...fresh];
     } catch {}
-    // 測試工具 (testing.mjs): a test 院會 all day today, with IVOD's word on it (lyLive).
+    // 測試工具 (testing.mjs): a test 院會 all day today.
     const t = globalThis.ORBIT_TEST?.flags;
     if (t?.lyLive || t?.lyTyphoon) {
-      const { day } = twNow();
       const title = W('（測試）立法院院會', '(Test) Floor sitting');
       a.meets = [...a.meets, { id: 'test-live', kind: '院會', title, room: '立法院會議', days: [{ d: day, from: '00:00', to: '23:59', place: '議場', ppg: '' }], why: title, bills: [], speakers: {}, videos: [] }];
-      const status = { live: '進行中', break: '休息', done: '散會(12:30)', off: '延期' }[t.lyLive];
-      if (status) a.live = Object.assign([...(a.live || []), { unit: '院會', time: `${day} 00:00`, place: '議場', title, status, ch: t.lyLive === 'live' ? (a.live || []).find(r => r.ch)?.ch || 1 : 0 }], { fresh: true });
     }
     if (!a.meets.length) throw new Error('no agenda');
     return a;
   })().catch(e => ((lyAgenda = null), Promise.reject(e))));
+  return Promise.all([meets, liveRooms()]).then(([a, live]) => ({ ...a, live: testLive(live, day) }));
+};
 const ROOM_SHORT = { 立法院會議: ['院會', 'Floor'], 黨團協商: ['黨團協商', 'Caucus talks'], 內政委員會: ['內政', 'Interior'], 外交及國防委員會: ['外交國防', 'Foreign & Defence'], 經濟委員會: ['經濟', 'Economy'], 財政委員會: ['財政', 'Finance'], 教育及文化委員會: ['教育文化', 'Education'], 交通委員會: ['交通', 'Transport'], 司法及法制委員會: ['司法法制', 'Judiciary'], 社會福利及衛生環境委員會: ['社福衛環', 'Welfare & Health'], 程序委員會: ['程序', 'Procedure'], 修憲委員會: ['修憲', 'Constitution'], 經費稽核委員會: ['經費稽核', 'Audit'], 紀律委員會: ['紀律', 'Discipline'] };
 const roomShort = m => (ROOM_SHORT[m.room] || [m.room || m.kind, m.room || m.kind])[en ? 1 : 0];
 const KIND = { 院會: ['院會', 'Floor', 'indigo'], 委員會: ['委員會', 'Committee', 'green'], 聯席會議: ['聯席會議', 'Joint', 'green'], 公聽會: ['公聽會', 'Hearing', 'orange'], 黨團協商: ['協商', 'Talks', 'red'], 考察: ['考察', 'Visit', ''] };
@@ -4388,6 +4407,12 @@ function pickAgendaDay(d) {
   const out = $('bill-list');
   if (out && billFilter === 'agenda') agendaList(out);
 }
+// Back on the screen: 首頁's 立法院 line and 議程 say what IVOD streams now.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (state.tab === 'home' && $('home-ly')) fillLy();
+  else if (state.tab === 'bills' && billFilter === 'agenda' && billStep < 0 && $('bill-list')) agendaList($('bill-list'));
+});
 
 // One meeting: today's live video (國會頻道), what's on it with each bill's
 // progress, the 發言名單 with parties, who has spoken so far (IVOD clips).

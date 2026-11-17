@@ -4318,8 +4318,10 @@ const MENU_ICON = {
 // (a search reads the council's whole term live from the API), its
 // councillors; for a county, its 鄉鎮市民代表 township by township.
 let councilIdx = null, councilReps = null, councilMore = 0, councilFound = null, councilAsk = 0;
+// The year the 代表 in reps.json were elected (the build's, 2022's before it said).
+let repsYear = 2022;
 const councilsData = () => (councilIdx ||= data('council/index.json').catch(e => ((councilIdx = null), Promise.reject(e))));
-const repsData = () => (councilReps ||= data('council/reps.json').catch(e => ((councilReps = null), Promise.reject(e))));
+const repsData = () => (councilReps ||= data('council/reps.json').then(d => ((repsYear = Number(d?.year) || repsYear), d)).catch(e => ((councilReps = null), Promise.reject(e))));
 const COUNCIL_KEY = 'orbit-law.council.v1';
 // A council whose bills come from its own site (新竹縣, 新竹市, 花蓮縣): the whole term in one file, read when asked.
 const ownBills = c => data(c.own.file).then(r => r.rows || []);
@@ -4577,7 +4579,7 @@ function townCardHtml(t, own, day) {
   const person = x => `<button type="button" class="lw-person${on(x) ? ' on' : ''}" data-townp="${esc(x.url || '')}" data-n="${esc(x.n)}" data-tc="${esc(t.tc)}" style="--p:${partyColor(x.party)}">${personPhoto(x)}<span class="lw-person-text"><b class="q-fit">${esc(x.n)}</b><small>${esc([partyShort(x.party), x.title && x.title !== '代表' ? x.title : String(x.area || '').replace(/選區$/, W('區', ''))].filter(Boolean).join(' · '))}</small></span>${on(x) ? `<i class="lw-person-star" aria-label="${W('追蹤中', 'Following')}">${ICON.star}</i>` : ''}</button>`;
   const state_ = now
     ? `${sessionState(now, day) === 'on' ? `<span class="lw-live">${W('開會中', 'In session')}</span>` : `<span class="lw-town-soon">${W('下次開會', 'Next')}</span>`} ${esc(now.n)} · ${esc(spanOf(now.from, now.to))}`
-    : last ? esc(W(`上次 ${last.n}（${spanOf(last.from, last.to)}）`, `Last: ${last.n} (${spanOf(last.from, last.to)})`)) : esc(W(`${ppl.length} 位代表，2022 年選出`, `${ppl.length} members, elected 2022`));
+    : last ? esc(W(`上次 ${last.n}（${spanOf(last.from, last.to)}）`, `Last: ${last.n} (${spanOf(last.from, last.to)})`)) : esc(W(`${ppl.length} 位代表，${repsYear} 年選出`, `${ppl.length} members, elected ${repsYear}`));
   const has = [sessions.length && W(`${sessions.length} 個會期`, `${sessions.length} sessions`), TOWN_SITES[t.tc] && W('議事錄、錄音', 'minutes, audio'), TOWN_YOUTUBE[t.tc] && W('影音', 'video')].filter(Boolean).join(' · ');
   return section(
     W('你的代表會', 'Your township council'),
@@ -4881,7 +4883,7 @@ async function openTown(tc) {
   if (own?.sessions?.length || own?.people?.length) return townSheet(t, own, vids);
   const areas = new Map();
   for (const [n, party, area] of t.reps) areas.set(area, [...(areas.get(area) || []), [n, party]]);
-  const html = `<h2 class="lw-item-name">${esc(`${t.city}${t.town}民代表會`)}</h2><p class="lw-person-line">${esc(W(`${t.reps.length} 位代表，2022 年選出，任期到 2026 年 12 月。`, `${t.reps.length} members, elected in 2022, serving to December 2026.`))}</p>${[...areas].map(([area, xs]) => `<div class="lw-item-who"><h4>${esc(area.replace(/^.+?(第\d+選舉區)$/, '$1').replace(/選舉區$/, W('選區', ' district')))}</h4><div class="lw-parties">${xs.map(([n, party]) => `<span class="lw-party" style="--p:${partyColor(party)}">${esc(n)}<small>${esc(partyShort(party))}</small></span>`).join('')}</div></div>`).join('')}<p class="lw-hint-sm">${W('代表會的提案和議事錄沒有開放資料，請看鄉鎮市公所或代表會網站。', 'Township councils publish no bills or minutes as open data.')}</p>`;
+  const html = `<h2 class="lw-item-name">${esc(`${t.city}${t.town}民代表會`)}</h2><p class="lw-person-line">${esc(W(`${t.reps.length} 位代表，${repsYear} 年選出，任期到 ${repsYear + 4} 年 12 月。`, `${t.reps.length} members, elected in ${repsYear}, serving to December ${repsYear + 4}.`))}</p>${[...areas].map(([area, xs]) => `<div class="lw-item-who"><h4>${esc(area.replace(/^.+?(第\d+選舉區)$/, '$1').replace(/選舉區$/, W('選區', ' district')))}</h4><div class="lw-parties">${xs.map(([n, party]) => `<span class="lw-party" style="--p:${partyColor(party)}">${esc(n)}<small>${esc(partyShort(party))}</small></span>`).join('')}</div></div>`).join('')}<p class="lw-hint-sm">${W('代表會的提案和議事錄沒有開放資料，請看鄉鎮市公所或代表會網站。', 'Township councils publish no bills or minutes as open data.')}</p>`;
   // (A computer: a wide sheet, its parts two by two, Jay 11-14 "you don't have
   // to limit the sheet to this phone like size"; a phone: one after another.)
   const body = h('div', { html, class: 'lw-town-body' });

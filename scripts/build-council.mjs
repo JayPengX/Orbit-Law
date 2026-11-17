@@ -5,7 +5,7 @@
 // lists, refreshed daily). Writes public/data/council/:
 //   index.json     every council in one line: its session now, next sitting, counts
 //   <code>.json    one council: sittings, sessions, councillors, the newest bills
-//   reps.json      鄉鎮市民代表 by county and township (中選會's 2022 winners)
+//   reps.json      鄉鎮市民代表 by county and township (中選會's winners of the term in office)
 //   town-video/<tc>.json  a 代表會's recordings on its YouTube channel (lib/town-video.mjs TOWN_YOUTUBE), the term's
 //   (in <code>.json) video: its live channels and newest recordings where a council
 //                  keeps them openly (lib/council-video.mjs: HiNet's OTT, 高雄's IVOD, YouTube's feeds)
@@ -342,6 +342,12 @@ await mkdir(out, { recursive: true });
 const write = (path, data) => writeFile(out + path, JSON.stringify(data));
 const built = new Date().toISOString();
 const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+// The local election whose term is in office: every four years from 2022's, each from its 12-25.
+const termYear = d => {
+  let y = 2022;
+  while (d >= `${y + 4}-12-25`) y += 4;
+  return y;
+};
 
 let overviews = [];
 try {
@@ -373,10 +379,10 @@ async function council(o) {
           const named = new Map(sessions.map(x => [x['代碼'], x['會期名稱']]));
           // Where the API's bills stop: the start of their newest session (the term's start if none).
           const from = new Map(sessions.map(x => [x['代碼'], x['開始日期']]));
-          const since = bills.map(b => from.get(b['會議代碼']) || '').sort().pop() || o['就職日'] || '2022-12-25';
+          const since = bills.map(b => from.get(b['會議代碼']) || '').sort().pop() || o['就職日'] || `${termYear(day)}-12-25`;
           const r = await OWN[code].whole(term, { code, sessions, since, urls: new Set(bills.map(b => b['來源網址']).filter(Boolean)), have: new Set(bills.map(b => named.get(b['會議代碼'])).filter(Boolean)), old: await prevJson(`council/${code}-bills.json`) });
           got = Array.isArray(r) ? { rows: r, next: 0, stop: '' } : { next: 0, stop: '', ...r };
-        } else got = await ownBills(code, term, o['就職日'] || '2022-12-25');
+        } else got = await ownBills(code, term, o['就職日'] || `${termYear(day)}-12-25`);
         // Sessions the council's site lists and the API doesn't yet.
         for (const x of got.sessions || []) if (!sessions.some(y => y['代碼'] === x['代碼'] || y['會期名稱'] === x['會期名稱'])) sessions.push(x);
         if (!got.rows.length && !OWN[code].add) throw new Error(got.stop || 'none');
@@ -628,12 +634,17 @@ if (args.only) {} else if (index.length) await write('index.json', { built, day,
 if (!args.only && agendaIn.length) await write('agenda.json', { built, day, rows: agendaOf(agendaIn, day, { videosOf }) });
 else if (prevIndex) await write('index.json', prevIndex);
 
-// 鄉鎮市民代表 and 山地原住民區民代表 in office: 中選會's 2022 winners.
+// 鄉鎮市民代表 and 山地原住民區民代表 in office: 中選會's winners of that election (termYear); while the API has
+// none of that year's yet, the one before.
 try {
-  const reps = [];
-  for (const role of ['鄉鎮市民代表', '山地原住民區民代表']) reps.push(...(await all('candidates', 'candidates', { 年份: '111', 參選職位: role, 當選: 'true' }, ['姓名', '縣市', '議會代碼', '鄉鎮市區', '鄉鎮市區代碼', '選區別', '參選職位', '其他欄位'], 2000)));
+  let reps = [], year = termYear(day);
+  for (; year >= 2022; year -= 4) {
+    reps = [];
+    for (const role of ['鄉鎮市民代表', '山地原住民區民代表']) reps.push(...(await all('candidates', 'candidates', { 年份: String(year - 1911), 參選職位: role, 當選: 'true' }, ['姓名', '縣市', '議會代碼', '鄉鎮市區', '鄉鎮市區代碼', '選區別', '參選職位', '其他欄位'], 2000)));
+    if (reps.length >= 1000) break;
+  }
   if (reps.length < 1000) throw new Error(`only ${reps.length}`);
-  await write('reps.json', { built, year: 2022, places: repsByPlace(reps.map(compactRep)) });
+  await write('reps.json', { built, year, places: repsByPlace(reps.map(compactRep)) });
   notes.push(`${reps.length} representatives`);
 } catch (e) {
   notes.push(`reps failed: ${e.message}`);

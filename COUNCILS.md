@@ -16,8 +16,11 @@ with how many bills carry their name's Chinese part (`zhName`: 宋雨蓁 Nikar�
 `council/<code>/s/<session>.json` (every bill of a session, `sessionBillsFile`: the 本屆會期
 list opens any session whole, `councilSession`, its sittings read live from the API,
 `ccSittings`, its recordings, its bills by outcome and committee) and
-`council/reps.json` (鄉鎮市民代表 and 山地原住民區民代表: 中選會's 2022 winners
-by county and township). A council that fails keeps the last deploy's copy.
+`council/reps.json` (鄉鎮市民代表 and 山地原住民區民代表: 中選會's winners of the
+local election whose term is in office, every four years from 2022's, each from
+its 12-25 (`termYear`), the one before while the API has none of the new year's;
+the app's 「N 年選出」 is the file's `year`) by county and township. A council
+that fails keeps the last deploy's copy.
 The API pages only its first 10,000 rows, so `all()` reads the rest sorted
 the other way. A bill's text, a search and a councillor's bills are read
 live from the API when asked. Where the API holds none or few of the term's

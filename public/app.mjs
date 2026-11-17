@@ -27,7 +27,7 @@ import { expand, concepts, lawGroups, orderLaws, snippet, QUICK, QUICK_EN, phras
 const quickName = w => (en && QUICK_EN[w]) || w;
 import { lawHtml, articleHtml, articlesBetween, contents, timeline, esc, artLabel, rangeLabel, freshMarks, plainHtml, linkedHtml, ruleHtml, proseHtml, notesHtml } from './lib/view.mjs';
 import { PASSED, PROMULGATED, whyOf, openRound, passedRoundOf, articlesTouched, articlesOfTitle } from './lib/bills.mjs';
-import { compactMeet, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
+import { compactMeet, meetsUrl, withCopy, sittings, meetState, nextSitting, twNow, liveOf, liveHls } from './lib/agenda.mjs';
 import { keptRules, loadMine, saveMine, toggleFollow, markSeen, addRecent, toggleMark, isMarked, lawsChanged, newCount, newsKeys, billMoved, loadTold, saveTold, today, encodeMine, decodeMine, mergeMine } from './lib/store.mjs';
 import { askLaw, askBill, askDiff, askRuling, askTown, askPaper, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText } from './lib/fulltext.mjs';
@@ -4269,8 +4269,9 @@ const agendaData = () => {
   const meets = (lyAgenda ||= (async () => {
     const [a] = await Promise.all([data('ly/agenda.json').catch(() => ({ meets: [] })), loadDayOff(LY_PLACE)]);
     try {
-      const r = await fetch(`https://v2.ly.govapi.tw/meets?${new URLSearchParams({ 日期: day, limit: '50' })}`, { signal: AbortSignal.timeout(8000) });
-      const fresh = r.ok ? ((await r.json()).meets || []).map(compactMeet) : [];
+      // (The lean read first, its bills from the copy; the whole read only for a meeting the copy hasn't got: lib/agenda.mjs.)
+      const read = full => fetch(meetsUrl(day, { full }), { signal: AbortSignal.timeout(8000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(`meets ${r.status}`)))).then(j => (j.meets || []).map(compactMeet));
+      const fresh = withCopy(await read(false), a.meets) || (await read(true));
       const ids = new Set(fresh.map(m => m.id));
       a.meets = [...a.meets.filter(m => !ids.has(m.id)), ...fresh];
     } catch {}

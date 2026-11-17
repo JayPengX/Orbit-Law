@@ -42,3 +42,18 @@ test('a day off or a called-off sitting is never live', () => {
   assert.equal(meetState({ ...s, d: '2026-10-22' }, null, at('10:00'), true, off), 'off', 'tomorrow already called off');
   assert.equal(meetState({ ...s, d: '2026-10-22' }, null, at('10:00')), 'ahead');
 });
+
+// 11-18: the day's meetings read again without their bills (193 → 27 KB a read, uncompressed).
+test('today’s meetings: the lean read, its bills from the deploy’s copy, the whole read for one the copy lacks', async () => {
+  const { meetsUrl, withCopy, LIVE_FIELDS } = await import('../public/lib/agenda.mjs');
+  const lean = new URL(meetsUrl('2026-11-18'));
+  assert.deepEqual(lean.searchParams.getAll('output_fields'), LIVE_FIELDS);
+  assert.ok(!LIVE_FIELDS.some(f => f.startsWith('議事網資料.關係文書')), 'never the bills');
+  assert.ok(LIVE_FIELDS.includes('發言紀錄.legislatorNameList'), 'the speakers, which fill in on the day');
+  assert.equal(new URL(meetsUrl('2026-11-18', { full: true })).searchParams.getAll('output_fields').length, 0);
+  const copy = [{ id: 'a', why: '舊事由', bills: [{ id: '1' }] }, { id: 'b', why: 'x', bills: [] }];
+  const merged = withCopy([{ id: 'a', why: '', bills: [], speakers: { '2026-11-18': ['王'] } }], copy);
+  assert.deepEqual(merged, [{ id: 'a', why: '舊事由', bills: [{ id: '1' }], speakers: { '2026-11-18': ['王'] } }]);
+  assert.equal(withCopy([{ id: 'a', why: '新', bills: [] }], copy)[0].why, '新');
+  assert.equal(withCopy([{ id: 'c', why: '', bills: [] }], copy), null, 'a meeting not in the copy: ask the whole read');
+});

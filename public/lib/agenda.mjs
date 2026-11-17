@@ -55,6 +55,31 @@ export function compactMeet(m) {
   };
 }
 
+// The day's meetings as the phone reads them again (the deploy's copy, built
+// four times a day, already has their bills): only the fields compactMeet
+// takes, without the bills' 議事網資料.關係文書 (the API sends it uncompressed:
+// 193 → 27 KB a read, 11-18); `full` asks every field, for a meeting the copy
+// hasn't got yet.
+export const LIVE_FIELDS = ['會議代碼', '會議種類', '會議標題', 'name', '日期', '委員會代號:str', '會議資料.日期', '會議資料.開始時間', '會議資料.結束時間', '會議資料.會議地點', '會議資料.ppg_url', '會議資料.會議編號', '會議資料.會議事由', '會議資料.會議單位', '議事網資料.連結', '發言紀錄.smeetingDate', '發言紀錄.legislatorNameList'];
+export function meetsUrl(day, { full = false } = {}) {
+  const q = new URLSearchParams({ 日期: day, limit: '50' });
+  if (!full) for (const f of LIVE_FIELDS) q.append('output_fields', f);
+  return `https://v2.ly.govapi.tw/meets?${q}`;
+}
+// Today's lean reads (compacted) over the copy's: each takes its bills (and its
+// 事由, when the lean read has none) from the copy; null when one isn't in the
+// copy, so the whole read is asked for.
+export function withCopy(lean, copy) {
+  const known = new Map(copy.map(m => [m.id, m]));
+  const out = [];
+  for (const m of lean) {
+    const o = known.get(m.id);
+    if (!o) return null;
+    out.push({ ...m, bills: o.bills, why: m.why || o.why });
+  }
+  return out;
+}
+
 // Now in Taiwan: { day: 'YYYY-MM-DD', time: 'HH:MM' }.
 export function twNow(now = new Date()) {
   const s = new Date(now.getTime() + 8 * 3600e3).toISOString();

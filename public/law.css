@@ -5059,6 +5059,10 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 :root.q-wide .lw-topics.lw-kinds > :nth-child(n) {
   grid-column: span 1;
 }
+/* Beside other columns a kind's English name (Regulations) has no room four across: two by two. */
+:root.q-wide:lang(en) .lw-cols .lw-topics.lw-kinds {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
 /* 看法案: the bill's news, drawn only when there is some. */
 .lw-item-news:empty { display: none; }
@@ -5432,13 +5436,20 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-rep-row {
   gap: 12px;
 }
-.lw-rep-row .lw-row-text > small.lw-rep-what {
-  color: var(--q-label);
-}
 .lw-rep-row .lw-row-text > small {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* What they did is a bill's or a vote's whole name: two lines, then cut. */
+.lw-rep-row .lw-row-text > small.lw-rep-what {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--q-label);
 }
 /* A 代表會 on a computer (or anything as wide): its parts two by two (會期
    beside 影音, the members beside the news), the name and the way out across. */

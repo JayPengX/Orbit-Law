@@ -21,7 +21,9 @@ const enMatch = (name, query) => {
   const n = name.toLowerCase(), q = String(query).trim().toLowerCase().replace(/\s+/g, ' ');
   return q.length < 3 ? -1 : n === q ? 0 : n.startsWith(q) ? 2 : n.includes(q) ? 3 : -1;
 };
-const tidy = q => String(q || '').replace(/[\s　「」『』]/g, '');
+// (Full-width digits and letters as a desktop's Chinese keyboard types them:
+// 民法１８４ is 民法184, else no jump, 11-17.)
+const tidy = q => String(q || '').replace(/[\uFF0D\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[\s　「」『』]/g, '');
 
 // Names people type for a law besides its own (search only; links and
 // chips keep refs.mjs's SHORT_NAMES): every 簡稱 there, and a few more in

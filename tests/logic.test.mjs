@@ -195,6 +195,8 @@ test('search: names, short names, characters in order, jumps to an article', () 
   assert.equal(parseJump(named, '三七五'), null);
   assert.equal(parseJump(named, '一一九'), null);
   assert.equal(parseJump(named, '民法184').key, '184');
+  assert.equal(parseJump(named, '民法１８４').key, '184');
+  assert.equal(parseJump(named, '民訴２４－１').key, '24-1');
   assert.equal(exactLaw(rows, '民法')[0], 'B1', 'a law named outright');
   assert.equal(exactLaw(rows, ' 刑法 ')[0], 'C1', 'a short name');
   assert.equal(exactLaw(rows, '民事'), null, 'part of a name is not the law');

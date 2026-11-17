@@ -36,7 +36,7 @@ import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey, clipTurns, speakerName } from './lib/ly.mjs';
+import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey, clipTurns, speakerName, gazetteTurns } from './lib/ly.mjs';
 import { money, change, budgetSteps, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref, spreadCols } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
@@ -1831,6 +1831,77 @@ const clipLen = t => {
   const n = Math.max(1, Math.round(+(m[1] || 0) * 60 + +m[2] + +m[3] / 60));
   return n < 60 ? W(`${n} 分鐘`, `${n} min`) : W(`${Math.floor(n / 60)} 小時${n % 60 ? ` ${n % 60} 分` : ''}`, `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`);
 };
+// A folded turn opened or closed (看全文 / 收起).
+function foldTurn(more) {
+  const t = more.closest('.lw-turn');
+  const on = !t.classList.contains('open');
+  t.classList.toggle('open', on);
+  more.setAttribute('aria-expanded', on);
+  more.querySelector('span').textContent = on ? W('收起', 'Less') : W('看全文', 'Read all');
+}
+// The 立法院公報's own record of a clip's 質詢 (Jay 2026-11-17: typed by the Legislative Yuan's staff, far more
+// accurate than speech recognition), from the API's gazette: that day's 質詢 (a 院會's) or the clip's committee
+// meeting (a 委員會's), its section for this legislator starting within 10 minutes of the clip (lib/ly.mjs
+// gazetteTurns). The gazette comes out weeks after a sitting: a clip less than a week old isn't looked for.
+// { turns, page } or null.
+const gazetteDays = new Map();
+const gazetteDocs = new Map();
+const lyJson = url => fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
+async function gazetteFor(d) {
+  const day = String(d['日期'] || '');
+  const member = d['委員名稱'];
+  const at = String(d['委員發言時間'] || '').split('-')[0].trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !member || !at || Date.now() - Date.parse(day) < 7 * 86_400_000) return null;
+  const meet = d['會議資料'] || {};
+  const comt = meet['委員會代碼:str']?.[0] || '';
+  if (!gazetteDays.has(day)) gazetteDays.set(day, lyJson(`https://v2.ly.govapi.tw/gazette_agendas?${new URLSearchParams({ 會議日期: day, limit: '60' })}`).then(j => j.gazetteagendas || []).catch(() => (gazetteDays.delete(day), [])));
+  const agendas = (await gazetteDays.get(day)).filter(a => a['類別代碼'] !== 4 && (meet['種類'] === '院會' ? /質詢/.test(a['案由'] || '') : comt && String(a['案由'] || '').startsWith(comt)));
+  const seen = new Set();
+  for (const a of agendas) {
+    for (const u of a['處理後公報網址'] || []) {
+      if (u.type !== 'parsed' || seen.has(u.url) || seen.size >= 6) continue;
+      seen.add(u.url);
+      if (!gazetteDocs.has(u.url)) gazetteDocs.set(u.url, lyJson(u.url).catch(() => (gazetteDocs.delete(u.url), null)));
+      const turns = gazetteTurns(await gazetteDocs.get(u.url), member, at);
+      if (turns) return { turns, page: /^https:\/\//.test(a['公報網網址'] || '') ? a['公報網網址'] : '' };
+    }
+  }
+  return null;
+}
+// Found: the gazette's turns shown, 公報 | AI 聽寫 above (the AI's lines keep their times, a tap plays from one;
+// the gazette's have none). Not found: the AI's transcript as it was.
+async function showGazette(body, d, ppl) {
+  const g = await gazetteFor(d).catch(() => null);
+  const box = body.querySelector('.lw-said-gz');
+  if (!g || !box?.isConnected) return;
+  const ai = body.querySelector('.lw-said-ai');
+  const isMember = n => !!ppl?.people?.some(p => p.n === n);
+  const party = n => ppl?.people?.find(x => x.n === n)?.party || '';
+  const answered = [...new Set(g.turns.map(t => speakerName(t.who)).filter(x => x.n && x.role && x.role !== '委員' && !isMember(x.n)).map(x => `${x.n} ${x.role}`))];
+  const turn = t => {
+    const who = speakerName(t.who);
+    const text = t.said.join('');
+    // (The 主席, and a word or two from anyone but the asking 委員: one small line.)
+    const chair = t.who === '主席' || (/院長$/.test(who.role) && isMember(who.n));
+    if (chair || (text.length <= 16 && who.role !== '委員')) return `<p class="lw-turn-call"><b>${esc(chair ? W('主席', 'Chair') : `${who.n} ${who.role}`.trim())}</b>${esc(text)}</p>`;
+    const asks = who.role === '委員';
+    const long = text.length > 160;
+    return `<div class="lw-turn${asks ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}"${asks ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${esc(who.n)}${who.role ? `<small>${esc(who.role)}</small>` : ''}</b><div class="lw-prose">${t.said.map(x => `<p>${esc(x)}</p>`).join('')}</div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
+  };
+  box.innerHTML = `${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns">${g.turns.map(turn).join('')}</div>${g.page ? `<a class="q-more q-more-go lw-out" href="${esc(g.page)}" target="_blank" rel="noopener" data-out><span>${W('立法院公報原文', 'The gazette itself')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}`;
+  box.addEventListener('click', e => {
+    const more = e.target.closest('.lw-turn-more');
+    if (more) foldTurn(more);
+  });
+  const head = h('div', { class: 'lw-said-head' }, [h('h4', { text: ai ? W('逐字稿', 'Transcript') : W('逐字稿（立法院公報）', 'Transcript (the gazette)') })]);
+  if (ai) {
+    ai.querySelector(':scope > h4')?.remove();
+    ai.hidden = true;
+    head.append(kitUI.segmented([{ id: 'gz', label: W('立法院公報', 'Gazette') }, { id: 'ai', label: W('AI 聽寫・跟著影片', 'AI, with the video') }], { value: 'gz', label: W('逐字稿', 'Transcript'), onChange: v => ((box.hidden = v !== 'gz'), (ai.hidden = v === 'gz')) }));
+  }
+  box.before(head);
+  box.hidden = false;
+}
 // A video at the top of a sheet stays in view under the sheet's head while what's under it scrolls (Jay 11-17:
 // reading the transcript scrolled the video away). Its place: just under the head, measured once it's open.
 // (In a band of the sheet's own colour, edge to edge: what scrolls past shows neither beside it nor at its corners.)
@@ -1880,7 +1951,7 @@ async function openClip(id, label = '') {
       const said = t.lines.map(l => `<span data-i="${l.i}" data-t="${l.start}">${esc(l.text)}</span>`).join(' ');
       return `<div class="lw-turn${asks && t.who ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${k}" data-at="${t.start}"${asks && t.who ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${t.who ? `${esc(who.n)}${roleOf(who) ? `<small>${esc(roleOf(who))}</small>` : ''}` : turns.some(x => x.who) ? `<small>${W('不確定是誰', 'Not sure who')}</small>` : ''}<span class="lw-at">${PLAY}${fmtSec(t.start)}</span></b><div class="lw-prose"><p class="lw-said">${said}</p></div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
     };
-    const said = lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4>${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns lw-clip-turns">${turns.map(turnHtml).join('')}</div>` : '';
+    const said = `<div class="lw-said-gz" hidden></div>${lines.length ? `<div class="lw-said-ai"><h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4>${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns lw-clip-turns">${turns.map(turnHtml).join('')}</div></div>` : ''}`;
     body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc([d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '', shortDay(d['日期'] || ''), clipLen(d['影片長度'])].filter(Boolean).join(' · '))}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${said}`;
     pinVideo(body);
     const v = body.querySelector('video');
@@ -1889,14 +1960,7 @@ async function openClip(id, label = '') {
     const playAt = t => ((v.currentTime = +t), v.play().catch(() => {}));
     body.querySelector('.lw-clip-turns')?.addEventListener('click', e => {
       const more = e.target.closest('.lw-turn-more');
-      if (more) {
-        const t = more.closest('.lw-turn');
-        const on = !t.classList.contains('open');
-        t.classList.toggle('open', on);
-        more.setAttribute('aria-expanded', on);
-        more.querySelector('span').textContent = on ? W('收起', 'Less') : W('看全文', 'Read all');
-        return;
-      }
+      if (more) return foldTurn(more);
       // A line: played from it; the turn's name or time: from the turn's start.
       const line = e.target.closest('[data-i]');
       if (line) return playAt(line.dataset.t);
@@ -1921,6 +1985,7 @@ async function openClip(id, label = '') {
       if (turn?.classList.contains('clip') && !turn.classList.contains('open')) turn.querySelector('.lw-turn-more')?.click();
       at = i;
     });
+    showGazette(body, d, ppl);
   } catch {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="q-more q-more-go lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out><span>${W('到立法院 IVOD 看', 'Watch on the Legislative Yuan’s IVOD')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   }

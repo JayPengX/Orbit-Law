@@ -5496,3 +5496,12 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-clip-call span { cursor: pointer; border-radius: 4px; }
 .lw-clip-turns { margin-top: 6px; }
 .lw-turn-call .lw-nw { white-space: nowrap; }
+/* A clip's transcript from the 立法院公報 (its own record) or the AI's: which, above them. */
+.lw-said-head { display: grid; gap: 10px; }
+.lw-said-head h4 { margin: 6px 0 0; font: 600 16px/22px var(--q-font); }
+.lw-said-gz,
+.lw-said-ai { display: grid; gap: 10px; }
+.lw-said-gz[hidden],
+.lw-said-ai[hidden] { display: none; }
+.lw-said-gz .lw-prose { display: grid; gap: 6px; margin-top: 2px; }
+.lw-said-gz .lw-prose p { margin: 0; }

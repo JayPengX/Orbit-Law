@@ -561,9 +561,50 @@ export function clipTurns(lines = [], segs = []) {
 
 // A name as the gazette writes it, its title inside (徐委員欣瑩, 卓院長榮泰, 何次長晉滄, 李主任委員…): { n: 徐欣瑩,
 // role: 委員 }; anything else as it is, with no role.
-const TITLES = '副?(?:院長|部長|政務次長|常務次長|次長|主任委員|主委|署長|局長|處長|司長|秘書長|總長|主計長|審計長|總裁|董事長|總經理|執行長|主席|召集委員|委員|會長|首長|檢察總長|發言人)';
+const TITLES = '副?(?:院長|部長|政務次長|常務次長|次長|主任委員|主委|署長|局長|處長|司長|秘書長|總長|主計長|人事長|審計長|總裁|董事長|總經理|執行長|主席|召集委員|委員|會長|首長|檢察總長|發言人)';
 const TITLED = new RegExp(`^(.{1,2}?)(${TITLES})(.{1,3})$`);
 export function speakerName(raw = '') {
-  const m = String(raw).trim().match(TITLED);
-  return m ? { n: m[1] + m[3], role: m[2] } : { n: String(raw).trim(), role: '' };
+  const s = String(raw).trim();
+  const m = s.match(TITLED);
+  if (m) return { n: m[1] + m[3], role: m[2] };
+  // (An indigenous legislator's name, the title after it: 伍麗華Saidhai Tahovecahe委員.)
+  const after = s.match(/^(.+?)(委員)$/);
+  return after ? { n: after[1], role: after[2] } : { n: s, role: '' };
 }
+
+// The 立法院公報's own record of a 質詢, typed by the Legislative Yuan's staff (Jay 2026-11-17: far more accurate than
+// the speech recognition): the API's parsed gazette text (gazette_agenda_doc/<id>/parsed: { blocks, persons }), a
+// 質詢 a section headed 段落：質詢：<name as the gazette writes it>：<H:M>. The section of `member` (徐欣瑩) that
+// starts within 10 minutes of `at` (09:17:58, the clip's 委員發言時間), as turns: [{ who, said: [paragraphs] }];
+// null when there's none. A block opens with its speaker (one of `persons`, then ：); its other lines are theirs.
+const MATCH_MIN = 10;
+const minutesOf = hm => {
+  const m = String(hm || '').match(/(\d{1,2}):(\d{1,2})/);
+  return m ? +m[1] * 60 + +m[2] : NaN;
+};
+const bare = n => String(n || '').replace(/\s+/g, '');
+export function gazetteTurns(parsed, member, at) {
+  const blocks = parsed?.blocks || [];
+  const persons = new Set(parsed?.persons || []);
+  const want = minutesOf(at);
+  let from = -1;
+  let gap = Infinity;
+  blocks.forEach((b, i) => {
+    const m = String(b?.[0] || '').match(/^段落：質詢：(.+)：(\d{1,2}:\d{1,2})$/);
+    if (!m || bare(speakerName(m[1]).n) !== bare(member)) return;
+    const d = Math.abs(minutesOf(m[2]) - want);
+    if (d <= MATCH_MIN && d < gap) (from = i), (gap = d);
+  });
+  if (from < 0) return null;
+  const turns = [];
+  for (let i = from + 1; i < blocks.length && !String(blocks[i]?.[0] || '').startsWith('段落：'); i++) {
+    for (const line of blocks[i] || []) {
+      const m = String(line).match(/^([^：]{1,30})：(.*)$/s);
+      const text = (m && persons.has(m[1]) ? m[2] : String(line)).replace(/^（\d{1,2}時\d{1,2}分）/, '').trim();
+      if (m && persons.has(m[1])) turns.push({ who: m[1], said: [] });
+      if (text && turns.length) turns.at(-1).said.push(text);
+    }
+  }
+  return turns.length ? turns : null;
+}
+

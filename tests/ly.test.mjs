@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetSteps } from '../public/lib/budget.mjs';
-import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName } from '../public/lib/ly.mjs';
+import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName, gazetteTurns } from '../public/lib/ly.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 
 test('a vote day from loose 表決時間 text and the meeting days', () => {
@@ -215,4 +215,39 @@ test('a speaker’s name as the gazette writes it, read into name and title', ()
   assert.deepEqual(speakerName('歐陽委員龍'), { n: '歐陽龍', role: '委員' });
   assert.deepEqual(speakerName('王美花'), { n: '王美花', role: '' });
   assert.deepEqual(speakerName(''), { n: '', role: '' });
+});
+
+test('the 立法院公報’s own record of a clip’s 質詢: the legislator’s section starting near the clip, as turns (Jay 2026-11-17)', () => {
+  // As the API parses a gazette (10/20, 院會): sections, each block opening with its speaker.
+  const parsed = {
+    persons: ['主席', '黃委員建賓', '卓院長榮泰', '龔部長明鑫', '林委員俊憲', '伍麗華Saidhai Tahovecahe委員'],
+    blocks: [
+      ['段落：質詢：伍麗華Saidhai Tahovecahe委員：9:2'],
+      ['伍麗華Saidhai Tahovecahe委員：（9時2分）謝謝主席。'],
+      ['段落：質詢：黃委員建賓：9:18'],
+      ['黃委員建賓：（9時18分）謝謝主席。主席，有請行政院長。'],
+      ['主席：請卓院長備詢。'],
+      ['卓院長榮泰：黃委員好。'],
+      ['黃委員建賓：院長早安。', '首先來談談能源的部分。'],
+      ['龔部長明鑫：報告委員，讓我……'],
+      ['段落：質詢：林委員俊憲：9:49'],
+      ['林委員俊憲：（9時49分）謝謝主席。']
+    ]
+  };
+  const t = gazetteTurns(parsed, '黃建賓', '09:17:58');
+  assert.deepEqual(t, [
+    { who: '黃委員建賓', said: ['謝謝主席。主席，有請行政院長。'] },
+    { who: '主席', said: ['請卓院長備詢。'] },
+    { who: '卓院長榮泰', said: ['黃委員好。'] },
+    { who: '黃委員建賓', said: ['院長早安。', '首先來談談能源的部分。'] },
+    { who: '龔部長明鑫', said: ['報告委員，讓我……'] }
+  ]);
+  // Never another sitting's turn of theirs, nor anyone else's: nothing.
+  assert.equal(gazetteTurns(parsed, '黃建賓', '11:30:00'), null);
+  assert.equal(gazetteTurns(parsed, '徐欣瑩', '09:17:58'), null);
+  assert.equal(gazetteTurns(null, '黃建賓', '09:17:58'), null);
+  // An indigenous name, the title after it.
+  assert.equal(gazetteTurns(parsed, '伍麗華Saidhai Tahovecahe', '09:02:10').length, 1);
+  assert.deepEqual(speakerName('伍麗華Saidhai Tahovecahe委員'), { n: '伍麗華Saidhai Tahovecahe', role: '委員' });
+  assert.deepEqual(speakerName('蘇人事長俊榮'), { n: '蘇俊榮', role: '人事長' });
 });

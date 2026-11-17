@@ -19,7 +19,8 @@
 // council that can't be read today keeps the last deploy's copy.
 //   node scripts/build-council.mjs [--prev https://orbit.jaypengx.com/law/data/] [--only hua,hsz] [--towns 1]
 import { mkdir, writeFile } from 'node:fs/promises';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { args, sleep, prevJson } from './lib.mjs';
 import { TOWN_YOUTUBE, townTitle } from '../public/lib/town-video.mjs';
@@ -314,12 +315,18 @@ async function ownBills(code, term, since) {
       // The older pages moved down by what's new.
       if (next) next = Math.max(1, next - Math.ceil(fresh.length / 6));
     }
+    let last = '';
     while (next && budget > 0) {
       const got = await page(next);
-      if (!got.length) {
+      // (Past its end 新竹市議會 answers its last page again, for any page: the
+      // same page twice is the end too, or the crawl ran on a whole night,
+      // every night: page 9,240 by 11-17.)
+      const seen = got.map(r => r['代碼']).join();
+      if (!got.length || seen === last) {
         next = 0;
         break;
       }
+      last = seen;
       for (const r of got) if (!known.has(r['代碼'])) known.add(r['代碼']), fresh.push(r);
       next++;
     }
@@ -340,6 +347,23 @@ try {
 
 await mkdir(out, { recursive: true });
 const write = (path, data) => writeFile(out + path, JSON.stringify(data));
+// A council this build couldn't read keeps every file of its last build: its
+// page, its own site's bills, each session's bills, its recordings and clips
+// (its page alone, as before, left each session's list and video unreadable).
+// What this build already wrote stays. → its last page, or null.
+async function keepCouncil(code, old) {
+  old ||= await prevJson(`council/${code}.json`);
+  if (!old) return null;
+  const files = [`${code}.json`, `${code}-bills.json`, `${code}-video.json`, old.video?.clips?.replace(/^council\//, ''), ...(old.sessions || []).filter(x => x.bills).map(x => sessionBillsFile(code, x.id).replace(/^council\//, ''))];
+  for (const f of new Set(files.filter(Boolean))) {
+    if (existsSync(out + f)) continue;
+    const x = f === `${code}.json` ? old : await prevJson(`council/${f}`);
+    if (!x) continue;
+    await mkdir(dirname(out + f), { recursive: true });
+    await write(f, x);
+  }
+  return old;
+}
 const built = new Date().toISOString();
 const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 // The local election whose term is in office: every four years from 2022's, each from its 12-25.
@@ -473,9 +497,8 @@ async function council(o) {
     agendaIn.push({ c: code, sits, vids: video?.vids || [] });
   } catch (e) {
     notes.push(`${code} failed: ${e.message}`);
-    const old = await prevJson(`council/${code}.json`);
+    const old = await keepCouncil(code);
     if (old) {
-      await write(`${code}.json`, old);
       const row = prevIndex?.councils?.find(x => x.c === code);
       if (row) index.push(row);
       agendaIn.push({ c: code, sits: old.sittings || [], vids: old.video?.vids || [] });
@@ -630,9 +653,16 @@ await Promise.all(Array.from({ length: 4 }, async () => {
 // The family's order (the API's), whichever finished first.
 const order = new Map(overviews.map((o, i) => [o['代碼'], i]));
 index.sort((a, b) => (order.get(a.c) ?? 99) - (order.get(b.c) ?? 99));
-if (args.only) {} else if (index.length) await write('index.json', { built, day, councils: index });
-if (!args.only && agendaIn.length) await write('agenda.json', { built, day, rows: agendaOf(agendaIn, day, { videosOf }) });
-else if (prevIndex) await write('index.json', prevIndex);
+if (args.only) {} else if (index.length) {
+  await write('index.json', { built, day, councils: index });
+  await write('agenda.json', { built, day, rows: agendaOf(agendaIn, day, { videosOf }) });
+} else if (prevIndex) {
+  // (The API's list itself unread: every council as the last build left it, files and all, and its 議程.)
+  await write('index.json', prevIndex);
+  for (const row of prevIndex.councils || []) await keepCouncil(row.c);
+  const agenda = await prevJson('council/agenda.json');
+  if (agenda) await write('agenda.json', agenda);
+}
 
 // 鄉鎮市民代表 and 山地原住民區民代表 in office: 中選會's winners of that election (termYear); while the API has
 // none of that year's yet, the one before.

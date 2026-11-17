@@ -1,11 +1,12 @@
-// 預告, opened up: for each draft open for comment (and the ones closed in
-// the last 90 days), join.gov.tw's record (its category, the agency doing
+// 預告, opened up: for each draft in the list (open for comment or closed),
+// join.gov.tw's record (its category, the agency doing
 // the work, how to comment, how many have) and the draft itself from the
 // 行政院公報 PDF it posts: the 總說明 (why) and the 條文對照表 (each
 // article's new text against today's, with the reason). One file a draft,
 // public/data/bills/notice/<id>.json; notices.json gets each one's purpose
 // in a line. A draft read once is carried over (its text doesn't change);
-// an open one's counts are read again. Needs poppler's pdftotext for the
+// an open one's counts are read again; one closed over 90 days ago and never
+// read is read once, 20 a build. Needs poppler's pdftotext for the
 // PDF (without it, the record only).
 // Runs after build-data.mjs.
 //   node scripts/build-notices.mjs
@@ -36,10 +37,18 @@ const today = twDay(Date.now());
 const since = twDay(Date.now() - 90 * 864e5);
 const text = html => String(html || '').replace(/<br\s*\/?>/g, '\n').replace(/<\/p>/g, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');
 
-let read = 0, carried = 0, failed = 0, parsed = 0;
+let read = 0, carried = 0, failed = 0, parsed = 0, later = 0;
+let oldReads = 0;
 for (const n of list.notices) {
-  if (n.to < since) continue;
   const prev = await prevJson(`bills/notice/${n.id}.json`);
+  // (Closed long ago: its draft carried over like any other. Skipped, as it
+  // once was, the list kept saying it had a draft whose file the deploy no
+  // longer held: an empty sheet. One never read waits its turn, said so.)
+  if (!prev && n.to < since && oldReads++ >= 20) {
+    delete n.d;
+    later++;
+    continue;
+  }
   const open = n.to >= today;
   let d = prev;
   if (!prev || open) {
@@ -73,7 +82,11 @@ for (const n of list.notices) {
     } catch (e) {
       failed++;
       console.log(`notices: ${n.t.slice(0, 30)} ${e.message}`);
-      if (!d) continue;
+      // (A failed read keeps the last copy; with none, the list doesn't point at one.)
+      if (!d) {
+        delete n.d;
+        continue;
+      }
     }
   } else carried++;
   // The draft's text, once.
@@ -100,4 +113,4 @@ for (const n of list.notices) {
 }
 await rm(tmp, { recursive: true, force: true });
 await writeFile(file, JSON.stringify(list));
-console.log(`notices: ${read} read, ${carried} carried over, ${parsed} drafts read from their PDF, ${failed} failed${pdftotext ? '' : ' (no pdftotext: records only)'}`);
+console.log(`notices: ${read} read, ${carried} carried over, ${parsed} drafts read from their PDF, ${failed} failed, ${later} older ones next time${pdftotext ? '' : ' (no pdftotext: records only)'}`);

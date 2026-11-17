@@ -3,8 +3,8 @@
 // restored here from the workflow cache): every judgment citing a law,
 // 最高法院 and 最高行政法院 whole, the other courts' 判決 by article, 案由 and court.
 // No store (the cache gone): the last deploy's top-court copy is carried over,
-// and a build that would publish far fewer top-court rulings than the last
-// deploy keeps the last deploy's.
+// and a build that would publish far fewer top-court rulings, or other
+// courts' judgments, than the last deploy keeps the last deploy's.
 // Runs after build-data.mjs (needs public/data/index.json).
 //   node scripts/build-rulings.mjs [--store .rulings-store] [--prev https://orbit.jaypengx.com/law/data/]
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
@@ -59,9 +59,25 @@ await writeFile(out + 'find.json', JSON.stringify(findRows(top)));
 
 // The other courts: low/index.json (courts, 案由, counts per law, newest),
 // low/law/<pcode>.json, low/t/<key>.json (one 案由), low/c/<code>.json (one court).
-const v = lowViews(low, { names: courts });
 const lo = `${out}low/`;
 for (const d of ['law', 't', 'c']) await mkdir(lo + d, { recursive: true });
+// The same guard for them: a lost store left none, a million 地方法院 judgments
+// gone from the site until the store filled again (months of nights). The
+// last deploy's files, each carried over.
+const lastLow = await prevJson('rulings/low/index.json');
+if (lastLow?.n > 1000 && low.length < lastLow.n * 0.8) {
+  const lawsLow = (await prevJson('rulings/low/laws.json')) || {};
+  const keep = ['index.json', 'laws.json', 'courts.json', ...Object.keys(lawsLow).map(p => `law/${p}.json`), ...(lastLow.titles || []).map(t => `t/${t[2]}.json`), ...(lastLow.courts || []).map(c => `c/${c[0]}.json`)];
+  let kept = 0;
+  for (const f of keep) {
+    const x = await prevJson(`rulings/low/${f}`);
+    if (x) (await writeFile(lo + f, JSON.stringify(x)), kept++);
+  }
+  console.warn(`rulings: ${low.length} other courts' judgments from ${from}, the last deploy had ${lastLow.n}: its ${kept} files kept`);
+  console.log(`rulings from ${from}: ${top.length} top-court under ${Object.keys(laws).length} laws; ${months.length} months read`);
+  process.exit(0);
+}
+const v = lowViews(low, { names: courts });
 const span = low.length ? [low.at(-1)[1], low[0][1]] : [];
 await writeFile(lo + 'index.json', JSON.stringify({ built: new Date().toISOString(), n: low.length, span, months: months.length, courts: v.courts, titles: v.titles, latest: v.latest }));
 await writeFile(lo + 'laws.json', JSON.stringify(v.laws));

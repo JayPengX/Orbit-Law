@@ -189,6 +189,12 @@ test('search: names, short names, characters in order, jumps to an article', () 
   assert.equal(parseJump(rows, '刑法第十條之一').key, '10-1');
   assert.equal(parseJump(rows, '民訴 24-1').key, '24-1');
   assert.equal(parseJump(rows, '民法'), null);
+  // (11-17) A name with a number in it is the law, not an article of another.
+  const named = [...rows, ['D1', '九二一震災重建暫行條例', '法律', '', '', 0], ['D2', '中華民國九十六年罪犯減刑條例', '法律', '', '', 0], ['D3', '耕地三七五減租條例', '法律', '', '', 0]];
+  assert.equal(parseJump(named, '九二一'), null);
+  assert.equal(parseJump(named, '三七五'), null);
+  assert.equal(parseJump(named, '一一九'), null);
+  assert.equal(parseJump(named, '民法184').key, '184');
   assert.equal(exactLaw(rows, '民法')[0], 'B1', 'a law named outright');
   assert.equal(exactLaw(rows, ' 刑法 ')[0], 'C1', 'a short name');
   assert.equal(exactLaw(rows, '民事'), null, 'part of a name is not the law');

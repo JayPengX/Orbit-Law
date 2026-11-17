@@ -130,11 +130,14 @@ export function likelyLaw(rows, query) {
 }
 
 // '民法184', '刑法第十條之一', '勞基法 24-1' → { row, key } (the law the name
-// finds best, the article key), or null.
+// finds best, the article key), or null. Not a name with a number in it:
+// 九二一 is 九二一震災重建暫行條例, never §21 of 中華民國九十六年罪犯減刑條例,
+// nor 三七五 §75 of 三一九槍擊…條例 (a law's name holds it, or what's left
+// for a name is one character), 11-17.
 export function parseJump(rows, query) {
   const q = tidy(query);
   const m = q.match(/^(.+?)第?([0-9零〇一二三四五六七八九十百千]+)(?:條)?(?:(?:之|-)([0-9零〇一二三四五六七八九十]+))?條?$/);
-  if (!m) return null;
+  if (!m || [...m[1]].length < 2 || rows.some(r => !r[5] && r[1].includes(q))) return null;
   const n = cnNumber(m[2]);
   const sub = m[3] ? cnNumber(m[3]) : 0;
   if (!(n > 0) || (m[3] && !(sub > 0))) return null;

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetSteps } from '../public/lib/budget.mjs';
-import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups } from '../public/lib/ly.mjs';
+import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName } from '../public/lib/ly.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 
 test('a vote day from loose 表決時間 text and the meeting days', () => {
@@ -178,4 +178,41 @@ test('a web address in a source\'s text is a short tappable link by its site', a
   assert.equal(plainHtml('風險。（https://www.mohw.gov.tw/cp-1.html?a=1&b=2）又'), '風險。<a class="lw-url" href="https://www.mohw.gov.tw/cp-1.html?a=1&amp;b=2" target="_blank" rel="noopener" data-out>mohw.gov.tw</a>又');
   assert.equal(plainHtml('見 http://x.gov.tw 與'), '見 <a class="lw-url" href="http://x.gov.tw" target="_blank" rel="noopener" data-out>x.gov.tw</a> 與');
   assert.equal(plainHtml('沒有網址'), '沒有網址');
+});
+
+test('a 質詢 clip’s transcript as turns, each its speaker’s (Jay 2026-11-17: line by line was "tedious")', () => {
+  const lines = [
+    { start: 0, end: 4, text: '請卓院長' },
+    { start: 4, end: 6, text: '院長好' },
+    { start: 6, end: 9, text: '新竹縣有兩件都市計畫' },
+    { start: 9, end: 10, text: '委員好' },
+    { start: 10, end: 14, text: '我們一定研究' },
+    { start: 14, end: 15, text: '嗯' },
+    { start: 15, end: 18, text: '謝謝院長' }
+  ];
+  const segs = [
+    { speaker: 'S2', speaker_name: '徐委員欣瑩', start: 0, end: 8.8 },
+    { speaker: 'S6', speaker_name: '卓院長榮泰', start: 9.1, end: 13.9 },
+    { speaker: 'S2', speaker_name: '徐委員欣瑩', start: 15, end: 18 }
+  ];
+  const t = clipTurns(lines, segs);
+  assert.deepEqual(t.map(x => [x.who, x.start, x.lines.map(l => l.i)]), [
+    ['徐委員欣瑩', 0, [0, 1, 2]],
+    // (嗯: nobody's, so the turn before's.)
+    ['卓院長榮泰', 9, [3, 4, 5]],
+    ['徐委員欣瑩', 15, [6]]
+  ]);
+  // No speakers known: a turn at every pause, unnamed.
+  const plain = clipTurns([{ start: 0, end: 3, text: 'a' }, { start: 3, end: 5, text: 'b' }, { start: 9, end: 10, text: 'c' }]);
+  assert.deepEqual(plain.map(x => [x.who, x.lines.length]), [['', 2], ['', 1]]);
+  assert.deepEqual(clipTurns([], []), []);
+});
+
+test('a speaker’s name as the gazette writes it, read into name and title', () => {
+  assert.deepEqual(speakerName('徐委員欣瑩'), { n: '徐欣瑩', role: '委員' });
+  assert.deepEqual(speakerName('卓院長榮泰'), { n: '卓榮泰', role: '院長' });
+  assert.deepEqual(speakerName('李主任委員應元'), { n: '李應元', role: '主任委員' });
+  assert.deepEqual(speakerName('歐陽委員龍'), { n: '歐陽龍', role: '委員' });
+  assert.deepEqual(speakerName('王美花'), { n: '王美花', role: '' });
+  assert.deepEqual(speakerName(''), { n: '', role: '' });
 });

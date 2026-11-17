@@ -36,7 +36,7 @@ import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey } from './lib/ly.mjs';
+import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey, clipTurns, speakerName } from './lib/ly.mjs';
 import { money, change, budgetSteps, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref, spreadCols } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
@@ -1831,6 +1831,18 @@ const clipLen = t => {
   const n = Math.max(1, Math.round(+(m[1] || 0) * 60 + +m[2] + +m[3] / 60));
   return n < 60 ? W(`${n} 分鐘`, `${n} min`) : W(`${Math.floor(n / 60)} 小時${n % 60 ? ` ${n % 60} 分` : ''}`, `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}`);
 };
+// A video at the top of a sheet stays in view under the sheet's head while what's under it scrolls (Jay 11-17:
+// reading the transcript scrolled the video away). Its place: just under the head, measured once it's open.
+// (In a band of the sheet's own colour, edge to edge: what scrolls past shows neither beside it nor at its corners.)
+function pinVideo(body) {
+  const v = body.firstElementChild;
+  if (!v?.matches('.lw-video, .lw-video-file')) return;
+  const head = body.closest('dialog')?.querySelector('.q-sheet-head');
+  if (head) body.style.setProperty('--lw-pin', `${head.offsetHeight}px`);
+  const band = h('div', { class: 'lw-pin' });
+  v.before(band);
+  band.append(v);
+}
 async function openClip(id, label = '') {
   const body = h('div', { class: 'lw-clip-sheet', html: `<div class="lw-video q-skel"></div>` });
   sheet({ title: label.slice(0, 40) || W('質詢影片', 'Speech video'), closeLabel: W('關閉', 'Close'), body });
@@ -1840,20 +1852,58 @@ async function openClip(id, label = '') {
     if (!d?.video_url) throw new Error('none');
     const lines = d.transcript?.whisperx || [];
     const yt = `https://www.youtube.com/@LegislativeYuan/search?query=${encodeURIComponent([d['委員名稱'], d['日期']].filter(Boolean).join(' '))}`;
-    body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc([d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '', shortDay(d['日期'] || ''), clipLen(d['影片長度'])].filter(Boolean).join(' · '))}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4><ol class="lw-transcript">${lines.map((l, i) => `<li data-i="${i}" data-t="${l.start}"><time>${fmtSec(l.start)}</time><span>${esc(l.text)}</span></li>`).join('')}</ol>` : ''}`;
+    // What was said as turns, each its speaker's (Jay 2026-11-17: line by line, thirty minutes was "tedious"): the
+    // legislator's edged in their party's colour, a long one folded to its first lines; who answered, named on top.
+    const turns = clipTurns(lines, d.transcript?.pyannote || []);
+    const ppl = turns.length ? await peopleData().catch(() => null) : null;
+    const party = n => ppl?.people?.find(x => x.n === n)?.party || '';
+    // (Who answered: the officials. A legislator is never one: the 委員 asking, and the 院長 or 副院長 chairing a 院會.)
+    const answered = [...new Set(turns.map(t => speakerName(t.who)).filter(x => x.n && x.role && x.role !== '委員' && !ppl?.people?.some(p => p.n === x.n)).map(x => `${x.n} ${x.role}`))];
+    const turnHtml = (t, k) => {
+      const who = speakerName(t.who);
+      const asks = who.role === '委員' || (!t.who && !turns.some(x => x.who));
+      const long = t.lines.reduce((a, l) => a + l.text.length, 0) > 160;
+      const said = t.lines.map(l => `<span data-i="${l.i}" data-t="${l.start}">${esc(l.text)}</span>`).join(' ');
+      return `<div class="lw-turn${asks && t.who ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}" data-k="${k}" data-at="${t.start}"${asks && t.who ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${t.who ? `${esc(who.n)}${who.role ? `<small>${esc(who.role)}</small>` : ''}` : turns.some(x => x.who) ? `<small>${W('不確定是誰', 'Not sure who')}</small>` : ''}<span class="lw-at">${PLAY}${fmtSec(t.start)}</span></b><div class="lw-prose"><p class="lw-said">${said}</p></div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
+    };
+    const said = lines.length ? `<h4>${W('逐字稿（AI 聽寫）', 'Transcript (AI)')}</h4>${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns lw-clip-turns">${turns.map(turnHtml).join('')}</div>` : '';
+    body.innerHTML = `<video class="lw-video" controls playsinline preload="metadata"></video><p class="lw-clip-meta"><b>${esc(d['委員名稱'] || '')}</b> ${esc([d['會議資料']?.['委員會代碼:str']?.[0] || d['會議資料']?.['種類'] || '', shortDay(d['日期'] || ''), clipLen(d['影片長度'])].filter(Boolean).join(' · '))}</p><a class="lw-yt" href="${esc(yt)}" target="_blank" rel="noopener">${ICON_YT}<span>${W('在 YouTube 找同一場', 'Find it on YouTube')}</span></a>${said}`;
+    pinVideo(body);
     const v = body.querySelector('video');
     await playHls(v, d.video_url);
-    const items = [...body.querySelectorAll('.lw-transcript li')];
-    body.querySelector('.lw-transcript')?.addEventListener('click', e => {
-      const li = e.target.closest('li');
-      if (li) (v.currentTime = +li.dataset.t), v.play().catch(() => {});
+    const items = [...body.querySelectorAll('.lw-clip-turns [data-i]')];
+    const playAt = t => ((v.currentTime = +t), v.play().catch(() => {}));
+    body.querySelector('.lw-clip-turns')?.addEventListener('click', e => {
+      const more = e.target.closest('.lw-turn-more');
+      if (more) {
+        const t = more.closest('.lw-turn');
+        const on = !t.classList.contains('open');
+        t.classList.toggle('open', on);
+        more.setAttribute('aria-expanded', on);
+        more.querySelector('span').textContent = on ? W('收起', 'Less') : W('看全文', 'Read all');
+        return;
+      }
+      // A line: played from it; the turn's name or time: from the turn's start.
+      const line = e.target.closest('[data-i]');
+      if (line) return playAt(line.dataset.t);
+      const t = e.target.closest('.lw-turn');
+      if (t && e.target.closest('b')) playAt(t.dataset.at);
     });
     let at = -1;
     v.addEventListener('timeupdate', () => {
       let i = at;
       while (i + 1 < lines.length && lines[i + 1].start <= v.currentTime) i++;
       while (i > 0 && lines[i].start > v.currentTime) i--;
-      if (i !== at) (items[at]?.classList.remove('now'), items[i]?.classList.add('now'), (at = i));
+      if (i === at) return;
+      items[at]?.classList.remove('now');
+      items[at]?.closest('.lw-turn')?.classList.remove('lw-now');
+      const el = items[i];
+      el?.classList.add('now');
+      const turn = el?.closest('.lw-turn');
+      turn?.classList.add('lw-now');
+      // (The line playing never hidden in a folded turn: the turn opened.)
+      if (turn?.classList.contains('clip') && !turn.classList.contains('open')) turn.querySelector('.lw-turn-more')?.click();
+      at = i;
     });
   } catch {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="q-more q-more-go lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out><span>${W('到立法院 IVOD 看', 'Watch on the Legislative Yuan’s IVOD')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
@@ -4399,6 +4449,7 @@ async function openCouncilVideo(id, live = -1, given = null, ctx = null) {
   else body.innerHTML = `<video class="lw-video" controls playsinline autoplay preload="auto"${v?.img ? ` poster="${esc(v.img)}"` : ''}></video>${meta}`;
   if (site) body.append(h('a', { class: 'q-more q-more-go lw-out', href: site, target: '_blank', rel: 'noopener', 'data-out': '', html: `<span>${ctx?.town ? W('代表會的 YouTube 頻道', 'The council’s YouTube channel') : W('議會的影音網站', 'The council’s video site')}</span><span class="q-more-chev" aria-hidden="true">›</span>` }));
   sheet({ title: ch ? W('議場直播', 'Live') : ctx?.town ? W('代表會影音', 'Township council video') : W('議會影音', 'Council video'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  pinVideo(body);
   const el = body.querySelector('video');
   // Straight from the council's own CDN (never through Orbit's servers); started at once.
   if (el) {
@@ -5580,6 +5631,7 @@ function townAudio(own, s, d) {
   const vid = townVideo(d);
   const body = h('div', { class: 'lw-clip-sheet', html: `${vid ? `<video class="lw-video-file" controls autoplay playsinline preload="metadata" src="${esc(d.src)}"${d.pic ? ` poster="${esc(d.pic)}"` : ''}></video>` : `<audio class="lw-audio" controls autoplay preload="auto" src="${esc(d.src || driveAudio(d.drive))}"></audio>`}<h2 class="lw-item-name">${esc(s.n)}${d.ext ? W('延長會', ' (extension)') : ''}</h2><p class="lw-clip-meta">${esc([own.n, d.d && dayLabel(d.d), partOf(d), d.what].filter(Boolean).join(' · '))}</p>${d.drive ? `<a class="q-more q-more-go lw-out" href="${esc(drivePage(d.drive))}" target="_blank" rel="noopener" data-out><span>${W('在 Google 雲端硬碟開啟', 'Open in Google Drive')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}` });
   sheet({ title: vid ? W('會議影音', 'Sitting video') : W('會議錄音', 'Sitting audio'), closeLabel: W('關閉', 'Close'), cls: 'lw-item-sheet', body: [body] });
+  if (vid) pinVideo(body);
   // The file itself, streamed by the phone (Drive answers ranges, open to any page); started within the tap.
   // A file Drive won't hand over directly (past its scan size, it answers a page) falls back to Drive's own player.
   const a = body.querySelector('audio, video');

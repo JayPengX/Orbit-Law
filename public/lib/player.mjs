@@ -20,6 +20,12 @@ export const STUCK_MS = 8_000;
 // time it's asked for, longer for a longer one; loaded again at 20 s, it started over every time and never played.
 export const FIRST_MS = 90_000;
 export const MAX_TRIES = 6;
+// An iPhone's own player asked to play a recording and still without a picture this long after (Jay 11-17: 新竹縣's
+// 40-minute recordings stuck at 0:00, shorter ones and Chromium fine): hls.js takes over, through the
+// ManagedMediaSource iOS 17.1+ gives it, as Chromium plays them. Apple's player waits until it reckons the
+// download keeps ahead of the whole recording, and HiNet makes each 2-second piece only when it's first asked
+// for, so for a long recording it may wait for good; hls.js starts on the first pieces.
+export const NATIVE_FIRST_MS = 10_000;
 export const WARM_AHEAD = 40;
 export const WARM_AT_ONCE = 3;
 // Pieces this short are the ones a player can fall behind on.
@@ -118,7 +124,10 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       return '';
     }
   })();
-  const native = isFile(url) || !!v.canPlayType?.('application/vnd.apple.mpegurl');
+  let native = isFile(url) || !!v.canPlayType?.('application/vnd.apple.mpegurl');
+  // (Apple's player can hand a recording to hls.js: a stream, not a file or a channel, on a phone with ManagedMediaSource.)
+  let canSwap = !isFile(url) && !live && native && typeof globalThis.ManagedMediaSource === 'function';
+  let askedAt = v.paused === false ? t0 : 0;
   let hls = null;
   let stopped = false;
   let tries = 0;
@@ -186,6 +195,25 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
   // (Before the first picture, anything coming is life: the wait counted from there.)
   for (const ev of ['progress', 'loadedmetadata', 'loadeddata', 'canplay']) v.addEventListener(ev, () => started || (movedAt = Date.now()));
   v.addEventListener('emptied', () => (started = false));
+  v.addEventListener('play', () => started || askedAt || (askedAt = Date.now()));
+  // Apple's player still without a picture: hls.js from here (once; it can't, Apple's again).
+  const swap = () => {
+    canSwap = false;
+    native = false;
+    log('mse', { host, ms: Date.now() - t0 });
+    v.removeAttribute?.('src');
+    v.load?.();
+    // (ManagedMediaSource opens only with AirPlay off for the element.)
+    v.disableRemotePlayback = true;
+    movedAt = Date.now();
+    attach()
+      .then(() => v.play?.()?.catch(() => {}))
+      .catch(() => {
+        native = true;
+        v.src = url;
+        v.play?.()?.catch(() => {});
+      });
+  };
 
   // The watchdog: playing (not paused by the reader), yet the picture hasn't moved.
   let nudged = false;
@@ -209,6 +237,7 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       return warm(t);
     }
     moving = 0;
+    if (canSwap && !started && !v.paused && askedAt && now - askedAt >= NATIVE_FIRST_MS) return swap();
     if (now - movedAt < (started ? STUCK_MS : FIRST_MS)) return warm(t);
     movedAt = now;
     // First a nudge (a recording: a hair forward; hls.js: its own way back); still stuck: loaded again.

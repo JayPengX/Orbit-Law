@@ -409,7 +409,7 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
 | `public/lib/view.mjs`, `stack.mjs`, `store.mjs` | Articles and timeline as HTML; the sheet trail; follows, bookmarks, recent (this device) |
 | `public/lib/budget.mjs`, `history.mjs`, `reading.mjs` | A 總預算's money and cuts; 沿革 read as a timeline; 繼續閱讀 |
 | `public/lib/kinds.mjs`, `rule-doc.mjs` | Every kind of text (`KINDS`); a kept rule read into 條 or 點 |
-| `public/lib/player.mjs` | Every video and recording played (Safari's HLS or hls.js, the watchdog) |
+| `public/lib/player.mjs` | Every video and recording played (Safari's HLS or hls.js, the watchdog; hls.js takes over from an iPhone's player with no picture 10 s after play) |
 | `COUNCILS.md` | Every council's and 代表會's source, file and quirk |
 | `scripts/build-*.mjs`, `lib.mjs`, `pack-data.mjs` | The data builds and what they share; the data packed for the deploy |
 | `data-src/facts.json` | Figures the news build keeps |

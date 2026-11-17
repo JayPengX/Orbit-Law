@@ -5472,3 +5472,25 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-follow-play.lw-loading svg { opacity: 0.5; }
 /* A speaker with a party: the name in its colour (the chair's call line too). */
 .lw-turn-party > b { color: var(--pn); }
+
+/* A video at a sheet's top stays in view under its head while the rest scrolls (app.mjs pinVideo; Jay 11-17), in a
+   band of the sheet's colour from edge to edge; on a screen too short to keep it and still read (a phone on its
+   side), it scrolls with the rest. */
+.lw-pin { display: grid; gap: 10px; }
+.lw-pin > .lw-video-file { margin: 0; }
+@media (min-height: 560px) {
+  .lw-pin {
+    position: sticky;
+    top: var(--lw-pin, 0px);
+    z-index: 1;
+    margin: -8px calc(-1 * var(--q-margin)) 0;
+    padding: 8px var(--q-margin) 10px;
+    background: var(--q-sheet);
+  }
+}
+/* A 質詢 clip's transcript as turns: the line playing marked, every line a tap to play from it. */
+.lw-said { margin: 0; }
+.lw-said span { cursor: pointer; border-radius: 4px; }
+.lw-said span.now { background: color-mix(in srgb, var(--q-accent) 22%, transparent); }
+.lw-clip-turns { margin-top: 6px; }
+.lw-turn-call .lw-nw { white-space: nowrap; }

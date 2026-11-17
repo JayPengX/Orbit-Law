@@ -515,3 +515,55 @@ export function recordItems(text) {
 }
 // Which 討論事項 a vote's title is on ("討論事項第四案…" → 4), else 0.
 export const recordItemOf = title => cnNumber(String(title || '').match(/討論事項第([一二三四五六七八九十]+)案/)?.[1]);
+
+// A 質詢 clip's transcript as turns (Jay 2026-11-17: thirty minutes a line at a time was "tedious"): the API's
+// speech recognition (whisperx: lines with start, end, text) laid on who spoke when (pyannote: { speaker,
+// speaker_name, start, end }). Each line is the speaker's who overlaps it most; a line nobody's goes with the
+// turn before it (else the one after). Consecutive lines of one speaker are a turn: { who (the name as the
+// gazette writes it: 徐委員欣瑩, or ''), start, lines: [{ i, start, text }] }. No speakers known: a turn every
+// pause of PAUSE_S or so many seconds (TURN_S), unnamed.
+const PAUSE_S = 2;
+const TURN_S = 60;
+export function clipTurns(lines = [], segs = []) {
+  const named = new Map();
+  for (const s of segs) if (s.speaker && s.speaker_name) named.set(s.speaker, s.speaker_name);
+  const whoOf = l => {
+    const end = l.end ?? l.start;
+    const by = new Map();
+    for (const s of segs) {
+      const o = Math.min(end, s.end) - Math.max(l.start, s.start);
+      if (o > 0 && s.speaker) by.set(s.speaker, (by.get(s.speaker) || 0) + o);
+    }
+    let best = null;
+    for (const [k, o] of by) if (!best || o > by.get(best)) best = k;
+    return best;
+  };
+  const turns = [];
+  if (!segs.length) {
+    lines.forEach((l, i) => {
+      const t = turns.at(-1);
+      const prev = lines[i - 1];
+      if (!t || l.start - t.start >= TURN_S || (prev && l.start - (prev.end ?? prev.start) >= PAUSE_S)) turns.push({ who: '', start: l.start, lines: [] });
+      turns.at(-1).lines.push({ i, start: l.start, text: l.text });
+    });
+    return turns;
+  }
+  const ids = lines.map(whoOf);
+  // (Nobody's: the turn before's, or the first named after it.)
+  for (let i = 0; i < ids.length; i++) if (!ids[i]) ids[i] = ids[i - 1] || ids.slice(i + 1).find(Boolean) || null;
+  lines.forEach((l, i) => {
+    const t = turns.at(-1);
+    if (!t || t.id !== ids[i]) turns.push({ id: ids[i], who: named.get(ids[i]) || '', start: l.start, lines: [] });
+    turns.at(-1).lines.push({ i, start: l.start, text: l.text });
+  });
+  return turns.map(({ id, ...t }) => t);
+}
+
+// A name as the gazette writes it, its title inside (徐委員欣瑩, 卓院長榮泰, 何次長晉滄, 李主任委員…): { n: 徐欣瑩,
+// role: 委員 }; anything else as it is, with no role.
+const TITLES = '副?(?:院長|部長|政務次長|常務次長|次長|主任委員|主委|署長|局長|處長|司長|秘書長|總長|主計長|審計長|總裁|董事長|總經理|執行長|主席|召集委員|委員|會長|首長|檢察總長|發言人)';
+const TITLED = new RegExp(`^(.{1,2}?)(${TITLES})(.{1,3})$`);
+export function speakerName(raw = '') {
+  const m = String(raw).trim().match(TITLED);
+  return m ? { n: m[1] + m[3], role: m[2] } : { n: String(raw).trim(), role: '' };
+}

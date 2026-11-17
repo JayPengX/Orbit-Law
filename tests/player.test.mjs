@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readPlaylist, warmList, warmable, backoff, keepPlaying, STUCK_MS, FIRST_MS, MAX_TRIES } from '../public/lib/player.mjs';
+import { readPlaylist, warmList, warmable, backoff, keepPlaying, STUCK_MS, FIRST_MS, MAX_TRIES, NATIVE_FIRST_MS } from '../public/lib/player.mjs';
 
 const BASE = 'https://hcc-ott2b.cdn.hinet.net/vod_hcc/_definst_/smil:hcc/ch01_20261106162902/consult-hls-cl-pc.smil/playlist.m3u8';
 
@@ -169,5 +169,81 @@ test('a long recording whose stream is still being made (Jay 11-15): not loaded 
     assert.deepEqual(said, ['first']);
   } finally {
     globalThis.fetch = realFetch;
+  }
+});
+
+test('an iPhone’s own player with no picture 10 s after play (Jay 11-17: 新竹縣’s 40 minutes stuck at 0:00): hls.js takes over, once', async t => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.reject(new Error('offline in tests'));
+  const made = [];
+  class Hls {
+    static isSupported = () => true;
+    static Events = { ERROR: 'error' };
+    static ErrorTypes = {};
+    constructor(cfg) {
+      this.cfg = cfg;
+      made.push(this);
+    }
+    on() {}
+    loadSource(u) {
+      this.url = u;
+    }
+    attachMedia(m) {
+      this.media = m;
+    }
+    destroy() {}
+  }
+  globalThis.window = { Hls };
+  globalThis.ManagedMediaSource = class {};
+  try {
+    const mk = () => {
+      const v = fakeVideo();
+      v.paused = true;
+      v.removeAttribute = () => (v._src = null);
+      return v;
+    };
+    // Paused (autoplay refused, nobody pressed play): left alone.
+    const idle = mk();
+    await keepPlaying(idle, BASE);
+    run(t, 30_000);
+    assert.equal(made.length, 0);
+    // Play pressed, no picture: Apple's player is given NATIVE_FIRST_MS, then hls.js.
+    const v = mk();
+    const said = [];
+    await keepPlaying(v, BASE, { log: k => said.push(k) });
+    assert.equal(v.loads, 1, 'Apple’s player first');
+    v.paused = false;
+    v.fire('play');
+    run(t, NATIVE_FIRST_MS - 2000);
+    assert.equal(made.length, 0);
+    run(t, 3000);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(made.length, 1);
+    assert.equal(made[0].url, BASE);
+    assert.equal(made[0].media, v);
+    assert.equal(v.disableRemotePlayback, true, 'AirPlay off: ManagedMediaSource opens only so');
+    assert.ok(said.includes('mse'));
+    // Once only.
+    run(t, 30_000);
+    assert.equal(made.length, 1);
+    // Started in time, or a live channel: Apple's player kept.
+    const ok = mk();
+    await keepPlaying(ok, BASE);
+    ok.paused = false;
+    ok.fire('play');
+    ok.fire('playing');
+    run(t, 30_000);
+    const live = mk();
+    await keepPlaying(live, BASE, { live: true });
+    live.paused = false;
+    live.fire('play');
+    run(t, 30_000);
+    assert.equal(made.length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete globalThis.window;
+    delete globalThis.ManagedMediaSource;
   }
 });

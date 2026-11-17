@@ -28,4 +28,4 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - A 代表's sheet: their 總質詢 across sessions, their page with pictures whole — `public/app.mjs`, `public/lib/reader.mjs`: `townMember`, `data-small`
 - A 質詢 clip's transcript as turns, each its speaker's (the API's pyannote laid on whisperx), who answered named on top, long turns folded — `public/lib/ly.mjs`: `clipTurns`, `speakerName`
 - A video at a sheet's top stays in view under its head while the rest scrolls — `public/app.mjs`: `pinVideo`
-- An iPhone's own player still without a picture 10 s after play hands the recording to hls.js (ManagedMediaSource) — `public/lib/player.mjs`: `NATIVE_FIRST_MS`
+- An iPhone's own player still without a picture 10 s after play, or stuck after it, hands the recording to hls.js (ManagedMediaSource) where it was; a turn's start sought once a load — `public/lib/player.mjs`: `NATIVE_FIRST_MS`

@@ -142,8 +142,12 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
   let state = 'ok';
   const say = s => s !== state && ((state = s), log(s, { host, ms: Date.now() - t0, t: Math.round(v.currentTime || 0) }), onState(s));
 
+  // (Apple's player: the place to start from, sought once a load, never again: Jay 11-17's 除錯紀錄, a recording
+  // opened at a councillor's turn played from 0:00 to 0:24, then was thrown back to the turn at 2:48.)
+  let seekTo = 0;
   const attach = async () => {
     if (native) {
+      seekTo = live ? 0 : resumeAt;
       v.src = url;
       return;
     }
@@ -184,10 +188,13 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
     waitTimer = setTimeout(go, backoff(tries));
   };
 
-  // Native: the place to start from, once the stream says how long it is.
+  // Native: the place to start from, once the stream says how long it is (once: a second loadedmetadata is left be).
   v.addEventListener('loadedmetadata', () => {
-    if (native && !live && resumeAt > 0 && Math.abs(v.currentTime - resumeAt) > 2) v.currentTime = resumeAt;
+    if (native && seekTo > 0 && Math.abs(v.currentTime - seekTo) > 2) v.currentTime = seekTo;
+    seekTo = 0;
   });
+  // (Moving is counted from where a seek landed: a jump to a turn is not ten seconds played.)
+  v.addEventListener('seeked', () => (startT = v.currentTime || 0));
   v.addEventListener('error', () => !stopped && v.getAttribute('src') !== null && reload(v.error?.code === 3 ? SKIP_BAD : 0));
   v.addEventListener('playing', () => started || ((started = true), (startT = v.currentTime || 0), log('first', { host, ms: Date.now() - t0 })));
   // (A stall after the first picture, in 除錯紀錄 too: where and how long in.)
@@ -196,9 +203,11 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
   for (const ev of ['progress', 'loadedmetadata', 'loadeddata', 'canplay']) v.addEventListener(ev, () => started || (movedAt = Date.now()));
   v.addEventListener('emptied', () => (started = false));
   v.addEventListener('play', () => started || askedAt || (askedAt = Date.now()));
-  // Apple's player still without a picture: hls.js from here (once; it can't, Apple's again).
+  // Apple's player still without a picture, or stuck after it and a nudge didn't help: hls.js from here, where it
+  // was (once; it can't, Apple's again).
   const swap = () => {
     canSwap = false;
+    if (v.currentTime > 1) resumeAt = v.currentTime;
     native = false;
     log('mse', { host, ms: Date.now() - t0 });
     v.removeAttribute?.('src');
@@ -210,6 +219,7 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       .then(() => v.play?.()?.catch(() => {}))
       .catch(() => {
         native = true;
+        seekTo = resumeAt;
         v.src = url;
         v.play?.()?.catch(() => {});
       });
@@ -249,6 +259,7 @@ export async function keepPlaying(v, url, { live = false, at = 0, onState = () =
       lastT = v.currentTime;
       return;
     }
+    if (canSwap && started) return swap();
     reload();
   }, 1000);
 

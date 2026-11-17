@@ -234,13 +234,59 @@ test('an iPhone’s own player with no picture 10 s after play (Jay 11-17: 新�
     ok.paused = false;
     ok.fire('play');
     ok.fire('playing');
-    run(t, 30_000);
+    for (let i = 1; i <= 30; i++) (ok.currentTime = i), run(t, 1000);
     const live = mk();
     await keepPlaying(live, BASE, { live: true });
     live.paused = false;
     live.fire('play');
     run(t, 30_000);
     assert.equal(made.length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete globalThis.window;
+    delete globalThis.ManagedMediaSource;
+  }
+});
+
+test('started at a councillor’s turn, then stuck (Jay 11-17’s 除錯紀錄): sought there once only, then hls.js from where it stuck', async t => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.reject(new Error('offline in tests'));
+  const made = [];
+  class Hls {
+    static isSupported = () => true;
+    static Events = { ERROR: 'error' };
+    static ErrorTypes = {};
+    constructor(cfg) {
+      this.cfg = cfg;
+      made.push(this);
+    }
+    on() {}
+    loadSource() {}
+    attachMedia() {}
+    destroy() {}
+  }
+  globalThis.window = { Hls };
+  globalThis.ManagedMediaSource = class {};
+  try {
+    const v = fakeVideo();
+    v.removeAttribute = () => (v._src = null);
+    await keepPlaying(v, BASE, { at: 168 });
+    v.fire('loadedmetadata');
+    assert.equal(v.currentTime, 168, 'to the turn');
+    v.fire('seeked');
+    v.fire('playing');
+    for (let i = 1; i <= 20; i++) (v.currentTime = 168 + i), run(t, 1000);
+    // iOS says it has the stream's details again: left where it is, not thrown back to the turn.
+    v.fire('loadedmetadata');
+    assert.equal(v.currentTime, 188);
+    // Then it sticks: a nudge, and still stuck, hls.js from where it was.
+    run(t, STUCK_MS + 1000);
+    run(t, STUCK_MS + 1000);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(made.length, 1);
+    assert.ok(made[0].cfg.startPosition >= 188 && made[0].cfg.startPosition < 189, `from ${made[0].cfg.startPosition}`);
   } finally {
     globalThis.fetch = realFetch;
     delete globalThis.window;

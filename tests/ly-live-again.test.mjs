@@ -24,3 +24,10 @@ test('back on the screen, 首頁’s 立法院 line and 議程 are drawn again',
   assert.match(on, /state\.tab === 'home' && \$\('home-ly'\)\) fillLy\(\)/);
   assert.match(on, /billFilter === 'agenda' && billStep < 0 && \$\('bill-list'\)\) agendaList\(\$\('bill-list'\)\)/);
 });
+
+// 議程 left open overnight came back on 「昨天 11/18」 the next morning (proven 11-18).
+test('議程’s day, when not picked by the person, moves on to the new day’s', () => {
+  assert.match(src, /if \(!days\.includes\(agendaDay\) \|\| \(agendaFor && agendaFor !== day\)\) \(agendaDay = days\.find\(d => d >= day\) \|\| days\.at\(-1\)\), \(agendaFor = day\);/);
+  const pick = src.slice(src.indexOf('function pickAgendaDay(d) {'), src.indexOf('function pickAgendaDay(d) {') + 120);
+  assert.match(pick, /agendaFor = '';/);
+});

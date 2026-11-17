@@ -4340,6 +4340,9 @@ const meetRow = (x, live = null, long = false) => {
 // with any, 📅 among them; a swipe across the page for the next), today's
 // on now first. Searched: every day's that match, each under its day.
 let agendaDay = null;
+// (The day it was chosen for, when not picked by the person: the next morning
+// it moves on to that day's, as a page back on the screen is drawn again.)
+let agendaFor = '';
 let agendaDays = [];
 const agendaRec = {};
 // The 90 days before (agenda-past.json), read once someone opens 議程: the day bar then goes back.
@@ -4373,7 +4376,7 @@ async function agendaList(out) {
     return void (out.innerHTML = html || none);
   }
   // First today, else the next day with meetings, else the last one before.
-  if (!days.includes(agendaDay)) agendaDay = days.find(d => d >= day) || days.at(-1);
+  if (!days.includes(agendaDay) || (agendaFor && agendaFor !== day)) (agendaDay = days.find(d => d >= day) || days.at(-1)), (agendaFor = day);
   const rest = all.filter(x => x.d === agendaDay && !live.includes(x));
   const now = agendaDay === day && live.length;
   // (While some meet, the day's others: those still to come 稍後, those already over 稍早, never over ones under 稍後.)
@@ -4404,6 +4407,7 @@ async function agendaList(out) {
 }
 function pickAgendaDay(d) {
   agendaDay = d;
+  agendaFor = '';
   const out = $('bill-list');
   if (out && billFilter === 'agenda') agendaList(out);
 }

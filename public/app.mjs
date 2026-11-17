@@ -36,7 +36,7 @@ import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
-import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey, clipTurns, speakerName, gazetteTurns } from './lib/ly.mjs';
+import { personVotes, alignment, pctText, INDEPENDENT, gazetteUrl, ivodUrl, personFeed, feedNew, voteWhat, budgetKey, clipTurns, speakerName, gazetteTurns, alignTurns } from './lib/ly.mjs';
 import { money, change, budgetSteps, budgetDue, daysBetween, roadSteps, stuckMonths } from './lib/budget.mjs';
 import { topicTile, topicName, progress, stageShort, partyChips, shortDay, dayOf, billCard, lawRow, fit, funnel, billFunnel, diffBlocks, stepOf, STEPS, whereNow, articleChips, roundSteps, STEP_HELP, passedView, itemHref, spreadCols } from './lib/cards.mjs';
 import { readable, pageUrl, readPage, hasText, namesIn } from './lib/reader.mjs';
@@ -1869,7 +1869,7 @@ async function gazetteFor(d) {
   return null;
 }
 // Found: the gazette's turns in place of the AI's transcript, which is taken away. Not found: the AI's as it was.
-async function showGazette(body, d, ppl) {
+async function showGazette(body, d, ppl, v) {
   const g = await gazetteFor(d).catch(() => null);
   const box = body.querySelector('.lw-said-gz');
   if (!g || !box?.isConnected) return;
@@ -1877,21 +1877,42 @@ async function showGazette(body, d, ppl) {
   const isMember = n => !!ppl?.people?.some(p => p.n === n);
   const party = n => ppl?.people?.find(x => x.n === n)?.party || '';
   const answered = [...new Set(g.turns.map(t => speakerName(t.who)).filter(x => x.n && x.role && x.role !== '委員' && !isMember(x.n)).map(x => `${x.n} ${x.role}`))];
-  const turn = t => {
+  // Each turn's time on the video, borrowed from the AI's lines (lib/ly.mjs alignTurns): a tap plays from it, and
+  // the turn playing is marked as the video goes. No AI lines: no times, the record to read only.
+  const at = alignTurns(g.turns, d.transcript?.whisperx || []);
+  const time = i => (at ? ` data-at="${at[i]}"` : '');
+  const turn = (t, i) => {
     const who = speakerName(t.who);
     const text = t.said.join('');
     // (The 主席, and a word or two from anyone but the asking 委員: one small line.)
     const chair = t.who === '主席' || (/院長$/.test(who.role) && isMember(who.n));
-    if (chair || (text.length <= 16 && who.role !== '委員')) return `<p class="lw-turn-call"><b>${esc(chair ? W('主席', 'Chair') : `${who.n} ${who.role}`.trim())}</b>${esc(text)}</p>`;
+    if (chair || (text.length <= 16 && who.role !== '委員')) return `<p class="lw-turn-call lw-gz-call"${time(i)}><b>${esc(chair ? W('主席', 'Chair') : `${who.n} ${who.role}`.trim())}</b>${esc(text)}</p>`;
     const asks = who.role === '委員';
     const long = text.length > 160;
-    return `<div class="lw-turn${asks ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}"${asks ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${esc(who.n)}${who.role ? `<small>${esc(who.role)}</small>` : ''}</b><div class="lw-prose">${t.said.map(x => `<p>${esc(x)}</p>`).join('')}</div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
+    return `<div class="lw-turn${asks ? ' lw-turn-ask' : ''}${long ? ' clip' : ''}"${time(i)}${asks ? ` style="--p:${partyColor(party(who.n))}"` : ''}><b>${esc(who.n)}${who.role ? `<small>${esc(who.role)}</small>` : ''}${at ? `<span class="lw-at">${PLAY}${fmtSec(at[i])}</span>` : ''}</b><div class="lw-prose">${t.said.map(x => `<p>${esc(x)}</p>`).join('')}</div>${long ? kitUI.moreHtml({ more: W('看全文', 'Read all'), less: W('收起', 'Less'), cls: 'lw-turn-more' }) : ''}</div>`;
   };
   box.innerHTML = `${answered.length ? `<p class="lw-turn-call"><b>${W('答詢', 'Answering')}</b>${answered.map(x => `<span class="lw-nw">${esc(x)}</span>`).join('、')}</p>` : ''}<div class="lw-turns">${g.turns.map(turn).join('')}</div>${g.page ? `<a class="q-more q-more-go lw-out" href="${esc(g.page)}" target="_blank" rel="noopener" data-out><span>${W('立法院公報原文', 'The gazette itself')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>` : ''}`;
+  const rows = [...box.querySelectorAll('.lw-turns > [data-at]')];
   box.addEventListener('click', e => {
     const more = e.target.closest('.lw-turn-more');
-    if (more) foldTurn(more);
+    if (more) return foldTurn(more);
+    // A turn tapped (not a link): played from its start.
+    const row = e.target.closest('.lw-turns > [data-at]');
+    if (row && v && !e.target.closest('a')) ((v.currentTime = +row.dataset.at), v.play().catch(() => {}));
   });
+  let now = -1;
+  if (at && v)
+    v.addEventListener('timeupdate', () => {
+      if (!v.played?.length || !box.isConnected) return;
+      let i = -1;
+      for (let k = 0; k < rows.length; k++) if (+rows[k].dataset.at <= v.currentTime + 0.3) i = k;
+      if (i === now) return;
+      rows[now]?.classList.remove('lw-now');
+      rows[i]?.classList.add('lw-now');
+      // (The turn playing never hidden in a fold.)
+      if (rows[i]?.classList.contains('clip') && !rows[i].classList.contains('open')) rows[i].querySelector('.lw-turn-more')?.click();
+      now = i;
+    });
   // (The real record there, the AI's is never needed: Jay 11-17, no switch between them.)
   ai?.remove();
   box.before(h('h4', { class: 'lw-said-h', text: W('逐字稿（立法院公報）', 'Transcript (the gazette)') }));
@@ -1965,7 +1986,7 @@ async function openClip(id, label = '') {
     let at = -1;
     v.addEventListener('timeupdate', () => {
       // (Nothing marked as playing until it has played: opened, the first line isn't lit at 0:00.)
-      if (!v.played?.length) return;
+      if (!v.played?.length || !items[0]?.isConnected) return;
       let i = at;
       while (i + 1 < lines.length && lines[i + 1].start <= v.currentTime) i++;
       while (i > 0 && lines[i].start > v.currentTime) i--;
@@ -1980,7 +2001,7 @@ async function openClip(id, label = '') {
       if (turn?.classList.contains('clip') && !turn.classList.contains('open')) turn.querySelector('.lw-turn-more')?.click();
       at = i;
     });
-    showGazette(body, d, ppl);
+    showGazette(body, d, ppl, v);
   } catch {
     body.innerHTML = `<p class="lw-none">${W('現在讀不到這段影片', 'Couldn’t load this video')}</p><a class="q-more q-more-go lw-out" href="${esc(ivodUrl(id))}" target="_blank" rel="noopener" data-out><span>${W('到立法院 IVOD 看', 'Watch on the Legislative Yuan’s IVOD')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
   }

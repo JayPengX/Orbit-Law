@@ -608,3 +608,72 @@ export function gazetteTurns(parsed, member, at) {
   return turns.length ? turns : null;
 }
 
+
+// The gazette's turns given the AI's times (Jay 2026-11-17: the record should follow the video too): the gazette
+// has no times, the speech recognition has one a line (whisperx: { start, text }) and gets most words right. Each
+// turn is found among the lines after the turn before's, by the pairs of characters its opening shares with
+// them, and takes the start of the line it begins in; a turn too short to tell, or not found, is set between its
+// neighbours by its place in the text. → a start in seconds for each turn, never earlier than the one before;
+// null with no lines.
+const plain = t => String(t || '').replace(/[^\p{L}\p{N}]/gu, '');
+const pairs = t => {
+  const out = new Set();
+  for (let i = 0; i + 1 < t.length; i++) out.add(t.slice(i, i + 2));
+  return out;
+};
+const OPENING = 24;
+const AHEAD = 120;
+export function alignTurns(turns = [], lines = []) {
+  if (!lines.length) return null;
+  const said = lines.map(l => plain(l.text));
+  // (From a line's start, as long as the opening and a little: it may run over the line's end, but a line before
+  // the turn, whose own words fill that stretch, doesn't match it.)
+  const near = (i, n) => pairs(said.slice(i, i + 4).join('').slice(0, n + 4));
+  const found = [];
+  let from = 0;
+  for (const t of turns) {
+    const head = plain(t.said.join('')).slice(0, OPENING);
+    const want = pairs(head);
+    // (Its first few characters at a line's own start count too: of two lines whose stretches both hold the
+    // opening, the one it starts in, not a short line before it.)
+    const first = pairs(head.slice(0, 6));
+    let best = -1;
+    let score = 0;
+    let rank = 0;
+    if (want.size >= 4) {
+      for (let i = from; i < Math.min(lines.length, from + AHEAD); i++) {
+        const have = near(i, head.length);
+        const start = pairs(said[i].slice(0, 8));
+        let n = 0;
+        let m = 0;
+        for (const p of want) if (have.has(p)) n++;
+        for (const p of first) if (start.has(p)) m++;
+        const s = n / want.size;
+        const r = s + (first.size ? m / first.size : 0) * 0.5;
+        if (r > rank) (rank = r), (score = s), (best = i);
+      }
+    }
+    if (best >= 0 && score >= 0.5) {
+      found.push(best);
+      from = best;
+    } else found.push(null);
+  }
+  // Not found: between the found ones around it, by how much text lies between.
+  const size = turns.map(t => plain(t.said.join('')).length || 1);
+  const at = found.map(i => (i == null ? null : lines[i].start));
+  const end = lines.at(-1).end ?? lines.at(-1).start;
+  for (let i = 0; i < at.length; i++) {
+    if (at[i] != null) continue;
+    let a = i - 1;
+    while (a >= 0 && at[a] == null) a--;
+    let b = i + 1;
+    while (b < at.length && found[b] == null) b++;
+    const t0 = a >= 0 ? at[a] : lines[0].start;
+    const t1 = b < at.length ? lines[found[b]].start : end;
+    const before = size.slice(a + 1, i).reduce((x, y) => x + y, 0) + (a >= 0 ? size[a] : 0);
+    const span = size.slice(a + 1, b).reduce((x, y) => x + y, 0) + (a >= 0 ? size[a] : 0);
+    at[i] = t0 + ((t1 - t0) * before) / Math.max(1, span);
+  }
+  for (let i = 1; i < at.length; i++) at[i] = Math.max(at[i], at[i - 1]);
+  return at.map(x => Math.round(x * 100) / 100);
+}

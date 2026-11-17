@@ -5503,3 +5503,5 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-said-ai[hidden] { display: none; }
 .lw-said-gz .lw-prose { display: grid; gap: 6px; margin-top: 2px; }
 .lw-said-gz .lw-prose p { margin: 0; }
+.lw-gz-call[data-at], .lw-said-gz .lw-turn[data-at] { cursor: pointer; }
+.lw-gz-call.lw-now { margin-inline: -8px; padding: 4px 8px; border-radius: 8px; background: color-mix(in srgb, var(--q-accent) 12%, transparent); }

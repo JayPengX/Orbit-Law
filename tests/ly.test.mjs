@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetSteps } from '../public/lib/budget.mjs';
-import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName, gazetteTurns } from '../public/lib/ly.mjs';
+import { voteDate, nameIndex, compactVote, byNewest, lawsIn, personVotes, voteCounts, gazetteUrl, billRow, clipRow, budgetKey, budgetRole, budgetGroups, clipTurns, speakerName, gazetteTurns, alignTurns } from '../public/lib/ly.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 
 test('a vote day from loose 表決時間 text and the meeting days', () => {
@@ -250,4 +250,39 @@ test('the 立法院公報’s own record of a clip’s 質詢: the legislator’
   assert.equal(gazetteTurns(parsed, '伍麗華Saidhai Tahovecahe', '09:02:10').length, 1);
   assert.deepEqual(speakerName('伍麗華Saidhai Tahovecahe委員'), { n: '伍麗華Saidhai Tahovecahe', role: '委員' });
   assert.deepEqual(speakerName('蘇人事長俊榮'), { n: '蘇俊榮', role: '人事長' });
+});
+
+test('the gazette’s turns take the AI’s times: each where the AI heard its opening, the short ones between (Jay 2026-11-17)', () => {
+  // As on 10/20: the AI mishears some words, the gazette is tidied; the opening still shares most of its pairs.
+  const lines = [
+    { start: 25, end: 30, text: '好 謝謝主席 主席有請行政院長' },
+    { start: 36, end: 38, text: '請選擇' },
+    { start: 44, end: 50, text: '院長早安 院長本席今天站在質詢台' },
+    { start: 50, end: 60, text: '要從我們國家的能源安全戰略產業布局' },
+    { start: 221.84, end: 226.84, text: '那產生的這些問題我們有沒有什麼退場機制' },
+    { start: 226.84, end: 228.84, text: '我先跟委員謝謝委員' },
+    { start: 228.84, end: 231.84, text: '剛剛委員用了3分鐘的時間' },
+    { start: 241.84, end: 243.84, text: '我們都不知道' },
+    { start: 243.84, end: 245.84, text: '所以也是經過嚴謹的分析' }
+  ];
+  const turns = [
+    { who: '黃委員建賓', said: ['謝謝主席。主席，有請行政院長。'] },
+    { who: '主席', said: ['請卓院長備詢。'] },
+    { who: '黃委員建賓', said: ['院長早安。院長，本席今天站在質詢台，要從我們國家的能源安全、戰略產業布局'] },
+    { who: '卓院長榮泰', said: ['我先跟委員說明。謝謝委員，剛剛委員用了3分鐘的時間'] },
+    { who: '黃委員建賓', said: ['所以……'] },
+    { who: '卓院長榮泰', said: ['我們當然知道，所以也是經過很嚴謹的分析。'] }
+  ];
+  const at = alignTurns(turns, lines);
+  assert.equal(at[0], 25);
+  assert.equal(at[2], 44);
+  // Not the line before (its words fill the stretch), the one the answer starts in.
+  assert.equal(at[3], 226.84);
+  assert.equal(at[5], 241.84);
+  // Too short to tell: between their neighbours, never before the one before.
+  assert.ok(at[1] >= 25 && at[1] <= 44, `主席 at ${at[1]}`);
+  assert.ok(at[4] >= 226.84 && at[4] <= 241.84, `所以 at ${at[4]}`);
+  for (let i = 1; i < at.length; i++) assert.ok(at[i] >= at[i - 1]);
+  // No AI lines: no times.
+  assert.equal(alignTurns(turns, []), null);
 });

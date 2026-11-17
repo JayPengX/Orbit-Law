@@ -12,6 +12,26 @@ export const JUDGMENTS_PAGE = `${CONS}judcurrentNew1.aspx?fid=38`;
 export const interpPage = n => `${CONS}docredirect.aspx?type=1&no=${n}`;
 export const LAST_INTERP = 813;
 
+// What a holding (解釋文 / 主文) found: 'bad' (違憲), 'partly' (part of each),
+// 'ok' (合憲) or '' (it says neither: a procedural one). Every way the court
+// says "no conflict" (尚未牴觸, 並無違背, 均屬無違, 難謂…牴觸) counts as 合憲 and
+// is taken out before looking for 違憲's words, so a negated 牴觸 never reads
+// as one (釋字第809號 showed 違憲 for 尚未牴觸). A statute quoted in 「」 and the
+// notes in （） aren't the holding; 有無牴觸 and 不得違背 say nothing either way;
+// a holding that only turns the petition down (聲請駁回, never a 暫時處分's)
+// found nothing against the Constitution.
+const HOLD_OK = /難謂[^，。；]{0,24}?(?:違反|牴觸|抵觸|違背|不符|違憲)|(?<!有)(?:(?:尚未|並未|均未|亦未|未|尚無|並無|均無|亦無|自無|要無|無|尚不|並不|亦不|均不|不)生?(?:牴觸|抵觸|違背|違反|不符|違憲)|(?:尚屬|均屬|亦屬|於法|並|尚|亦|均)?無違|合憲|尚屬相符)/g;
+const HOLD_BAD = /違憲|牴觸|抵觸|有違|不符|(?:意旨|本旨)未盡?相符|失其效力|不予援用|不予適用|停止適用|(?:違背|違反)憲法第/;
+export function holdingVerdict(text) {
+  let t = String(text || '');
+  for (let i = 0; i < 4 && t.includes('「'); i++) t = t.replace(/「[^「」]*」/g, '');
+  t = t.replace(/（[^（）]*）/g, '').replace(/有無(?:牴觸|抵觸|違背|違反|違憲)|不得(?:違背|違反|牴觸|抵觸)/g, '');
+  const ok = t.search(HOLD_OK) >= 0;
+  const bad = HOLD_BAD.test(t.replace(HOLD_OK, ''));
+  if (bad) return ok ? 'partly' : 'bad';
+  return ok || /聲請(?:均)?駁回|均予駁回/.test(t.replace(/暫時處分之聲請(?:均)?駁回/g, '')) ? 'ok' : '';
+}
+
 export const isCons = id => /^(s\d+|j\d+-\d+)$/.test(String(id || ''));
 export function consLabel(id, en = false) {
   const s = /^s(\d+)$/.exec(id);

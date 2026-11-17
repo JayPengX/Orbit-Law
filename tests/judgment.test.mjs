@@ -80,3 +80,15 @@ test('judgment sheet: points are never cut short; a long one opens with 看全�
   assert.match(fn, /fitJdPoints\(body\)/);
   assert.match(src, /moreHtml\(\{ more: W\('看全文'/);
 });
+
+test('judgment: a mixed outcome reads as what was won or given', () => {
+  assert.equal(outcome('甲犯詐欺取財罪，處有期徒刑壹年貳月。其餘被訴部分無罪。').label, '部分有罪');
+  assert.equal(outcome('甲犯傷害罪，處有期徒刑參月，如易科罰金，以新臺幣壹仟元折算壹日。').label, '有罪');
+  assert.equal(outcome('被告應給付原告新臺幣參拾萬元。原告其餘之訴駁回。').label, '要給付');
+  assert.equal(outcome('被上訴人應返還上訴人新臺幣伍萬元。其餘上訴駁回。').label, '要返還');
+  assert.equal(outcome('原判決關於駁回上訴人後開第二項之訴部分廢棄。被上訴人應給付上訴人新臺幣拾萬元。其餘上訴駁回。').label, '部分廢棄');
+  assert.equal(outcome('原判決廢棄。被上訴人應給付上訴人新臺幣拾萬元。').label, '原判決廢棄');
+  assert.equal(outcome('原告之訴及假執行之聲請均駁回。').label, '駁回');
+  // (原判決 in one sentence, 撤銷 in another: not 原判決撤銷.)
+  assert.equal(outcome('上訴駁回。原判決附表編號一所示之物沒收。被告之緩刑宣告撤銷。').label, '駁回');
+});

@@ -78,3 +78,20 @@ test('rulings: a case number typed, the months to browse', () => {
   assert.deepEqual(Object.keys(m).sort(), ['202609', '202610']);
   assert.deepEqual(monthCounts(m), [['202610', 1, 0], ['202609', 0, 1]]);
 });
+
+test('cons: a holding in a word, a negated 牴觸 never 違憲 (live rulings that read wrong)', async () => {
+  const { holdingVerdict: v } = await import('../public/lib/cons.mjs');
+  // 釋字第809號, 113年憲判字第10號, 釋字第750號: 合憲, shown as 違憲.
+  assert.equal(v('不動產估價師法第9條第2項規定：「……」尚未牴觸憲法第23條比例原則，與憲法第15條保障人民工作權之意旨並無違背。'), 'ok');
+  assert.equal(v('一、醫療法第21條規定：「醫療機構收取醫療費用之標準，由直轄市、縣（市）主管機關核定之。」與同法第22條第2項規定：「醫療機構不得違反收費標準，超額或擅立收費項目收費。」合併觀察，與法律明確性原則尚屬無違。二、上開規定未牴觸憲法第23條比例原則，與憲法第22條保障契約自由之意旨均屬無違。三、聲請人之裁判憲法審查之聲請駁回。'), 'ok');
+  assert.equal(v('尚未牴觸憲法第23條比例原則，與憲法第15條及第18條應考試權之保障意旨無違，亦不違反憲法第7條平等原則。'), 'ok');
+  assert.equal(v('其他各款所定事由，與憲法所要求之法律明確性原則尚無不符，尚難謂與憲法第二十三條有何牴觸。'), 'ok');
+  // Part of each; all of it; a 暫時處分 turned down isn't a holding.
+  assert.equal(v('一、上開規定與憲法第11條保障言論自由之意旨無違。二、上開規定關於侮辱職務罪部分，與憲法第11條保障言論自由之意旨有違，應自本判決公告之日起失其效力。'), 'partly');
+  assert.equal(v('一、上開規定違背憲法正當立法程序，均牴觸憲法，應自本判決公告之日起失其效力。二、本件暫時處分之聲請駁回。'), 'bad');
+  assert.equal(v('財政部函增加法律所無之限制，於此範圍內，均違反憲法第19條租稅法律主義，應不予援用。'), 'bad');
+  // A statute's words quoted, a note in （）, 有無牴觸: none of them the holding.
+  assert.equal(v('其第五條（已停止適用）規定：「違反者，與事實不符。」與憲法並無牴觸。'), 'ok');
+  assert.equal(v('法律及命令與憲法有無牴觸，發生疑義時，由司法院解釋之。'), '');
+  assert.equal(v('聲請人之聲請駁回。'), 'ok');
+});

@@ -106,9 +106,13 @@ const ymdDash = m => (/^\d{8}$/.test(m) ? `${m.slice(0, 4)}-${m.slice(4, 6)}-${m
 // day), one entry per law and 異動日期, older than `days` dropped. `told`:
 // versions read from their 沿革 (historyChange), kept when nothing better
 // (a real diff) has them. Newest amendment first.
+// (The day is Taiwan's, as the phone's seen days are: the 03:30 build runs at
+// 19:30 UTC, and a UTC stamp, the day before, hid every change it found from
+// anyone who had looked at that law the day before.)
 export function mergeChanges(prev, found, now = new Date(), days = CHANGES_DAYS, told = []) {
-  const day = now.toISOString().slice(0, 10);
-  const cutoff = new Date(now.getTime() - days * 864e5).toISOString().slice(0, 10);
+  const twDay = t => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);
+  const day = twDay(now.getTime());
+  const cutoff = twDay(now.getTime() - days * 864e5);
   const items = [...found.map(f => ({ ...f, seen: day })), ...(prev?.items || []), ...told];
   const keep = new Map();
   for (const it of items) {

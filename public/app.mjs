@@ -32,7 +32,7 @@ import { keptRules, loadMine, saveMine, toggleFollow, markSeen, addRecent, toggl
 import { askLaw, askBill, askDiff, askRuling, askTown, askPaper, askError, passFetch, MAX_Q } from './lib/ask.mjs';
 import { searchText } from './lib/fulltext.mjs';
 import { COURTS, courtOf, rulingUrl, caseKind, caseNo, caseQuery, caseMatch, lowCode, lowCourtName, lowLevel } from './lib/rulings.mjs';
-import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE } from './lib/cons.mjs';
+import { isCons, consLabel, consOrder, consOfJid, citedBy, interpPage, JUDGMENTS_PAGE, holdingVerdict } from './lib/cons.mjs';
 import { noticeUrl, isOpen } from './lib/notices.mjs';
 import { linkTrail } from './lib/stack.mjs';
 import { TOPICS, topicOf, partyOf } from './lib/topics.mjs';
@@ -2628,7 +2628,11 @@ async function drawRulingList() {
     const html = await lowHtml();
     return void (run === rulingRun && paint(out, html));
   }
-  if (rulingQuery) return void paint(out, await rulingSearchHtml(rulingQuery, cons, { door: rulingDoor_ }));
+  // (A search read slowly isn't painted over a newer one, or the list after it was cleared.)
+  if (rulingQuery) {
+    const html = await rulingSearchHtml(rulingQuery, cons, { door: rulingDoor_ });
+    return void (run === rulingRun && paint(out, html));
+  }
   const more = n => (n > 0 ? `<button type="button" class="q-btn block lw-more" data-rmore>${W(`再看 ${Math.min(n, 60)} 則`, `${Math.min(n, 60)} more`)}</button>` : '');
   if (door === 'cons' || door === 'interp') {
     const rows = cons.items.filter(r => (door === 'cons') === r[0].startsWith('j'));
@@ -2857,15 +2861,12 @@ async function openCons(id) {
     (it.docs.length ? `<details class="lw-fold"><summary>${W(`意見書與原文（${it.docs.length}）`, `Opinions and files (${it.docs.length})`)}</summary><div class="lw-list in-sheet">${it.docs.map(([t, u]) => `<a class="lw-row" href="${esc(u)}" target="_blank" rel="noopener" data-out><span class="lw-file">PDF</span><span class="lw-row-text"><span class="lw-row-name lw-doc-name q-fit-wrap">${esc(t.replace(/^憲法法庭\d+年憲判字第\d+號判決/, '').replace(/^\d+/, '').replace(/_OCR$/, '') || t)}</span></span></a>`).join('')}</div></details>` : '') +
     `<a class="q-more q-more-go lw-out" href="${esc(it.url || (id[0] === 's' ? interpPage(id.slice(1)) : JUDGMENTS_PAGE))}" target="_blank" rel="noopener" data-out><span>${W('到憲法法庭看原文', 'Open on the Constitutional Court')}</span><span class="q-more-chev" aria-hidden="true">›</span></a>`;
 }
-// The holding in a word: 違憲 / 合憲 / part of each, from its own words.
+// The holding in a word: 違憲 / 合憲 / part of each (lib/cons.mjs holdingVerdict).
 function consVerdict(text) {
-  const t = String(text || '');
-  const OK = /(尚無牴觸|並無牴觸|尚無違背|並未牴觸|不牴觸|不違背|尚屬合憲|合憲)/g;
-  const ok = OK.test(t);
-  const bad = /(違憲|牴觸|有違|不符|失其效力)/.test(t.replace(OK, ''));
-  if (bad && ok) return { label: W('部分違憲', 'Partly unconstitutional'), tone: 'orange' };
-  if (bad) return { label: W('違憲', 'Unconstitutional'), tone: 'red' };
-  if (ok) return { label: W('合憲', 'Constitutional'), tone: 'green' };
+  const v = holdingVerdict(text);
+  if (v === 'partly') return { label: W('部分違憲', 'Partly unconstitutional'), tone: 'orange' };
+  if (v === 'bad') return { label: W('違憲', 'Unconstitutional'), tone: 'red' };
+  if (v === 'ok') return { label: W('合憲', 'Constitutional'), tone: 'green' };
   return { label: '', tone: 'cons' };
 }
 
@@ -3084,8 +3085,9 @@ function drawBillList() {
 function weekDigest() {
   const since = new Date(Date.now() + 8 * 3600e3 - 7 * 86400e3).toISOString().slice(0, 10);
   const passed = state.items.filter(it => !it.dropped && it.passed >= since).sort((a, b) => (a.passed < b.passed ? 1 : -1));
-  const mine = state.items.filter(it => state.mine.items[it.k] && it.u > state.mine.items[it.k]);
-  const moved = state.items.filter(it => LIVE(it) && it.u >= since && !passed.includes(it) && !mine.includes(it)).sort((a, b) => b.stage - a.stage || b.count - a.count);
+  // (A 最新進度日期 still to come is no move yet: billMoved.)
+  const mine = state.items.filter(it => billMoved(it, state.mine.items[it.k]));
+  const moved = state.items.filter(it => LIVE(it) && it.u >= since && it.u <= today() && !passed.includes(it) && !mine.includes(it)).sort((a, b) => b.stage - a.stage || b.count - a.count);
   const card = it => billCard(it, { topic: itemTopic(it), en });
   const html =
     section(W('你追蹤的有新進度', 'Your bills moved'), rail(mine.slice(0, 10).map(card))) +
@@ -3206,7 +3208,7 @@ async function openItem(k, { round } = {}) {
   // stage, who filed it); the versions are read behind it (it used to wait
   // for them with nothing on screen: about a second on a phone).
   const topic = itemTopic(it);
-  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
+  const follow = h('button', { type: 'button', class: `lw-tool${state.mine.items[k] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => (toggleFollow(state.mine, 'items', k, undefined, item.u) && toast(W('已追蹤：有進度會標出來', 'Following: progress will show')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.items[k])), haptic()) });
   const tone = it.dropped ? '' : it.held || (it.ns && it.stage === PASSED) ? 'orange' : it.stage >= PASSED ? 'green' : 'indigo';
   const top = h('div', { class: 'lw-item-head', style: `--t:${TOPICS[topic].color}`, html: `${topicTile(topic, 'lg')}<span class="lw-meta">${countTag(stageShort(it, en), tone)}${countTag(topicName(topic, en), 'topic')}</span>` });
   const artsBox = x => (html => (html ? h('div', { class: 'lw-item-who', html: `<h4>${it.round === 'passed' ? W(`改了哪幾條（${Object.keys(x.arts).length}）`, `Articles it changed (${Object.keys(x.arts).length})`) : W(`要改哪幾條（${Object.keys(x.arts).length}）`, `Articles it changes (${Object.keys(x.arts).length})`)}</h4><div class="lw-parties">${html}</div>` }) : null))(articleChips(x, en));
@@ -3239,7 +3241,7 @@ async function openItem(k, { round } = {}) {
       arts = fresh;
     }
   }
-  markSeen(state.mine, 'items', k);
+  markSeen(state.mine, 'items', k, undefined, item.u);
   save();
   noteRead({ kind: 'bill', id: k, title: W(`${it.n}修正草案`, `${it.n} amendment`), href: itemHref(it).replace('&amp;', '&'), sub: '' });
   const steps = timeline(it, bills, en, state.noticesByLaw.get(it.p));
@@ -3877,7 +3879,7 @@ async function openPerson(id) {
     return toast(W('這位立委的資料讀不到', 'Couldn’t load this legislator'));
   }
   const row = ppl.people.find(p => String(p.id) === String(id)) || x;
-  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id)), state.peopleNew && (state.peopleNew[id] = 0), state.peopleLast && (state.peopleLast[id] = ''), save());
+  if (state.mine.people?.[id]) (markSeen(state.mine, 'people', String(id), undefined, personFeed(x)[0]?.d), state.peopleNew && (state.peopleNew[id] = 0), state.peopleLast && (state.peopleLast[id] = ''), save());
   const follow = h('button', { type: 'button', class: `lw-tool${state.mine.people?.[id] ? ' on' : ''}`, 'aria-label': W('追蹤', 'Follow'), html: ICON.star, onclick: e => ((state.mine.people ||= {}), toggleFollow(state.mine, 'people', String(id)) && toast(W('已追蹤這位立委', 'Following')), save(), e.currentTarget.classList.toggle('on', Boolean(state.mine.people[id])), haptic()) });
   const att = x.attend?.plenary;
   const stats = [[W('提案', 'Bills'), row.counts.bills, 'indigo'], [W('連署', 'Co-sign'), row.counts.cosign, 'teal'], [W('質詢', 'Talks'), row.counts.clips, 'orange'], [W('出席', 'Present'), att ? `${Math.round((att[0] / Math.max(1, att[1])) * 100)}%` : '–', 'green']];

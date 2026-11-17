@@ -50,16 +50,24 @@ export function linesOf(html) {
   return out;
 }
 
-// The outcome in a few plain words (and a tone for its colour).
+// The outcome in a few plain words (and a tone for its colour). A mixed one
+// reads as what was won or given: a sentence with 其餘…無罪 is 部分有罪 (never
+// 無罪), and 其餘之訴駁回 after 應給付 is what the rest got, not the outcome.
+// (Within one sentence: 原判決 in one and 撤銷 in another aren't 原判決撤銷.)
 export function outcome(main) {
   const m = String(main);
+  const core = m.replace(/其餘[^。；]*?駁回/g, '');
   if (/發回/.test(m)) return { label: '發回重審', tone: 'orange' };
-  if (/原判決.*撤銷|撤銷原判決|原裁定.*撤銷/.test(m)) return { label: '原判決撤銷', tone: 'orange' };
+  const undo = m.match(/原(?:判決|裁定)[^。；]{0,60}?(撤銷|廢棄)|(撤銷|廢棄)原(?:判決|裁定)/);
+  if (undo) {
+    const word = undo[1] || undo[2];
+    return { label: /原(?:判決|裁定)關於[^。；]*?部分(?:撤銷|廢棄)/.test(m) ? `部分${word}` : `原判決${word}`, tone: 'orange' };
+  }
+  if (/處(?:有期徒刑|拘役|罰金|無期徒刑|死刑)/.test(m)) return /無罪/.test(m) ? { label: '部分有罪', tone: 'orange' } : { label: '有罪', tone: 'red' };
   if (/無罪/.test(m)) return { label: '無罪', tone: 'green' };
-  if (/處有期徒刑|處拘役|處罰金|處無期徒刑|處死刑/.test(m)) return { label: '有罪', tone: 'red' };
-  if (/上訴駁回|抗告駁回|聲請駁回|訴駁回|再審之聲請駁回|駁回/.test(m)) return { label: '駁回', tone: 'gray' };
-  if (/返還/.test(m)) return { label: '要返還', tone: 'indigo' };
-  if (/應給付|應賠償/.test(m)) return { label: '要給付', tone: 'indigo' };
+  if (/返還/.test(core)) return { label: '要返還', tone: 'indigo' };
+  if (/應給付|應賠償/.test(core)) return { label: '要給付', tone: 'indigo' };
+  if (/駁回/.test(m)) return { label: '駁回', tone: 'gray' };
   if (/不受理/.test(m)) return { label: '不受理', tone: 'gray' };
   return { label: '', tone: 'gray' };
 }

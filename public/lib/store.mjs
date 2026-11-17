@@ -24,16 +24,24 @@ export function saveMine(mine, store = globalThis.localStorage, now = Date.now()
 
 const today = (now = new Date()) => new Date(now.getTime() + 8 * 3600e3).toISOString().slice(0, 10);
 
+// The day a thing counts as seen up to: today, or `upTo`, the day of the
+// newest change the screen showed, when that's earlier. (A bill's move is
+// dated its meeting day and comes in the next day's data: seen as "today" on
+// the meeting day, it was never after it, and never showed.)
+const seenDay = (now, upTo) => {
+  const d = today(now);
+  return /^\d{4}-\d{2}-\d{2}$/.test(upTo || '') && upTo < d ? upTo : d;
+};
 // Follow or unfollow (a law by pcode, a bill item by its key); following
-// starts "seen" today, so only what moves after shows as new.
-export function toggleFollow(mine, kind, id, now) {
+// starts "seen" today (or at `upTo`), so only what moves after shows as new.
+export function toggleFollow(mine, kind, id, now, upTo) {
   const set = mine[kind];
   if (set[id]) delete set[id];
-  else set[id] = today(now);
+  else set[id] = seenDay(now, upTo);
   return Boolean(set[id]);
 }
-export function markSeen(mine, kind, id, now) {
-  if (mine[kind][id]) mine[kind][id] = today(now);
+export function markSeen(mine, kind, id, now, upTo) {
+  if (mine[kind][id]) mine[kind][id] = seenDay(now, upTo);
 }
 
 export function addRecent(mine, p, max = 12) {

@@ -1018,3 +1018,22 @@ test('a wide page\'s columns: each part in its own, and one alone never shown tw
   assert.deepEqual(spreadCols([['week', 1]], 2), [['week'], []], 'one section on the right only: moved, not copied');
   assert.deepEqual(spreadCols([['a', 1], ['b', 1], ['c', 1]], 2), [['a', 'c'], ['b']]);
 });
+
+test('修法追蹤 and following: seen days are Taiwan’s, and a move dated before the data came still shows', async () => {
+  const { markSeen, billMoved } = await import('../public/lib/store.mjs');
+  // The 03:30 build (19:30 UTC the day before) stamps Taiwan's day: a law looked at the day before shows its change.
+  const built = mergeChanges({ items: [] }, [{ p: 'B1', m: '20261116', added: [], amended: ['2'], removed: [] }], new Date('2026-11-16T19:46:00Z'), 120);
+  assert.equal(built.items[0].seen, '2026-11-17');
+  const mine = { ...loadMine(null), laws: { B1: '2026-11-16' } };
+  assert.deepEqual(lawsChanged(mine, built).map(c => c.p), ['B1']);
+  // A bill opened on its meeting day, before that day's move is in the data: the move shows the next day.
+  const day = new Date('2026-11-17T04:00:00Z');
+  mine.items = { 'L:1': '2026-11-01' };
+  markSeen(mine, 'items', 'L:1', day, '2026-11-10');
+  assert.equal(mine.items['L:1'], '2026-11-10');
+  assert.ok(billMoved({ u: '2026-11-17' }, mine.items['L:1'], new Date('2026-11-18T04:00:00Z')));
+  // A day still to come (a meeting set for next week) is seen as today, so it counts when it comes.
+  markSeen(mine, 'items', 'L:1', day, '2026-11-24');
+  assert.equal(mine.items['L:1'], '2026-11-17');
+  assert.equal(toggleFollow(mine, 'items', 'L:2', day, '2026-11-12') && mine.items['L:2'], '2026-11-12');
+});

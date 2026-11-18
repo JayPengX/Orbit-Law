@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { soundOf, charsOf, fixTerms, memberOf, heardTurns, machineAsks } from '../public/lib/town-speakers.mjs';
-import { machinePaper, vocabOf, recKey } from '../scripts/town-hear.mjs';
+import { machinePaper, vocabOf, recKey, rosterFor } from '../scripts/town-hear.mjs';
 
 const members = [
   { n: '何宜芯', py: ['he', 'yi', 'xin'] },
@@ -113,4 +113,18 @@ test('「請各位代表參閱」「請翻開第五頁」 call no one: the chair
   const w = [[0, 4, '請各位代表參閱書面資料第五頁。'], [6, 9, '請翻開代表提案第三案。'], [11, 15, '提案人陳代表，案由道路拓寬。']];
   const turns = heardTurns(w, { members, chair: '林啟賢' });
   assert.ok(turns.every(t => t.r !== '代表'), JSON.stringify(turns));
+});
+
+// After an election nobody has to remake the roster first: a session of a term the roster isn't for names no one
+// from another term (its site's own members, its 村里 without heads).
+test("a session outside the roster's term takes its site's own members, never another term's", () => {
+  const list = { '10004010': { m: [{ n: '何宜芯' }], li: [{ n: '東平里', head: '王大明' }] } };
+  assert.deepEqual(rosterFor('10004010', { from: '2026-09-30' }, list), list['10004010']);
+  assert.deepEqual(rosterFor('10004010', {}, list), list['10004010']);
+  assert.deepEqual(rosterFor('10004010', { from: '2027-01-05' }, list), { li: [{ n: '東平里' }] });
+  assert.deepEqual(rosterFor('10004010', { from: '2021-03-01' }, list), { li: [{ n: '東平里' }] });
+  // The next election's roster, made: the new term named, the old one not.
+  const next = { ...list, _starts: '2026-12-25', _ends: '2030-12-25' };
+  assert.deepEqual(rosterFor('10004010', { from: '2027-01-05' }, next), list['10004010']);
+  assert.deepEqual(rosterFor('10004010', { from: '2026-09-30' }, next), { li: [{ n: '東平里' }] });
 });

@@ -64,8 +64,17 @@ async function towns() {
 
 // The meeting's own words: its members (中選會's list, else the site's), its 村里 and their heads, the things its
 // papers name; and a line for the recognizer that ends with the members (the line's end is what it keeps).
+// (The roster is one election's, for its term only (`_starts`…`_ends`, 12-25 to 12-25; the 2022 one's without
+// them): a session outside it takes its site's own members and leaves the 村里 heads unnamed, never another term's
+// people. So a new term needs no hand here before scripts/town-roster.mjs is run again.)
+export const rosterFor = (tc, s, list = roster) => {
+  const r = list[tc] || {};
+  const from = s?.from || '';
+  if (!from || (from >= (list._starts || '2022-12-25') && from < (list._ends || '2026-12-25'))) return r;
+  return { li: (r.li || []).map(x => ({ n: x.n })) };
+};
 export function vocabOf(tc, own, s, papers = {}) {
-  const r = roster[tc] || {};
+  const r = rosterFor(tc, s);
   const members = (r.m?.length ? r.m.map(m => m.n) : (own.people || []).map(p => p.n)).filter(Boolean);
   const li = (r.li || []).map(x => x.n);
   const heads = (r.li || []).map(x => x.head).filter(Boolean);
@@ -230,7 +239,8 @@ async function apply() {
         if (!(had && had.made === MADE && had.built === k.built)) {
           const heard = await json(`${storeDir}/${tc}/${f.replace(/\.json$/, '.words.json')}`).catch(() => null);
           if (!heard) continue;
-          const r = roster[tc]?.m?.length ? roster[tc].m : (own.people || []).map(p => ({ n: p.n, area: p.area || '' }));
+          const mine = rosterFor(tc, s).m;
+          const r = mine?.length ? mine : (own.people || []).map(p => ({ n: p.n, area: p.area || '' }));
           x.doc.papers[key] = machinePaper(k, heard, { members: r, chair: (own.people || []).find(p => p.title === '主席')?.n || '' });
           x.changed = true;
           m++;

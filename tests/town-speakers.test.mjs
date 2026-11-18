@@ -3,7 +3,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { soundOf, charsOf, fixTerms, memberOf, heardTurns, machineAsks } from '../public/lib/town-speakers.mjs';
-import { machinePaper, vocabOf, recKey, rosterFor } from '../scripts/town-hear.mjs';
+import { machinePaper, vocabOf, recKey, rosterFor, rosterNow } from '../scripts/town-hear.mjs';
+import { makeRoster } from '../scripts/town-roster.mjs';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 
 const members = [
   { n: '何宜芯', py: ['he', 'yi', 'xin'] },
@@ -118,13 +121,62 @@ test('「請各位代表參閱」「請翻開第五頁」 call no one: the chair
 // After an election nobody has to remake the roster first: a session of a term the roster isn't for names no one
 // from another term (its site's own members, its 村里 without heads).
 test("a session outside the roster's term takes its site's own members, never another term's", () => {
-  const list = { '10004010': { m: [{ n: '何宜芯' }], li: [{ n: '東平里', head: '王大明' }] } };
-  assert.deepEqual(rosterFor('10004010', { from: '2026-09-30' }, list), list['10004010']);
-  assert.deepEqual(rosterFor('10004010', {}, list), list['10004010']);
-  assert.deepEqual(rosterFor('10004010', { from: '2027-01-05' }, list), { li: [{ n: '東平里' }] });
-  assert.deepEqual(rosterFor('10004010', { from: '2021-03-01' }, list), { li: [{ n: '東平里' }] });
+  const list = { '10002010': { m: [{ n: '林代表' }], li: [{ n: '中山里', head: '王大明' }] } };
+  assert.deepEqual(rosterFor('10002010', { from: '2026-09-30' }, list), list['10002010']);
+  assert.deepEqual(rosterFor('10002010', {}, list), list['10002010']);
+  assert.deepEqual(rosterFor('10002010', { from: '2027-01-05' }, list), { li: [{ n: '中山里' }] });
+  assert.deepEqual(rosterFor('10002010', { from: '2021-03-01' }, list), { li: [{ n: '中山里' }] });
   // The next election's roster, made: the new term named, the old one not.
   const next = { ...list, _starts: '2026-12-25', _ends: '2030-12-25' };
-  assert.deepEqual(rosterFor('10004010', { from: '2027-01-05' }, next), list['10004010']);
-  assert.deepEqual(rosterFor('10004010', { from: '2026-09-30' }, next), { li: [{ n: '東平里' }] });
+  assert.deepEqual(rosterFor('10002010', { from: '2027-01-05' }, next), list['10002010']);
+  assert.deepEqual(rosterFor('10002010', { from: '2026-09-30' }, next), { li: [{ n: '中山里' }] });
+});
+
+// Past the term of git's roster, hear makes the next election's from 中選會 itself, once (kept with what was heard).
+test("the next election's roster is made by itself once its term begins, and only once", async () => {
+  const git = { '10002010': { m: [{ n: '林代表' }], li: [] } };
+  const next = { '10002010': { m: [{ n: '新代表' }], li: [] }, _starts: '2026-12-25', _ends: '2030-12-25', _session: 115 };
+  let made = 0;
+  const make = async () => (made++, next);
+  const store = await mkdtemp(`${tmpdir()}/roster-`);
+  assert.equal(await rosterNow(store, { today: '2026-12-20', make, git }), git, 'its term still on: no call');
+  assert.equal(made, 0);
+  assert.deepEqual(await rosterNow(store, { today: '2026-12-26', make, git }), next);
+  assert.deepEqual(JSON.parse(await readFile(`${store}/_roster.json`, 'utf8')), next);
+  assert.deepEqual(await rosterNow(store, { today: '2027-03-01', make, git }), next);
+  assert.deepEqual(await rosterNow(store, { today: '2027-03-01', make: null, git }), next, 'apply reads the kept one');
+  assert.equal(made, 1);
+  // 中選會 not done yet (or unreadable): the last roster stays, and the sites' own members answer for the new term.
+  const empty = await mkdtemp(`${tmpdir()}/roster-`);
+  assert.equal(await rosterNow(empty, { today: '2026-12-26', make: async () => null, git }), git);
+  assert.equal(await rosterNow(empty, { today: '2026-12-26', make: async () => ({ ...git, _starts: '2022-12-25', _ends: '2026-12-25' }), git }), git);
+});
+
+// 中選會's files as they are (the 2022 election's shape): the newest election held, its term, and nothing when half there.
+test("the roster is the newest election held, with its term; results not all in are no roster", async () => {
+  const sites = { '10002010': {}, '10002020': {} };
+  const files = {
+    'list/ELC_R2.json': [{ theme_items: [
+      { session: 111, vote_date: '2022-11-26', legislator_type_id: 'R2', theme_id: 'a' },
+      { session: 115, vote_date: '2026-11-28', legislator_type_id: 'R2', theme_id: 'b' }
+    ] }],
+    'data/tickets/ELC/R2/R2/a/A/10_002_00_000_0000.json': { x: [
+      { is_victor: '*', prv_code: '10', city_code: '002', dept_code: '010', cand_name: '甲', party_name: '無', area_name: '宜蘭縣第01選舉區' },
+      { is_victor: '*', prv_code: '10', city_code: '002', dept_code: '020', cand_name: '乙', party_name: '無', area_name: '宜蘭縣第02選舉區' },
+      { is_victor: ' ', prv_code: '10', city_code: '002', dept_code: '020', cand_name: '丙', party_name: '無', area_name: '宜蘭縣第02選舉區' }
+    ] },
+    'data/tickets/ELC/R2/R2/b/A/10_002_00_000_0000.json': { x: [
+      { is_victor: '*', prv_code: '10', city_code: '002', dept_code: '010', cand_name: '丁', party_name: '無', area_name: '宜蘭縣第01選舉區' }
+    ] },
+    'list/ELC_V0.json': [{ theme_items: [{ session: 111, legislator_type_id: 'V0', theme_id: 'v' }] }],
+    'data/tickets/ELC/V0/V0/v/L/10_002_00_000_0000.json': { x: [{ is_victor: '*', prv_code: '10', city_code: '002', dept_code: '010', area_name: '中山里', cand_name: '王' }] }
+  };
+  const get = async u => files[u.replace('https://db.cec.gov.tw/static/elections/', '')] ?? null;
+  const r = await makeRoster({ today: '2026-11-18', get, sites });
+  assert.deepEqual(r['10002010'], { m: [{ n: '甲', party: '無', area: '第01選舉區' }], li: [{ n: '中山里', head: '王' }] });
+  assert.deepEqual(r['10002020'].m.map(m => m.n), ['乙']);
+  assert.equal(r._starts, '2022-12-25');
+  assert.equal(r._ends, '2026-12-25');
+  // The 2026 vote held, its results for one town of two: not a roster.
+  assert.equal(await makeRoster({ today: '2026-12-26', get, sites }), null);
 });

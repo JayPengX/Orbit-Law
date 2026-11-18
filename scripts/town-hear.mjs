@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { alignHeard, pitchTrack, pitchOn, topicWords } from '../public/lib/town-audio.mjs';
 import { heardTurns, machineAsks } from '../public/lib/town-speakers.mjs';
 import { paperFile } from '../public/lib/town-site.mjs';
+import { makeRoster } from './town-roster.mjs';
 
 const [mode, dataDir, storeDir] = process.argv.slice(2);
 const MODEL = process.env.TOWN_HEAR_MODEL || 'medium';
@@ -34,7 +35,24 @@ const ONLY = (process.env.TOWN_HEAR_ONLY || '').split(',').map(x => x.trim()).fi
 const MADE = 3;
 const json = async f => JSON.parse(await readFile(f, 'utf8'));
 const townDir = `${dataDir}/council/town`;
-const roster = await json(new URL('./town-roster.json', import.meta.url)).catch(() => ({}));
+let roster = await json(new URL('./town-roster.json', import.meta.url)).catch(() => ({}));
+const KEPT_ROSTER = '_roster.json';
+const todayTw = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+// The roster for today: git's while its term lasts. Past it, the next election's, made from 中選會 by hear (once:
+// kept with what was heard, which apply reads too); till 中選會 has it all, the last one (rosterFor: a session
+// outside its term then names only its site's own members). No hand after an election.
+export async function rosterNow(store, { today = todayTw(), make = makeRoster, git = roster } = {}) {
+  if (today < (git._ends || '2026-12-25')) return git;
+  const kept = store ? await json(`${store}/${KEPT_ROSTER}`).catch(() => null) : null;
+  const last = kept && (kept._starts || '') > (git._starts || '2022-12-25') ? kept : git;
+  if (today < (last._ends || '2026-12-25') || !make) return last;
+  const made = await make({ today }).catch(() => null);
+  if (!made || made._starts <= (last._starts || '2022-12-25')) return last;
+  await mkdir(store, { recursive: true });
+  await writeFile(`${store}/${KEPT_ROSTER}`, JSON.stringify(made));
+  console.log(`town-hear: the ${made._session} election's roster, from ${made._starts}`);
+  return made;
+}
 const sha = s => createHash('sha1').update(String(s)).digest('hex');
 const AUDIO = /\.(mp3|m4a|wav|aac)$/i;
 
@@ -66,7 +84,7 @@ async function towns() {
 // papers name; and a line for the recognizer that ends with the members (the line's end is what it keeps).
 // (The roster is one election's, for its term only (`_starts`…`_ends`, 12-25 to 12-25; the 2022 one's without
 // them): a session outside it takes its site's own members and leaves the 村里 heads unnamed, never another term's
-// people. So a new term needs no hand here before scripts/town-roster.mjs is run again.)
+// people, while the next one isn't made yet (rosterNow).)
 export const rosterFor = (tc, s, list = roster) => {
   const r = list[tc] || {};
   const from = s?.from || '';
@@ -137,6 +155,7 @@ async function fetchRec(url) {
 }
 
 async function hear() {
+  roster = await rosterNow(storeDir);
   let n = 0;
   for (const x of work(await towns())) {
     const id = recId(x.rec);
@@ -211,9 +230,10 @@ export function machinePaper(k, heard, { members = [], chair = '' } = {}) {
 
 async function apply() {
   if (!existsSync(storeDir)) return console.log('town-hear: nothing kept yet');
+  roster = await rosterNow(storeDir, { make: null });
   let n = 0;
   let m = 0;
-  for (const tc of await readdir(storeDir)) {
+  for (const tc of (await readdir(storeDir)).filter(f => /^\d+$/.test(f))) {
     const ownPath = `${townDir}/${tc}.json`;
     const own = existsSync(ownPath) ? await json(ownPath).catch(() => null) : null;
     let ownChanged = false;

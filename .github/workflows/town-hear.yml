@@ -26,7 +26,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   hear:
-    runs-on: ubuntu-latest
+    # (Ubuntu 24.04 by name, not -latest: Python 3.12 and faster-whisper's wheels
+    # as they are now, never a newer Ubuntu by itself; GitHub's until about 2029.)
+    runs-on: ubuntu-24.04
     timeout-minutes: 340
     strategy:
       fail-fast: false

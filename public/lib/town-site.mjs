@@ -294,6 +294,22 @@ export const TOWN_SITES = {
 };
 
 const CN = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+// The terms a build tries, newest first (scripts/build-town.mjs): a 代表會's term ends on its 12-25, every four
+// years (`ends`), and the next is the site's once it lists a session of it that met from its start (`starts`, the
+// term before's end; a new term's first sitting can come weeks later, and some sites name a session without its
+// term); till then the term before stays, as it is. So no site's `term` needs raising by hand after each election
+// (2026-11-18: each was, by 2026-12-25). At most three: a term over years ago is tried no further back than that.
+export const newTermIn = (t, s) => !!(t && s.starts && t.term === s.term && (t.sessions || []).some(x => String(x.from || '') >= s.starts));
+const TERM_YEARS = 4;
+export function termsToTry(site, now = Date.now()) {
+  const end = Date.parse(`${site.ends}T00:00:00+08:00`);
+  if (!site.term || !Number.isFinite(end) || now < end) return [site];
+  const k = 1 + Math.floor((now - end) / (TERM_YEARS * 365.25 * 864e5));
+  const out = [];
+  const at = i => `${+site.ends.slice(0, 4) + TERM_YEARS * i}${site.ends.slice(4)}`;
+  for (let i = k; i >= 1 && out.length < 2; i--) out.push({ ...site, term: site.term + i, starts: at(i - 1), ends: at(i) });
+  return [...out, site];
+}
 // 一…九十九 as a number.
 export const cnNum = s => {
   if (/^\d+$/.test(s)) return +s;

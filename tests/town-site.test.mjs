@@ -177,3 +177,21 @@ test('town: a 書面質詢 form read into who asked whom what, and the 公所’
   assert.match(q.why, /水銀路燈落日計畫/);
   assert.equal(q.reply, '二、因近年電費逐漸調升，113年、114年編列預算已不足支應。');
 });
+
+// Each election's new term without a hand on the code (2026-11-18: every site's `term` had to be raised by 1 after
+// 2026-12-25): the next term from its 12-25, taken once the site lists a session that met from then.
+test('town site: past its term’s end, the next term is tried first, and taken only with a session from its start', async () => {
+  const { termsToTry, newTermIn } = await import('../public/lib/town-site.mjs');
+  const at = d => Date.parse(`${d}T12:00:00+08:00`);
+  assert.deepEqual(termsToTry(site, at('2026-12-24')), [site]);
+  const [next, same] = termsToTry(site, at('2027-01-10'));
+  assert.deepEqual([next.term, next.starts, next.ends], [site.term + 1, '2026-12-25', '2030-12-25']);
+  assert.equal(same, site);
+  // Years with nobody here: two terms on at most, newest first, then the one written.
+  assert.deepEqual(termsToTry(site, at('2031-02-01')).map(s => s.term), [site.term + 2, site.term + 1, site.term]);
+  const built = sessions => ({ term: next.term, sessions });
+  assert.equal(newTermIn(built([]), next), false, 'no session yet: the term before stays');
+  assert.equal(newTermIn(built([{ from: '2026-09-01' }]), next), false, 'a session named without its term, from the term before');
+  assert.equal(newTermIn(built([{ from: '2027-01-05' }]), next), true);
+  assert.equal(newTermIn({ term: site.term, sessions: [{ from: '2027-01-05' }] }, next), false, 'the last copy, of the term before');
+});

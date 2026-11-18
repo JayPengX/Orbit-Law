@@ -14,7 +14,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { tmpdir } from 'node:os';
 import { sleep, prevJson } from './lib.mjs';
-import { TOWN_SITES, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
+import { TOWN_SITES, termsToTry, newTermIn, membersUrl, recordUrl, sessionUrl, itemUrl, listUrl, viewUrl, townMembers, townSessions, sessionItems, pageFiles, audioDays, listRows, sessionNews, paperFile, resolutions, transcript, questions, paperText, written } from '../public/lib/town-site.mjs';
 import { minutesOf } from '../public/lib/minutes.mjs';
 import { alignDay } from '../public/lib/town-audio.mjs';
 import { chcgUrl, chcgLinks, chcgMenu, chcgMembers, sessionOf, paperKind, dayIn, driveId, pdfSpan, nameSpan, yearOf, tsoUrl, tsoPage, folderOf, formUrl, formList, wpUrl, wpPost, wpDay, joomlaList, joomlaArticle, penghuList, penghuPost, penghuDay, driveFolderUrl, driveEntries, ccmsPage, ccmsNews, ccmsTree, boxList, boxFiles, westDay, shortDay, linkFiles, pageMore, ytId, laraList, laraFiles, pthgName, cscList, cscPost, cscDay, hlcList, hlcFiles, ntrcRows, NTRC_KINDS } from '../public/lib/town-chcg.mjs';
@@ -1001,7 +1001,13 @@ for (const [tc, site] of turn) {
   townEnds = unbuilt.has(tc) ? started + Number(process.env.TOWN_FIRST_MINUTES || 3) * 60e3 : Infinity;
   try {
     if (late()) throw new Error('out of time: kept as it was');
-    const t = await (site.chcg ? chcgTown : town)(tc, site);
+    // (Past its term's end, the next term's once its site lists a session of it: termsToTry.)
+    let t = null;
+    for (const s of termsToTry(site)) {
+      t = await (site.chcg ? chcgTown : town)(tc, s);
+      if (s === site || newTermIn(t, s)) break;
+      console.log(`town ${tc}: no session of term ${s.term} yet`);
+    }
     if (!t) {
       console.log(`town ${tc}: nothing found on its pages, and no last copy${KEY ? "" : " (no build key)"}`);
       continue;

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { soundOf, charsOf, fixTerms, memberOf, heardTurns, machineAsks } from '../public/lib/town-speakers.mjs';
-import { machinePaper, vocabOf, recKey, rosterFor, rosterNow } from '../scripts/town-hear.mjs';
+import { machinePaper, vocabOf, recKey, rosterFor, rosterNow, joinPieces, PIECE_S } from '../scripts/town-hear.mjs';
 import { makeRoster } from '../scripts/town-roster.mjs';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -179,4 +179,22 @@ test("the roster is the newest election held, with its term; results not all in 
   assert.equal(r._ends, '2026-12-25');
   // The 2026 vote held, its results for one town of two: not a roster.
   assert.equal(await makeRoster({ today: '2026-12-26', get, sites }), null);
+});
+
+test('a long recording is heard in pieces, its words on the whole recording\'s clock', () => {
+  // (Heard whole, a day-long sitting ran GitHub's 16 GB runner out of memory: the voice finder alone takes about
+  // 1 GB a recording hour.)
+  assert.ok(PIECE_S <= 3600);
+  const piece = (words, dur) => ({ model: 'medium', dur, run_s: dur / 3, words, vocab_py: { 張美珠: ['zhang', 'mei', 'zhu'] } });
+  const heard = joinPieces([
+    piece([[0.5, 1.2, '主席', ['zhu', 'xi'], 0.9]], 1800),
+    piece([[3.25, 4, '謝謝', ['xie', 'xie'], 0.8]], 1800),
+    piece([[10, 11.5, '散會', ['san', 'hui'], 0.95]], 612.4),
+  ]);
+  assert.deepEqual(heard.words.map(w => [w[0], w[1], w[2]]), [[0.5, 1.2, '主席'], [1803.25, 1804, '謝謝'], [3610, 3611.5, '散會']]);
+  assert.deepEqual(heard.words[1][3], ['xie', 'xie']);
+  assert.equal(heard.dur, 4212.4);
+  assert.equal(heard.model, 'medium');
+  assert.deepEqual(heard.vocab_py.張美珠, ['zhang', 'mei', 'zhu']);
+  assert.equal(joinPieces([]).words.length, 0);
 });

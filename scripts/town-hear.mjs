@@ -15,7 +15,9 @@
 //     set on its paper as `au` ({ id, at, by: 'asr' }); each recording heard a paper of its own (k '錄音逐字',
 //     papers['asr:<recording>']) and its session marked `heard`.
 import { readFile, writeFile, mkdir, readdir, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { alignHeard, pitchTrack, pitchOn, topicWords } from '../public/lib/town-audio.mjs';
@@ -55,6 +57,22 @@ export async function rosterNow(store, { today = todayTw(), make = makeRoster, g
 }
 const sha = s => createHash('sha1').update(String(s)).digest('hex');
 const AUDIO = /\.(mp3|m4a|wav|aac)$/i;
+// (A recording is heard a piece at a time: the recognizer holds its whole input, and its voice finder takes about
+// 1 GB a recording hour, so a day-long sitting heard whole ran the 16 GB runner out and GitHub shut it down, the
+// same share every night, nothing it heard kept.)
+export const PIECE_S = 1800;
+// The pieces' words as one recording's: each piece's times moved on by the pieces before it.
+export function joinPieces(parts) {
+  const words = [];
+  let dur = 0;
+  let run = 0;
+  for (const h of parts) {
+    for (const [a, b, ...rest] of h.words || []) words.push([+(a + dur).toFixed(2), +(b + dur).toFixed(2), ...rest]);
+    dur += h.dur || 0;
+    run += h.run_s || 0;
+  }
+  return { model: parts[0]?.model, dur, run_s: Math.round(run * 10) / 10, words, vocab_py: parts[0]?.vocab_py || {} };
+}
 
 // A recording's own name, short and safe in a file name: Drive's id, else the address hashed.
 export const recKey = rec => (rec.drive && /^[\w-]{12,80}$/.test(rec.drive) ? rec.drive : sha(rec.src).slice(0, 20));
@@ -168,7 +186,8 @@ async function hear() {
     try {
       const r = await fetchRec(url);
       if (!r.ok || !/audio|octet|video/.test(r.headers.get('content-type') || '')) throw new Error(`recording ${r.status} ${r.headers.get('content-type')}`);
-      await writeFile('.hear.audio', Buffer.from(await r.arrayBuffer()));
+      // (Straight to disk: a long video held in memory is gigabytes.)
+      await pipeline(Readable.fromWeb(r.body), createWriteStream('.hear.audio'));
       // (Decoded once, 8 kHz: its length, and the voice's pitch.)
       const dec = spawnSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', '.hear.audio', '-ac', '1', '-ar', '8000', '-f', 's16le', '.hear.pcm'], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8', timeout: 600_000 });
       if (dec.status !== 0) throw new Error(`ffmpeg ${(dec.stderr || '').slice(0, 200)}`);
@@ -182,9 +201,15 @@ async function hear() {
       }
       const f0 = x.machine ? pitchTrack(pcm) : null;
       await writeFile('.hear.vocab.json', JSON.stringify(vocabOf(x.tc, x.own, x.s, x.papers)));
-      const run = spawnSync('python', ['scripts/asr.py', '.hear.audio', '.hear.json', MODEL, '.hear.vocab.json'], { stdio: ['ignore', 'inherit', 'inherit'], timeout: Math.max(60_000, ends - Date.now()) });
-      if (run.status !== 0) throw new Error(`asr exit ${run.status}`);
-      const heard = await json('.hear.json');
+      const cut = spawnSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', '.hear.audio', '-ac', '1', '-ar', '16000', '-f', 'segment', '-segment_time', String(PIECE_S), '.hear.part%03d.wav'], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8', timeout: 600_000 });
+      if (cut.status !== 0) throw new Error(`ffmpeg ${(cut.stderr || '').slice(0, 200)}`);
+      const parts = [];
+      for (const piece of (await readdir('.')).filter(f => /^\.hear\.part\d+\.wav$/.test(f)).sort()) {
+        const run = spawnSync('python', ['scripts/asr.py', piece, '.hear.json', MODEL, '.hear.vocab.json'], { stdio: ['ignore', 'inherit', 'inherit'], timeout: Math.max(60_000, ends - Date.now()) });
+        if (run.status !== 0) throw new Error(`asr exit ${run.status}`);
+        parts.push(await json('.hear.json'));
+      }
+      const heard = joinPieces(parts);
       if (!heard.words?.length) throw new Error('nothing heard');
       await mkdir(`${storeDir}/${x.tc}`, { recursive: true });
       const meta = { tc: x.tc, file: x.file, id, model: MODEL, dur: heard.dur, run_s: heard.run_s, built: new Date().toISOString() };
@@ -204,7 +229,7 @@ async function hear() {
     } catch (e) {
       console.log(`hear ${name}: ${e.message}`);
     } finally {
-      for (const f of ['.hear.audio', '.hear.pcm', '.hear.json', '.hear.vocab.json']) await rm(f, { force: true });
+      for (const f of ['.hear.audio', '.hear.pcm', '.hear.json', '.hear.vocab.json', ...(await readdir('.')).filter(f => f.startsWith('.hear.part'))]) await rm(f, { force: true });
     }
   }
   console.log(`town-hear: ${n} recordings heard`);

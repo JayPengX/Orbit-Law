@@ -1047,3 +1047,39 @@ test('修法追蹤 and following: seen days are Taiwan’s, and a move dated bef
   assert.equal(mine.items['L:1'], '2026-11-17');
   assert.equal(toggleFollow(mine, 'items', 'L:2', day, '2026-11-12') && mine.items['L:2'], '2026-11-12');
 });
+
+// Jay 2026-11-24: 全民共享經濟成果及穩定民生特別條例 passed on 11-20; four days on,
+// 立法院's record still said 排入院會(討論事項) and Orbit Law said 政黨協商中, with
+// a 復議 motion counted as a second version.
+test('a 三讀 the bills record lags: from 立法院’s 咨請公布 list, or three outlets naming the law; never a story that only mentions it', async () => {
+  const B = await import('../public/lib/bills.mjs');
+  const bill = { id: '202110236990000', t: '全民共享經濟成果及穩定民生特別條例草案', by: '本院國民黨黨團', src: '委員', term: 11, d: '2026-10-02', u: '2026-12-01', st: '排入院會(討論事項)', laws: ['07367'], names: ['全民共享經濟成果及穩定民生特別條例'], flow: [['2026-10-02', 0, '排入院會'], ['2026-10-16', 4, '逕付二讀(交付協商)'], ['2026-11-20', 4, '排入院會(討論事項)']], rel: [], a: '' };
+  const motion = { ...bill, id: '202110242190000', t: '針對第11屆第6會期第2次會議報告事項第32案國民黨黨團擬具「全民共享經濟成果及穩定民生特別條例草案」院會所作之決定提出復議。是否有當？請公決案。', flow: [['2026-10-16', 4, '排入院會(討論事項)']] };
+  assert.equal(B.isLawBill(motion), false, 'a 復議 motion is no version');
+  const [before] = B.foldBills([bill, motion]);
+  assert.equal(before.ids.length, 1);
+  assert.equal(before.passed, '');
+  // The news: headlines naming it (特別條例) and saying passed, three outlets; hedged ones and other laws' don't count.
+  const item = (title, who, at) => `<item><title>${title} - ${who}</title><link>https://news.example/${encodeURIComponent(who)}</link><pubDate>${at}</pubDate><source url="x">${who}</source></item>`;
+  const xml = [
+    item('普發2萬協商破局 藍拚今表決恐難過關', 'Rti', 'Fri, 20 Nov 2026 02:59:54 GMT'),
+    item('立院三讀普發2萬特別條例 綠白聯手否決仍不敵藍人數優勢', '公視新聞', 'Fri, 20 Nov 2026 07:56:28 GMT'),
+    item('普發現金2萬元特別條例三讀 生效日起三個月內發放完畢', 'UDN', 'Fri, 20 Nov 2026 08:03:15 GMT')
+  ].join('');
+  assert.equal(B.heardPassed(xml, '2026-10-16', bill.names[0]), null, 'two outlets: not yet');
+  const xml3 = xml + item('立院拍板普發2萬元 特別條例三讀過關', 'BigGo 財經', 'Sat, 21 Nov 2026 09:55:00 GMT');
+  const heard = B.heardPassed(xml3, '2026-10-16', bill.names[0]);
+  assert.equal(heard.d, '2026-11-20');
+  assert.equal(B.heardPassed(xml3, '2026-10-16', '預算法'), null, 'a law the stories only mention');
+  const [after] = B.foldBills(B.withHeard([bill, motion], new Map([[bill.names[0], heard]])));
+  assert.equal(after.passed, '2026-11-20');
+  assert.equal(after.stage, 6);
+  // 立法院's own 咨請公布 list: passed at the last sitting before it was sent.
+  const sent = B.sentIn([{ id: '1150709999', title: '制定全民共享經濟成果及穩定民生特別條例，咨請公布。', content3: '115年11月26日  ( 台立院議字第1150709999號 )' }, { id: '1', title: '本院通過國家運動訓練中心115年度預算案，咨請公布。', content3: '115年9月22日' }]);
+  assert.deepEqual(sent.map(x => [x.n, x.sent]), [['全民共享經濟成果及穩定民生特別條例', '2026-11-26']]);
+  const [byList] = B.foldBills(B.withHeard([bill], B.sentNews(sent, [bill])));
+  assert.equal(byList.passed, '2026-11-20');
+  // A law whose 三讀 the record has already, sent days later: nothing to add (a newer version stays open).
+  const done = { ...bill, id: 'x', st: '三讀', u: '2026-11-20', flow: [...bill.flow, ['2026-11-20', 6, '三讀']] };
+  assert.equal(B.sentNews(sent, [done]).size, 0);
+});

@@ -131,7 +131,13 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
   source, and each build adds new ones read in 行政院's own news and 院會 RSS
   (`unsignedIn`, only a name that is a passed, unpromulgated item); the item
   carries `ns: {d, src}`, its card reads 行政院不副署 and 已通過 groups them
-  apart. A 報告 counts as a bill only when it quotes a law's 草案
+  apart. A 三讀 立法院's bill record hasn't caught up with (it writes one in a week or
+  more later, Jay 11-24) comes from 立法院's own 咨請公布 list (`sentIn`, `sentNews`:
+  passed at the last sitting before it was sent) or, sooner, three outlets whose headlines
+  name the law and say passed (`heardPassed`, Google News by the law's whole name; the
+  laws on the floor that moved in 45 days, `onFloor`); `withHeard` adds that 三讀 to the
+  floor versions, kept in `bills/heard.json` till the record has it. A 復議 motion is no
+  version. A 報告 counts as a bill only when it quotes a law's 草案
   (`isLawBill`: a committee's report on a budget or a rule is no bill). Held: 退回程序委員會/程序緩列. Dropped: 撤案/撤回/不予審議.
   After a 三讀, versions still moving are the item's open round; versions
   that went quiet before it don't count as open, nor do the versions it took

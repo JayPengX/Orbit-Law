@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
 import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, historyChange, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
-import { compactBill, foldBills, mergeBills, billCounts, stageOf, unsignedIn, unsignedMap } from '../public/lib/bills.mjs';
+import { compactBill, foldBills, mergeBills, billCounts, stageOf, unsignedIn, unsignedMap, heardPassed, withHeard, onFloor, sentIn, sentNews } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 import { delegations, regCount, formerNames } from '../public/lib/deleg.mjs';
@@ -214,6 +214,39 @@ if (args.bills !== 'off') {
   } catch (e) {
     console.warn(`legislators: ${e.message}`);
   }
+  // 三讀 heard in the news before 立法院's record has it (bills.mjs heardPassed): the
+  // laws on the floor that moved in the last 45 days, each asked of Google News by its
+  // whole name, a report in the last 30 days counting; the last build's kept till
+  // 立法院's own record says passed (withHeard then leaves it).
+  const day = n => new Date(Date.now() + 8 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+  const asks = [...onFloor(all, day(45))].map(([n, from]) => [n, [from, day(30)].sort().pop()]);
+  const heardList = [...((await prevJson('bills/heard.json'))?.laws || [])];
+  let heardNew = 0;
+  for (let i = 0; i < asks.length; i += 4)
+    await Promise.all(asks.slice(i, i + 4).map(async ([n, from]) => {
+      try {
+        const q = encodeURIComponent(`"${n}" 三讀`);
+        const r = await fetch(`https://news.google.com/rss/search?q=${q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`, { signal: AbortSignal.timeout(20_000), headers: { 'User-Agent': 'Mozilla/5.0 (Orbit-Law nightly)' } });
+        const h = r.ok ? heardPassed(await r.text(), from, n) : null;
+        if (h && !heardList.some(x => x.n === n && x.d === h.d)) heardList.push({ n, ...h }), heardNew++;
+      } catch (e) {
+        console.warn(`news 三讀 ${n}: ${e.message}`);
+      }
+    }));
+  const heard = new Map(heardList.filter(x => x.d >= day(120)).map(x => [x.n.replace(/台/g, '臺'), { d: x.d, src: x.src }]));
+  // 立法院's own list of the laws it sent the president (咨請公布, bills.mjs sentIn): a law there
+  // passed, whatever its bills' record says yet. The news's day stays where it has one.
+  try {
+    const r = await fetch('https://ppg.ly.gov.tw/ppg/api/v1/latest-pass-third-reading?size=-1&page=1&sortCode=1&order=1', { signal: AbortSignal.timeout(60_000), headers: { 'User-Agent': 'Mozilla/5.0 (Orbit-Law nightly)' } });
+    const sent = sentNews(sentIn((await r.json()).items).filter(x => x.sent >= day(60)), all);
+    for (const [n, x] of sent) if (!heard.has(n)) heard.set(n, x);
+    console.log(`咨請公布: ${sent.size} not yet in the bills' record`);
+  } catch (e) {
+    console.warn(`咨請公布 list: ${e.message}`);
+  }
+  await writeFile(out + 'bills/heard.json', JSON.stringify({ built: new Date().toISOString(), laws: [...heard].filter(([, x]) => x.d).map(([n, x]) => ({ n, ...x })) }));
+  console.log(`三讀 in the news: ${asks.length} laws asked, ${heardNew} new, ${heard.size} kept`);
+  const allNow = withHeard(all, heard);
   // 不副署: the refusals we know (data-src), the last deploy's, and any 行政院's
   // own news names today (its 本院新聞 and 院會決議 feeds, about a month of each).
   const seed = JSON.parse(readFileSync(new URL('../data-src/unsigned.json', import.meta.url), 'utf8')).laws;
@@ -231,16 +264,16 @@ if (args.bills !== 'off') {
     }
   }
   // A name read in the news counts only once it is a law this term passed and MOJ hasn't promulgated since.
-  const passedNames = new Set(foldBills(all, { pcodes, modified }).filter(it => it.passed && !it.pub).map(it => it.n.replace(/台/g, '臺')));
+  const passedNames = new Set(foldBills(allNow, { pcodes, modified }).filter(it => it.passed && !it.pub).map(it => it.n.replace(/台/g, '臺')));
   const unsignedList = [...seed, ...((await prevJson('bills/unsigned.json'))?.laws || []), ...found.filter(x => passedNames.has(x.n))];
   const unsigned = unsignedMap(unsignedList);
   await writeFile(out + 'bills/unsigned.json', JSON.stringify({ built: new Date().toISOString(), laws: [...unsigned].map(([n, x]) => ({ n, ...x })) }));
-  const items = foldBills(all, { pcodes, modified, parties, unsigned }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
-  const byId = new Map(all.map(b => [b.id, b]));
+  const items = foldBills(allNow, { pcodes, modified, parties, unsigned }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
+  const byId = new Map(allNow.map(b => [b.id, b]));
   // w: how many of an item's versions are filed but not yet read (提案 in the funnel).
   for (const it of items) it.w = it.ids.filter(id => byId.get(id) && stageOf(byId.get(id).st).stage === 0).length || undefined;
   for (const it of items) await writeFile(`${out}bills/item/${encodeURIComponent(it.k.replace(':', '-'))}.json`, JSON.stringify(it.ids.map(id => byId.get(id))));
-  await writeFile(out + 'bills/items.json', JSON.stringify({ term, built: new Date().toISOString(), bills: billCounts(all), items: items.map(({ ids, ...it }) => it) }));
+  await writeFile(out + 'bills/items.json', JSON.stringify({ term, built: new Date().toISOString(), bills: billCounts(allNow), items: items.map(({ ids, ...it }) => it) }));
   billNote = `${all.length} bills in term ${term} (${fresh.length} fetched${since ? ` since ${since}` : ', full'}), ${items.length} tracked items`;
 }
 console.log(billNote);

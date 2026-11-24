@@ -1,4 +1,4 @@
-import { cnNumber } from './refs.mjs';
+import { cnNumber, abbr } from './refs.mjs';
 import { partyOf } from './topics.mjs';
 
 // 立法院's bills made one timeline: the dozens of raw statuses (排入院會
@@ -90,9 +90,111 @@ export function lawOfTitle(title, known = new Map()) {
 // ministry's rules (報告審查教育部函為修正「…辦法」案) too: those change no law.
 export function isLawBill(b) {
   const t = String(b?.t || '');
+  // (A motion to reconsider (復議) a decision on a bill is no version of it: it was counted as one, 11-24.)
+  if (/提出復議/.test(t)) return false;
   if (!/^報告/.test(t) || (b.laws || []).length) return true;
   return /「[^」]*?(?:法|條例|通則)[^」]*?草案」/.test(t);
 }
+
+// A 三讀 heard in the news before 立法院's own record has it (Jay 11-24: the
+// 全民共享經濟成果及穩定民生特別條例 passed on 11-20, and four days on its
+// record still said 排入院會, so Orbit Law said 政黨協商中: 立法院 writes a 三讀
+// into a bill's record once the 議事錄 is read, a week or more later). Google
+// News asked for the law's whole name with 三讀 (it matches the name in the
+// story); a headline counts when it names the law and says passed (三讀通過, 三讀過關, 立院三讀)
+// and nothing still to come (拚, 可望, 恐, 能否…); three outlets at least, on or
+// after the bill reached the floor (`since`). → { d (Taiwan day, the first
+// report), src (its link) } or null.
+const PASS_SAID = /三讀(?:通過|過關|定案|(?=\s|$|！|，))|(?:立院|立法院|院會)三讀/;
+const NOT_YET = /拚|可望|望|恐|難|能否|是否|闖關|三讀前|將|擬|預計|待|未|沒|擋|卡關|延|緩|破局|會不會|嗎/;
+export function heardPassed(xml, since = '', name = '') {
+  const seen = new Map();
+  // (The headline names the law: its name, its 簡稱, or 特別條例 for one; 預算法 was
+  // "heard" from stories on the 普發 特別條例 that named it in their text, 11-24.)
+  const key = lawKey(name);
+  const names = [key, lawKey(abbr(name)), /特別條例$/.test(key) ? '特別條例' : ''].filter(Boolean);
+  const names2 = names.map(n => n.replace(/臺/g, '台'));
+  for (const item of String(xml || '').split('<item>').slice(1)) {
+    const title = ((item.match(/<title>(?:<!\[CDATA\[)?([^<\]]*)/) || [])[1] || '').replace(/\s+-\s+[^-]+$/, '');
+    const who = ((item.match(/<source[^>]*>([^<]*)/) || [])[1] || '').trim();
+    const at = new Date((item.match(/<pubDate>([^<]+)/) || [])[1] || '');
+    const link = ((item.match(/<link>(?:<!\[CDATA\[)?([^<\]]+)/) || [])[1] || '').trim();
+    if (!who || isNaN(at) || !PASS_SAID.test(title) || NOT_YET.test(title)) continue;
+    if (name && ![...names, ...names2].some(n => title.includes(n))) continue;
+    const d = new Date(at.getTime() + 8 * 3600e3).toISOString().slice(0, 10);
+    if (since && d < since) continue;
+    if (!seen.has(who) || seen.get(who).d > d) seen.set(who, { d, src: link });
+  }
+  if (seen.size < 3) return null;
+  return [...seen.values()].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0))[0];
+}
+// 立法院's own list of the laws it sent the president to promulgate (ppg's
+// 最近通過/三讀, /ppg/api/v1/latest-pass-third-reading: 「修正X部分條文，咨請公布。」,
+// 「制定X，咨請公布。」 and the day sent). Official, and days ahead of a bill's own
+// record. → [{ n, sent, src }] (budgets left out).
+export function sentIn(items = []) {
+  const out = [];
+  for (const x of items) {
+    const t = String(x?.title || '');
+    const m = t.match(/^(?:修正|制定|增訂|廢止)(.+?(?:法|條例|通則))(?:部分條文|第.+?條|條文|全文|，)/);
+    const day = String(x?.content3 || x?.content || '').match(/(\d{2,3})年(\d{1,2})月(\d{1,2})日/);
+    if (!m || !day || !/咨請公布/.test(t)) continue;
+    const sent = `${Number(day[1]) + 1911}-${day[2].padStart(2, '0')}-${day[3].padStart(2, '0')}`;
+    out.push({ n: m[1].replace(/^中華民國(?!\d)/, ''), sent, src: `https://ppg.ly.gov.tw/ppg/bills/latest-pass-third-readings/${x.id}/process` });
+  }
+  return out;
+}
+// The bills as they'd read with those 三讀 (`heard`: law key → { d, src }): each
+// version of the law on the floor then (審查完畢, 逕付二讀, 協商, 二讀) and not
+// passed gets the 三讀 that day, its status 三讀 till 立法院's record says it.
+// A copy: what's saved of 立法院's own data stays as it gave it.
+export function withHeard(bills, heard = new Map()) {
+  if (!heard.size) return bills;
+  const by = new Map([...heard].map(([n, x]) => [lawKey(n), x]));
+  return bills.map(b => {
+    const h = (b.names || []).map(n => by.get(lawKey(n))).find(Boolean);
+    if (!h || passedOn(b) || billStage(b).dropped || billStage(b).stage < 3) return b;
+    // (Sent to the president (咨請公布, `sent`): passed at the last sitting it was on before that day.)
+    const d = h.d || b.flow.map(f => f[0]).filter(x => x <= h.sent).sort().pop() || '';
+    if (!d || (h.sent && d < daysBefore(h.sent, 21)) || b.flow.some(f => f[0] > d)) return b;
+    return { ...b, st: '三讀', u: d, flow: [...b.flow, [d, PASSED, '三讀']], heard: h.src };
+  });
+}
+// The floor's bills not yet passed that moved since `recent`, by law (for the
+// news to be asked about): law name → the day from which a 三讀 in the news
+// counts: its first version on the floor, after any 三讀 of the law already
+// recorded (that one's news is old news), and never before `recent`.
+export function onFloor(bills, recent = '') {
+  const out = new Map();
+  const passedBy = new Map();
+  for (const b of bills) for (const n of b.names || []) if (passedOn(b) > (passedBy.get(n) || '')) passedBy.set(n, passedOn(b));
+  for (const b of bills) {
+    if (!isLawBill(b) || passedOn(b) || billStage(b).dropped || billStage(b).stage < 3) continue;
+    if (!b.flow.some(f => f[0] >= recent)) continue;
+    const at = b.flow.filter(f => f[1] >= 3).map(f => f[0]).sort()[0] || b.u;
+    for (const n of b.names || []) {
+      if (!n) continue;
+      const from = [at, recent, passedBy.has(n) ? nextDay(passedBy.get(n)) : ''].sort().pop();
+      if (!(out.get(n) <= from)) out.set(n, from);
+    }
+  }
+  return out;
+}
+const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
+// The sent list (sentIn) less the laws whose 三讀 立法院's record has already, in the 30 days before
+// each was sent (that one was it): law name → { sent, src }, the newest a law.
+export function sentNews(sent, bills) {
+  const passed = new Map();
+  for (const b of bills) for (const n of b.names || []) if (passedOn(b)) passed.set(lawKey(n), [...(passed.get(lawKey(n)) || []), passedOn(b)]);
+  const out = new Map();
+  for (const x of sent) {
+    const k = lawKey(x.n);
+    if ((passed.get(k) || []).some(d => d <= x.sent && d >= daysBefore(x.sent, 30))) continue;
+    if (!(out.get(k)?.sent > x.sent)) out.set(k, { sent: x.sent, src: x.src });
+  }
+  return out;
+}
+const nextDay = d => new Date(Date.parse(`${d}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
 
 // 行政院 refusing to countersign (不副署) a law 立法院 passed: the president
 // then never promulgates it, and it stays passed but not law. The refusals

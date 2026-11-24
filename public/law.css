@@ -5073,7 +5073,6 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 }
 
 /* 看法案: the bill's news, drawn only when there is some. */
-.lw-item-news:empty { display: none; }
 
 /* ---- 拍合約幫你看 (contractSheet) ---- */
 .lw-contract {

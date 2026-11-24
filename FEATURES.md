@@ -18,7 +18,6 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - On a computer: 立委 in one packed flow by 縣市; 議程's days side by side with their bills — `public/app.mjs`: `lw-seats`, `lw-agenda-cols`
 - 議程 and 直播中 from IVOD — `public/app.mjs`, `public/lib/agenda.mjs`: `law-live`, `直播中`, `meetState`
 - 地方法規 for the reader's city — `public/lib/chat.mjs`: `地方法規`
-- 看法案: a bill's 新聞, Orbit News' stories about changing it, each opening in News — `public/app.mjs`: `billNews`, `news/laws.json`
 - 代表會 day by day: each recorded day a row (what the sitting did), opening its recording with what was said or reported — `public/app.mjs`: `townDay`, `dayWhat`
 - 總質詢 with its recording: tap a turn to play from it, the transcript follows (laid over the recording by code at build) — `public/app.mjs`, `public/lib/town-audio.mjs`, `scripts/build-town.mjs`: `alignDay`, `turnAt`, `alignRecording`
 - 總質詢 lined up with its recording by speech recognition, nightly and free (faster-whisper on the runner) — `scripts/town-hear.mjs`, `scripts/asr.py`, `.github/workflows/town-hear.yml`, `public/lib/town-audio.mjs`: `alignHeard`

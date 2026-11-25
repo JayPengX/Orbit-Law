@@ -77,3 +77,17 @@ test('an AI line never sets the answer\'s width: its words take the head\'s', ()
 test('an answer\'s facts sit in pairs: an odd last one takes the whole row', () => {
   assert.match(css, /\.lw-facts > div:last-child:nth-child\(odd\)\s*\{\s*grid-column: 1 \/ -1;/);
 });
+
+// Jay 11-25: 問法律's follow-ups showed three in a row cut to 「什麼…」: the recording player's
+// bar was styled by the same class (.lw-follow, a flex row) and each question was one line.
+test("the follow-ups are their own (no other part styled by their class) and each question wraps whole", async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../public/law.css', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../public/app.mjs', import.meta.url), 'utf8');
+  assert.ok(!/['" ]lw-follow['" ]/.test(app.replace('<div class="lw-follow">', '')), 'only the follow-ups carry the class');
+  const rules = [...css.matchAll(/(^|\n)\s*\.lw-follow(\s[^{,]*)?\s*\{([^}]*)\}/g)];
+  for (const [, , sub, body] of rules) {
+    if (!sub) assert.doesNotMatch(body, /display:\s*flex/, 'never a single row');
+    if (sub?.trim() === 'span') assert.doesNotMatch(body, /nowrap|ellipsis/, 'a question never cut');
+  }
+});

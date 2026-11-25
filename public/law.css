@@ -3999,7 +3999,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
 .lw-cards .lw-more-link {
   margin: 2px 0 0;
 }
-/* Follow-ups: one line each, full width. */
+/* Follow-ups: full width, each question whole, wrapped (Jay 11-25: cut to 「什麼…」 it said nothing). */
 .lw-follow {
   display: grid;
   gap: 6px;
@@ -4011,7 +4011,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 10px 14px;
   border: 0;
   border-radius: var(--q-r-cell);
   background: var(--q-surface);
@@ -4021,9 +4021,7 @@ a.q-more.lw-more-link { margin: 8px 0 16px; }
   cursor: pointer;
 }
 .lw-follow span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .lw-follow i {
   color: var(--q-indigo);
@@ -5324,8 +5322,8 @@ button.lw-track-head { width: 100%; box-sizing: border-box; margin: 0; border: 0
 .lw-turn-call b { margin-right: 6px; font-weight: 600; }
 .lw-turn.lw-now { margin-inline: -8px; padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--q-accent) 12%, transparent); }
 .lw-turn-ask.lw-now { margin-left: 0; padding-left: 10px; border-radius: 0 10px 10px 0; }
-.lw-follow { display: flex; gap: 10px; align-items: center; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-.lw-follow audio { display: none; }
+.lw-listen { display: flex; gap: 10px; align-items: center; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+.lw-listen audio { display: none; }
 .lw-follow-play,
 .lw-follow-back {
   display: grid;

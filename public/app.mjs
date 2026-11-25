@@ -5557,7 +5557,7 @@ function townDay(own, s, d, { papers = {}, party = new Map(), focus = null, rec:
   const src = rec ? rec.src || driveAudio(rec.drive) : '';
   const foot = src
     ? h('div', {
-        class: 'q-sheet-foot lw-follow',
+        class: 'q-sheet-foot lw-listen',
         html: `<button type="button" class="lw-follow-back" aria-label="${W('倒退 15 秒', 'Back 15 seconds')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" fill="currentColor"/><text x="12" y="16.2" text-anchor="middle" font-size="6.5" font-weight="700" fill="currentColor">15</text></svg></button><button type="button" class="lw-follow-play" aria-label="${W('播放', 'Play')}">${ICON_PLAY}</button><div class="lw-follow-mid"><span class="lw-follow-who">${esc(at ? W('從頭播放，或點一段發言', 'Play, or tap a turn') : W('這一天的會議錄音', 'This day’s recording'))}</span><input type="range" class="lw-follow-bar" min="0" max="1" step="1" value="0" aria-label="${W('播放位置', 'Position')}"></div><span class="lw-follow-time">0:00</span><audio preload="metadata" src="${esc(src)}"></audio>`
       })
     : null;

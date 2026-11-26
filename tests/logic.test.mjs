@@ -1083,3 +1083,23 @@ test('a 三讀 the bills record lags: from 立法院’s 咨請公布 list, or t
   const done = { ...bill, id: 'x', st: '三讀', u: '2026-11-20', flow: [...bill.flow, ['2026-11-20', 6, '三讀']] };
   assert.equal(B.sentNews(sent, [done]).size, 0);
 });
+
+// Jay 2026-11-26: 水土保持法 promulgated 11/20 still read 已通過 (MOJ's copy a week behind), and 不副署 showed 6 of 9.
+test("bills: 總統公報's list promulgates a law ahead of MOJ; a refused law with new bills filed stays 行政院不副署", async () => {
+  const { gazetteIn, unsignedMap } = await import('../public/lib/bills.mjs');
+  const { stageShort } = await import('../public/lib/cards.mjs');
+  const page = '<td>5</td><td>115年11月20日</td><td>7893</td><td><a>增訂並修正農業發展條例條文</a></td><td>PDF</td><td>6</td><td>115年11月20日</td><td>7893</td><td>修正水土保持法條文</td><td>7</td><td>115年11月25日</td><td>7894</td><td>授予勳章</td>';
+  assert.deepEqual(gazetteIn(page), [{ n: '農業發展條例', d: '2026-11-20' }, { n: '水土保持法', d: '2026-11-20' }]);
+  const passed = compactBill(raw('9', { 議案狀態: '三讀', 議案流程: [{ 狀態: '三讀', 日期: ['2026-10-30'] }], 法律編號: ['01234'], '法律編號:str': ['水土保持法'] }));
+  const pcodes = new Map([['水土保持法', 'M0110001']]);
+  const modified = new Map([['M0110001', '20250101']]);
+  assert.equal(foldBills([passed], { pcodes, modified })[0].stage, PASSED);
+  const [law] = foldBills([passed], { pcodes, modified, published: gazetteIn(page) });
+  assert.deepEqual([law.stage, law.pub], [PROMULGATED, '20261120']);
+  // Refused, then a new version filed: still 不副署 (it went under the new round's step).
+  const refused = compactBill(raw('10', { 議案狀態: '三讀', 議案流程: [{ 狀態: '三讀', 日期: ['2026-10-16'] }], 法律編號: ['05678'], '法律編號:str': ['老人福利法'] }));
+  const later = compactBill(raw('11', { 提案日期: '2026-11-18', 最新進度日期: '2026-11-20', 議案流程: [{ 狀態: '排入院會 (交社會福利及衛生環境委員會)', 日期: ['2026-11-20'] }], 法律編號: ['05678'], '法律編號:str': ['老人福利法'] }));
+  const [it] = foldBills([refused, later], { unsigned: unsignedMap([{ n: '老人福利法', d: '2026-11-06' }]) });
+  assert.ok(it.ns && it.open > 0, JSON.stringify([it.ns, it.open]));
+  assert.equal(stageShort(it), '行政院不副署');
+});

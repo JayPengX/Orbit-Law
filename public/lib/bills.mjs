@@ -247,7 +247,29 @@ function passedSummary(bills, passed, parties) {
   return { n: round.length, about: newest.find(b => b.a && !/審查報告$/.test(b.a))?.a || '', by, arts: articlesTouched(round), top: newest[0]?.id || '' };
 }
 
-export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map(), unsigned = new Map() } = {}) {
+// The laws the President promulgated, read off 總統府公報's list (its first page, about three
+// weeks: "115年11月20日 | 7893 | 修正水土保持法條文"): { n, d: 'YYYY-MM-DD' }. MOJ's own copy of a law
+// is a week or more behind it (Jay 11-26: 水土保持法 promulgated 11/20 still read 已通過).
+const VERB = /^(?:增訂、刪除並修正|增訂並修正|刪除並修正|增訂並刪除|增訂|刪除|修正|制定|廢止)/;
+export function gazetteIn(html) {
+  const text = String(html || '').replace(/<[^>]+>/g, '|').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+  const out = [];
+  for (const m of text.matchAll(/(\d{2,3})年(\d{1,2})月(\d{1,2})日[\s|]+\d+[\s|]+([^|]+?)\s*\|/g)) {
+    const title = m[4].trim();
+    if (!VERB.test(title) || !/(法|條例|通則|律)(條文|第[^|]*條條文)?$/.test(title)) continue;
+    const n = title.replace(VERB, '').replace(/(第[^|]*條)?條文$/, '');
+    out.push({ n, d: `${Number(m[1]) + 1911}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` });
+  }
+  return out;
+}
+export function foldBills(bills, { pcodes = new Map(), modified = new Map(), parties = new Map(), unsigned = new Map(), published = [] } = {}) {
+  // (The gazette's day for a law, by its name: 'YYYYMMDD', the latest when twice.)
+  const gazette = new Map();
+  for (const x of published) {
+    const k = lawKey(x.n);
+    const d = x.d.replaceAll('-', '');
+    if (!(gazette.get(k) >= d)) gazette.set(k, d);
+  }
   const items = new Map();
   const ids = new Map(bills.flatMap(b => b.laws.map((id, i) => [b.names[i], id])));
   for (const b of bills) {
@@ -274,8 +296,8 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
     // something else (財政收支劃分法: passed 11/21, its record touched 12/3, refused 12/15).
     const refused = passed ? unsigned.get(lawKey(it.n)) : null;
     const held = refused && refused.d >= passed ? refused : null;
-    const changed = (it.p && modified.get(it.p)) || '';
-    const promulgated = Boolean(passed && it.p && changed >= ymd && !(held && changed < held.d.replaceAll('-', '')));
+    const changed = [(it.p && modified.get(it.p)) || '', gazette.get(lawKey(it.n)) || ''].sort().pop();
+    const promulgated = Boolean(passed && changed && changed >= ymd && !(held && changed < held.d.replaceAll('-', '')));
     const ns = held && !promulgated ? held : null;
     let stage = open.length ? Math.max(...open.map(b => billStage(b).stage)) : passed ? (promulgated ? PROMULGATED : PASSED) : Math.max(-1, ...live.map(b => billStage(b).stage));
     const u = it.bills.map(b => b.u).sort().pop() || '';
@@ -289,7 +311,7 @@ export function foldBills(bills, { pcodes = new Map(), modified = new Map(), par
       held: open.length > 0 && open.every(b => billStage(b).held),
       dropped: live.length === 0,
       passed,
-      pub: promulgated ? modified.get(it.p) : '',
+      pub: promulgated ? changed : '',
       ...(ns ? { ns } : {}),
       open: open.length,
       arts: articlesTouched(open),

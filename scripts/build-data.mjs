@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
 import { readFileSync, existsSync } from 'node:fs';
 import { compactLaw, compactEn, indexRow, diffLaws, diffTexts, historyChange, mergeChanges, CHANGES_DAYS } from '../public/lib/data.mjs';
-import { compactBill, foldBills, mergeBills, billCounts, stageOf, unsignedIn, unsignedMap, heardPassed, withHeard, onFloor, sentIn, sentNews } from '../public/lib/bills.mjs';
+import { compactBill, foldBills, mergeBills, billCounts, stageOf, unsignedIn, unsignedMap, gazetteIn, heardPassed, withHeard, onFloor, sentIn, sentNews } from '../public/lib/bills.mjs';
 import { buildIndex } from '../public/lib/fulltext.mjs';
 import { nameMap } from '../public/lib/refs.mjs';
 import { delegations, regCount, formerNames } from '../public/lib/deleg.mjs';
@@ -264,11 +264,23 @@ if (args.bills !== 'off') {
     }
   }
   // A name read in the news counts only once it is a law this term passed and MOJ hasn't promulgated since.
-  const passedNames = new Set(foldBills(allNow, { pcodes, modified }).filter(it => it.passed && !it.pub).map(it => it.n.replace(/台/g, '臺')));
+  const passedNames = new Set(foldBills(allNow, { pcodes, modified, published: (await prevJson('bills/published.json'))?.laws || [] }).filter(it => it.passed && !it.pub).map(it => it.n.replace(/台/g, '臺')));
   const unsignedList = [...seed, ...((await prevJson('bills/unsigned.json'))?.laws || []), ...found.filter(x => passedNames.has(x.n))];
   const unsigned = unsignedMap(unsignedList);
   await writeFile(out + 'bills/unsigned.json', JSON.stringify({ built: new Date().toISOString(), laws: [...unsigned].map(([n, x]) => ({ n, ...x })) }));
-  const items = foldBills(allNow, { pcodes, modified, parties, unsigned }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
+  // 總統府公報's list of what the President promulgated (bills.mjs gazetteIn), ahead of MOJ's copy:
+  // its first page each build, the last builds' kept 120 days.
+  const gazetteNow = [];
+  try {
+    const r = await fetch('https://www.president.gov.tw/Page/129', { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'Mozilla/5.0 (Orbit-Law nightly)' } });
+    gazetteNow.push(...gazetteIn(await r.text()));
+  } catch (e) {
+    console.warn(`總統府公報: ${e.message}`);
+  }
+  const published = [...new Map([...((await prevJson('bills/published.json'))?.laws || []), ...gazetteNow].filter(x => x.d >= day(120)).map(x => [`${x.n}|${x.d}`, x])).values()];
+  await writeFile(out + 'bills/published.json', JSON.stringify({ built: new Date().toISOString(), laws: published }));
+  console.log(`總統府公報: ${gazetteNow.length} read, ${published.length} kept`);
+  const items = foldBills(allNow, { pcodes, modified, parties, unsigned, published }).sort((a, b) => (a.u < b.u ? 1 : a.u > b.u ? -1 : 0));
   const byId = new Map(allNow.map(b => [b.id, b]));
   // w: how many of an item's versions are filed but not yet read (提案 in the funnel).
   for (const it of items) it.w = it.ids.filter(id => byId.get(id) && stageOf(byId.get(id).st).stage === 0).length || undefined;

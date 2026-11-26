@@ -126,7 +126,9 @@ Jay's rules for Law, dated (MM-DD, 2026), newest wins. The family's rules are in
   counts sit on the line under it.
 - **Stages** (`lib/bills.mjs`): 提案 → 一讀 → 委員會審查 → 審查完畢 → 黨團協商
   → 二讀 → 三讀 → 總統公布. 總統公布 is when the MOJ copy's 異動日期 is on or
-  after the 三讀. A passed law 行政院 refused to countersign (不副署, 憲法 37) is
+  after the 三讀, or sooner 總統府公報's list names it (`gazetteIn`, its first page each build, kept
+  120 days in `bills/published.json`: MOJ's copy runs a week or more behind, Jay 11-26). A 不副署
+  law stays 行政院不副署 even with new bills filed since (they had gone under the new round's step). A passed law 行政院 refused to countersign (不副署, 憲法 37) is
   never promulgated: `data-src/unsigned.json` lists the known ones with a news
   source, and each build adds new ones read in 行政院's own news and 院會 RSS
   (`unsignedIn`, only a name that is a passed, unpromulgated item); the item
